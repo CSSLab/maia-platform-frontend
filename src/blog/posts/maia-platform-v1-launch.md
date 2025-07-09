@@ -31,9 +31,9 @@ This integration appears throughout the platform—from move predictions and pro
 
 The analysis page has been completely transformed with powerful new components that make game analysis more intuitive and comprehensive than ever before.
 
-### Moves by Rating Visualization
+### Moves by Rating Component
 
-Our new **MovePlot** component provides an interactive scatter plot that shows how move preferences change across different skill levels. Each point represents a possible move, with the x-axis showing the move's engine evaluation and the y-axis showing how likely players of different ratings are to play it. This visualization immediately reveals which moves are "human-like" versus "computer-like," helping players understand the gap between optimal play and practical play.
+Our new **Moves by Rating component** provides an interactive scatter plot that shows how move preferences change across different skill levels. Each point represents a possible move, with the x-axis showing the move's engine evaluation and the y-axis showing how likely players of different ratings are to play it. This visualization immediately reveals which moves are "human-like" versus "computer-like," helping players understand the gap between optimal play and practical play.
 
 ### Interactive MoveMap
 
@@ -52,8 +52,8 @@ The new highlight component intelligently draws attention to critical moments in
 v1 introduces powerful new capabilities for custom analysis:
 
 - **FEN/PGN Loading**: Import any position or game for analysis with full Maia 2 and Stockfish integration
-- **Free Play Mode**: Set up any position and play against Maia to test your understanding
-- **Variation Mode**: Explore "what if" scenarios with Maia's help, seeing how different human-like responses would play out
+- **Free Play Mode**: Set up any position and make variations from actual games to test different moves and explore alternative lines
+- **Variation Exploration**: Dive deep into "what if" scenarios with Maia's help, seeing how different human-like responses would play out in any position
 
 These tools make the analysis page a comprehensive workspace for understanding chess at both the tactical and psychological levels.
 
@@ -64,10 +64,10 @@ The new **Opening Drill Page** transforms how players learn and practice opening
 ### Configuration and Setup
 
 Starting a drill session is intuitive:
-1. **Choose Your Opening**: Browse our comprehensive opening book, complete with position previews and descriptions
-2. **Select Variations**: Pick specific variations within your chosen opening to focus your practice
-3. **Set Parameters**: Choose your color, difficulty level, and practice mode (strict repertoire vs. exploratory)
-4. **Begin Drilling**: Start with the opening moves and work through the key positions
+1. **Choose Your Openings**: Browse our comprehensive opening book and select multiple openings you want to practice
+2. **Configure Your Practice**: Pick specific variations within your chosen openings to focus your training
+3. **Set Drill Parameters**: Choose the number of drills you want to complete and your preferred practice settings
+4. **Begin Post-Opening Practice**: The system randomly selects positions from your chosen openings, starting you in the post-opening phase where you practice the critical moves that happen after the opening theory ends
 
 ### Interactive Practice
 
@@ -79,11 +79,12 @@ During practice, the system guides you through each critical position:
 
 ### Performance Analysis
 
-After each session, you receive comprehensive feedback:
-- **Accuracy Statistics**: See your success rate for each variation and position type
-- **Weakness Identification**: Discover which positions need more work
-- **Progress Tracking**: Monitor improvement over time with detailed statistics
-- **Recommendation Engine**: Get suggestions for which openings or variations to practice next
+After each drill session, you receive comprehensive feedback that goes far beyond simple accuracy metrics:
+- **Stockfish Evaluation Over Time**: See how the engine evaluation changed throughout your post-opening play
+- **Maia Rating Analysis**: Discover what rating level your moves resembled during the drill
+- **Important Moments**: Identify critical positions and key decision points in the post-opening phase you practiced
+- **Move Quality Assessment**: Detailed analysis of your strongest and weakest moves in each position
+- **Overall Performance Summary**: After completing all your selected drills, view comprehensive statistics across all openings practiced
 
 This systematic approach ensures that opening study becomes active, measurable, and directly applicable to your games.
 
@@ -95,9 +96,10 @@ Both our puzzle training and Bot-or-Not challenge modes have received significan
 
 Completing a puzzle is now just the beginning:
 - **Post-Puzzle Analysis**: After solving (or failing to solve) a puzzle, dive deep into the position with full Maia 2 analysis
+- **Position Exploration**: Make moves and explore the position freely with all the same analysis tools available on the main analysis page
 - **Alternative Solutions**: Explore other candidate moves and understand why they don't work
-- **Thematic Learning**: See how the puzzle's theme relates to broader chess principles
-- **Historical Context**: Access your complete puzzle history with performance metrics and improvement trends
+- **Historical Access**: Access your complete puzzle history with the ability to revisit and re-analyze any previous puzzle
+- **Rating Tracking**: Monitor your puzzle rating changes over time with detailed performance metrics
 
 ### Bot-or-Not Enhancements
 
@@ -105,7 +107,7 @@ The Bot-or-Not challenge has evolved into a sophisticated training tool:
 - **Detailed Analysis**: After each challenge, review the actual game with explanations of which moves were "human-like" vs. "computer-like"
 - **Learning Mode**: Understand the tells that distinguish human play from engine play
 - **Rating System**: Track your ability to distinguish human from AI play with a specialized rating
-- **Challenge History**: Review past challenges to understand your improvement in detecting AI play
+- **Historical Challenges**: Access and revisit your complete challenge history to understand your improvement in detecting AI play over time
 
 ### Progress Tracking
 
@@ -175,8 +177,9 @@ The leaderboard has evolved into a comprehensive community hub that showcases bo
 
 ### Enhanced Leaderboard
 
+- **Active Player Focus**: Rankings showcase the top-rated users who have played in the last 7 days, ensuring the leaderboard reflects current active community members
 - **Multiple Categories**: Separate rankings for regular play, puzzles, Bot-or-Not challenges, and Hand-and-Brain games
-- **Detailed Statistics**: View not just rankings, but performance trends and achievement highlights
+- **Player Profiles**: Click on any player to visit their statistics pages and connect to their Lichess profiles
 - **Historical Data**: Track how rankings have changed over time
 - **Community Insights**: See what the community is working on and achieving
 
