@@ -74,7 +74,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   const openElement = useRef<HTMLDivElement>(null)
   const selectedGameElement = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
+  ;(useEffect(() => {
     if (selectedGameElement.current) {
       selectedGameElement.current.scrollIntoView({
         behavior: 'auto',
@@ -89,7 +89,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
       })
     }
   }),
-    [selectedGameElement, openElement]
+    [selectedGameElement, openElement])
 
   useEffect(() => {
     setLoadingIndex(null)

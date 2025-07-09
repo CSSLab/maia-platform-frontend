@@ -173,7 +173,8 @@ export const AboutMaia = () => {
                   We tested each Maia on 9 sets of 500,000 positions that arose
                   in real human games, one for each rating level between 1100
                   and 1900. Every Maia made a prediction for every position, and
-                  we measured its resulting move-matching accuracy on each set.{' '}
+                  we measured its resulting move-matching accuracy on each
+                  set.{' '}
                 </p>
                 <p>
                   Each Maia captures human style at its targeted skill level.
