@@ -1,122 +1,11 @@
 import { Chess } from 'chess.ts'
-import { OK_THRESHOLD, GOOD_THRESHOLD } from './constants'
+import { COLORS, OK_THRESHOLD, GOOD_THRESHOLD } from './constants'
 import {
   BlunderInfo,
   BlunderMeterResult,
   MaiaEvaluation,
   StockfishEvaluation,
 } from 'src/types'
-
-/**
- * Converts HSL color values to RGB hex string
- */
-const hslToHex = (h: number, s: number, l: number): string => {
-  const c = (1 - Math.abs(2 * l - 1)) * s
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  const m = l - c / 2
-
-  let r = 0,
-    g = 0,
-    b = 0
-
-  if (0 <= h && h < 60) {
-    r = c
-    g = x
-    b = 0
-  } else if (60 <= h && h < 120) {
-    r = x
-    g = c
-    b = 0
-  } else if (120 <= h && h < 180) {
-    r = 0
-    g = c
-    b = x
-  } else if (180 <= h && h < 240) {
-    r = 0
-    g = x
-    b = c
-  } else if (240 <= h && h < 300) {
-    r = x
-    g = 0
-    b = c
-  } else if (300 <= h && h < 360) {
-    r = c
-    g = 0
-    b = x
-  }
-
-  r = Math.round((r + m) * 255)
-  g = Math.round((g + m) * 255)
-  b = Math.round((b + m) * 255)
-
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
-}
-
-/**
- * Smooth color mapping function based on winrate loss
- *
- * This function creates a smooth color gradient from green (best moves) to red (worst moves)
- * using a piecewise function that emphasizes contrast within each quality tier:
- * 1. Green region (0 to 5%): Deep green → light green with high contrast
- * 2. Yellow region (5% to 10%): Yellow → deep yellow with saturation progression
- * 3. Red region (>10%): Deep orange-red with darkening for severe blunders
- *
- * The mathematical function uses:
- * - Dramatic lightness and saturation changes for contrast within each tier
- * - HSL color space for natural color interpolation
- * - Quadratic easing for smooth transitions
- *
- * @param winrateLoss - The winrate loss value (typically negative, where 0 is best)
- * @returns RGB hex color string
- */
-const getColorFromWinrateLoss = (winrateLoss: number): string => {
-  // Convert winrate loss to positive percentage (0.05 = 5%)
-  const loss = Math.abs(winrateLoss)
-
-  // Define thresholds based on winrate percentages
-  const greenThreshold = 0.05 // Green region (0 to 5% loss)
-  const yellowThreshold = 0.1 // Yellow region (5% to 10% loss)
-  const maxLoss = 0.3 // Maximum loss for scaling (30% loss)
-
-  let hue: number
-  let saturation: number
-  let lightness: number
-
-  if (loss <= greenThreshold) {
-    // Green region: Bright green (0-1%) → Darker/duller green (4-5%) with enhanced contrast
-    hue = 120 // Pure green hue
-    const progress = loss / greenThreshold
-    const easedProgress = progress * progress * progress // Cubic easing for more dramatic change
-
-    // Best moves are bright and prominent, worse moves become darker/duller
-    saturation = 0.85 - easedProgress * 0.4 // 85% → 45% saturation (less saturated as worse)
-    lightness = 0.65 - easedProgress * 0.35 // 65% → 30% lightness (darker as worse)
-  } else if (loss <= yellowThreshold) {
-    // Yellow region: Yellow (5%) → Deep yellow (10%)
-    hue = 50 // Orange-yellow hue for better distinction
-    const progress =
-      (loss - greenThreshold) / (yellowThreshold - greenThreshold)
-    const easedProgress = progress * progress // Quadratic progression
-
-    // Start light yellow and become deeper/more saturated
-    saturation = 0.6 + easedProgress * 0.3 // 60% → 90% saturation
-    lightness = 0.65 - easedProgress * 0.25 // 65% → 40% lightness (light → deep)
-  } else {
-    // Red region: Deep orange-red with progression to dark red (but not too dark)
-    const progress = Math.min(
-      (loss - yellowThreshold) / (maxLoss - yellowThreshold),
-      1,
-    )
-    const easedProgress = 1 - Math.pow(1 - progress, 2) // Quadratic ease-out
-
-    // Transition from orange-red to deep red (lighter minimum for visibility)
-    hue = 20 - easedProgress * 15 // 20° → 5° (orange-red → deep red)
-    saturation = 0.85 + easedProgress * 0.1 // 85% → 95% saturation
-    lightness = 0.45 - easedProgress * 0.1 // 45% → 35% lightness (not as dark)
-  }
-
-  return hslToHex(hue, saturation, lightness)
-}
 
 type ColorSanMappingResult = {
   [move: string]: {
@@ -145,13 +34,21 @@ export const generateColorSanMapping = (
     let color = '#FFF'
 
     if (winrateLoss !== undefined) {
-      // Use smooth color function for winrate loss
-      color = getColorFromWinrateLoss(winrateLoss)
+      if (winrateLoss >= GOOD_THRESHOLD) {
+        color = COLORS.good[0]
+      } else if (winrateLoss >= OK_THRESHOLD) {
+        color = COLORS.ok[0]
+      } else {
+        color = COLORS.blunder[0]
+      }
     } else if (relativeEval !== undefined) {
-      // Convert centipawn loss to approximate winrate loss for color mapping
-      // This is a rough approximation: 100cp ≈ 0.1 winrate loss
-      const approximateWinrateLoss = -relativeEval / 1000
-      color = getColorFromWinrateLoss(approximateWinrateLoss)
+      if (relativeEval >= -50) {
+        color = COLORS.good[0]
+      } else if (relativeEval >= -150) {
+        color = COLORS.ok[0]
+      } else {
+        color = COLORS.blunder[0]
+      }
     }
 
     mapping[moveKey] = {
@@ -159,6 +56,104 @@ export const generateColorSanMapping = (
       color,
     }
   })
+
+  if (stockfish) {
+    if (
+      stockfish.winrate_loss_vec &&
+      Object.keys(stockfish.winrate_loss_vec).length > 0
+    ) {
+      const goodMoves = moves
+        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
+        .filter((move) => {
+          const winrateLoss = stockfish.winrate_loss_vec?.[move]
+          return winrateLoss !== undefined && winrateLoss >= GOOD_THRESHOLD
+        })
+        .sort((a, b) => {
+          const aLoss = stockfish.winrate_loss_vec?.[a] || 0
+          const bLoss = stockfish.winrate_loss_vec?.[b] || 0
+          return bLoss - aLoss
+        })
+
+      const okMoves = moves
+        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
+        .filter((move) => {
+          const winrateLoss = stockfish.winrate_loss_vec?.[move]
+          return (
+            winrateLoss !== undefined &&
+            winrateLoss >= OK_THRESHOLD &&
+            winrateLoss < GOOD_THRESHOLD
+          )
+        })
+        .sort((a, b) => {
+          const aLoss = stockfish.winrate_loss_vec?.[a] || 0
+          const bLoss = stockfish.winrate_loss_vec?.[b] || 0
+          return bLoss - aLoss
+        })
+
+      const blunderMoves = moves
+        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
+        .filter((move) => {
+          const winrateLoss = stockfish.winrate_loss_vec?.[move]
+          return winrateLoss !== undefined && winrateLoss < OK_THRESHOLD
+        })
+        .sort((a, b) => {
+          const aLoss = stockfish.winrate_loss_vec?.[a] || 0
+          const bLoss = stockfish.winrate_loss_vec?.[b] || 0
+          return bLoss - aLoss
+        })
+
+      goodMoves.forEach((move, i) => {
+        mapping[move].color = COLORS.good[Math.min(i, COLORS.good.length - 1)]
+      })
+
+      okMoves.forEach((move, i) => {
+        mapping[move].color = COLORS.ok[Math.min(i, COLORS.ok.length - 1)]
+      })
+
+      blunderMoves.forEach((move, i) => {
+        mapping[move].color =
+          COLORS.blunder[Math.min(i, COLORS.blunder.length - 1)]
+      })
+    } else {
+      const goodMoves = moves
+        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
+        .filter((move) => stockfish.cp_relative_vec[move] >= -50)
+        .sort(
+          (a, b) => stockfish.cp_relative_vec[b] - stockfish.cp_relative_vec[a],
+        )
+
+      const okMoves = moves
+        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
+        .filter(
+          (move) =>
+            stockfish.cp_relative_vec[move] >= -150 &&
+            stockfish.cp_relative_vec[move] < -50,
+        )
+        .sort(
+          (a, b) => stockfish.cp_relative_vec[b] - stockfish.cp_relative_vec[a],
+        )
+
+      const blunderMoves = moves
+        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
+        .filter((move) => stockfish.cp_relative_vec[move] < -150)
+        .sort(
+          (a, b) => stockfish.cp_relative_vec[b] - stockfish.cp_relative_vec[a],
+        )
+
+      goodMoves.forEach((move, i) => {
+        mapping[move].color = COLORS.good[Math.min(i, COLORS.good.length - 1)]
+      })
+
+      okMoves.forEach((move, i) => {
+        mapping[move].color = COLORS.ok[Math.min(i, COLORS.ok.length - 1)]
+      })
+
+      blunderMoves.forEach((move, i) => {
+        mapping[move].color =
+          COLORS.blunder[Math.min(i, COLORS.blunder.length - 1)]
+      })
+    }
+  }
 
   return mapping
 }

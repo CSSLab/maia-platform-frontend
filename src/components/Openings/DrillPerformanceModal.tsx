@@ -78,15 +78,6 @@ const AnimatedGameReplay: React.FC<{
     null,
   )
 
-  // Reset to opening position
-  const resetToStart = useCallback(() => {
-    chess.load(openingFen)
-    setCurrentFen(openingFen)
-    setCurrentMoveIndex(-1)
-    setCurrentMoveQuality(null)
-    onMoveIndexChange?.(-1)
-  }, [chess, openingFen, onMoveIndexChange])
-
   // Go to specific move
   const goToMove = useCallback(
     (moveIndex: number) => {
@@ -129,33 +120,6 @@ const AnimatedGameReplay: React.FC<{
       goToMove(externalMoveIndex)
     }
   }, [externalMoveIndex, currentMoveIndex, goToMove])
-
-  // Remove auto-play - now controlled by chart interaction
-  // Auto-play animation with continuous looping
-  // useEffect(() => {
-  //   if (!isPlaying) return
-
-  //   const timer = setTimeout(() => {
-  //     if (currentMoveIndex < moveAnalyses.length - 1) {
-  //       goToMove(currentMoveIndex + 1)
-  //     } else {
-  //       // Loop back to the beginning
-  //       resetToStart()
-  //     }
-  //   }, 1500) // Slightly slower for better viewing
-
-  //   return () => clearTimeout(timer)
-  // }, [isPlaying, currentMoveIndex, moveAnalyses.length, goToMove, resetToStart])
-
-  // // Start playing automatically on mount
-  // useEffect(() => {
-  //   if (moveAnalyses.length > 0) {
-  //     const timer = setTimeout(() => {
-  //       setIsPlaying(true)
-  //     }, 1000) // Start after 1 second
-  //     return () => clearTimeout(timer)
-  //   }
-  // }, [moveAnalyses.length])
 
   const getQualityColor = (quality: string) => {
     switch (quality) {

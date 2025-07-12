@@ -133,11 +133,14 @@ const analyzePositionInBackground = async (
       return
     }
 
-    // Update progress
+    // Update progress - only increment total for positions that will actually be analyzed
     setAnalysisProgress((prev) => ({
       ...prev,
       total: prev.total + 1,
-      currentMove: chess.turn() === 'w' ? 'White to move' : 'Black to move',
+      currentMove:
+        chess.turn() === 'w'
+          ? 'Analyzing white to move...'
+          : 'Analyzing black to move...',
     }))
 
     // Use shared analysis utilities
@@ -159,7 +162,10 @@ const analyzePositionInBackground = async (
     setAnalysisProgress((prev) => ({
       ...prev,
       completed: prev.completed + 1,
-      currentMove: null,
+      currentMove:
+        prev.completed + 1 >= prev.total
+          ? 'Background analysis complete!'
+          : null,
     }))
   } catch (error) {
     console.error('Background analysis error:', error)
@@ -240,6 +246,9 @@ export const useOpeningDrillController = (
   // Initialize current drill game when drill changes
   useEffect(() => {
     if (!currentDrill || allDrillsCompleted) return
+
+    // Reset background analysis progress for the new drill
+    setAnalysisProgress({ total: 0, completed: 0, currentMove: null })
 
     const startingFen =
       'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
@@ -498,6 +507,9 @@ export const useOpeningDrillController = (
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setContinueAnalyzingMode(false) // Reset continue analyzing mode for next drill
+
+    // Reset background analysis progress for the new drill
+    setAnalysisProgress({ total: 0, completed: 0, currentMove: null })
 
     // Remove the completed drill from remaining drills
     setRemainingDrills((prev) => prev.slice(1))
@@ -968,6 +980,9 @@ export const useOpeningDrillController = (
             updatedGame.playerMoveCount >= currentDrill.targetMoveNumber &&
             !continueAnalyzingMode
           ) {
+            // Show loading state immediately when drill is completed
+            setIsAnalyzingDrill(true)
+
             // Delay completion to allow for Maia's response if it's Maia's turn
             setTimeout(() => {
               completeDrill(updatedGame)
@@ -1187,6 +1202,9 @@ export const useOpeningDrillController = (
   // Reset current drill to starting position
   const resetCurrentDrill = useCallback(() => {
     if (!currentDrill) return
+
+    // Reset background analysis progress for the restarted drill
+    setAnalysisProgress({ total: 0, completed: 0, currentMove: null })
 
     const startingFen =
       'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'

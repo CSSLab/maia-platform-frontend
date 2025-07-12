@@ -833,7 +833,7 @@ const OpeningsPage: NextPage = () => {
                 </div>
                 <div className="mt-2 h-1 w-full rounded bg-background-3">
                   <div
-                    className="h-full rounded bg-human-4 transition-all duration-300"
+                    className="h-full rounded bg-human-4"
                     style={{
                       width: `${
                         controller.analysisProgress.total > 0
@@ -883,7 +883,7 @@ const OpeningsPage: NextPage = () => {
                       </div>
                       <div className="h-2 w-full rounded bg-background-3">
                         <div
-                          className="h-full rounded bg-human-4 transition-all duration-300"
+                          className="h-full rounded bg-human-4"
                           style={{
                             width: `${
                               controller.analysisProgress.total > 0

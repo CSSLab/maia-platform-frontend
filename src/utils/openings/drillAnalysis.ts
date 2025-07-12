@@ -403,14 +403,45 @@ export async function analyzeDrillPerformance(
     const evaluationChart: EvaluationPoint[] = []
     let previousEvaluation: number | null = null
 
-    // Initialize progress tracking
+    // Pre-scan to determine which positions need actual analysis vs are cached
+    const positionsToAnalyze: { node: GameNode; index: number }[] = []
     const totalPositions = gameNodes.length - 1
+
+    for (let i = 0; i < gameNodes.length - 1; i++) {
+      const currentGameNode = gameNodes[i]
+      const nextNode = gameNodes[i + 1]
+
+      if (!nextNode.move || !nextNode.san) continue
+
+      // Check if position needs analysis
+      const cachedAnalysis = analysisCache?.get(currentGameNode.fen)
+      const hasAnalysis =
+        cachedAnalysis?.stockfish || currentGameNode.analysis?.stockfish
+
+      if (!hasAnalysis) {
+        positionsToAnalyze.push({ node: currentGameNode, index: i })
+      }
+    }
+
+    console.log(analysisCache)
+    console.log(positionsToAnalyze)
+
+    // Initialize progress tracking with realistic totals
+    const uncachedPositions = positionsToAnalyze.length
+    const cachedPositions = totalPositions - uncachedPositions
     let completedPositions = 0
+    let analyzedUncachedPositions = 0
+
+    // Start with cached positions already "completed" to show realistic progress
+    const initialCompleted = cachedPositions
 
     onProgress?.({
-      completed: 0,
+      completed: initialCompleted,
       total: totalPositions,
-      currentStep: 'Analyzing positions...',
+      currentStep:
+        uncachedPositions > 0
+          ? `Analyzing ${uncachedPositions} new positions (${cachedPositions} cached)...`
+          : 'Loading cached analysis...',
     })
 
     // Analyze each position
@@ -420,12 +451,16 @@ export async function analyzeDrillPerformance(
 
       if (!nextNode.move || !nextNode.san) continue
 
-      // Update progress
-      onProgress?.({
-        completed: completedPositions,
-        total: totalPositions,
-        currentStep: `Analyzing move ${i + 1}/${totalPositions}...`,
-      })
+      const isUncached = positionsToAnalyze.some((p) => p.index === i)
+
+      // Only update progress for uncached positions that require actual analysis
+      if (isUncached) {
+        onProgress?.({
+          completed: initialCompleted + analyzedUncachedPositions,
+          total: totalPositions,
+          currentStep: `Analyzing position ${analyzedUncachedPositions + 1}/${uncachedPositions}...`,
+        })
+      }
 
       // Use the position after the move to determine who made the move
       const chess = new Chess(nextNode.fen)
@@ -443,12 +478,27 @@ export async function analyzeDrillPerformance(
       } else if (currentGameNode.analysis?.stockfish) {
         evaluation = currentGameNode.analysis.stockfish
       } else {
+        console.log('analyzing', currentGameNode.fen)
         // Only analyze if not in cache - this should be rare now
         evaluation = await analyzePositionWithStockfish(
           currentGameNode.fen,
           engines,
           { stockfishDepth: 12, stockfishTimeout: 5000 },
         )
+
+        // Increment uncached analysis counter and update progress
+        if (isUncached) {
+          analyzedUncachedPositions++
+          // Update progress after completing this analysis
+          onProgress?.({
+            completed: initialCompleted + analyzedUncachedPositions,
+            total: totalPositions,
+            currentStep:
+              analyzedUncachedPositions >= uncachedPositions
+                ? 'Analysis complete!'
+                : `Analyzing position ${analyzedUncachedPositions + 1}/${uncachedPositions}...`,
+          })
+        }
       }
 
       if (evaluation) {
@@ -533,13 +583,8 @@ export async function analyzeDrillPerformance(
         previousEvaluation = playedMoveEval
       }
 
-      // Update progress
+      // Track completion but don't update progress bar for cached positions
       completedPositions++
-      onProgress?.({
-        completed: completedPositions,
-        total: totalPositions,
-        currentStep: `Analyzed move ${completedPositions}/${totalPositions}`,
-      })
     }
 
     // Calculate performance metrics

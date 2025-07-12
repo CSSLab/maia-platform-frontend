@@ -112,7 +112,6 @@ class Engine {
 
   private sendMessage(message: string) {
     if (this.stockfish) {
-      console.log(message)
       this.stockfish.uci(message)
     }
   }
@@ -148,8 +147,6 @@ class Engine {
   }
 
   private onMessage(msg: string) {
-    console.log(msg)
-
     // Only process evaluation messages if we're currently evaluating
     if (!this.isEvaluating) {
       return
