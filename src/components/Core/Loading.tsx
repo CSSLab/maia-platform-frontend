@@ -45,6 +45,7 @@ export const Loading: React.FC = () => {
                 animation: {
                   duration: 0,
                 },
+                viewOnly: true,
               }}
             />
           </div>

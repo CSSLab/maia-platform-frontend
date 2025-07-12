@@ -282,14 +282,14 @@ function BetaBlurb() {
     <div className="mt-2 flex items-center justify-center md:mt-8">
       {user?.lichessId ? (
         <motion.div
-          className="flex flex-row items-center gap-3 bg-human-4 p-2 px-6 transition md:mt-0 md:rounded-full"
+          className="flex flex-row items-center gap-3 bg-engine-3 p-2 px-6 transition md:mt-0 md:rounded-full"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           <div className="*:h-5 *:w-5">{SunIcon}</div>
           <p>
-            Maia Chess is in private beta. Join our Discord community{' '}
+            Thanks for testing the Maia Chess beta! Join our Discord{' '}
             <a
               target="_blank"
               rel="noreferrer"
