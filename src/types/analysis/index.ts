@@ -119,3 +119,5 @@ export type MaiaStatus =
   | 'downloading'
   | 'ready'
   | 'error'
+
+export type StockfishStatus = 'loading' | 'ready' | 'error'

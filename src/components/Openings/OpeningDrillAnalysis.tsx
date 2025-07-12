@@ -32,6 +32,7 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
   makeMove: parentMakeMove,
 }) => {
   const toastId = useRef<string | null>(null)
+  const stockfishToastId = useRef<string | null>(null)
 
   // Toast notifications for Maia model status
   useEffect(() => {
@@ -54,6 +55,33 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
       }
     }
   }, [analysisController.maiaStatus])
+
+  useEffect(() => {
+    if (
+      analysisController.stockfishStatus === 'loading' &&
+      !stockfishToastId.current
+    ) {
+      stockfishToastId.current = toast.loading('Loading Stockfish Engine...')
+    } else if (analysisController.stockfishStatus === 'ready') {
+      if (stockfishToastId.current) {
+        toast.success('Loaded Stockfish! Engine is ready', {
+          id: stockfishToastId.current,
+        })
+        stockfishToastId.current = null
+      } else {
+        toast.success('Loaded Stockfish! Engine is ready')
+      }
+    } else if (analysisController.stockfishStatus === 'error') {
+      if (stockfishToastId.current) {
+        toast.error('Failed to load Stockfish engine', {
+          id: stockfishToastId.current,
+        })
+        stockfishToastId.current = null
+      } else {
+        toast.error('Failed to load Stockfish engine')
+      }
+    }
+  }, [analysisController.stockfishStatus])
 
   const hover = useCallback(
     (move?: string) => {

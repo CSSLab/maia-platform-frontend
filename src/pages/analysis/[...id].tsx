@@ -318,6 +318,7 @@ const Analysis: React.FC<Props> = ({
   const [brushes, setBrushes] = useState<DrawBrushes>({} as DrawBrushes)
   const [screen, setScreen] = useState(screens[0])
   const toastId = useRef<string>(null)
+  const stockfishToastId = useRef<string>(null)
   const [currentSquare, setCurrentSquare] = useState<Key | null>(null)
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
@@ -356,6 +357,30 @@ const Analysis: React.FC<Props> = ({
       }
     }
   }, [controller.maiaStatus])
+
+  useEffect(() => {
+    if (controller.stockfishStatus === 'loading' && !stockfishToastId.current) {
+      stockfishToastId.current = toast.loading('Loading Stockfish Engine...')
+    } else if (controller.stockfishStatus === 'ready') {
+      if (stockfishToastId.current) {
+        toast.success('Loaded Stockfish! Engine is ready', {
+          id: stockfishToastId.current,
+        })
+        stockfishToastId.current = null
+      } else {
+        toast.success('Loaded Stockfish! Engine is ready')
+      }
+    } else if (controller.stockfishStatus === 'error') {
+      if (stockfishToastId.current) {
+        toast.error('Failed to load Stockfish engine', {
+          id: stockfishToastId.current,
+        })
+        stockfishToastId.current = null
+      } else {
+        toast.error('Failed to load Stockfish engine')
+      }
+    }
+  }, [controller.stockfishStatus])
 
   const launchContinue = useCallback(() => {
     const fen = controller.currentNode?.fen as string

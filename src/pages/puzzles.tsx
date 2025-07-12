@@ -256,6 +256,7 @@ const Train: React.FC<Props> = ({
   const [arrows, setArrows] = useState<DrawShape[]>([])
   const analysisSyncedRef = useRef(false)
   const toastId = useRef<string | null>(null)
+  const stockfishToastId = useRef<string | null>(null)
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
@@ -302,6 +303,30 @@ const Train: React.FC<Props> = ({
       }
     }
   }, [analysisController.maiaStatus])
+
+  useEffect(() => {
+    if (analysisController.stockfishStatus === 'loading' && !stockfishToastId.current) {
+      stockfishToastId.current = toast.loading('Loading Stockfish Engine...')
+    } else if (analysisController.stockfishStatus === 'ready') {
+      if (stockfishToastId.current) {
+        toast.success('Loaded Stockfish! Engine is ready', {
+          id: stockfishToastId.current,
+        })
+        stockfishToastId.current = null
+      } else {
+        toast.success('Loaded Stockfish! Engine is ready')
+      }
+    } else if (analysisController.stockfishStatus === 'error') {
+      if (stockfishToastId.current) {
+        toast.error('Failed to load Stockfish engine', {
+          id: stockfishToastId.current,
+        })
+        stockfishToastId.current = null
+      } else {
+        toast.error('Failed to load Stockfish engine')
+      }
+    }
+  }, [analysisController.stockfishStatus])
 
   const onSelectSquare = useCallback(
     (square: Key) => {

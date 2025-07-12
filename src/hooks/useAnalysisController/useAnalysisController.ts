@@ -35,6 +35,8 @@ export const useAnalysisController = (
     streamEvaluations,
     stopEvaluation,
     isReady: isStockfishReady,
+    status: stockfishStatus,
+    error: stockfishError,
   } = useStockfishEngine()
   const [currentMove, setCurrentMove] = useState<[string, string] | null>()
   const [currentMaiaModel, setCurrentMaiaModel] = useLocalStorage(
@@ -147,6 +149,8 @@ export const useAnalysisController = (
     maiaStatus,
     downloadMaia,
     maiaProgress,
+    stockfishStatus,
+    stockfishError,
     move,
     moves,
     currentMaiaModel,
