@@ -10,6 +10,11 @@ import {
   OpeningDrillGame,
 } from 'src/types/openings'
 import { cpToWinrate } from 'src/utils/stockfish'
+// Use shared analysis utilities
+import {
+  analyzePositionWithStockfish,
+  AnalysisEngines,
+} from 'src/utils/analysis'
 
 // Classification thresholds based on winrate change (same as frontend)
 const MOVE_CLASSIFICATION_THRESHOLDS = {
@@ -67,56 +72,6 @@ function classifyMove(
 }
 
 /**
- * Analyzes a single position with Stockfish to get deep evaluation
- */
-async function analyzePosition(
-  fen: string,
-  streamEvaluations: (
-    fen: string,
-    moveCount: number,
-  ) => AsyncIterable<StockfishEvaluation> | null,
-  targetDepth = 15,
-): Promise<StockfishEvaluation | null> {
-  return new Promise((resolve) => {
-    const chess = new Chess(fen)
-    const moveCount = chess.moves().length
-
-    if (moveCount === 0) {
-      resolve(null)
-      return
-    }
-
-    const evaluationStream = streamEvaluations(fen, moveCount)
-    if (!evaluationStream) {
-      resolve(null)
-      return
-    }
-
-    let bestEvaluation: StockfishEvaluation | null = null
-    const timeout = setTimeout(() => {
-      resolve(bestEvaluation)
-    }, 5000) // 5 second timeout
-
-    ;(async () => {
-      try {
-        for await (const evaluation of evaluationStream) {
-          bestEvaluation = evaluation
-          if (evaluation.depth >= targetDepth) {
-            clearTimeout(timeout)
-            resolve(evaluation)
-            break
-          }
-        }
-      } catch (error) {
-        console.error('Error in position analysis:', error)
-        clearTimeout(timeout)
-        resolve(bestEvaluation)
-      }
-    })()
-  })
-}
-
-/**
  * Creates a confident rating prediction from player moves using advanced statistical analysis
  */
 async function createRatingPrediction(
@@ -138,6 +93,11 @@ async function createRatingPrediction(
   let ratingDistribution: RatingComparison[]
 
   try {
+    // Verify Maia is properly initialized before proceeding
+    if (!maia || !maia.batchEvaluate) {
+      throw new Error('Maia engine not available')
+    }
+
     // Get the FEN positions BEFORE each player move
     const positionsBeforePlayerMoves: string[] = []
 
@@ -408,17 +368,7 @@ function generateDetailedFeedback(
 export async function analyzeDrillPerformance(
   drillGame: OpeningDrillGame,
   finalNode: GameNode,
-  streamEvaluations: (
-    fen: string,
-    moveCount: number,
-  ) => AsyncIterable<StockfishEvaluation> | null,
-  maia: {
-    batchEvaluate: (
-      fens: string[],
-      ratingLevels: number[],
-      thresholds: number[],
-    ) => Promise<{ result: MaiaEvaluation[]; time: number }>
-  },
+  engines: AnalysisEngines,
   analysisCache?: Map<
     string,
     {
@@ -494,10 +444,10 @@ export async function analyzeDrillPerformance(
         evaluation = currentGameNode.analysis.stockfish
       } else {
         // Only analyze if not in cache - this should be rare now
-        evaluation = await analyzePosition(
+        evaluation = await analyzePositionWithStockfish(
           currentGameNode.fen,
-          streamEvaluations,
-          12,
+          engines,
+          { stockfishDepth: 12, stockfishTimeout: 5000 },
         )
       }
 
@@ -519,9 +469,9 @@ export async function analyzeDrillPerformance(
                 maiaEval.policy[a] > maiaEval.policy[b] ? a : b,
               )
             }
-          } else if (maia) {
-            // Only fetch if not cached
-            const maiaResult = await maia.batchEvaluate(
+          } else if (engines.maia && engines.maia.isReady()) {
+            // Only fetch if not cached and Maia is available
+            const maiaResult = await engines.maia.batchEvaluate(
               [currentGameNode.fen],
               [1500], // Use 1500 rating for best move
               [0.1],
@@ -641,7 +591,33 @@ export async function analyzeDrillPerformance(
       total: totalPositions + 1,
       currentStep: 'Calculating rating prediction...',
     })
-    const ratingPrediction = await createRatingPrediction(moveAnalyses, maia)
+    let ratingPrediction: RatingPrediction
+    try {
+      if (engines.maia && engines.maia.isReady()) {
+        ratingPrediction = await createRatingPrediction(
+          moveAnalyses,
+          engines.maia,
+        )
+      } else {
+        throw new Error('Maia engine not available for rating prediction')
+      }
+    } catch (maiaError) {
+      console.warn('Failed to create Maia rating prediction:', maiaError)
+      // Fallback rating prediction
+      ratingPrediction = {
+        predictedRating: 1400,
+        standardDeviation: 200,
+        sampleSize: playerMoves.length,
+        ratingDistribution: MAIA_RATINGS.map((rating) => ({
+          rating,
+          probability: rating === 1400 ? 0.3 : 0.1,
+          moveMatch: false,
+          logLikelihood: rating === 1400 ? -1 : -3,
+          likelihoodProbability: rating === 1400 ? 0.3 : 0.08,
+          averageMoveProb: 0.1,
+        })),
+      }
+    }
     const ratingComparison = ratingPrediction.ratingDistribution
 
     // Generate feedback

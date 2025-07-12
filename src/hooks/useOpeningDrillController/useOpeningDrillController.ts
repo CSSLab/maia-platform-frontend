@@ -5,6 +5,7 @@ import { useTreeController } from '../useTreeController'
 import { useChessSound } from '../useChessSound'
 import { useStockfishEngine } from '../useStockfishEngine'
 import { useMaiaEngine } from '../useMaiaEngine'
+import { useLocalStorage } from '../useLocalStorage'
 import {
   GameTree,
   GameNode,
@@ -20,6 +21,12 @@ import {
   DrillConfiguration,
 } from 'src/types/openings'
 import { analyzeDrillPerformance } from 'src/utils/openings/drillAnalysis'
+import {
+  extractMaiaRating,
+  getCurrentMaiaModel,
+  createEngineWrapper,
+} from 'src/utils/analysis'
+import { MAIA_MODELS } from '../useAnalysisController/constants'
 
 // Type for cached analysis results
 interface CachedAnalysisResult {
@@ -87,17 +94,25 @@ const parsePgnToTree = (pgn: string, gameTree: GameTree): GameNode | null => {
 // Background analysis function to analyze positions as they're reached
 const analyzePositionInBackground = async (
   fen: string,
-  streamEvaluations: (
-    fen: string,
-    moveCount: number,
-  ) => AsyncIterable<StockfishEvaluation> | null,
-  maia: {
-    batchEvaluate: (
-      fens: string[],
-      ratingLevels: number[],
-      thresholds: number[],
-    ) => Promise<{ result: MaiaEvaluation[]; time: number }>
+  engines: {
+    stockfish: {
+      streamEvaluations: (
+        fen: string,
+        moveCount: number,
+      ) => AsyncIterable<StockfishEvaluation> | null
+      isReady: () => boolean
+    }
+    maia: {
+      batchEvaluate: (
+        fens: string[],
+        ratingLevels: number[],
+        thresholds: number[],
+      ) => Promise<{ result: MaiaEvaluation[]; time: number }>
+      status: string
+      isReady: () => boolean
+    }
   },
+  maiaRating: number,
   analysisCache: React.RefObject<Map<string, CachedAnalysisResult>>,
   analysisQueue: React.RefObject<Set<string>>,
   setAnalysisProgress: React.Dispatch<React.SetStateAction<AnalysisProgress>>,
@@ -125,52 +140,20 @@ const analyzePositionInBackground = async (
       currentMove: chess.turn() === 'w' ? 'White to move' : 'Black to move',
     }))
 
-    const analysisResult: CachedAnalysisResult = {
+    // Use shared analysis utilities
+    const { analyzePosition } = await import('src/utils/analysis')
+
+    const analysisResult = await analyzePosition(
       fen,
-      stockfish: null,
-      maia: null,
-      timestamp: Date.now(),
-    }
-
-    // Analyze with Stockfish (target depth 15)
-    if (streamEvaluations) {
-      try {
-        const evaluationStream = streamEvaluations(fen, moveCount)
-        if (evaluationStream) {
-          let bestEvaluation: StockfishEvaluation | null = null
-          const timeout = setTimeout(() => {
-            analysisResult.stockfish = bestEvaluation
-          }, 5000) // 5 second timeout
-
-          for await (const evaluation of evaluationStream) {
-            bestEvaluation = evaluation
-            if (evaluation.depth >= 15) {
-              clearTimeout(timeout)
-              break
-            }
-          }
-
-          analysisResult.stockfish = bestEvaluation
-        }
-      } catch (error) {
-        console.warn('Background Stockfish analysis failed:', error)
-      }
-    }
-
-    // Analyze with Maia (1500 rating for best move)
-    if (maia) {
-      try {
-        const maiaResult = await maia.batchEvaluate([fen], [1500], [0.1])
-        if (maiaResult.result.length > 0) {
-          analysisResult.maia = maiaResult.result[0]
-        }
-      } catch (error) {
-        console.warn('Background Maia analysis failed:', error)
-      }
-    }
-
-    // Cache the result
-    analysisCache.current?.set(fen, analysisResult)
+      engines,
+      {
+        stockfishDepth: 15,
+        stockfishTimeout: 5000,
+        maiaRating,
+        maiaThreshold: 0.1,
+      },
+      analysisCache.current || undefined,
+    )
 
     // Update progress
     setAnalysisProgress((prev) => ({
@@ -226,8 +209,20 @@ export const useOpeningDrillController = (
   const { playSound } = useChessSound()
 
   // Add engine hooks for analysis
-  const { streamEvaluations } = useStockfishEngine()
-  const { maia } = useMaiaEngine()
+  const { streamEvaluations, isReady: isStockfishReady } = useStockfishEngine()
+  const { maia, status: maiaStatus } = useMaiaEngine()
+
+  // Get current Maia model from localStorage (same as analysis controller)
+  const [currentMaiaModel, setCurrentMaiaModel] = useLocalStorage(
+    'currentMaiaModel',
+    MAIA_MODELS[0],
+  )
+
+  useEffect(() => {
+    if (!MAIA_MODELS.includes(currentMaiaModel)) {
+      setCurrentMaiaModel(MAIA_MODELS[0])
+    }
+  }, [currentMaiaModel, setCurrentMaiaModel])
 
   // Initialize drilling session from configuration
   useEffect(() => {
@@ -354,13 +349,18 @@ export const useOpeningDrillController = (
       const finalNode = controller.currentNode || drillGame.tree.getRoot()
 
       try {
-        // Use comprehensive analysis if engines are available
-        if (maia && streamEvaluations) {
+        // Use comprehensive analysis if engines are ready
+        if (maiaStatus === 'ready' && isStockfishReady() && maia) {
+          const engines = createEngineWrapper(
+            { streamEvaluations, isReady: isStockfishReady },
+            maia,
+            () => maiaStatus,
+          )
+
           return await analyzeDrillPerformance(
             drillGame,
             finalNode,
-            streamEvaluations,
-            maia,
+            engines,
             analysisCache.current || new Map(),
             (progress) => {
               // Update analysis progress for UI feedback
@@ -441,7 +441,13 @@ export const useOpeningDrillController = (
         openingKnowledge: 75,
       }
     },
-    [controller.currentNode, maia, streamEvaluations],
+    [
+      controller.currentNode,
+      maia,
+      streamEvaluations,
+      isStockfishReady,
+      maiaStatus,
+    ],
   )
 
   // Complete current drill and show performance modal
@@ -935,11 +941,18 @@ export const useOpeningDrillController = (
           updateCompletedDrill(updatedGame)
 
           // Trigger background analysis for the new position
-          if (streamEvaluations && maia) {
+          if (maiaStatus === 'ready' && isStockfishReady()) {
+            const engines = createEngineWrapper(
+              { streamEvaluations, isReady: isStockfishReady },
+              maia,
+              () => maiaStatus,
+            )
+            const maiaRating = extractMaiaRating(currentMaiaModel)
+
             analyzePositionInBackground(
               newNode.fen,
-              streamEvaluations,
-              maia,
+              engines,
+              maiaRating,
               analysisCache,
               analysisQueue,
               setAnalysisProgress,
@@ -974,6 +987,11 @@ export const useOpeningDrillController = (
       completeDrill,
       continueAnalyzingMode,
       updateCompletedDrill,
+      streamEvaluations,
+      maia,
+      isStockfishReady,
+      maiaStatus,
+      currentMaiaModel,
     ],
   )
 
@@ -1071,11 +1089,18 @@ export const useOpeningDrillController = (
             updateCompletedDrill(updatedGame)
 
             // Trigger background analysis for the new position
-            if (streamEvaluations && maia) {
+            if (maiaStatus === 'ready' && isStockfishReady()) {
+              const engines = createEngineWrapper(
+                { streamEvaluations, isReady: isStockfishReady },
+                maia,
+                () => maiaStatus,
+              )
+              const maiaRating = extractMaiaRating(currentMaiaModel)
+
               analyzePositionInBackground(
                 newNode.fen,
-                streamEvaluations,
-                maia,
+                engines,
+                maiaRating,
                 analysisCache,
                 analysisQueue,
                 setAnalysisProgress,
@@ -1096,6 +1121,11 @@ export const useOpeningDrillController = (
       currentDrill,
       playSound,
       updateCompletedDrill,
+      streamEvaluations,
+      maia,
+      isStockfishReady,
+      maiaStatus,
+      currentMaiaModel,
     ],
   )
 
@@ -1250,5 +1280,8 @@ export const useOpeningDrillController = (
 
     // Show final summary modal
     showSummary,
+
+    // Analysis cache for sharing with analysis controller
+    analysisCache,
   }
 }

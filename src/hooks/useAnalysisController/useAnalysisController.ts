@@ -7,7 +7,7 @@ import {
   useTreeController,
   useLocalStorage,
 } from '..'
-import { AnalyzedGame, GameTree } from 'src/types'
+import { AnalyzedGame } from 'src/types'
 import { MAIA_MODELS } from './constants'
 import { generateColorSanMapping, calculateBlunderMeter } from './utils'
 import { useEngineAnalysis } from './useEngineAnalysis'
@@ -25,7 +25,6 @@ export const useAnalysisController = (
 
   const {
     maia,
-    error: maiaError,
     status: maiaStatus,
     progress: maiaProgress,
     downloadModel: downloadMaia,

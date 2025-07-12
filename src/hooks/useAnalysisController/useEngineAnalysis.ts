@@ -1,5 +1,5 @@
 import { Chess } from 'chess.ts'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { getBookMoves } from 'src/api'
 import { GameNode, MaiaEvaluation, StockfishEvaluation } from 'src/types'
 import { MAIA_MODELS } from './constants'
@@ -144,7 +144,6 @@ export const useEngineAnalysis = (
 
   useEffect(() => {
     if (!currentNode) return
-    const board = new Chess(currentNode.fen)
     if (
       currentNode.analysis.stockfish &&
       currentNode.analysis.stockfish?.depth >= 18
@@ -177,9 +176,10 @@ export const useEngineAnalysis = (
         return
       }
 
+      const chess = new Chess(currentNode.fen)
       const evaluationStream = streamEvaluations(
-        board.fen(),
-        board.moves().length,
+        chess.fen(),
+        chess.moves().length,
       )
 
       if (evaluationStream && !cancelled) {
