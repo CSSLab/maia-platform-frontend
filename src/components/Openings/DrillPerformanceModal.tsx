@@ -737,7 +737,7 @@ const EvaluationChart: React.FC<{
   const chartData = evaluationChart.map((point, index) => {
     const moveAnalysis = moveAnalyses[index]
     const isWhite = moveAnalysis ? isMoveByWhite(moveAnalysis.fen) : true
-    
+
     // Find the move number from our pairs (same logic as move list)
     let moveNumber = 1
     if (moveAnalysis) {
@@ -752,7 +752,7 @@ const EvaluationChart: React.FC<{
         }
       }
     }
-    
+
     const dynamicClassification = moveAnalysis
       ? classifyMove(moveAnalysis, index)
       : ''
