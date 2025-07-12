@@ -679,14 +679,80 @@ const EvaluationChart: React.FC<{
     return '' // Normal moves get no classification
   }
 
-  // Generate move numbers for chartData: increment only after Black's move
-  let moveNumber = getMoveNumberFromFen(moveAnalyses[0]?.fen || '1 w - - 0 1')
+  // Generate move numbers for chartData - create pairs first then extract chart data
+  const movePairs = (() => {
+    const pairs: Array<{
+      white?: MoveAnalysis & {
+        index: number
+        displayMoveNumber: number
+        isWhiteMove: boolean
+      }
+      black?: MoveAnalysis & {
+        index: number
+        displayMoveNumber: number
+        isWhiteMove: boolean
+      }
+      moveNumber: number
+    }> = []
+
+    if (moveAnalyses.length === 0) return pairs
+
+    let currentMoveNumber = getMoveNumberFromFen(moveAnalyses[0].fen)
+    for (let i = 0; i < moveAnalyses.length; i++) {
+      const move = moveAnalyses[i]
+      const isWhite = isMoveByWhite(move.fen)
+      // For white's move, update move number
+      if (isWhite) {
+        currentMoveNumber = getMoveNumberFromFen(move.fen)
+        let pair = pairs.find((p) => p.moveNumber === currentMoveNumber)
+        if (!pair) {
+          pair = { moveNumber: currentMoveNumber }
+          pairs.push(pair)
+        }
+        pair.white = {
+          ...move,
+          index: i,
+          displayMoveNumber: currentMoveNumber,
+          isWhiteMove: true,
+        }
+      } else {
+        // For black's move, use the same move number as the previous white move
+        let pair = pairs.find((p) => p.moveNumber === currentMoveNumber)
+        if (!pair) {
+          pair = { moveNumber: currentMoveNumber }
+          pairs.push(pair)
+        }
+        pair.black = {
+          ...move,
+          index: i,
+          displayMoveNumber: currentMoveNumber,
+          isWhiteMove: false,
+        }
+      }
+    }
+    return pairs.sort((a, b) => a.moveNumber - b.moveNumber)
+  })()
+
+  // Now create chart data using the same move numbering from pairs
   const chartData = evaluationChart.map((point, index) => {
     const moveAnalysis = moveAnalyses[index]
     const isWhite = moveAnalysis ? isMoveByWhite(moveAnalysis.fen) : true
-    if (isWhite && index !== 0) {
-      moveNumber++
+    
+    // Find the move number from our pairs (same logic as move list)
+    let moveNumber = 1
+    if (moveAnalysis) {
+      // Find this move in our pairs
+      for (const pair of movePairs) {
+        if (pair.white?.index === index) {
+          moveNumber = pair.moveNumber
+          break
+        } else if (pair.black?.index === index) {
+          moveNumber = pair.moveNumber
+          break
+        }
+      }
     }
+    
     const dynamicClassification = moveAnalysis
       ? classifyMove(moveAnalysis, index)
       : ''
