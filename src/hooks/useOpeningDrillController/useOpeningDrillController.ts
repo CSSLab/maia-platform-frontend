@@ -116,9 +116,15 @@ const analyzePositionInBackground = async (
   analysisCache: React.RefObject<Map<string, CachedAnalysisResult>>,
   analysisQueue: React.RefObject<Set<string>>,
   setAnalysisProgress: React.Dispatch<React.SetStateAction<AnalysisProgress>>,
+  isPostDrillAnalysis: React.RefObject<boolean>,
 ) => {
-  // Skip if already analyzed or in queue
-  if (analysisCache.current?.has(fen) || analysisQueue.current?.has(fen)) {
+  // Skip if already analyzed to sufficient depth or already queued
+  const cachedDepth = analysisCache.current?.get(fen)?.stockfish?.depth ?? 0
+
+  if (
+    (cachedDepth >= 12 && analysisCache.current?.has(fen)) ||
+    analysisQueue.current?.has(fen)
+  ) {
     return
   }
 
@@ -133,15 +139,14 @@ const analyzePositionInBackground = async (
       return
     }
 
-    // Update progress - only increment total for positions that will actually be analyzed
-    setAnalysisProgress((prev) => ({
-      ...prev,
-      total: prev.total + 1,
-      currentMove:
-        chess.turn() === 'w'
-          ? 'Analyzing white to move...'
-          : 'Analyzing black to move...',
-    }))
+    // Only update progress if not in post-drill analysis mode
+    if (!isPostDrillAnalysis.current) {
+      setAnalysisProgress((prev) => ({
+        ...prev,
+        total: prev.total + 1,
+        currentMove: `Background analysis: ${chess.turn() === 'w' ? 'White' : 'Black'} to move`,
+      }))
+    }
 
     // Use shared analysis utilities
     const { analyzePosition } = await import('src/utils/analysis')
@@ -158,15 +163,17 @@ const analyzePositionInBackground = async (
       analysisCache.current || undefined,
     )
 
-    // Update progress
-    setAnalysisProgress((prev) => ({
-      ...prev,
-      completed: prev.completed + 1,
-      currentMove:
-        prev.completed + 1 >= prev.total
-          ? 'Background analysis complete!'
-          : null,
-    }))
+    // Only update progress if not in post-drill analysis mode
+    if (!isPostDrillAnalysis.current) {
+      setAnalysisProgress((prev) => ({
+        ...prev,
+        completed: prev.completed + 1,
+        currentMove:
+          prev.completed + 1 >= prev.total
+            ? 'Background analysis complete!'
+            : null,
+      }))
+    }
   } catch (error) {
     console.error('Background analysis error:', error)
   } finally {
@@ -210,6 +217,7 @@ export const useOpeningDrillController = (
   })
   const analysisQueue = useRef<Set<string>>(new Set()) // Track which positions are being analyzed
   const analysisCache = useRef<Map<string, CachedAnalysisResult>>(new Map()) // Cache analysis results by FEN
+  const isPostDrillAnalysis = useRef<boolean>(false) // Track if we're in post-drill analysis mode
 
   // Add chess sound hook
   const { playSound } = useChessSound()
@@ -467,6 +475,13 @@ export const useOpeningDrillController = (
 
       try {
         setIsAnalyzingDrill(true) // Show loading state
+        isPostDrillAnalysis.current = true // Signal that we're in post-drill analysis mode
+        // Reset analysis progress for post-drill analysis
+        setAnalysisProgress({
+          total: 0,
+          completed: 0,
+          currentMove: 'Preparing analysis...',
+        })
         const performanceData = await evaluateDrillPerformance(drillGame)
         setCurrentPerformanceData(performanceData)
 
@@ -497,6 +512,7 @@ export const useOpeningDrillController = (
         setShowPerformanceModal(true)
       } finally {
         setIsAnalyzingDrill(false) // Turn off loading state
+        isPostDrillAnalysis.current = false // Reset post-drill analysis flag
       }
     },
     [currentDrillGame, evaluateDrillPerformance],
@@ -968,6 +984,7 @@ export const useOpeningDrillController = (
               analysisCache,
               analysisQueue,
               setAnalysisProgress,
+              isPostDrillAnalysis,
             )
           }
 
@@ -1119,6 +1136,7 @@ export const useOpeningDrillController = (
                 analysisCache,
                 analysisQueue,
                 setAnalysisProgress,
+                isPostDrillAnalysis,
               )
             }
 
@@ -1144,9 +1162,36 @@ export const useOpeningDrillController = (
     ],
   )
 
-  // Store makeMaiaMove in a ref to avoid circular dependencies
+  // This ref stores the move-making function to ensure the `useEffect` has the latest version
   const makeMaiaMoveRef = useRef(makeMaiaMove)
-  makeMaiaMoveRef.current = makeMaiaMove
+  useEffect(() => {
+    makeMaiaMoveRef.current = makeMaiaMove
+  })
+
+  // Handle Maia's response after player moves
+  useEffect(() => {
+    if (
+      currentDrillGame &&
+      controller.currentNode &&
+      !isPlayerTurn &&
+      waitingForMaiaResponse &&
+      currentDrillGame.moves.length > 0 && // Only respond if moves have been made
+      !isDrillComplete
+    ) {
+      const timeoutId = setTimeout(() => {
+        makeMaiaMoveRef.current(controller.currentNode)
+      }, 1500)
+
+      // Make sure to clear the timeout if dependencies change
+      return () => clearTimeout(timeoutId)
+    }
+  }, [
+    currentDrillGame,
+    controller.currentNode,
+    isPlayerTurn,
+    waitingForMaiaResponse,
+    isDrillComplete,
+  ])
 
   // Handle initial Maia move if needed
   useEffect(() => {
@@ -1172,31 +1217,6 @@ export const useOpeningDrillController = (
     isPlayerTurn,
     isDrillComplete,
     continueAnalyzingMode,
-  ])
-
-  // Handle Maia's response after player moves - only when we're actually waiting for a response
-  useEffect(() => {
-    if (
-      currentDrillGame &&
-      controller.currentNode &&
-      !isPlayerTurn &&
-      waitingForMaiaResponse &&
-      currentDrillGame.moves.length > 0 && // Only respond if moves have been made (not initial setup)
-      !isDrillComplete
-    ) {
-      // It's Maia's turn to respond to the player's move
-      const timeoutId = setTimeout(() => {
-        makeMaiaMoveRef.current(controller.currentNode)
-      }, 1000)
-
-      return () => clearTimeout(timeoutId)
-    }
-  }, [
-    currentDrillGame,
-    controller.currentNode,
-    isPlayerTurn,
-    waitingForMaiaResponse,
-    isDrillComplete,
   ])
 
   // Reset current drill to starting position

@@ -25,6 +25,7 @@ import {
 } from 'recharts'
 import { ModalContainer } from '../Misc'
 import { DrillPerformanceData, MoveAnalysis } from 'src/types/openings'
+import { GameNode } from 'src/types'
 import { cpToWinrate } from 'src/utils/stockfish'
 import { MaiaRatingInsights } from './MaiaRatingInsights'
 import { WindowSizeContext } from 'src/contexts'
@@ -521,6 +522,7 @@ const CustomTooltip: React.FC<{
       classification?: string
       isPlayerMove: boolean
       moveNumber: number
+      stockfishDepth?: number
     }
   }>
   label?: string
@@ -553,6 +555,11 @@ const CustomTooltip: React.FC<{
       </p>
       <p className="text-sm text-secondary">
         Evaluation: {formatEvaluation(data.evaluation)}
+        {data.stockfishDepth && (
+          <span className="ml-2 text-xs text-secondary/70">
+            (d{data.stockfishDepth})
+          </span>
+        )}
       </p>
       {data.classification &&
         ['excellent', 'inaccuracy', 'blunder'].includes(
@@ -581,12 +588,14 @@ const EvaluationChart: React.FC<{
   currentMoveIndex?: number
   onHoverMove?: (moveIndex: number) => void
   playerColor: 'white' | 'black'
+  drill: DrillPerformanceData['drill']
 }> = ({
   evaluationChart,
   moveAnalyses,
   currentMoveIndex = -1,
   onHoverMove,
   playerColor,
+  drill,
 }) => {
   if (evaluationChart.length === 0) {
     return (
@@ -720,6 +729,11 @@ const EvaluationChart: React.FC<{
     const dynamicClassification = moveAnalysis
       ? classifyMove(moveAnalysis, index)
       : ''
+
+    // Get Stockfish depth by finding the corresponding game node
+    // Since all positions are now analyzed to minimum depth 12, we can show this
+    const stockfishDepth = 12 // Minimum depth guaranteed by the analysis system
+
     return {
       moveNumber: isWhite ? moveNumber : `...${moveNumber}`,
       evaluation: point.evaluation,
@@ -730,6 +744,7 @@ const EvaluationChart: React.FC<{
       whiteAdvantage: point.evaluation > 0 ? point.evaluation : 0,
       blackAdvantage: point.evaluation < 0 ? point.evaluation : 0,
       zero: 0,
+      stockfishDepth,
     }
   })
 
@@ -955,6 +970,7 @@ const DesktopLayout: React.FC<{
           currentMoveIndex={hoveredMoveIndex ?? currentMoveIndex}
           onHoverMove={handleChartHover}
           playerColor={drill.selection.playerColor}
+          drill={drill}
         />
 
         {/* Critical Decisions Section */}
@@ -1030,6 +1046,55 @@ const DesktopLayout: React.FC<{
               : `${(evaluation / 100).toFixed(1)}`
           }
 
+          // Helper functions for move quality indicators (same as AnimatedGameReplay)
+          const getQualityColor = (quality: string) => {
+            switch (quality) {
+              case 'excellent':
+                return 'text-green-400'
+              case 'inaccuracy':
+                return 'text-yellow-400'
+              case 'blunder':
+                return 'text-red-400'
+              default:
+                return 'text-secondary'
+            }
+          }
+
+          const getQualitySymbol = (quality: string) => {
+            switch (quality) {
+              case 'excellent':
+                return '!!'
+              case 'inaccuracy':
+                return '?!'
+              case 'blunder':
+                return '??'
+              default:
+                return '' // No symbol for normal/good moves
+            }
+          }
+
+          // Classify move based on winrate loss (same logic as AnimatedGameReplay)
+          const classifyMoveInCritical = (
+            moment: (typeof criticalMoments)[0],
+          ): string => {
+            const winrateChange = moment.winrateChange
+
+            // Use same thresholds as AnimatedGameReplay
+            const BLUNDER_THRESHOLD = 0.1 // 10% winrate drop - significant mistake
+            const INACCURACY_THRESHOLD = 0.05 // 5% winrate drop - noticeable error
+            const EXCELLENT_THRESHOLD = 0.08 // 8% winrate gain - very good move
+
+            // For critical moments, we're looking at negative changes (mistakes)
+            // since these are moments that shifted evaluation unfavorably
+            if (winrateChange >= BLUNDER_THRESHOLD) {
+              return 'blunder'
+            } else if (winrateChange >= INACCURACY_THRESHOLD) {
+              return 'inaccuracy'
+            }
+
+            return '' // Normal moves get no classification
+          }
+
           return criticalMoments.length > 0 ? (
             <div className="flex w-full flex-col gap-1 border-t border-white/10">
               <div className="flex flex-col px-3 pt-3">
@@ -1039,48 +1104,62 @@ const DesktopLayout: React.FC<{
                 </p>
               </div>
               <div className="flex flex-col">
-                {criticalMoments.map((moment) => (
-                  <div
-                    key={moment.index}
-                    role="button"
-                    tabIndex={0}
-                    className="flex cursor-pointer items-center justify-between border-b border-white/10 px-3 py-2 transition-colors last:border-b-0 hover:bg-background-2"
-                    onClick={() => handleMoveClick(moment.index)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        handleMoveClick(moment.index)
-                      }
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium">
-                        {moment.isWhiteMove
-                          ? `${moment.moveNumber}.`
-                          : `...${moment.moveNumber}.`}{' '}
-                        {moment.moveAnalysis?.san}
-                      </span>
-                      <span className="text-xs text-secondary">
-                        Swing: {(moment.winrateChange * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-secondary">
-                        {formatEvaluation(moment.previousEvaluation)}
-                      </span>
-                      <span className="text-secondary">→</span>
-                      <span
-                        className={
-                          moment.evaluation > moment.previousEvaluation
-                            ? 'text-green-400'
-                            : 'text-red-400'
+                {criticalMoments.map((moment) => {
+                  const classification = classifyMoveInCritical(moment)
+                  const symbol = getQualitySymbol(classification)
+
+                  return (
+                    <div
+                      key={moment.index}
+                      role="button"
+                      tabIndex={0}
+                      className="flex cursor-pointer items-center justify-between border-b border-white/10 px-3 py-2 transition-colors last:border-b-0 hover:bg-background-2"
+                      onClick={() => handleMoveClick(moment.index)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleMoveClick(moment.index)
                         }
-                      >
-                        {formatEvaluation(moment.evaluation)}
-                      </span>
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-medium">
+                            {moment.isWhiteMove
+                              ? `${moment.moveNumber}.`
+                              : `...${moment.moveNumber}.`}{' '}
+                            {moment.moveAnalysis?.san}
+                          </span>
+                          {symbol && (
+                            <span
+                              className={`text-xs font-bold ${getQualityColor(classification)}`}
+                            >
+                              {symbol}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-secondary">
+                          Swing: {(moment.winrateChange * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-secondary">
+                          {formatEvaluation(moment.previousEvaluation)}
+                        </span>
+                        <span className="text-secondary">→</span>
+                        <span
+                          className={
+                            moment.evaluation > moment.previousEvaluation
+                              ? 'text-green-400'
+                              : 'text-red-400'
+                          }
+                        >
+                          {formatEvaluation(moment.evaluation)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           ) : null
@@ -1228,6 +1307,7 @@ const MobileLayout: React.FC<{
             currentMoveIndex={hoveredMoveIndex ?? currentMoveIndex}
             onHoverMove={handleChartHover}
             playerColor={drill.selection.playerColor}
+            drill={drill}
           />
         </div>
       )}

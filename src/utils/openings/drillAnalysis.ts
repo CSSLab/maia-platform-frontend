@@ -16,6 +16,9 @@ import {
   AnalysisEngines,
 } from 'src/utils/analysis'
 
+// Minimum depth for analysis to be considered sufficient for the modal
+const MIN_STOCKFISH_ANALYSIS_DEPTH = 12
+
 // Classification thresholds based on winrate change (same as frontend)
 const MOVE_CLASSIFICATION_THRESHOLDS = {
   BLUNDER_THRESHOLD: 0.1, // 10% winrate drop - significant mistake
@@ -413,38 +416,33 @@ export async function analyzeDrillPerformance(
 
       if (!nextNode.move || !nextNode.san) continue
 
-      // Check if position needs analysis
-      const cachedAnalysis = analysisCache?.get(currentGameNode.fen)
-      const hasAnalysis =
-        cachedAnalysis?.stockfish || currentGameNode.analysis?.stockfish
+      // Check if position needs analysis (either missing or not deep enough)
+      const cachedDepth =
+        analysisCache?.get(currentGameNode.fen)?.stockfish?.depth ?? 0
 
-      if (!hasAnalysis) {
+      const nodeDepth = currentGameNode.analysis?.stockfish?.depth ?? 0
+
+      const hasSufficientAnalysis =
+        Math.max(cachedDepth, nodeDepth) >= MIN_STOCKFISH_ANALYSIS_DEPTH
+
+      if (!hasSufficientAnalysis) {
         positionsToAnalyze.push({ node: currentGameNode, index: i })
       }
     }
 
-    console.log(analysisCache)
-    console.log(positionsToAnalyze)
-
-    // Initialize progress tracking with realistic totals
     const uncachedPositions = positionsToAnalyze.length
     const cachedPositions = totalPositions - uncachedPositions
-    let completedPositions = 0
-    let analyzedUncachedPositions = 0
-
-    // Start with cached positions already "completed" to show realistic progress
-    const initialCompleted = cachedPositions
-
-    onProgress?.({
-      completed: initialCompleted,
-      total: totalPositions,
-      currentStep:
-        uncachedPositions > 0
-          ? `Analyzing ${uncachedPositions} new positions (${cachedPositions} cached)...`
-          : 'Loading cached analysis...',
-    })
+    // Only show progress if there are actually positions to analyze
+    if (uncachedPositions > 0) {
+      onProgress?.({
+        completed: 0,
+        total: uncachedPositions,
+        currentStep: `Analyzing ${uncachedPositions} positions...`,
+      })
+    }
 
     // Analyze each position
+    let analyzedCount = 0
     for (let i = 0; i < gameNodes.length - 1; i++) {
       const currentGameNode = gameNodes[i]
       const nextNode = gameNodes[i + 1]
@@ -452,52 +450,70 @@ export async function analyzeDrillPerformance(
       if (!nextNode.move || !nextNode.san) continue
 
       const isUncached = positionsToAnalyze.some((p) => p.index === i)
-
-      // Only update progress for uncached positions that require actual analysis
-      if (isUncached) {
-        onProgress?.({
-          completed: initialCompleted + analyzedUncachedPositions,
-          total: totalPositions,
-          currentStep: `Analyzing position ${analyzedUncachedPositions + 1}/${uncachedPositions}...`,
-        })
-      }
-
-      // Use the position after the move to determine who made the move
       const chess = new Chess(nextNode.fen)
       const isPlayerMove =
         drillGame.selection.playerColor === 'white'
           ? chess.turn() === 'b' // If Black is to move, White just moved
           : chess.turn() === 'w' // If White is to move, Black just moved
 
-      // Check cache first, then get or calculate Stockfish evaluation
-      let evaluation: StockfishEvaluation | null = null
-      const cachedAnalysis = analysisCache?.get(currentGameNode.fen)
+      // Get Stockfish evaluation, ensuring minimum depth.
+      let evaluation: StockfishEvaluation | null =
+        currentGameNode.analysis?.stockfish || null
 
-      if (cachedAnalysis?.stockfish) {
-        evaluation = cachedAnalysis.stockfish
-      } else if (currentGameNode.analysis?.stockfish) {
-        evaluation = currentGameNode.analysis.stockfish
-      } else {
-        console.log('analyzing', currentGameNode.fen)
-        // Only analyze if not in cache - this should be rare now
-        evaluation = await analyzePositionWithStockfish(
+      // If cache has a deeper evaluation, prefer it
+      const cachedEval = analysisCache?.get(currentGameNode.fen)?.stockfish
+      if (cachedEval && (!evaluation || cachedEval.depth > evaluation.depth)) {
+        evaluation = cachedEval
+        // Save to node for future reuse
+        currentGameNode.addStockfishAnalysis(evaluation, 'maia-1500')
+      }
+
+      // If analysis is missing or not deep enough, (re-)analyze to the required depth.
+      if (!evaluation || evaluation.depth < MIN_STOCKFISH_ANALYSIS_DEPTH) {
+        const deeperEvaluation = await analyzePositionWithStockfish(
           currentGameNode.fen,
           engines,
-          { stockfishDepth: 12, stockfishTimeout: 5000 },
+          {
+            stockfishDepth: MIN_STOCKFISH_ANALYSIS_DEPTH,
+            stockfishTimeout: 10000,
+          }, // Increased timeout for safety
         )
 
-        // Increment uncached analysis counter and update progress
+        // Update node with deeper analysis if successful and it's actually deeper
+        if (
+          deeperEvaluation &&
+          (!evaluation || deeperEvaluation.depth > evaluation.depth)
+        ) {
+          evaluation = deeperEvaluation
+          // This updates the game tree, making the deeper analysis available to the rest of the app
+          currentGameNode.addStockfishAnalysis(evaluation, 'maia-1500') // Use a default model, it's not critical here
+
+          // Store in external cache for future reuse
+          if (analysisCache) {
+            const existingCacheEntry = analysisCache.get(currentGameNode.fen)
+            analysisCache.set(currentGameNode.fen, {
+              fen: currentGameNode.fen,
+              stockfish: evaluation,
+              maia: existingCacheEntry?.maia || null,
+              timestamp: Date.now(),
+            })
+          }
+        }
+
+        // Increment analysis count only for positions that actually needed analysis
         if (isUncached) {
-          analyzedUncachedPositions++
-          // Update progress after completing this analysis
-          onProgress?.({
-            completed: initialCompleted + analyzedUncachedPositions,
-            total: totalPositions,
-            currentStep:
-              analyzedUncachedPositions >= uncachedPositions
-                ? 'Analysis complete!'
-                : `Analyzing position ${analyzedUncachedPositions + 1}/${uncachedPositions}...`,
-          })
+          analyzedCount++
+          // Update progress after completing analysis
+          if (uncachedPositions > 0) {
+            onProgress?.({
+              completed: analyzedCount,
+              total: uncachedPositions,
+              currentStep:
+                analyzedCount >= uncachedPositions
+                  ? 'Analysis complete!'
+                  : `Analyzing position ${analyzedCount}/${uncachedPositions}...`,
+            })
+          }
         }
       }
 
@@ -508,32 +524,35 @@ export async function analyzeDrillPerformance(
         const bestEval = evaluation.model_optimal_cp
         const evaluationLoss = playedMoveEval - bestEval
 
-        // Get Maia best move if available - check cache first
+        // Get Maia best move if available
         let maiaBestMove: string | undefined
         try {
-          if (cachedAnalysis?.maia) {
-            // Use cached Maia analysis
-            const maiaEval = cachedAnalysis.maia
-            if (maiaEval.policy && Object.keys(maiaEval.policy).length > 0) {
-              maiaBestMove = Object.keys(maiaEval.policy).reduce((a, b) =>
-                maiaEval.policy[a] > maiaEval.policy[b] ? a : b,
-              )
-            }
-          } else if (engines.maia && engines.maia.isReady()) {
-            // Only fetch if not cached and Maia is available
+          // Prioritize existing analysis on the node for a standard rating (e.g., 1500)
+          let maiaEval: MaiaEvaluation | null =
+            currentGameNode.analysis.maia?.['maia-1500'] || null
+
+          if (!maiaEval && engines.maia && engines.maia.isReady()) {
             const maiaResult = await engines.maia.batchEvaluate(
               [currentGameNode.fen],
               [1500], // Use 1500 rating for best move
               [0.1],
             )
-            if (maiaResult.result.length > 0) {
-              const maiaEval = maiaResult.result[0]
-              if (maiaEval.policy && Object.keys(maiaEval.policy).length > 0) {
-                maiaBestMove = Object.keys(maiaEval.policy).reduce((a, b) =>
-                  maiaEval.policy[a] > maiaEval.policy[b] ? a : b,
-                )
+            maiaEval =
+              maiaResult.result.length > 0 ? maiaResult.result[0] : null
+
+            // Also add this new analysis to the node to prevent re-fetching
+            if (maiaEval) {
+              if (!currentGameNode.analysis.maia) {
+                currentGameNode.analysis.maia = {}
               }
+              currentGameNode.analysis.maia['maia-1500'] = maiaEval
             }
+          }
+
+          if (maiaEval?.policy && Object.keys(maiaEval.policy).length > 0) {
+            maiaBestMove = Object.keys(maiaEval.policy).reduce((a, b) =>
+              maiaEval.policy[a] > maiaEval.policy[b] ? a : b,
+            )
           }
         } catch (error) {
           console.warn('Failed to get Maia best move:', error)
@@ -584,7 +603,7 @@ export async function analyzeDrillPerformance(
       }
 
       // Track completion but don't update progress bar for cached positions
-      completedPositions++
+      // completedPositions++ // This line is removed as progress is now tracked by uncached positions
     }
 
     // Calculate performance metrics
