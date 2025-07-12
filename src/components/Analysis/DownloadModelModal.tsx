@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { useState } from 'react'
 
 interface Props {
   progress: number
@@ -10,6 +11,17 @@ export const DownloadModelModal: React.FC<Props> = ({
   progress,
   download,
 }: Props) => {
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    if (isDownloading || progress >= 100) return
+    setIsDownloading(true)
+    try {
+      await download()
+    } finally {
+      setIsDownloading(false)
+    }
+  }
   return (
     <motion.div
       className="absolute left-0 top-0 z-20 flex h-screen w-screen flex-col items-center justify-center bg-black/90 px-4 md:px-0"
@@ -77,19 +89,29 @@ export const DownloadModelModal: React.FC<Props> = ({
           <div
             tabIndex={0}
             role="button"
-            className="order-2 flex h-8 cursor-pointer select-none items-center gap-1 self-end rounded bg-human-4 px-3 text-sm transition duration-200 hover:bg-human-4/90 md:order-3 md:h-10 md:px-4 md:text-base"
-            onClick={download}
+            className={`order-2 flex h-8 select-none items-center gap-1 self-end rounded px-3 text-sm transition duration-200 md:order-3 md:h-10 md:px-4 md:text-base ${
+              isDownloading || progress >= 100
+                ? 'cursor-not-allowed bg-human-4/50'
+                : 'cursor-pointer bg-human-4 hover:bg-human-4/90'
+            }`}
+            onClick={handleDownload}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
-                download()
+                handleDownload()
               }
             }}
           >
-            <span className="material-symbols-outlined text-lg md:text-xl">
-              download
-            </span>
+            {isDownloading ? (
+              <span className="material-symbols-outlined animate-spin text-lg md:text-xl">
+                progress_activity
+              </span>
+            ) : (
+              <span className="material-symbols-outlined text-lg md:text-xl">
+                download
+              </span>
+            )}
             <p>
-              Download Maia 2{' '}
+              {isDownloading ? 'Downloading...' : 'Download Maia 2'}{' '}
               <span className="text-xs text-primary/60">(90mb)</span>
             </p>
           </div>
