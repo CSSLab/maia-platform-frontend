@@ -1,4 +1,3 @@
-import { Chess } from 'chess.ts'
 import { Color, TuringGame, TuringSubmissionResult, GameTree } from 'src/types'
 import { buildUrl } from 'src/api'
 

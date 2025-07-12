@@ -305,7 +305,10 @@ const Train: React.FC<Props> = ({
   }, [analysisController.maiaStatus])
 
   useEffect(() => {
-    if (analysisController.stockfishStatus === 'loading' && !stockfishToastId.current) {
+    if (
+      analysisController.stockfishStatus === 'loading' &&
+      !stockfishToastId.current
+    ) {
       stockfishToastId.current = toast.loading('Loading Stockfish Engine...')
     } else if (analysisController.stockfishStatus === 'ready') {
       if (stockfishToastId.current) {

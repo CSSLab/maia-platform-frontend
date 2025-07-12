@@ -65,53 +65,16 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
     <CardWrapper>
       <motion.div
         className="flex h-full min-h-[140px] cursor-pointer select-none flex-col items-center justify-center gap-3 rounded-md border-none bg-background-2 p-4 text-center hover:bg-human-4/20"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{
-          duration: 0.3,
-          delay: 0.2 + index * 0.1,
-          ease: 'easeOut',
-        }}
         whileHover={{
           scale: 1.03,
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           transition: { duration: 0.2 },
         }}
       >
-        <motion.div
-          className="w-10"
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{
-            duration: 0.3,
-            delay: 0.3 + index * 0.1,
-          }}
-        >
-          {icon}
-        </motion.div>
+        <motion.div className="w-10">{icon}</motion.div>
         <div className="flex flex-col">
-          <motion.h2
-            className="text-lg font-bold"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{
-              duration: 0.3,
-              delay: 0.4 + index * 0.1,
-            }}
-          >
-            {title}
-          </motion.h2>
-          <motion.p
-            className="text-xs"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{
-              duration: 0.3,
-              delay: 0.5 + index * 0.1,
-            }}
-          >
-            {description}
-          </motion.p>
+          <motion.h2 className="text-lg font-bold">{title}</motion.h2>
+          <motion.p className="text-xs">{description}</motion.p>
         </div>
       </motion.div>
     </CardWrapper>
@@ -148,47 +111,28 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
         <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">
           <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[40%] md:gap-8">
             <div className="flex flex-col gap-3 md:gap-4">
-              <motion.h1
-                className="text-4xl font-bold leading-tight md:text-5xl"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: 'easeOut' }}
-              >
+              <motion.h1 className="text-4xl font-bold leading-tight md:text-5xl">
                 A human-like chess engine
               </motion.h1>
-              <motion.p
-                className="text-xl text-primary/80 md:text-2xl"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.1, ease: 'easeOut' }}
-              >
+              <motion.p className="text-xl text-primary/80 md:text-2xl">
                 Maia is a neural network chess engine with a more human-like
                 style, trained from online human games.
               </motion.p>
             </div>
-            <motion.div
-              className="flex flex-col gap-4 sm:flex-row"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2, ease: 'easeOut' }}
-            >
+            <motion.div className="flex flex-col gap-4 sm:flex-row">
               <motion.button
-                className="flex items-center justify-center gap-2 rounded-md bg-human-4 px-6 py-3 text-white hover:bg-opacity-90"
+                className="flex items-center justify-center gap-2 rounded-md border border-human-4 bg-human-4/80 px-6 py-3 text-white transition duration-200 hover:bg-human-4"
                 onClick={scrollHandler}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.98 }}
-                transition={{ duration: 0.2 }}
               >
                 <p>Learn More</p>
-                <i className="h-4">{ArrowIcon}</i>
+                <span className="material-symbols-outlined text-base text-primary">
+                  keyboard_double_arrow_down
+                </span>
               </motion.button>
               {!user?.lichessId && (
                 <motion.button
-                  className="flex items-center justify-center gap-2 rounded-md border border-background-2 bg-background-1 px-6 py-3 hover:bg-background-2"
+                  className="flex items-center justify-center gap-2 rounded-md border border-background-2 bg-background-1/60 px-6 py-3 transition duration-200 hover:bg-background-1"
                   onClick={() => connectLichess()}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
                 >
                   Connect with Lichess
                 </motion.button>
@@ -242,12 +186,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
             />
           </div>
         </div>
-        <motion.div
-          className="grid grid-cols-3 gap-6 px-2 md:flex"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3 }}
-        >
+        <motion.div className="grid grid-cols-3 gap-6 px-2 md:flex">
           <p className="text-center text-base text-primary/80">
             <AnimatedNumber
               value={globalStats?.play_moves_total || 0}
@@ -281,12 +220,7 @@ function BetaBlurb() {
   return (
     <div className="mt-2 flex items-center justify-center md:mt-8">
       {user?.lichessId ? (
-        <motion.div
-          className="flex flex-row items-center gap-3 bg-engine-3 p-2 px-6 transition md:mt-0 md:rounded-full"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
+        <motion.div className="flex flex-row items-center gap-3 bg-engine-3 p-2 px-6 transition md:mt-0 md:rounded-full">
           <div className="*:h-5 *:w-5">{SunIcon}</div>
           <p>
             Thanks for testing the Maia Chess beta! Join our Discord{' '}
@@ -302,12 +236,7 @@ function BetaBlurb() {
           </p>
         </motion.div>
       ) : (
-        <motion.div
-          className="flex flex-row items-center gap-3 bg-human-4 p-2 px-6 transition md:mt-0 md:rounded-full"
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
+        <motion.div className="flex flex-row items-center gap-3 bg-human-4 p-2 px-6 transition md:mt-0 md:rounded-full">
           <div className="*:h-5 *:w-5">{SunIcon}</div>
           <p>
             Maia Chess is in private beta. Sign up{' '}
