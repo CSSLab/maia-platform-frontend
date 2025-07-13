@@ -907,20 +907,28 @@ export const useOpeningDrillController = (
           // Move already exists, just navigate to it
           newNode = existingChild
         } else {
-          // If we're making a move from an earlier position, clear the main line from this point forward
-          // This allows overwriting the previous line when making different moves
-          if (nodeToMoveFrom.mainChild) {
-            // Remove all children to clear the main line from this point
-            nodeToMoveFrom.removeAllChildren()
+          // Use analysis page logic: check if move matches main child, if not create variation
+          if (nodeToMoveFrom.mainChild?.move === moveUci) {
+            // Move matches main line, just navigate to it
+            newNode = nodeToMoveFrom.mainChild
+          } else if (nodeToMoveFrom.mainChild) {
+            // There's already a main child with a different move, create variation
+            newNode = controller.gameTree.addVariation(
+              nodeToMoveFrom,
+              chess.fen(),
+              moveUci,
+              moveObj.san,
+              currentMaiaModel,
+            )
+          } else {
+            // No main child exists, this move becomes the main line
+            newNode = controller.gameTree.addMainMove(
+              nodeToMoveFrom,
+              chess.fen(),
+              moveUci,
+              moveObj.san,
+            )
           }
-
-          // Add the new move as the main line continuation
-          newNode = controller.gameTree.addMainMove(
-            nodeToMoveFrom,
-            chess.fen(),
-            moveUci,
-            moveObj.san,
-          )
         }
 
         if (newNode) {

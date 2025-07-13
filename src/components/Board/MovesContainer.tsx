@@ -131,11 +131,6 @@ export const MovesContainer: React.FC<Props> = (props) => {
   const baseController = useBaseTreeController(type)
 
   const mainLineNodes = useMemo(() => {
-    // If we have a current node, show the path to that node (including variations)
-    // Otherwise, fallback to the main line
-    if (baseController.currentNode) {
-      return baseController.currentNode.getPath()
-    }
     return baseController.gameTree.getMainLine() ?? game.tree.getMainLine()
   }, [game, type, baseController.gameTree, baseController.currentNode])
 

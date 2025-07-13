@@ -340,16 +340,12 @@ const OpeningsPage: NextPage = () => {
           (moveAttempt.promotion ? moveAttempt.promotion : '')
         const san = moveAttempt.san
 
-        // Check if this move already exists as a child
-        const existingChild = controller.currentNode.children.find(
-          (child) => child.move === moveString,
-        )
-
-        if (existingChild) {
-          // Move already exists, just navigate to it
-          controller.setCurrentNode(existingChild)
+        // Follow the same logic as analysis page: check main child first, then create variation
+        if (controller.currentNode.mainChild?.move === moveString) {
+          // Move matches main line, just navigate to it
+          controller.setCurrentNode(controller.currentNode.mainChild)
         } else {
-          // Add new variation to the original game tree
+          // Create variation for different move
           const newVariation = controller.gameTree.addVariation(
             controller.currentNode,
             newFen,
@@ -526,7 +522,6 @@ const OpeningsPage: NextPage = () => {
                         moves: movesForContainer,
                       }}
                       type="analysis"
-                      showAnnotations={false}
                     />
                   </div>
                   <div className="border-t border-white/10">
@@ -845,7 +840,6 @@ const OpeningsPage: NextPage = () => {
                     moves: movesForContainer,
                   }}
                   type="analysis"
-                  showAnnotations={false}
                 />
               </div>
             )}
