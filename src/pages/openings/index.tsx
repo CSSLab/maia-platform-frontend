@@ -650,15 +650,14 @@ const OpeningsPage: NextPage = () => {
                     />
                   </div>
                 </div>
-                {controller.remainingDrills.length > 1 &&
-                  !controller.areAllDrillsCompleted && (
-                    <button
-                      onClick={controller.moveToNextDrill}
-                      className="rounded bg-human-4 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80"
-                    >
-                      Next Drill
-                    </button>
-                  )}
+                {controller.areAllDrillsCompleted && (
+                  <button
+                    onClick={controller.showSummary}
+                    className="rounded bg-human-3 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-3/80"
+                  >
+                    View Summary
+                  </button>
+                )}
                 {controller.currentPerformanceData &&
                   !controller.showPerformanceModal && (
                     <button
@@ -668,14 +667,15 @@ const OpeningsPage: NextPage = () => {
                       View Performance
                     </button>
                   )}
-                {controller.areAllDrillsCompleted && (
-                  <button
-                    onClick={controller.showSummary}
-                    className="rounded bg-human-3 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-3/80"
-                  >
-                    View Summary
-                  </button>
-                )}
+                {controller.remainingDrills.length > 1 &&
+                  !controller.areAllDrillsCompleted && (
+                    <button
+                      onClick={controller.moveToNextDrill}
+                      className="rounded bg-human-4 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80"
+                    >
+                      Next Drill
+                    </button>
+                  )}
               </div>
             )}
           </div>
@@ -863,15 +863,14 @@ const OpeningsPage: NextPage = () => {
 
             {/* Action Buttons */}
             <div className="flex justify-center px-2">
-              {controller.remainingDrills.length > 1 &&
-                !controller.areAllDrillsCompleted && (
-                  <button
-                    onClick={controller.moveToNextDrill}
-                    className="rounded bg-human-4 px-6 py-2 text-sm font-medium"
-                  >
-                    Next Drill
-                  </button>
-                )}
+              {controller.areAllDrillsCompleted && (
+                <button
+                  onClick={controller.showSummary}
+                  className="rounded bg-human-3 px-6 py-2 text-sm font-medium"
+                >
+                  View Summary
+                </button>
+              )}
               {controller.currentPerformanceData &&
                 !controller.showPerformanceModal && (
                   <button
@@ -881,14 +880,15 @@ const OpeningsPage: NextPage = () => {
                     View Performance
                   </button>
                 )}
-              {controller.areAllDrillsCompleted && (
-                <button
-                  onClick={controller.showSummary}
-                  className="rounded bg-human-3 px-6 py-2 text-sm font-medium"
-                >
-                  View Summary
-                </button>
-              )}
+              {controller.remainingDrills.length > 1 &&
+                !controller.areAllDrillsCompleted && (
+                  <button
+                    onClick={controller.moveToNextDrill}
+                    className="rounded bg-human-4 px-6 py-2 text-sm font-medium"
+                  >
+                    Next Drill
+                  </button>
+                )}
             </div>
 
             {/* Moves Container */}
