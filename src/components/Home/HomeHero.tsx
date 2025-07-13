@@ -112,7 +112,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
           <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[40%] md:gap-8">
             <div className="flex flex-col gap-3 md:gap-4">
               <motion.h1 className="text-4xl font-bold leading-tight md:text-5xl">
-                Experience human-like chess AI
+                The human chess AI
               </motion.h1>
               <motion.p className="text-xl text-primary/80 md:text-2xl">
                 Maia is a neural network chess model that captures human style.
