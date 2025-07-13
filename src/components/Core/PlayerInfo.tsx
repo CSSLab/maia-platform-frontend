@@ -42,12 +42,12 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
         )}
         {termination === color ? (
           <p className="text-engine-3">1</p>
-        ) : termination !== 'none' ? (
-          <p className="text-human-3">0</p>
         ) : termination === undefined ? (
           <></>
+        ) : termination !== 'none' ? (
+          <p className="text-human-3">0</p>
         ) : (
-          <p>1/2</p>
+          <p className="text-secondary">½</p>
         )}
       </div>
     </div>

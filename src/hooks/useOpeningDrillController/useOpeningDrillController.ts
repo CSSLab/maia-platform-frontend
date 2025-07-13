@@ -524,6 +524,7 @@ export const useOpeningDrillController = (
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setContinueAnalyzingMode(false) // Reset continue analyzing mode for next drill
+    setAnalysisEnabled(false) // Automatically disable analysis for new drill
 
     // Reset background analysis progress for the new drill
     setAnalysisProgress({ total: 0, completed: 0, currentMove: null })
@@ -872,7 +873,7 @@ export const useOpeningDrillController = (
       }
 
       setCurrentDrillGame(newGame)
-      setAnalysisEnabled(false)
+      setAnalysisEnabled(false) // Automatically disable analysis for new drill
       setContinueAnalyzingMode(false)
       setWaitingForMaiaResponse(false)
 
@@ -1400,6 +1401,7 @@ export const useOpeningDrillController = (
     }
 
     setCurrentDrillGame(resetGame)
+    setAnalysisEnabled(false) // Automatically disable analysis when resetting drill
     setWaitingForMaiaResponse(false)
     setContinueAnalyzingMode(false) // Reset continue analyzing mode when resetting drill
   }, [currentDrill])

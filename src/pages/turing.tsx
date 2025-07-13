@@ -80,7 +80,7 @@ const Turing: React.FC<Props> = (props: Props) => {
           ) : game.termination.winner === 'black' ? (
             <span className="text-human-3">0</span>
           ) : (
-            <span>1/2</span>
+            <span className="text-secondary">½</span>
           )}
         </p>
       </div>
@@ -92,7 +92,7 @@ const Turing: React.FC<Props> = (props: Props) => {
           ) : game.termination.winner === 'white' ? (
             <span className="text-human-3">0</span>
           ) : (
-            <span>1/2</span>
+            <span className="text-secondary">½</span>
           )}
         </p>
       </div>{' '}

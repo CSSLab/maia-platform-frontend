@@ -562,7 +562,7 @@ const Analysis: React.FC<Props> = ({
               ) : analyzedGame.termination === undefined ? (
                 <></>
               ) : (
-                <p className="text-xs">1/2</p>
+                <p className="text-xs text-secondary">½</p>
               )}
             </div>
           ),
