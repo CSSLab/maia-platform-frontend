@@ -8,7 +8,7 @@ import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 
 import { WindowSizeContext, TreeControllerContext } from 'src/contexts'
-import { OpeningSelection, AnalyzedGame, DrillConfiguration } from 'src/types'
+import { AnalyzedGame, DrillConfiguration } from 'src/types'
 import openings from 'src/utils/openings/openings.json'
 import {
   OpeningSelectionModal,
@@ -60,8 +60,8 @@ const OpeningsPage: NextPage = () => {
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
 
   // Pre-load engines when page loads
-  const { status: maiaStatus } = useMaiaEngine()
-  const { streamEvaluations } = useStockfishEngine()
+  useMaiaEngine()
+  useStockfishEngine()
 
   // Create empty configuration if none exists
   const emptyConfiguration: DrillConfiguration = {
@@ -315,50 +315,17 @@ const OpeningsPage: NextPage = () => {
     }
   }, [controller.currentDrill])
 
-  // Handle player moves
-  const onPlayerMakeMove = useCallback(
-    async (playedMove: [string, string] | null) => {
-      if (!playedMove || !controller.isPlayerTurn) return
-
-      const availableMoves = getAvailableMovesArray(controller.moves)
-
-      if (requiresPromotion(playedMove, availableMoves)) {
-        setPromotionFromTo(playedMove)
-        return
-      }
-
-      const moveUci = playedMove[0] + playedMove[1]
-      await controller.makePlayerMove(moveUci)
-    },
-    [controller],
-  )
-
-  const onPlayerSelectPromotion = useCallback(
-    async (piece: string) => {
-      if (!promotionFromTo) return
-
-      setPromotionFromTo(null)
-      const moveUci = promotionFromTo[0] + promotionFromTo[1] + piece
-      await controller.makePlayerMove(moveUci)
-    },
-    [promotionFromTo, controller],
-  )
-
-  const onSelectSquare = useCallback(() => {
-    // No special handling needed for opening drills
-  }, [])
-
   // Make move function for analysis components
   const makeMove = useCallback(
     async (move: string) => {
       if (
         !controller.analysisEnabled ||
-        !analysisController.currentNode ||
-        !analyzedGame?.tree
+        !controller.currentNode ||
+        !controller.gameTree
       )
         return
 
-      const chess = new Chess(analysisController.currentNode.fen)
+      const chess = new Chess(controller.currentNode.fen)
       const moveAttempt = chess.move({
         from: move.slice(0, 2),
         to: move.slice(2, 4),
@@ -373,22 +340,104 @@ const OpeningsPage: NextPage = () => {
           (moveAttempt.promotion ? moveAttempt.promotion : '')
         const san = moveAttempt.san
 
-        if (analysisController.currentNode.mainChild?.move === moveString) {
-          analysisController.goToNode(analysisController.currentNode.mainChild)
+        // Check if this move already exists as a child
+        const existingChild = controller.currentNode.children.find(
+          (child) => child.move === moveString,
+        )
+
+        if (existingChild) {
+          // Move already exists, just navigate to it
+          controller.setCurrentNode(existingChild)
         } else {
-          const newVariation = analyzedGame.tree.addVariation(
-            analysisController.currentNode,
+          // Add new variation to the original game tree
+          const newVariation = controller.gameTree.addVariation(
+            controller.currentNode,
             newFen,
             moveString,
             san,
             analysisController.currentMaiaModel,
           )
-          analysisController.goToNode(newVariation)
+          controller.setCurrentNode(newVariation)
         }
       }
     },
-    [controller.analysisEnabled, analysisController, analyzedGame],
+    [controller, analysisController.currentMaiaModel],
   )
+
+  // Handle player moves
+  const onPlayerMakeMove = useCallback(
+    async (playedMove: [string, string] | null) => {
+      if (!playedMove) return
+
+      // In post-drill analysis mode, allow moves from both sides
+      if (controller.continueAnalyzingMode) {
+        // Calculate available moves from current drill controller position
+        const chess = new Chess(controller.currentNode?.fen || '')
+        const legalMoves = chess.moves({ verbose: true })
+        const availableMoves = new Map<string, string[]>()
+
+        legalMoves.forEach((move) => {
+          const { from, to } = move
+          availableMoves.set(
+            from,
+            (availableMoves.get(from) ?? []).concat([to]),
+          )
+        })
+
+        // Convert Map to array format for requiresPromotion function
+        const movesArray: { from: string; to: string }[] = []
+        availableMoves.forEach((destinations, from) => {
+          destinations.forEach((to) => {
+            movesArray.push({ from, to })
+          })
+        })
+
+        if (requiresPromotion(playedMove, movesArray)) {
+          setPromotionFromTo(playedMove)
+          return
+        }
+
+        const moveUci = playedMove[0] + playedMove[1]
+        await makeMove(moveUci)
+        return
+      }
+
+      // In drill mode, only allow moves when it's the player's turn
+      if (!controller.isPlayerTurn) return
+
+      const availableMoves = getAvailableMovesArray(controller.moves)
+
+      if (requiresPromotion(playedMove, availableMoves)) {
+        setPromotionFromTo(playedMove)
+        return
+      }
+
+      const moveUci = playedMove[0] + playedMove[1]
+      await controller.makePlayerMove(moveUci)
+    },
+    [controller, makeMove],
+  )
+
+  const onPlayerSelectPromotion = useCallback(
+    async (piece: string) => {
+      if (!promotionFromTo) return
+
+      setPromotionFromTo(null)
+      const moveUci = promotionFromTo[0] + promotionFromTo[1] + piece
+
+      // In post-drill analysis mode, use makeMove for variations
+      if (controller.continueAnalyzingMode) {
+        await makeMove(moveUci)
+      } else {
+        await controller.makePlayerMove(moveUci)
+      }
+    },
+    [promotionFromTo, controller, makeMove],
+  )
+
+  const onSelectSquare = useCallback(() => {
+    // No special handling needed for opening drills
+  }, [])
 
   // Show download modal if Maia model needs to be downloaded
   if (
@@ -508,7 +557,29 @@ const OpeningsPage: NextPage = () => {
                 <GameBoard
                   currentNode={controller.currentNode}
                   orientation={controller.orientation}
-                  availableMoves={controller.moves}
+                  availableMoves={
+                    controller.analysisEnabled ||
+                    controller.continueAnalyzingMode
+                      ? (() => {
+                          const currentFen = controller.currentNode?.fen
+                          if (!currentFen) return new Map<string, string[]>()
+
+                          const moveMap = new Map<string, string[]>()
+                          const chess = new Chess(currentFen)
+                          const legalMoves = chess.moves({ verbose: true })
+
+                          legalMoves.forEach((move) => {
+                            const { from, to } = move
+                            moveMap.set(
+                              from,
+                              (moveMap.get(from) ?? []).concat([to]),
+                            )
+                          })
+
+                          return moveMap
+                        })()
+                      : controller.moves
+                  }
                   onPlayerMakeMove={onPlayerMakeMove}
                   onSelectSquare={onSelectSquare}
                   shapes={hoverArrow ? [...arrows, hoverArrow] : [...arrows]}
@@ -653,7 +724,28 @@ const OpeningsPage: NextPage = () => {
               <GameBoard
                 currentNode={controller.currentNode}
                 orientation={controller.orientation}
-                availableMoves={controller.moves}
+                availableMoves={
+                  controller.analysisEnabled || controller.continueAnalyzingMode
+                    ? (() => {
+                        const currentFen = controller.currentNode?.fen
+                        if (!currentFen) return new Map<string, string[]>()
+
+                        const moveMap = new Map<string, string[]>()
+                        const chess = new Chess(currentFen)
+                        const legalMoves = chess.moves({ verbose: true })
+
+                        legalMoves.forEach((move) => {
+                          const { from, to } = move
+                          moveMap.set(
+                            from,
+                            (moveMap.get(from) ?? []).concat([to]),
+                          )
+                        })
+
+                        return moveMap
+                      })()
+                    : controller.moves
+                }
                 onPlayerMakeMove={onPlayerMakeMove}
                 onSelectSquare={onSelectSquare}
                 shapes={hoverArrow ? [...arrows, hoverArrow] : [...arrows]}

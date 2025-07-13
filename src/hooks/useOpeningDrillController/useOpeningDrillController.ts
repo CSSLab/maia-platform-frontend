@@ -551,6 +551,7 @@ export const useOpeningDrillController = (
     setShowPerformanceModal(false)
     setAnalysisEnabled(true) // Auto-enable analysis
     setContinueAnalyzingMode(true) // Allow moves beyond target count
+    setWaitingForMaiaResponse(false) // Clear waiting flag to stop Maia moves
   }, [])
 
   // Continue analyzing from final modal - just enable analysis mode
@@ -558,6 +559,7 @@ export const useOpeningDrillController = (
     setShowFinalModal(false)
     setAnalysisEnabled(true) // Auto-enable analysis
     setContinueAnalyzingMode(true) // Allow moves beyond target count
+    setWaitingForMaiaResponse(false) // Clear waiting flag to stop Maia moves
   }, [])
 
   // Show final summary modal
@@ -990,7 +992,10 @@ export const useOpeningDrillController = (
           }
 
           // Set flag to indicate we're waiting for Maia's response (after player move, it becomes Maia's turn)
-          setWaitingForMaiaResponse(true)
+          // But only if not in post-drill analysis mode
+          if (!continueAnalyzingMode) {
+            setWaitingForMaiaResponse(true)
+          }
 
           // Check if drill is complete after this move (only if not in continue analyzing mode)
           if (
@@ -1177,7 +1182,8 @@ export const useOpeningDrillController = (
       !isPlayerTurn &&
       waitingForMaiaResponse &&
       currentDrillGame.moves.length > 0 && // Only respond if moves have been made
-      !isDrillComplete
+      !isDrillComplete &&
+      !continueAnalyzingMode // Don't make Maia moves in post-drill analysis mode
     ) {
       const timeoutId = setTimeout(() => {
         makeMaiaMoveRef.current(controller.currentNode)
@@ -1192,6 +1198,7 @@ export const useOpeningDrillController = (
     isPlayerTurn,
     waitingForMaiaResponse,
     isDrillComplete,
+    continueAnalyzingMode, // Add this dependency
   ])
 
   // Handle initial Maia move if needed
@@ -1204,7 +1211,7 @@ export const useOpeningDrillController = (
       currentDrillGame.openingEndNode &&
       controller.currentNode === currentDrillGame.openingEndNode &&
       !isDrillComplete &&
-      !continueAnalyzingMode // Don't trigger when in analysis mode (like when loading completed drills)
+      !continueAnalyzingMode // Don't trigger when in post-drill analysis mode (like when loading completed drills)
     ) {
       // It's Maia's turn to move first from the opening position
       setWaitingForMaiaResponse(true)
@@ -1296,6 +1303,7 @@ export const useOpeningDrillController = (
     analysisEnabled,
     setAnalysisEnabled,
     analysisProgress,
+    continueAnalyzingMode,
 
     // Modal states
     showPerformanceModal,
