@@ -48,6 +48,10 @@ import { GameInfo } from 'src/components/Misc/GameInfo'
 import Head from 'next/head'
 import toast from 'react-hot-toast'
 import type { NextPage } from 'next'
+import {
+  trackAnalysisGameLoaded,
+  trackMaiaModelChanged,
+} from 'src/utils/analytics'
 import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import { Chess, PieceSymbol } from 'chess.ts'
@@ -102,6 +106,14 @@ const AnalysisPage: NextPage = () => {
         return
       }
       if (setCurrentMove) setCurrentMove(0)
+
+      // Track game loaded
+      trackAnalysisGameLoaded(
+        'lichess',
+        game.moves?.length || 0,
+        game.maiaEvaluations?.length > 0 ||
+          game.stockfishEvaluations?.length > 0,
+      )
 
       setAnalyzedGame({ ...game, type: 'tournament' })
       setCurrentId(newId)

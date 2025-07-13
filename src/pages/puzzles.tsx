@@ -24,6 +24,12 @@ import {
   getTrainingPlayerStats,
 } from 'src/api'
 import {
+  trackPuzzleStarted,
+  trackPuzzleMoveAttempted,
+  trackPuzzleCompleted,
+  trackPuzzleAnalysisUnlocked,
+} from 'src/utils/analytics'
+import {
   Loading,
   GameInfo,
   Feedback,
@@ -96,12 +102,15 @@ const TrainPage: NextPage = () => {
       return
     }
 
+    // Track puzzle started
+    trackPuzzleStarted(game.id, stats?.rating || 0)
+
     setStatus('default')
     setUserGuesses([])
     setCurrentIndex(trainingGames.length)
     setTrainingGames(trainingGames.concat([game]))
     setPreviousGameResults(previousGameResults.concat([{ ...game }]))
-  }, [trainingGames, previousGameResults, router])
+  }, [trainingGames, previousGameResults, router, stats?.rating])
 
   const logGuess = useCallback(
     async (
@@ -123,6 +132,12 @@ const TrainPage: NextPage = () => {
       setUserGuesses(newGuesses)
       setStatus('loading')
 
+      // Track move attempt if a move was made
+      if (move) {
+        const moveUci = move[0] + move[1]
+        trackPuzzleMoveAttempted(gameId, moveUci, newGuesses.length, false) // Will update correctness after response
+      }
+
       const response = await logPuzzleGuesses(
         gameId,
         newGuesses,
@@ -141,6 +156,16 @@ const TrainPage: NextPage = () => {
               : game
           })
         })
+
+        // Track puzzle completion (forfeit)
+        trackPuzzleCompleted(
+          gameId,
+          'forfeit',
+          newGuesses.length,
+          0, // No time tracking for forfeit
+          response.puzzle_elo,
+          response.puzzle_elo - rating,
+        )
 
         // If the user forfeits, update their stats
         if (userGuesses.length === 0) {
@@ -174,6 +199,16 @@ const TrainPage: NextPage = () => {
             })
           })
         }
+
+        // Track puzzle completion (correct/incorrect)
+        trackPuzzleCompleted(
+          gameId,
+          result ? 'correct' : 'forfeit',
+          newGuesses.length,
+          0, // No time tracking implemented yet
+          response.puzzle_elo,
+          response.puzzle_elo - rating,
+        )
 
         updateRating(response.puzzle_elo)
         incrementStats(1, result ? 1 : 0)
@@ -643,7 +678,11 @@ const Train: React.FC<Props> = ({
                 )}
               </p>
             </GameInfo>
-            <ContinueAgainstMaia launchContinue={launchContinue} />
+            <ContinueAgainstMaia
+              launchContinue={launchContinue}
+              sourcePage="puzzles"
+              currentFen={controller.currentNode?.fen || ''}
+            />
             {gamesController}
             <StatsDisplay stats={stats} />
           </div>
@@ -1132,7 +1171,11 @@ const Train: React.FC<Props> = ({
               />
             </div>
             <StatsDisplay stats={stats} />
-            <ContinueAgainstMaia launchContinue={launchContinue} />
+            <ContinueAgainstMaia
+              launchContinue={launchContinue}
+              sourcePage="puzzles"
+              currentFen={controller.currentNode?.fen || ''}
+            />
             <div
               id="analysis"
               className="flex w-full flex-col gap-1 overflow-hidden"

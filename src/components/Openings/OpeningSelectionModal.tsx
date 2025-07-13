@@ -12,6 +12,15 @@ import { ModalContainer } from '../Misc/ModalContainer'
 import { useTour } from 'src/contexts'
 import { tourConfigs } from 'src/config/tours'
 import { WindowSizeContext } from 'src/contexts/WindowSizeContext'
+import {
+  trackOpeningSelectionModalOpened,
+  trackOpeningSearchUsed,
+  trackOpeningPreviewSelected,
+  trackOpeningQuickAddUsed,
+  trackOpeningConfiguredAndAdded,
+  trackOpeningRemovedFromSelection,
+  trackDrillConfigurationCompleted,
+} from 'src/utils/analytics'
 
 const MAIA_VERSIONS = [
   { id: 'maia_kdd_1100', name: 'Maia 1100' },
@@ -166,6 +175,7 @@ const BrowsePanel: React.FC<{
                 onClick={() => {
                   setPreviewOpening(opening)
                   setPreviewVariation(null)
+                  trackOpeningPreviewSelected(opening.name, opening.id, false)
                   if (window.innerWidth < 768) {
                     setActiveTab('preview')
                   }
@@ -174,6 +184,7 @@ const BrowsePanel: React.FC<{
                   if (e.key === 'Enter' || e.key === ' ') {
                     setPreviewOpening(opening)
                     setPreviewVariation(null)
+                    trackOpeningPreviewSelected(opening.name, opening.id, false)
                     if (window.innerWidth < 768) {
                       setActiveTab('preview')
                     }
@@ -224,6 +235,12 @@ const BrowsePanel: React.FC<{
                   onClick={() => {
                     setPreviewOpening(opening)
                     setPreviewVariation(variation)
+                    trackOpeningPreviewSelected(
+                      opening.name,
+                      opening.id,
+                      true,
+                      variation.name,
+                    )
                     if (window.innerWidth < 768) {
                       setActiveTab('preview')
                     }
@@ -232,6 +249,12 @@ const BrowsePanel: React.FC<{
                     if (e.key === 'Enter' || e.key === ' ') {
                       setPreviewOpening(opening)
                       setPreviewVariation(variation)
+                      trackOpeningPreviewSelected(
+                        opening.name,
+                        opening.id,
+                        true,
+                        variation.name,
+                      )
                       if (window.innerWidth < 768) {
                         setActiveTab('preview')
                       }
@@ -598,6 +621,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState<MobileTab>('browse')
   const [initialTourCheck, setInitialTourCheck] = useState(false)
+  const [hasTrackedModalOpen, setHasTrackedModalOpen] = useState(false)
 
   // Check if user has completed the tour on initial load
   useEffect(() => {
@@ -619,6 +643,14 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     }
   }, [initialTourCheck, startTour])
 
+  // Track modal opened
+  useEffect(() => {
+    if (!hasTrackedModalOpen) {
+      trackOpeningSelectionModalOpened('page_load', initialSelections.length)
+      setHasTrackedModalOpen(true)
+    }
+  }, [hasTrackedModalOpen, initialSelections.length])
+
   const handleStartTour = () => {
     startTour(tourConfigs.openingDrill.id, tourConfigs.openingDrill.steps, true)
   }
@@ -629,7 +661,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
 
   const filteredOpenings = useMemo(() => {
     if (!searchTerm) return openings
-    return openings.filter(
+    const filtered = openings.filter(
       (opening) =>
         opening.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         opening.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -637,6 +669,13 @@ export const OpeningSelectionModal: React.FC<Props> = ({
           variation.name.toLowerCase().includes(searchTerm.toLowerCase()),
         ),
     )
+
+    // Track search usage
+    if (searchTerm) {
+      trackOpeningSearchUsed(searchTerm, filtered.length)
+    }
+
+    return filtered
   }, [openings, searchTerm])
 
   const isDuplicateSelection = (
@@ -664,6 +703,15 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       targetMoveNumber,
     }
 
+    // Track opening configuration and addition
+    trackOpeningConfiguredAndAdded(
+      previewOpening.name,
+      selectedColor,
+      selectedMaiaVersion.id,
+      targetMoveNumber,
+      previewVariation?.name,
+    )
+
     setSelections([...selections, newSelection])
     // Switch to selected tab on mobile after adding
     if (window.innerWidth < 768) {
@@ -672,6 +720,13 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   }
 
   const removeSelection = (selectionId: string) => {
+    const selectionToRemove = selections.find((s) => s.id === selectionId)
+    if (selectionToRemove) {
+      trackOpeningRemovedFromSelection(
+        selectionToRemove.opening.name,
+        selectionId,
+      )
+    }
     setSelections(selections.filter((s) => s.id !== selectionId))
   }
 
@@ -680,6 +735,14 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     variation: OpeningVariation | null,
   ) => {
     if (isDuplicateSelection(opening, variation)) return
+
+    // Track quick add usage
+    trackOpeningQuickAddUsed(
+      opening.name,
+      selectedColor,
+      selectedMaiaVersion.id,
+      targetMoveNumber,
+    )
 
     const newSelection: OpeningSelection = {
       id: `${opening.id}-${variation?.id || 'main'}-${selectedColor}-${selectedMaiaVersion.id}-${targetMoveNumber}`,
@@ -757,6 +820,32 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         drillCount,
         drillSequence,
       }
+
+      // Track drill configuration completion
+      const uniqueOpenings = new Set(selections.map((s) => s.opening.id)).size
+      const averageTargetMoves =
+        selections.reduce((sum, s) => sum + s.targetMoveNumber, 0) /
+        selections.length
+      const maiaVersionsUsed = [
+        ...new Set(selections.map((s) => s.maiaVersion)),
+      ]
+      const colorDistribution = selections.reduce(
+        (acc, s) => {
+          acc[s.playerColor]++
+          return acc
+        },
+        { white: 0, black: 0 },
+      )
+
+      trackDrillConfigurationCompleted(
+        selections.length,
+        drillCount,
+        uniqueOpenings,
+        averageTargetMoves,
+        maiaVersionsUsed,
+        colorDistribution,
+      )
+
       onComplete(configuration)
     }
   }

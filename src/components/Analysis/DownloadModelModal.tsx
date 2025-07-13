@@ -1,6 +1,12 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import {
+  trackDownloadModelModalShown,
+  trackDownloadModelInitiated,
+  trackDownloadModelCompleted,
+  trackDownloadModelFailed,
+} from 'src/utils/analytics'
 
 interface Props {
   progress: number
@@ -12,10 +18,20 @@ export const DownloadModelModal: React.FC<Props> = ({
   download,
 }: Props) => {
   const [isDownloading, setIsDownloading] = useState(false)
+  const downloadStartTime = useRef<number | null>(null)
+  const hasTrackedModalShown = useRef(false)
 
   useEffect(() => {
     const originalOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+
+    // Track modal shown event once
+    if (!hasTrackedModalShown.current) {
+      const currentPage =
+        typeof window !== 'undefined' ? window.location.pathname : 'unknown'
+      trackDownloadModelModalShown('page_load', currentPage)
+      hasTrackedModalShown.current = true
+    }
 
     return () => {
       document.body.style.overflow = originalOverflow
@@ -25,8 +41,26 @@ export const DownloadModelModal: React.FC<Props> = ({
   const handleDownload = async () => {
     if (isDownloading || progress >= 100) return
     setIsDownloading(true)
+    downloadStartTime.current = Date.now()
+
+    const currentPage =
+      typeof window !== 'undefined' ? window.location.pathname : 'unknown'
+    trackDownloadModelInitiated(currentPage)
+
     try {
       await download()
+
+      // Track successful download
+      if (downloadStartTime.current) {
+        const downloadTime = (Date.now() - downloadStartTime.current) / 1000
+        trackDownloadModelCompleted(downloadTime, currentPage)
+      }
+    } catch (error) {
+      // Track failed download
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+      trackDownloadModelFailed('download_error', 0, currentPage)
+      console.error('Download failed:', errorMessage)
     } finally {
       setIsDownloading(false)
     }

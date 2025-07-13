@@ -1,6 +1,10 @@
 import Head from 'next/head'
 import { NextPage } from 'next/types'
 import { useCallback, useContext, useEffect, useState } from 'react'
+import {
+  trackTuringGameStarted,
+  trackTuringMoveNavigated,
+} from 'src/utils/analytics'
 
 import {
   ModalContext,
@@ -37,6 +41,13 @@ const TuringPage: NextPage = () => {
       startTour(tourConfigs.turing.id, tourConfigs.turing.steps, false)
     }
   }, [initialTourCheck, startTour, tourState.ready])
+
+  // Track when a Turing game is loaded
+  useEffect(() => {
+    if (controller.game && controller.stats?.rating) {
+      trackTuringGameStarted(controller.game.id, controller.stats.rating)
+    }
+  }, [controller.game, controller.stats?.rating])
 
   return (
     <TuringControllerContext.Provider value={controller}>
@@ -115,7 +126,11 @@ const Turing: React.FC<Props> = (props: Props) => {
               <GameInfo title="Bot or Not" icon="smart_toy" type="turing">
                 {Info}
               </GameInfo>
-              <ContinueAgainstMaia launchContinue={launchContinue} />
+              <ContinueAgainstMaia
+                launchContinue={launchContinue}
+                sourcePage="openings"
+                currentFen={controller.currentNode?.fen || ''}
+              />
               <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-end overflow-auto">
                 <TuringLog />
               </div>
@@ -200,7 +215,11 @@ const Turing: React.FC<Props> = (props: Props) => {
               <TuringSubmission rating={stats.rating ?? 0} />
             </div>
             <div className="flex w-full">
-              <ContinueAgainstMaia launchContinue={launchContinue} />
+              <ContinueAgainstMaia
+                launchContinue={launchContinue}
+                sourcePage="openings"
+                currentFen={controller.currentNode?.fen || ''}
+              />
             </div>
           </div>
         </div>

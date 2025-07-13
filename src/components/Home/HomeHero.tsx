@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Fragment, useCallback, useContext, useEffect, useState } from 'react'
+import {
+  trackHomepageFeatureClicked,
+  trackLichessConnectionInitiated,
+} from 'src/utils/analytics'
 
 import {
   SunIcon,
@@ -22,6 +26,14 @@ interface Props {
   scrollHandler: () => void
 }
 
+type FeatureKey =
+  | 'play_maia'
+  | 'analysis'
+  | 'puzzles'
+  | 'hand_brain'
+  | 'openings'
+  | 'bot_or_not'
+
 interface FeatureCardProps {
   icon: React.ReactNode
   title: string
@@ -30,6 +42,7 @@ interface FeatureCardProps {
   href?: string
   external?: boolean
   index: number
+  featureKey?: FeatureKey
 }
 
 const FeatureCard: React.FC<FeatureCardProps> = ({
@@ -40,24 +53,46 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
   href,
   external,
   index,
+  featureKey,
 }) => {
+  const { user } = useContext(AuthContext)
+
+  const handleClick = () => {
+    if (featureKey) {
+      trackHomepageFeatureClicked(featureKey, !!user?.lichessId)
+    }
+    if (onClick) {
+      onClick()
+    }
+  }
+
   const CardWrapper = ({ children }: { children: React.ReactNode }) => {
     if (onClick) {
       return (
-        <button onClick={onClick} className="w-full">
+        <button onClick={handleClick} className="w-full">
           {children}
         </button>
       )
     }
     if (href) {
+      const linkClick = () => {
+        if (featureKey) {
+          trackHomepageFeatureClicked(featureKey, !!user?.lichessId)
+        }
+      }
+
       if (external) {
         return (
-          <a href={href} target="_blank" rel="noreferrer">
+          <a href={href} target="_blank" rel="noreferrer" onClick={linkClick}>
             {children}
           </a>
         )
       }
-      return <Link href={href}>{children}</Link>
+      return (
+        <Link href={href} onClick={linkClick}>
+          {children}
+        </Link>
+      )
     }
     return <>{children}</>
   }
@@ -134,7 +169,10 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               {!user?.lichessId && (
                 <motion.button
                   className="flex items-center justify-center gap-2 rounded-md border border-background-2 bg-background-1/60 px-6 py-3 transition duration-200 hover:bg-background-1"
-                  onClick={() => connectLichess()}
+                  onClick={() => {
+                    trackLichessConnectionInitiated('homepage')
+                    connectLichess()
+                  }}
                 >
                   Connect with Lichess
                 </motion.button>
@@ -150,6 +188,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                 ? { onClick: () => startGame('againstMaia') }
                 : { href: 'https://lichess.org/@/maia1', external: true })}
               index={0}
+              featureKey="play_maia"
             />
             <FeatureCard
               icon={<ChessboardIcon />}
@@ -157,6 +196,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               description="Analyze games with Maia's human-like insights"
               href="/analysis"
               index={1}
+              featureKey="analysis"
             />
             <FeatureCard
               icon={<TrainIcon />}
@@ -164,6 +204,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               description="Improve your skills with Maia's training puzzles"
               href="/puzzles"
               index={2}
+              featureKey="puzzles"
             />
             <FeatureCard
               icon={<BrainIcon />}
@@ -171,6 +212,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               description="Play a collaborative chess variant with Maia"
               onClick={() => startGame('handAndBrain')}
               index={3}
+              featureKey="hand_brain"
             />
             <FeatureCard
               icon={<StarIcon />}
@@ -178,6 +220,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               description="Learn and practice chess openings with Maia"
               href="/openings"
               index={4}
+              featureKey="openings"
             />
             <FeatureCard
               icon={<BotOrNotIcon />}
@@ -185,6 +228,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               description="Distinguish between human and AI play"
               href="/turing"
               index={5}
+              featureKey="bot_or_not"
             />
           </div>
         </div>
@@ -251,7 +295,13 @@ function BetaBlurb() {
               here
             </a>{' '}
             and sign in with{' '}
-            <button onClick={connectLichess} className="underline">
+            <button
+              onClick={() => {
+                trackLichessConnectionInitiated('homepage')
+                connectLichess()
+              }}
+              className="underline"
+            >
               Lichess
             </button>
             .
