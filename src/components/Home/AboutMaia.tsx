@@ -139,7 +139,7 @@ const PaperCard = ({
   className?: string
 }) => (
   <motion.div
-    className={`group relative flex h-full flex-col rounded-lg bg-background-1 transition-all duration-200 ${featured ? '' : 'hover:scale-[1.02]'} ${className} ${featured ? 'overflow-hidden' : 'p-6'}`}
+    className={`group relative flex h-full flex-col rounded-lg bg-background-1 transition-all duration-200 ${featured ? '' : 'hover:scale-[1.02]'} ${className} ${featured ? 'overflow-hidden' : 'p-4 md:p-6'}`}
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
@@ -162,14 +162,14 @@ const PaperCard = ({
       </div>
     )}
     <div className={`flex flex-1 flex-col items-start justify-between`}>
-      <div className={`flex flex-col ${featured ? 'p-6' : ''}`}>
+      <div className={`flex flex-col ${featured ? 'p-4 md:p-6' : ''}`}>
         <h4
           className={`pr-6 font-bold leading-tight ${featured ? 'text-center text-base' : 'text-left text-lg'}`}
         >
           {paper.title}
         </h4>
         <p
-          className={`mt-3 text-sm text-primary/80 ${featured ? 'text-center leading-relaxed' : 'text-left'}`}
+          className={`mt-3 text-sm text-primary/80 ${featured ? 'text-justify leading-relaxed' : 'text-left'}`}
         >
           {paper.description}
         </p>
@@ -179,7 +179,7 @@ const PaperCard = ({
           href={paper.link}
           target="_blank"
           rel="noreferrer"
-          className="mt-auto inline-flex w-full items-center justify-center bg-human-4/80 px-5 py-3 font-medium text-primary transition duration-200 hover:bg-human-4"
+          className="inline-flex w-full items-center justify-center bg-human-4/80 px-5 py-3 font-medium text-primary transition duration-200 hover:bg-human-4"
         >
           Read {paper.title.includes('Maia‑2') ? 'Maia 2' : 'Maia 1'} Paper
         </a>
@@ -257,11 +257,11 @@ export const AboutMaia = () => {
             </p>
           </div>
         </div>
-        <div className="mx-auto max-w-[90%] px-4 pt-16">
+        <div className="mx-auto max-w-[95%] px-2 pt-16 md:max-w-[90%] md:px-4">
           {/* Layout for screens < 1280px */}
           <div className="xl:hidden">
             {/* Featured papers in a row */}
-            <div className="mb-6 grid grid-cols-2 gap-6">
+            <div className="mb-6 grid grid-rows-2 gap-6 md:grid-cols-2 md:grid-rows-none">
               <PaperCard
                 paper={researchPapers.maia1}
                 featured={true}
@@ -274,7 +274,7 @@ export const AboutMaia = () => {
               />
             </div>
             {/* Other papers in a row */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="grid grid-rows-2 gap-4 sm:grid-cols-4 sm:grid-rows-none">
               {researchPapers.others.map((paper, index) => (
                 <PaperCard key={index} paper={paper} className="flex-1" />
               ))}

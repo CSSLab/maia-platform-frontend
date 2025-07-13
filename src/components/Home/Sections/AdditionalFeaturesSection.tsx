@@ -79,13 +79,13 @@ const FeatureCard = ({
           <div className={`h-7 w-7 ${iconTextColor}`}>{icon}</div>
         </div>
         <h3 className="mb-3 text-xl font-bold">{title}</h3>
-        <p className="text-primary/80 mb-5 flex-grow">{description}</p>
+        <p className="mb-5 flex-grow text-primary/80">{description}</p>
       </div>
       {action.type === 'link' ? (
         <motion.div className="mt-auto">
           <Link
             href={action.href}
-            className="bg-human-4/80 mt-auto inline-flex w-full items-center justify-center px-5 py-3 font-medium transition duration-200 hover:bg-human-4"
+            className="mt-auto inline-flex w-full items-center justify-center bg-human-4/80 px-5 py-3 font-medium transition duration-200 hover:bg-human-4"
           >
             {action.label}
           </Link>
@@ -93,7 +93,7 @@ const FeatureCard = ({
       ) : (
         <motion.button
           onClick={action.onClick}
-          className="bg-human-4/80 mt-auto inline-flex w-full items-center justify-center px-5 py-3 font-medium transition duration-200 hover:bg-human-4"
+          className="mt-auto inline-flex w-full items-center justify-center bg-human-4/80 px-5 py-3 font-medium transition duration-200 hover:bg-human-4"
         >
           {action.label}
         </motion.button>
@@ -105,13 +105,13 @@ const FeatureCard = ({
 const SectionHeader = () => {
   return (
     <div className="mb-8 max-w-3xl text-left md:mb-14">
-      <div className="bg-human-3/10 mb-2 inline-block rounded-full px-4 py-1 text-sm font-medium text-human-3">
+      <div className="mb-2 inline-block rounded-full bg-human-3/10 px-4 py-1 text-sm font-medium text-human-3">
         More Features
       </div>
       <h2 className="mb-3 text-2xl font-bold md:mb-4 md:text-3xl md:text-4xl lg:text-5xl">
         Explore other ways to use Maia
       </h2>
-      <p className="text-primary/80 max-w-2xl text-base md:text-lg">
+      <p className="max-w-2xl text-base text-primary/80 md:text-lg">
         Maia offers a range of innovative tools to help you understand human
         chess and improve your skills
       </p>
