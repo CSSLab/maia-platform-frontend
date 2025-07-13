@@ -132,7 +132,7 @@ export const Header: React.FC = () => {
           </Link>
           <Link
             href="/puzzles"
-            className={`${router.pathname.startsWith('/train') && 'bg-background-1'} uppercase hover:bg-background-1`}
+            className={`${router.pathname.startsWith('/puzzles') && 'bg-background-1'} uppercase hover:bg-background-1`}
           >
             Puzzles
           </Link>
@@ -261,8 +261,8 @@ export const Header: React.FC = () => {
             <Link href="/analysis" className="uppercase">
               Analysis
             </Link>
-            <Link href="/train" className="uppercase">
-              Train
+            <Link href="/puzzles" className="uppercase">
+              Puzzles
             </Link>
             <Link href="/openings" className="uppercase">
               Openings
