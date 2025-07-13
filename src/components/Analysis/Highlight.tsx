@@ -48,6 +48,7 @@ interface Props {
   makeMove: (move: string) => void
   boardDescription: { segments: DescriptionSegment[] }
   currentNode?: GameNode
+  isHomePage?: boolean
 }
 
 export const Highlight: React.FC<Props> = ({
@@ -60,6 +61,7 @@ export const Highlight: React.FC<Props> = ({
   setCurrentMaiaModel,
   boardDescription,
   currentNode,
+  isHomePage = false,
 }: Props) => {
   const [tooltipData, setTooltipData] = useState<{
     move: string
@@ -173,24 +175,32 @@ export const Highlight: React.FC<Props> = ({
       <div className="grid grid-cols-2 border-b border-white/20">
         <div className="flex flex-col items-center justify-start gap-0.5 border-r border-white/20 bg-human-3/5 xl:gap-1">
           <div className="relative flex w-full flex-col border-b border-white/5">
-            <select
-              value={currentMaiaModel}
-              onChange={(e) => setCurrentMaiaModel(e.target.value)}
-              className="cursor-pointer appearance-none bg-transparent py-2 text-center font-semibold text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80 md:text-[10px] lg:text-xs"
-            >
-              {MAIA_MODELS.map((model) => (
-                <option
-                  value={model}
-                  key={model}
-                  className="bg-background-1 text-human-1"
+            {isHomePage ? (
+              <div className="py-2 text-center font-semibold text-human-1 md:text-[10px] lg:text-xs">
+                Maia {currentMaiaModel.slice(-4)}
+              </div>
+            ) : (
+              <>
+                <select
+                  value={currentMaiaModel}
+                  onChange={(e) => setCurrentMaiaModel(e.target.value)}
+                  className="cursor-pointer appearance-none bg-transparent py-2 text-center font-semibold text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80 md:text-[10px] lg:text-xs"
                 >
-                  Maia {model.slice(-4)}
-                </option>
-              ))}
-            </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-sm text-human-1/60">
-              keyboard_arrow_down
-            </span>
+                  {MAIA_MODELS.map((model) => (
+                    <option
+                      value={model}
+                      key={model}
+                      className="bg-background-1 text-human-1"
+                    >
+                      Maia {model.slice(-4)}
+                    </option>
+                  ))}
+                </select>
+                <span className="material-symbols-outlined pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-sm text-human-1/60">
+                  keyboard_arrow_down
+                </span>
+              </>
+            )}
           </div>
           <div className="flex w-full flex-col items-center justify-start border-b border-white/5 px-2 py-1 md:py-0.5 lg:py-1">
             <p className="whitespace-nowrap text-xs text-human-2 md:text-[10px] lg:text-xs">
@@ -320,6 +330,7 @@ export const Highlight: React.FC<Props> = ({
                 moveEvaluation={moveEvaluation}
                 hover={hover}
                 makeMove={makeMove}
+                isHomePage={isHomePage}
               />
             </motion.div>
           ) : null}

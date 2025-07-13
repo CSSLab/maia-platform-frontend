@@ -5,7 +5,8 @@ import { useState, useEffect, useRef } from 'react'
 import Chessground from '@react-chess/chessground'
 import type { DrawShape } from 'chessground/draw'
 import type { Key } from 'chessground/types'
-import { SimplifiedMovesByRating } from './SimplifiedAnalysisComponents'
+import { MovesByRating } from 'src/components/Analysis/MovesByRating'
+import type { ColorSanMapping } from 'src/types'
 
 interface TrainSectionProps {
   id: string
@@ -336,6 +337,29 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
 
   const puzzle = PUZZLES[currentPuzzle]
 
+  // Transform puzzle data for MovesByRating component
+  const puzzleMovesByRating = puzzle.ratingData.map((data) => ({
+    rating: data.rating,
+    bestMove: data.bestMove,
+    commonMistake: data.commonMistake,
+    otherMistake: data.otherMistake,
+  }))
+
+  const puzzleColorSanMapping: ColorSanMapping = {
+    bestMove: {
+      san: puzzle.movesMapping.bestMove,
+      color: '#238b45', // Good move color
+    },
+    commonMistake: {
+      san: puzzle.movesMapping.commonMistake,
+      color: '#feb24c', // OK move color
+    },
+    otherMistake: {
+      san: puzzle.movesMapping.otherMistake,
+      color: '#cb181d', // Blunder color
+    },
+  }
+
   return (
     <section
       id={id}
@@ -430,7 +454,10 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                   }
                   transition={{ duration: 0.3, delay: 0.5 }}
                 >
-                  <SimplifiedMovesByRating />
+                  <MovesByRating
+                    moves={puzzleMovesByRating}
+                    colorSanMapping={puzzleColorSanMapping}
+                  />
                 </motion.div>
                 <div className="mt-3 text-sm text-primary/80">
                   <motion.h4

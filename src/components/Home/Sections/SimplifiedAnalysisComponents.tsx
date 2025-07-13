@@ -38,9 +38,14 @@ const MOVES_WITH_DATA = ['e4', 'd4', 'Nf3'] as const
 
 interface MovesByRatingData {
   rating: number
-  e4: number
-  d4: number
-  Nf3: number
+  [key: string]: number // Allow dynamic move keys
+}
+
+interface SimplifiedMovesByRatingProps {
+  data?: MovesByRatingData[]
+  moves?: readonly string[]
+  colorMapping?: Record<string, { san: string; color: string }>
+  title?: string
 }
 
 const MOCK_MOVES_BY_RATING: MovesByRatingData[] = [
@@ -87,7 +92,7 @@ interface BlunderMeterData {
 
 const MOCK_BLUNDER_METER: BlunderMeterData = {
   goodMoves: {
-    probability: 45,
+    probability: 16,
     moves: [
       { move: 'e4', probability: 30 },
       { move: 'd4', probability: 25 },
@@ -95,14 +100,14 @@ const MOCK_BLUNDER_METER: BlunderMeterData = {
     ],
   },
   okMoves: {
-    probability: 35,
+    probability: 12,
     moves: [
       { move: 'c4', probability: 15 },
       { move: 'g3', probability: 12 },
     ],
   },
   blunderMoves: {
-    probability: 20,
+    probability: 72,
     moves: [
       { move: 'a4', probability: 10 },
       { move: 'h4', probability: 8 },
@@ -126,7 +131,26 @@ const getSanForMove = (move: string | number | undefined) => {
   return move?.toString() ?? ''
 }
 
-export const SimplifiedMovesByRating = () => {
+export const SimplifiedMovesByRating = ({
+  data = MOCK_MOVES_BY_RATING,
+  moves = MOVES_WITH_DATA,
+  colorMapping = MOCK_COLOR_SAN_MAPPING,
+  title = 'Moves by Rating',
+}: SimplifiedMovesByRatingProps) => {
+  const getColorForMoveLocal = (move: string | number | undefined) => {
+    if (typeof move === 'string' && move in colorMapping) {
+      return colorMapping[move]?.color ?? '#fff'
+    }
+    return '#fff'
+  }
+
+  const getSanForMoveLocal = (move: string | number | undefined) => {
+    if (typeof move === 'string' && move in colorMapping) {
+      return colorMapping[move]?.san ?? move
+    }
+    return move?.toString() ?? ''
+  }
+
   return (
     <div className="flex h-64 w-full flex-col rounded bg-background-1/60 md:h-full">
       <motion.p
@@ -135,11 +159,11 @@ export const SimplifiedMovesByRating = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        Moves by Rating
+        {title}
       </motion.p>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          data={MOCK_MOVES_BY_RATING}
+          data={data}
           margin={{ left: 0, right: 50, bottom: 0, top: 0 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#3C3C3C" />
@@ -148,7 +172,6 @@ export const SimplifiedMovesByRating = () => {
             axisLine={false}
             tick={{ fill: 'white', fontSize: 11 }}
             tickMargin={4}
-            ticks={[1100, 1300, 1500, 1700, 1900]}
           />
           <YAxis
             yAxisId="left"
@@ -172,7 +195,7 @@ export const SimplifiedMovesByRating = () => {
             tickFormatter={(value) => `${value}%`}
           />
           <defs>
-            {MOVES_WITH_DATA.map((move) => (
+            {moves.map((move) => (
               <linearGradient
                 key={`color${move}`}
                 id={`color${move}`}
@@ -183,26 +206,26 @@ export const SimplifiedMovesByRating = () => {
               >
                 <stop
                   offset="5%"
-                  stopColor={getColorForMove(move)}
+                  stopColor={getColorForMoveLocal(move)}
                   stopOpacity={0.5}
                 />
                 <stop
                   offset="95%"
-                  stopColor={getColorForMove(move)}
+                  stopColor={getColorForMoveLocal(move)}
                   stopOpacity={0}
                 />
               </linearGradient>
             ))}
           </defs>
-          {MOVES_WITH_DATA.map((move, index) => (
+          {moves.map((move, index) => (
             <Area
               key={move}
               yAxisId="left"
               dataKey={move}
-              stroke={getColorForMove(move)}
+              stroke={getColorForMoveLocal(move)}
               fill={`url(#color${move})`}
               strokeWidth={3}
-              name={getSanForMove(move)}
+              name={getSanForMoveLocal(move)}
               animationDuration={300}
             />
           ))}
@@ -234,15 +257,15 @@ export const SimplifiedMovesByRating = () => {
                       >
                         <p
                           style={{
-                            color: getColorForMove(san),
+                            color: getColorForMoveLocal(san),
                           }}
                           className="text-xs"
                         >
-                          {getSanForMove(san)}
+                          {getSanForMoveLocal(san)}
                         </p>
                         <p
                           style={{
-                            color: getColorForMove(san),
+                            color: getColorForMoveLocal(san),
                           }}
                           className="font-mono text-xs"
                         >
@@ -264,7 +287,7 @@ export const SimplifiedMovesByRating = () => {
               fontSize: 14,
             }}
             iconSize={0}
-            formatter={(value) => getSanForMove(value)}
+            formatter={(value) => getSanForMoveLocal(value)}
           />
         </AreaChart>
       </ResponsiveContainer>

@@ -33,6 +33,7 @@ interface Props {
   colorSanMapping: ColorSanMapping
   setHoverArrow: React.Dispatch<React.SetStateAction<DrawShape | null>>
   makeMove: (move: string) => void
+  isHomePage?: boolean
 }
 
 // Helper function to convert hex color to rgba with alpha
@@ -52,6 +53,7 @@ export const MoveMap: React.FC<Props> = ({
   colorSanMapping,
   setHoverArrow,
   makeMove,
+  isHomePage = false,
 }: Props) => {
   const { isMobile, width } = useContext(WindowSizeContext)
   const [hoveredMove, setHoveredMove] = useState<string | null>(null)
@@ -104,12 +106,26 @@ export const MoveMap: React.FC<Props> = ({
   }
 
   const getUnlikelyLabelDy = () => {
+    if (isHomePage) {
+      // Reduced offset for home page
+      if (width < 640) return 80 // Mobile
+      if (width < 1280) return 90 // Small desktop
+      return 100 // Large screens
+    }
+    // Original offsets for analysis page
     if (width < 640) return 100 // Mobile - keep original value
     if (width < 1280) return 110 // Small desktop screens - reduce offset
     return 130 // Large screens - original value
   }
 
   const getLikelyLabelDy = () => {
+    if (isHomePage) {
+      // Reduced offset for home page
+      if (width < 640) return -20 // Mobile
+      if (width < 1280) return -20 // Small desktop
+      return -30 // Large screens
+    }
+    // Original offsets for analysis page
     if (width < 640) return -30 // Mobile - keep original value
     if (width < 1280) return -30 // Small desktop screens - reduce offset
     return -48 // Large screens - original value

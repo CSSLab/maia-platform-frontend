@@ -15,11 +15,13 @@ import { WindowSizeContext } from 'src/contexts'
 interface Props {
   moves: { [key: string]: number }[] | undefined
   colorSanMapping: ColorSanMapping
+  isHomePage?: boolean
 }
 
 export const MovesByRating: React.FC<Props> = ({
   moves,
   colorSanMapping,
+  isHomePage = false,
 }: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
 
@@ -84,7 +86,7 @@ export const MovesByRating: React.FC<Props> = ({
               dy: 46,
               offset: 15,
               fontWeight: 600,
-              fontSize: 14,
+              fontSize: isHomePage ? 12 : 14,
             }}
             tickCount={isMobile ? 4 : 5}
             tickMargin={isMobile ? 1 : 2}
