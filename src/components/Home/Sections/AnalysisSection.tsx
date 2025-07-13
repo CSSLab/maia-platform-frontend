@@ -239,8 +239,8 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
         >
           <div className="relative w-full overflow-hidden rounded-lg border border-background-3/20 bg-background-2 shadow-xl">
             <div className="flex flex-col gap-3 p-3">
-              <div className="flex gap-3">
-                <div className="flex w-1/2 flex-col">
+              <div className="flex flex-col gap-3 md:flex-row">
+                <div className="flex flex-col md:w-1/2">
                   <div className="flex flex-col overflow-hidden rounded border border-white/10">
                     <div className="w-full rounded-t-sm bg-background-1/60 p-2 text-left text-sm font-medium text-primary/80">
                       Spassky, Boris V.
@@ -267,7 +267,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                     </div>
                   </div>
                 </div>
-                <div className="flex w-1/2 flex-col gap-3">
+                <div className="flex flex-col gap-3 md:w-1/2">
                   <motion.div
                     className="min-h-0 flex-1 overflow-hidden rounded border border-white/10"
                     initial={{ opacity: 0, y: 20 }}
@@ -308,9 +308,9 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                   </motion.div>
                 </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 md:flex-row">
                 <motion.div
-                  className="h-48 w-1/2"
+                  className="h-64 md:w-1/2"
                   initial={{ opacity: 0, y: 20 }}
                   animate={
                     inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
@@ -326,7 +326,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                   </div>
                 </motion.div>
                 <motion.div
-                  className="h-48 w-1/2 overflow-hidden rounded border border-white/10"
+                  className="h-64 overflow-hidden rounded border border-white/10 md:w-1/2"
                   initial={{ opacity: 0, y: 20 }}
                   animate={
                     inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }

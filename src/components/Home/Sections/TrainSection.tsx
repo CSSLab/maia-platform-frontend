@@ -312,7 +312,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
               {/* Right side - Moves by Rating and Position Analysis */}
               <div className="flex w-full flex-col md:w-1/2">
                 <motion.div
-                  className="h-56"
+                  className="h-64"
                   initial={{ opacity: 0, y: 20 }}
                   animate={
                     inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
