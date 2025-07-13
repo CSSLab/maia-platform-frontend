@@ -158,12 +158,12 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
             Analyze games with human-aware AI
           </h2>
           <p className="text-primary/80 mb-4 max-w-xl text-lg leading-relaxed">
-            Don't stop at the engine line—see the human moves, too. Maia
-            combines Stockfish's precision with human tendencies learned from
-            millions of real games, adding real-world context to every position.
-            Instantly tell whether a move wins only for computers or also works
-            at your rating, and where players like you are most likely to
-            stumble.
+            Don&apos;t stop at the engine line—see the human moves, too. Maia
+            combines Stockfish&apos;s precision with human tendencies learned
+            from millions of real games, adding real-world context to every
+            position. Instantly tell whether a move wins only for computers or
+            also works at your rating, and where players like you are most
+            likely to stumble.
           </p>
           <p className="text-primary/80 mb-4 max-w-xl text-lg leading-relaxed">
             View the most likely moves at every rating level, spot positions
