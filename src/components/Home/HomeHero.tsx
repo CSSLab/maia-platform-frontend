@@ -145,9 +145,9 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
       <BetaBlurb />
       <div className="relative flex flex-col items-center justify-center gap-14 overflow-hidden pb-12 pt-8 md:pb-16 md:pt-20">
         <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">
-          <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[40%] md:gap-8">
+          <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[45%] md:gap-8">
             <div className="flex flex-col gap-3 md:gap-4">
-              <motion.h1 className="text-4xl font-bold leading-tight md:text-5xl">
+              <motion.h1 className="whitespace-nowrap text-4xl font-bold leading-tight md:text-5xl">
                 The human chess AI
               </motion.h1>
               <motion.p className="text-xl text-primary/80 md:text-2xl">
@@ -193,7 +193,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
             <FeatureCard
               icon={<ChessboardIcon />}
               title="Analysis"
-              description="Analyze games with Maia's human-like insights"
+              description="Analyze games with Maia's human insights"
               href="/analysis"
               index={1}
               featureKey="analysis"

@@ -7,7 +7,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 
-import { WindowSizeContext, TreeControllerContext } from 'src/contexts'
+import {
+  WindowSizeContext,
+  TreeControllerContext,
+  AuthContext,
+} from 'src/contexts'
 import { AnalyzedGame, DrillConfiguration } from 'src/types'
 import openings from 'src/utils/openings/openings.json'
 import {
@@ -38,6 +42,7 @@ import {
 
 const OpeningsPage: NextPage = () => {
   const router = useRouter()
+  const { user } = useContext(AuthContext)
   const [showSelectionModal, setShowSelectionModal] = useState(true)
   const [isReopenedModal, setIsReopenedModal] = useState(false)
 
@@ -62,6 +67,12 @@ const OpeningsPage: NextPage = () => {
   // Pre-load engines when page loads
   useMaiaEngine()
   useStockfishEngine()
+
+  useEffect(() => {
+    if (user !== null && !user.lichessId) {
+      router.push('/401')
+    }
+  }, [user, router])
 
   // Create empty configuration if none exists
   const emptyConfiguration: DrillConfiguration = {
@@ -445,6 +456,11 @@ const OpeningsPage: NextPage = () => {
     // No special handling needed for opening drills
   }, [])
 
+  // Don't render if user is not authenticated
+  if (user !== null && !user.lichessId) {
+    return null
+  }
+
   // Show download modal if Maia model needs to be downloaded
   if (
     analysisController.maiaStatus === 'no-cache' ||
@@ -459,14 +475,12 @@ const OpeningsPage: NextPage = () => {
             content="Practice chess openings against Maia"
           />
         </Head>
-        <AuthenticatedWrapper>
-          <AnimatePresence>
-            <DownloadModelModal
-              progress={analysisController.maiaProgress}
-              download={analysisController.downloadMaia}
-            />
-          </AnimatePresence>
-        </AuthenticatedWrapper>
+        <AnimatePresence>
+          <DownloadModelModal
+            progress={analysisController.maiaProgress}
+            download={analysisController.downloadMaia}
+          />
+        </AnimatePresence>
       </>
     )
   }
@@ -486,274 +500,81 @@ const OpeningsPage: NextPage = () => {
             content="Practice chess openings against Maia"
           />
         </Head>
-        <AuthenticatedWrapper>
-          <AnimatePresence>
-            <OpeningSelectionModal
-              openings={openings}
-              initialSelections={drillConfiguration?.selections || []}
-              onComplete={handleCompleteSelection}
-              onClose={handleCloseModal}
-            />
-          </AnimatePresence>
-        </AuthenticatedWrapper>
+        <AnimatePresence>
+          <OpeningSelectionModal
+            openings={openings}
+            initialSelections={drillConfiguration?.selections || []}
+            onComplete={handleCompleteSelection}
+            onClose={handleCloseModal}
+          />
+        </AnimatePresence>
       </>
     )
   }
 
   const desktopLayout = () => (
-    <AuthenticatedWrapper>
-      <div className="flex h-full w-full flex-col items-center py-4 md:py-10">
-        <div className="flex h-full w-[90%] flex-row gap-4">
-          {/* Left Sidebar */}
-          <div className="flex h-[85vh] w-72 min-w-60 max-w-72 flex-col gap-2 overflow-hidden 2xl:min-w-72">
-            <div className="flex w-full flex-col">
-              <OpeningDrillSidebar
-                currentDrill={controller.currentDrill}
-                completedDrills={controller.completedDrills}
-                remainingDrills={controller.remainingDrills}
-                currentDrillIndex={controller.currentDrillIndex}
-                totalDrills={controller.totalDrills}
-                onResetCurrentDrill={controller.resetCurrentDrill}
-                onChangeSelections={handleChangeSelections}
-                onLoadCompletedDrill={controller.loadCompletedDrill}
-                drillSequence={controller.drillSequence}
-              />
-            </div>
-
-            {/* Moves Container with Board Controller */}
-            <div className="flex h-[30vh] flex-col overflow-hidden">
-              {controller.currentDrillGame && (
-                <div className="flex h-full flex-col">
-                  <div className="flex-1 overflow-hidden">
-                    <MovesContainer
-                      game={{
-                        id: controller.currentDrillGame.id,
-                        tree: controller.gameTree,
-                        moves: movesForContainer,
-                      }}
-                      type="analysis"
-                      showAnnotations={
-                        controller.analysisEnabled ||
-                        controller.continueAnalyzingMode
-                      }
-                      showVariations={controller.continueAnalyzingMode}
-                    />
-                  </div>
-                  <div className="border-t border-white/10">
-                    <BoardController
-                      gameTree={controller.gameTree}
-                      orientation={controller.orientation}
-                      setOrientation={noOpSetOrientation}
-                      currentNode={controller.currentNode}
-                      plyCount={controller.plyCount}
-                      goToNode={controller.goToNode}
-                      goToNextNode={controller.goToNextNode}
-                      goToPreviousNode={customGoToPreviousNode}
-                      goToRootNode={customGoToRootNode}
-                      disableFlip={true}
-                      disablePrevious={controller.isAtOpeningEnd}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Center - Board */}
-          <div className="flex h-[85vh] w-[45vh] flex-col gap-2 2xl:w-[55vh]">
-            <div className="flex w-full flex-col overflow-hidden rounded">
-              <PlayerInfo name={topPlayer.name} color={topPlayer.color} />
-              <div className="relative flex aspect-square w-[45vh] 2xl:w-[55vh]">
-                <GameBoard
-                  currentNode={controller.currentNode}
-                  orientation={controller.orientation}
-                  availableMoves={
-                    controller.analysisEnabled ||
-                    controller.continueAnalyzingMode
-                      ? (() => {
-                          // In continue analyzing mode, show all legal moves
-                          if (controller.continueAnalyzingMode) {
-                            const currentFen = controller.currentNode?.fen
-                            if (!currentFen) return new Map<string, string[]>()
-
-                            const moveMap = new Map<string, string[]>()
-                            const chess = new Chess(currentFen)
-                            const legalMoves = chess.moves({ verbose: true })
-
-                            legalMoves.forEach((move) => {
-                              const { from, to } = move
-                              moveMap.set(
-                                from,
-                                (moveMap.get(from) ?? []).concat([to]),
-                              )
-                            })
-
-                            return moveMap
-                          }
-
-                          // In regular drill mode with analysis enabled:
-                          // Only show moves if we're at the latest position AND it's player's turn
-                          const isAtLatestPosition =
-                            !controller.currentNode?.mainChild
-                          if (isAtLatestPosition && controller.isPlayerTurn) {
-                            return controller.moves
-                          }
-
-                          // If viewing previous moves or not player's turn, show no moves
-                          return new Map<string, string[]>()
-                        })()
-                      : controller.moves
-                  }
-                  onPlayerMakeMove={onPlayerMakeMove}
-                  onSelectSquare={onSelectSquare}
-                  shapes={hoverArrow ? [...arrows, hoverArrow] : [...arrows]}
-                />
-                {promotionFromTo && (
-                  <PromotionOverlay
-                    player={getCurrentPlayer(controller.currentNode)}
-                    file={promotionFromTo[1].slice(0, 1)}
-                    onPlayerSelectPromotion={onPlayerSelectPromotion}
-                  />
-                )}
-              </div>
-              <PlayerInfo
-                name={bottomPlayer.name}
-                color={bottomPlayer.color}
-                showArrowLegend={controller.analysisEnabled}
-              />
-            </div>
-
-            {/* Drill progress with next drill button */}
-            {controller.currentDrillGame && controller.currentDrill && (
-              <div className="flex w-full items-center gap-3 rounded bg-background-1 p-3">
-                <div className="flex-1">
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-secondary">Move Progress</span>
-                    <span className="font-medium text-primary">
-                      {controller.currentDrillGame.playerMoveCount}/
-                      {controller.currentDrill.targetMoveNumber}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded bg-background-3">
-                    <div
-                      className="h-full rounded bg-human-3 transition-all duration-300"
-                      style={{
-                        width: `${
-                          controller.currentDrill.targetMoveNumber > 0
-                            ? (controller.currentDrillGame.playerMoveCount /
-                                controller.currentDrill.targetMoveNumber) *
-                              100
-                            : 0
-                        }%`,
-                        maxWidth: '100%',
-                      }}
-                    />
-                  </div>
-                </div>
-                {controller.areAllDrillsCompleted && (
-                  <button
-                    onClick={controller.showSummary}
-                    className="rounded bg-human-3 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-3/80"
-                  >
-                    View Summary
-                  </button>
-                )}
-                {controller.currentPerformanceData &&
-                  !controller.showPerformanceModal && (
-                    <button
-                      onClick={controller.showCurrentPerformance}
-                      className="rounded bg-background-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-background-3"
-                    >
-                      View Performance
-                    </button>
-                  )}
-                {controller.remainingDrills.length > 1 &&
-                  !controller.areAllDrillsCompleted && (
-                    <button
-                      onClick={controller.moveToNextDrill}
-                      className="rounded bg-human-4 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80"
-                    >
-                      Next Drill
-                    </button>
-                  )}
-              </div>
-            )}
-          </div>
-
-          {/* Right Panel - Analysis */}
-          <div
-            id="analysis"
-            className="flex h-[85vh] w-full flex-col gap-2 xl:h-[calc(55vh+4.5rem)]"
-          >
-            <OpeningDrillAnalysis
-              currentNode={controller.currentNode}
-              gameTree={controller.gameTree}
-              analysisEnabled={controller.analysisEnabled}
-              onToggleAnalysis={() =>
-                controller.setAnalysisEnabled(!controller.analysisEnabled)
-              }
-              playerColor={controller.currentDrill?.playerColor || 'white'}
-              maiaVersion={
-                controller.currentDrill?.maiaVersion || 'maia_kdd_1500'
-              }
-              analysisController={analysisController}
-              hover={hover}
-              setHoverArrow={setHoverArrow}
-              makeMove={makeMove}
+    <div className="flex h-full w-full flex-col items-center py-4 md:py-10">
+      <div className="flex h-full w-[90%] flex-row gap-4">
+        {/* Left Sidebar */}
+        <div className="flex h-[85vh] w-72 min-w-60 max-w-72 flex-col gap-2 overflow-hidden 2xl:min-w-72">
+          <div className="flex w-full flex-col">
+            <OpeningDrillSidebar
+              currentDrill={controller.currentDrill}
+              completedDrills={controller.completedDrills}
+              remainingDrills={controller.remainingDrills}
+              currentDrillIndex={controller.currentDrillIndex}
+              totalDrills={controller.totalDrills}
+              onResetCurrentDrill={controller.resetCurrentDrill}
+              onChangeSelections={handleChangeSelections}
+              onLoadCompletedDrill={controller.loadCompletedDrill}
+              drillSequence={controller.drillSequence}
             />
           </div>
-        </div>
-      </div>
-    </AuthenticatedWrapper>
-  )
 
-  const mobileLayout = () => (
-    <AuthenticatedWrapper>
-      <div className="flex h-full flex-1 flex-col justify-center gap-1">
-        <div className="flex h-full flex-col items-start justify-start gap-1">
-          {/* Current Drill Info Header */}
-          <div className="flex w-full flex-col bg-background-1 p-3">
-            <h3 className="mb-2 text-base font-bold text-primary">
-              Current Drill
-            </h3>
-            {controller.currentDrill ? (
-              <div className="space-y-1">
-                <div>
-                  <p className="text-sm font-medium text-primary">
-                    {controller.currentDrill.opening.name}
-                  </p>
-                  {controller.currentDrill.variation && (
-                    <p className="text-xs text-secondary">
-                      {controller.currentDrill.variation.name}
-                    </p>
-                  )}
+          {/* Moves Container with Board Controller */}
+          <div className="flex h-[30vh] flex-col overflow-hidden">
+            {controller.currentDrillGame && (
+              <div className="flex h-full flex-col">
+                <div className="flex-1 overflow-hidden">
+                  <MovesContainer
+                    game={{
+                      id: controller.currentDrillGame.id,
+                      tree: controller.gameTree,
+                      moves: movesForContainer,
+                    }}
+                    type="analysis"
+                    showAnnotations={
+                      controller.analysisEnabled ||
+                      controller.continueAnalyzingMode
+                    }
+                    showVariations={controller.continueAnalyzingMode}
+                  />
                 </div>
-                <div className="flex items-center gap-2 text-xs text-secondary">
-                  <span>
-                    vs Maia{' '}
-                    {controller.currentDrill.maiaVersion.replace(
-                      'maia_kdd_',
-                      '',
-                    )}
-                  </span>
-                  <span>•</span>
-                  <span>{controller.currentDrill.targetMoveNumber} moves</span>
-                  <span>•</span>
-                  <span>
-                    Drill {controller.currentDrillIndex + 1} of{' '}
-                    {controller.totalDrills}
-                  </span>
+                <div className="border-t border-white/10">
+                  <BoardController
+                    gameTree={controller.gameTree}
+                    orientation={controller.orientation}
+                    setOrientation={noOpSetOrientation}
+                    currentNode={controller.currentNode}
+                    plyCount={controller.plyCount}
+                    goToNode={controller.goToNode}
+                    goToNextNode={controller.goToNextNode}
+                    goToPreviousNode={customGoToPreviousNode}
+                    goToRootNode={customGoToRootNode}
+                    disableFlip={true}
+                    disablePrevious={controller.isAtOpeningEnd}
+                  />
                 </div>
               </div>
-            ) : (
-              <p className="text-sm text-secondary">No drill selected</p>
             )}
           </div>
+        </div>
 
-          {/* Board Section */}
-          <div className="flex w-full flex-col">
+        {/* Center - Board */}
+        <div className="flex h-[85vh] w-[45vh] flex-col gap-2 2xl:w-[55vh]">
+          <div className="flex w-full flex-col overflow-hidden rounded">
             <PlayerInfo name={topPlayer.name} color={topPlayer.color} />
-            <div className="relative flex aspect-square h-[100vw] w-screen">
+            <div className="relative flex aspect-square w-[45vh] 2xl:w-[55vh]">
               <GameBoard
                 currentNode={controller.currentNode}
                 orientation={controller.orientation}
@@ -812,61 +633,37 @@ const OpeningsPage: NextPage = () => {
             />
           </div>
 
-          {/* Controls and Content Below Board */}
-          <div className="flex w-full flex-col gap-1">
-            {/* Board Controller */}
-            <div className="flex-none">
-              <BoardController
-                orientation={controller.orientation}
-                setOrientation={noOpSetOrientation}
-                currentNode={controller.currentNode}
-                plyCount={controller.plyCount}
-                goToNode={controller.goToNode}
-                goToNextNode={controller.goToNextNode}
-                goToPreviousNode={customGoToPreviousNode}
-                goToRootNode={customGoToRootNode}
-                gameTree={controller.gameTree}
-                disableFlip={true}
-                disablePrevious={controller.isAtOpeningEnd}
-              />
-            </div>
-
-            {/* Drill Progress */}
-            {controller.currentDrillGame && controller.currentDrill && (
-              <div className="flex w-full items-center gap-3 rounded bg-background-1 p-3">
-                <div className="flex-1">
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-secondary">Move Progress</span>
-                    <span className="font-medium text-primary">
-                      {controller.currentDrillGame.playerMoveCount}/
-                      {controller.currentDrill.targetMoveNumber}
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded bg-background-3">
-                    <div
-                      className="h-full rounded bg-human-3 transition-all duration-300"
-                      style={{
-                        width: `${
-                          controller.currentDrill.targetMoveNumber > 0
-                            ? (controller.currentDrillGame.playerMoveCount /
-                                controller.currentDrill.targetMoveNumber) *
-                              100
-                            : 0
-                        }%`,
-                        maxWidth: '100%',
-                      }}
-                    />
-                  </div>
+          {/* Drill progress with next drill button */}
+          {controller.currentDrillGame && controller.currentDrill && (
+            <div className="flex w-full items-center gap-3 rounded bg-background-1 p-3">
+              <div className="flex-1">
+                <div className="mb-1 flex justify-between text-xs">
+                  <span className="text-secondary">Move Progress</span>
+                  <span className="font-medium text-primary">
+                    {controller.currentDrillGame.playerMoveCount}/
+                    {controller.currentDrill.targetMoveNumber}
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded bg-background-3">
+                  <div
+                    className="h-full rounded bg-human-3 transition-all duration-300"
+                    style={{
+                      width: `${
+                        controller.currentDrill.targetMoveNumber > 0
+                          ? (controller.currentDrillGame.playerMoveCount /
+                              controller.currentDrill.targetMoveNumber) *
+                            100
+                          : 0
+                      }%`,
+                      maxWidth: '100%',
+                    }}
+                  />
                 </div>
               </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex justify-center px-2">
               {controller.areAllDrillsCompleted && (
                 <button
                   onClick={controller.showSummary}
-                  className="rounded bg-human-3 px-6 py-2 text-sm font-medium"
+                  className="rounded bg-human-3 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-3/80"
                 >
                   View Summary
                 </button>
@@ -875,7 +672,7 @@ const OpeningsPage: NextPage = () => {
                 !controller.showPerformanceModal && (
                   <button
                     onClick={controller.showCurrentPerformance}
-                    className="rounded bg-background-2 px-6 py-2 text-sm font-medium"
+                    className="rounded bg-background-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-background-3"
                   >
                     View Performance
                   </button>
@@ -884,55 +681,261 @@ const OpeningsPage: NextPage = () => {
                 !controller.areAllDrillsCompleted && (
                   <button
                     onClick={controller.moveToNextDrill}
-                    className="rounded bg-human-4 px-6 py-2 text-sm font-medium"
+                    className="rounded bg-human-4 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80"
                   >
                     Next Drill
                   </button>
                 )}
             </div>
+          )}
+        </div>
 
-            {/* Moves Container */}
-            {controller.currentDrillGame && (
-              <div className="relative bottom-0 h-48 max-h-48 flex-1 overflow-auto overflow-y-hidden">
-                <MovesContainer
-                  game={{
-                    id: controller.currentDrillGame.id,
-                    tree: controller.gameTree,
-                    moves: movesForContainer,
-                  }}
-                  type="analysis"
-                  showAnnotations={
-                    controller.analysisEnabled ||
-                    controller.continueAnalyzingMode
-                  }
-                  showVariations={controller.continueAnalyzingMode}
-                />
+        {/* Right Panel - Analysis */}
+        <div
+          id="analysis"
+          className="flex h-[85vh] w-full flex-col gap-2 xl:h-[calc(55vh+4.5rem)]"
+        >
+          <OpeningDrillAnalysis
+            currentNode={controller.currentNode}
+            gameTree={controller.gameTree}
+            analysisEnabled={controller.analysisEnabled}
+            onToggleAnalysis={() =>
+              controller.setAnalysisEnabled(!controller.analysisEnabled)
+            }
+            playerColor={controller.currentDrill?.playerColor || 'white'}
+            maiaVersion={
+              controller.currentDrill?.maiaVersion || 'maia_kdd_1500'
+            }
+            analysisController={analysisController}
+            hover={hover}
+            setHoverArrow={setHoverArrow}
+            makeMove={makeMove}
+          />
+        </div>
+      </div>
+    </div>
+  )
+
+  const mobileLayout = () => (
+    <div className="flex h-full flex-1 flex-col justify-center gap-1">
+      <div className="flex h-full flex-col items-start justify-start gap-1">
+        {/* Current Drill Info Header */}
+        <div className="flex w-full flex-col bg-background-1 p-3">
+          <h3 className="mb-2 text-base font-bold text-primary">
+            Current Drill
+          </h3>
+          {controller.currentDrill ? (
+            <div className="space-y-1">
+              <div>
+                <p className="text-sm font-medium text-primary">
+                  {controller.currentDrill.opening.name}
+                </p>
+                {controller.currentDrill.variation && (
+                  <p className="text-xs text-secondary">
+                    {controller.currentDrill.variation.name}
+                  </p>
+                )}
               </div>
-            )}
+              <div className="flex items-center gap-2 text-xs text-secondary">
+                <span>
+                  vs Maia{' '}
+                  {controller.currentDrill.maiaVersion.replace('maia_kdd_', '')}
+                </span>
+                <span>•</span>
+                <span>{controller.currentDrill.targetMoveNumber} moves</span>
+                <span>•</span>
+                <span>
+                  Drill {controller.currentDrillIndex + 1} of{' '}
+                  {controller.totalDrills}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-secondary">No drill selected</p>
+          )}
+        </div>
 
-            {/* Analysis Components Stacked */}
-            <div className="flex w-full flex-col gap-1 overflow-hidden">
-              <OpeningDrillAnalysis
-                currentNode={controller.currentNode}
-                gameTree={controller.gameTree}
-                analysisEnabled={controller.analysisEnabled}
-                onToggleAnalysis={() =>
-                  controller.setAnalysisEnabled(!controller.analysisEnabled)
+        {/* Board Section */}
+        <div className="flex w-full flex-col">
+          <PlayerInfo name={topPlayer.name} color={topPlayer.color} />
+          <div className="relative flex aspect-square h-[100vw] w-screen">
+            <GameBoard
+              currentNode={controller.currentNode}
+              orientation={controller.orientation}
+              availableMoves={
+                controller.analysisEnabled || controller.continueAnalyzingMode
+                  ? (() => {
+                      // In continue analyzing mode, show all legal moves
+                      if (controller.continueAnalyzingMode) {
+                        const currentFen = controller.currentNode?.fen
+                        if (!currentFen) return new Map<string, string[]>()
+
+                        const moveMap = new Map<string, string[]>()
+                        const chess = new Chess(currentFen)
+                        const legalMoves = chess.moves({ verbose: true })
+
+                        legalMoves.forEach((move) => {
+                          const { from, to } = move
+                          moveMap.set(
+                            from,
+                            (moveMap.get(from) ?? []).concat([to]),
+                          )
+                        })
+
+                        return moveMap
+                      }
+
+                      // In regular drill mode with analysis enabled:
+                      // Only show moves if we're at the latest position AND it's player's turn
+                      const isAtLatestPosition =
+                        !controller.currentNode?.mainChild
+                      if (isAtLatestPosition && controller.isPlayerTurn) {
+                        return controller.moves
+                      }
+
+                      // If viewing previous moves or not player's turn, show no moves
+                      return new Map<string, string[]>()
+                    })()
+                  : controller.moves
+              }
+              onPlayerMakeMove={onPlayerMakeMove}
+              onSelectSquare={onSelectSquare}
+              shapes={hoverArrow ? [...arrows, hoverArrow] : [...arrows]}
+            />
+            {promotionFromTo && (
+              <PromotionOverlay
+                player={getCurrentPlayer(controller.currentNode)}
+                file={promotionFromTo[1].slice(0, 1)}
+                onPlayerSelectPromotion={onPlayerSelectPromotion}
+              />
+            )}
+          </div>
+          <PlayerInfo
+            name={bottomPlayer.name}
+            color={bottomPlayer.color}
+            showArrowLegend={controller.analysisEnabled}
+          />
+        </div>
+
+        {/* Controls and Content Below Board */}
+        <div className="flex w-full flex-col gap-1">
+          {/* Board Controller */}
+          <div className="flex-none">
+            <BoardController
+              orientation={controller.orientation}
+              setOrientation={noOpSetOrientation}
+              currentNode={controller.currentNode}
+              plyCount={controller.plyCount}
+              goToNode={controller.goToNode}
+              goToNextNode={controller.goToNextNode}
+              goToPreviousNode={customGoToPreviousNode}
+              goToRootNode={customGoToRootNode}
+              gameTree={controller.gameTree}
+              disableFlip={true}
+              disablePrevious={controller.isAtOpeningEnd}
+            />
+          </div>
+
+          {/* Drill Progress */}
+          {controller.currentDrillGame && controller.currentDrill && (
+            <div className="flex w-full items-center gap-3 rounded bg-background-1 p-3">
+              <div className="flex-1">
+                <div className="mb-1 flex justify-between text-xs">
+                  <span className="text-secondary">Move Progress</span>
+                  <span className="font-medium text-primary">
+                    {controller.currentDrillGame.playerMoveCount}/
+                    {controller.currentDrill.targetMoveNumber}
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded bg-background-3">
+                  <div
+                    className="h-full rounded bg-human-3 transition-all duration-300"
+                    style={{
+                      width: `${
+                        controller.currentDrill.targetMoveNumber > 0
+                          ? (controller.currentDrillGame.playerMoveCount /
+                              controller.currentDrill.targetMoveNumber) *
+                            100
+                          : 0
+                      }%`,
+                      maxWidth: '100%',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex justify-center px-2">
+            {controller.areAllDrillsCompleted && (
+              <button
+                onClick={controller.showSummary}
+                className="rounded bg-human-3 px-6 py-2 text-sm font-medium"
+              >
+                View Summary
+              </button>
+            )}
+            {controller.currentPerformanceData &&
+              !controller.showPerformanceModal && (
+                <button
+                  onClick={controller.showCurrentPerformance}
+                  className="rounded bg-background-2 px-6 py-2 text-sm font-medium"
+                >
+                  View Performance
+                </button>
+              )}
+            {controller.remainingDrills.length > 1 &&
+              !controller.areAllDrillsCompleted && (
+                <button
+                  onClick={controller.moveToNextDrill}
+                  className="rounded bg-human-4 px-6 py-2 text-sm font-medium"
+                >
+                  Next Drill
+                </button>
+              )}
+          </div>
+
+          {/* Moves Container */}
+          {controller.currentDrillGame && (
+            <div className="relative bottom-0 h-48 max-h-48 flex-1 overflow-auto overflow-y-hidden">
+              <MovesContainer
+                game={{
+                  id: controller.currentDrillGame.id,
+                  tree: controller.gameTree,
+                  moves: movesForContainer,
+                }}
+                type="analysis"
+                showAnnotations={
+                  controller.analysisEnabled || controller.continueAnalyzingMode
                 }
-                playerColor={controller.currentDrill?.playerColor || 'white'}
-                maiaVersion={
-                  controller.currentDrill?.maiaVersion || 'maia_kdd_1500'
-                }
-                analysisController={analysisController}
-                hover={hover}
-                setHoverArrow={setHoverArrow}
-                makeMove={makeMove}
+                showVariations={controller.continueAnalyzingMode}
               />
             </div>
+          )}
+
+          {/* Analysis Components Stacked */}
+          <div className="flex w-full flex-col gap-1 overflow-hidden">
+            <OpeningDrillAnalysis
+              currentNode={controller.currentNode}
+              gameTree={controller.gameTree}
+              analysisEnabled={controller.analysisEnabled}
+              onToggleAnalysis={() =>
+                controller.setAnalysisEnabled(!controller.analysisEnabled)
+              }
+              playerColor={controller.currentDrill?.playerColor || 'white'}
+              maiaVersion={
+                controller.currentDrill?.maiaVersion || 'maia_kdd_1500'
+              }
+              analysisController={analysisController}
+              hover={hover}
+              setHoverArrow={setHoverArrow}
+              makeMove={makeMove}
+            />
           </div>
         </div>
       </div>
-    </AuthenticatedWrapper>
+    </div>
   )
 
   return (
@@ -944,146 +947,150 @@ const OpeningsPage: NextPage = () => {
           content="Practice chess openings against Maia"
         />
       </Head>
-      <AuthenticatedWrapper>
-        <TreeControllerContext.Provider
-          value={{
-            gameTree: controller.gameTree,
-            currentNode: controller.currentNode,
-            setCurrentNode: controller.setCurrentNode,
-            orientation: controller.orientation,
-            setOrientation: controller.setOrientation,
-            goToNode: controller.goToNode,
-            goToNextNode: controller.goToNextNode,
-            goToPreviousNode: controller.goToPreviousNode,
-            goToRootNode: controller.goToRootNode,
-            plyCount: controller.plyCount,
-          }}
-        >
-          {isMobile ? mobileLayout() : desktopLayout()}
-        </TreeControllerContext.Provider>
+      <TreeControllerContext.Provider
+        value={{
+          gameTree: controller.gameTree,
+          currentNode: controller.currentNode,
+          setCurrentNode: controller.setCurrentNode,
+          orientation: controller.orientation,
+          setOrientation: controller.setOrientation,
+          goToNode: controller.goToNode,
+          goToNextNode: controller.goToNextNode,
+          goToPreviousNode: controller.goToPreviousNode,
+          goToRootNode: controller.goToRootNode,
+          plyCount: controller.plyCount,
+        }}
+      >
+        {isMobile ? mobileLayout() : desktopLayout()}
+      </TreeControllerContext.Provider>
 
-        {/* Background Analysis Progress Indicator */}
-        <AnimatePresence>
-          {controller.analysisProgress.total > 0 &&
-            controller.analysisProgress.completed <
-              controller.analysisProgress.total && (
-              <motion.div
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 50 }}
-                className="fixed bottom-4 right-4 z-40 max-w-xs rounded-lg border border-white/20 bg-background-1 p-4 shadow-lg"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-human-4 border-t-transparent"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Background Analysis</p>
-                    <p className="text-xs text-secondary">
-                      {controller.analysisProgress.completed}/
-                      {controller.analysisProgress.total} positions
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-2 h-1 w-full rounded bg-background-3">
-                  <div
-                    className="h-full rounded bg-human-4 transition-all duration-300 ease-out"
-                    style={{
-                      width: `${
-                        controller.analysisProgress.total > 0
-                          ? (controller.analysisProgress.completed /
-                              controller.analysisProgress.total) *
-                            100
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-              </motion.div>
-            )}
-        </AnimatePresence>
-
-        {/* Analysis Loading Overlay */}
-        <AnimatePresence>
-          {controller.isAnalyzingDrill && (
+      {/* Background Analysis Progress Indicator */}
+      <AnimatePresence>
+        {controller.analysisProgress.total > 0 &&
+          controller.analysisProgress.completed <
+            controller.analysisProgress.total && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-4 right-4 z-40 max-w-xs rounded-lg border border-white/20 bg-background-1 p-4 shadow-lg"
             >
-              <div className="flex max-w-md flex-col items-center gap-4 rounded-lg bg-background-1 p-8 shadow-2xl">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-human-4 border-t-transparent"></div>
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold">
-                    Finalizing Performance Analysis
-                  </h3>
-                  <p className="text-sm text-secondary">
-                    {controller.analysisProgress.currentMove ||
-                      'Aggregating cached analysis results...'}
+              <div className="flex items-center gap-3">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-human-4 border-t-transparent"></div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Background Analysis</p>
+                  <p className="text-xs text-secondary">
+                    {controller.analysisProgress.completed}/
+                    {controller.analysisProgress.total} positions
                   </p>
-                  {controller.analysisProgress.total > 0 && (
-                    <div className="mt-3 w-full">
-                      <div className="mb-1 flex justify-between text-xs text-secondary">
-                        <span>Progress</span>
-                        <span>
-                          {Math.round(
-                            (controller.analysisProgress.completed /
-                              controller.analysisProgress.total) *
-                              100,
-                          )}
-                          %
-                        </span>
-                      </div>
-                      <div className="h-2 w-full rounded bg-background-3">
-                        <div
-                          className="h-full rounded bg-human-4 transition-all duration-300 ease-out"
-                          style={{
-                            width: `${
-                              controller.analysisProgress.total > 0
-                                ? (controller.analysisProgress.completed /
-                                    controller.analysisProgress.total) *
-                                  100
-                                : 0
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
+              </div>
+              <div className="mt-2 h-1 w-full rounded bg-background-3">
+                <div
+                  className="h-full rounded bg-human-4 transition-all duration-300 ease-out"
+                  style={{
+                    width: `${
+                      controller.analysisProgress.total > 0
+                        ? (controller.analysisProgress.completed /
+                            controller.analysisProgress.total) *
+                          100
+                        : 0
+                    }%`,
+                  }}
+                />
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
+      </AnimatePresence>
 
-        {/* Performance Modal */}
-        <AnimatePresence>
-          {controller.showPerformanceModal &&
-            controller.currentPerformanceData && (
-              <DrillPerformanceModal
-                performanceData={controller.currentPerformanceData}
-                onContinueAnalyzing={controller.continueAnalyzing}
-                onNextDrill={controller.moveToNextDrill}
-                isLastDrill={controller.remainingDrills.length <= 1}
-              />
-            )}
-        </AnimatePresence>
+      {/* Analysis Loading Overlay */}
+      <AnimatePresence>
+        {controller.isAnalyzingDrill && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          >
+            <div className="flex max-w-md flex-col items-center gap-4 rounded-lg bg-background-1 p-8 shadow-2xl">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-human-4 border-t-transparent"></div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold">
+                  Finalizing Performance Analysis
+                </h3>
+                <p className="text-sm text-secondary">
+                  {controller.analysisProgress.currentMove ||
+                    'Aggregating cached analysis results...'}
+                </p>
+                {controller.analysisProgress.total > 0 && (
+                  <div className="mt-3 w-full">
+                    <div className="mb-1 flex justify-between text-xs text-secondary">
+                      <span>Progress</span>
+                      <span>
+                        {Math.round(
+                          (controller.analysisProgress.completed /
+                            controller.analysisProgress.total) *
+                            100,
+                        )}
+                        %
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded bg-background-3">
+                      <div
+                        className="h-full rounded bg-human-4 transition-all duration-300 ease-out"
+                        style={{
+                          width: `${
+                            controller.analysisProgress.total > 0
+                              ? (controller.analysisProgress.completed /
+                                  controller.analysisProgress.total) *
+                                100
+                              : 0
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        {/* Final Completion Modal */}
-        <AnimatePresence>
-          {controller.showFinalModal && (
-            <FinalCompletionModal
-              performanceData={controller.overallPerformanceData}
-              onContinueAnalyzing={controller.continueAnalyzingFromFinal}
-              onSelectNewOpenings={() => {
-                controller.resetDrillSession()
-                setShowSelectionModal(true)
-              }}
+      {/* Performance Modal */}
+      <AnimatePresence>
+        {controller.showPerformanceModal &&
+          controller.currentPerformanceData && (
+            <DrillPerformanceModal
+              performanceData={controller.currentPerformanceData}
+              onContinueAnalyzing={controller.continueAnalyzing}
+              onNextDrill={controller.moveToNextDrill}
+              isLastDrill={controller.remainingDrills.length <= 1}
             />
           )}
-        </AnimatePresence>
-      </AuthenticatedWrapper>
+      </AnimatePresence>
+
+      {/* Final Completion Modal */}
+      <AnimatePresence>
+        {controller.showFinalModal && (
+          <FinalCompletionModal
+            performanceData={controller.overallPerformanceData}
+            onContinueAnalyzing={controller.continueAnalyzingFromFinal}
+            onSelectNewOpenings={() => {
+              controller.resetDrillSession()
+              setShowSelectionModal(true)
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
   )
 }
 
-export default OpeningsPage
+export default function AuthenticatedOpeningsPage() {
+  return (
+    <AuthenticatedWrapper>
+      <OpeningsPage />
+    </AuthenticatedWrapper>
+  )
+}
