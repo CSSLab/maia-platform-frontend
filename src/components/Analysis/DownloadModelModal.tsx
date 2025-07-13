@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Props {
   progress: number
@@ -12,6 +12,15 @@ export const DownloadModelModal: React.FC<Props> = ({
   download,
 }: Props) => {
   const [isDownloading, setIsDownloading] = useState(false)
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [])
 
   const handleDownload = async () => {
     if (isDownloading || progress >= 100) return
@@ -30,6 +39,7 @@ export const DownloadModelModal: React.FC<Props> = ({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.1 }}
       data-testid="download-modal"
+      onTouchMove={(e) => e.preventDefault()}
     >
       <motion.div
         className="flex w-full flex-col gap-5 rounded-md border border-background-1 bg-backdrop p-5 md:w-[min(750px,50vw)] md:p-8"
@@ -75,7 +85,7 @@ export const DownloadModelModal: React.FC<Props> = ({
                 {Math.round(progress)}%
               </p>
               <div
-                className="absolute left-0 top-0 z-0 h-10 rounded-l bg-human-4/80"
+                className="absolute left-0 top-0 z-0 h-10 rounded-l bg-human-4/80 transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
