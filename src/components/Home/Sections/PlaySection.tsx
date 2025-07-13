@@ -60,12 +60,12 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
           </h2>
           <p className="mb-3 max-w-2xl text-base text-primary/80 md:mb-4 md:text-lg">
             Challenge Maia, a neural network trained to play like a human at
-            various rating levels. Unlike traditional engines that play the best
-            moves, Maia predicts and plays what a person would do.
+            your chosen rating level. Unlike traditional engines that play 
+            robotically, Maia naturally plays moves that a person would make.
           </p>
           <p className="mb-3 max-w-2xl text-base text-primary/80 md:mb-4 md:text-lg">
-            By learning from millions of human games, Maia understands and acts
-            with human chess intuition and decision-making style.
+            Trained on millions of human games, Maia plays with human chess 
+            intuition and decision-making style.
           </p>
           {user?.lichessId ? (
             <motion.button
