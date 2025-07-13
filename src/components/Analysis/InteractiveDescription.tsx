@@ -43,7 +43,19 @@ export const InteractiveDescription: React.FC<Props> = ({
   }
 
   const renderSegments = () => {
+    if (
+      !description ||
+      !description.segments ||
+      !Array.isArray(description.segments)
+    ) {
+      return null
+    }
+
     return description.segments.map((segment, index) => {
+      if (!segment) {
+        return null
+      }
+
       if (segment.type === 'text') {
         return <span key={index}>{segment.content}</span>
       } else {
