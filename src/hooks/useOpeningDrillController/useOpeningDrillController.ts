@@ -381,10 +381,11 @@ export const useOpeningDrillController = (
             analysisCache.current || new Map(),
             (progress) => {
               // Update analysis progress for UI feedback
-              setAnalysisProgress((prev) => ({
-                ...prev,
+              setAnalysisProgress({
+                total: progress.total,
+                completed: progress.completed,
                 currentMove: progress.currentStep,
-              }))
+              })
             },
           )
         }
