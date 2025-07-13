@@ -64,7 +64,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
   return (
     <CardWrapper>
       <motion.div
-        className="flex h-full min-h-[140px] cursor-pointer select-none flex-col items-center justify-center gap-3 rounded-md border-none bg-background-2 p-4 text-center hover:bg-human-4/20"
+        className="hover:bg-human-4/20 flex h-full min-h-[140px] cursor-pointer select-none flex-col items-center justify-center gap-3 rounded-md border-none bg-background-2 p-4 text-center"
         whileHover={{
           scale: 1.03,
           boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
@@ -112,16 +112,17 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
           <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[40%] md:gap-8">
             <div className="flex flex-col gap-3 md:gap-4">
               <motion.h1 className="text-4xl font-bold leading-tight md:text-5xl">
-                A human-like chess engine
+                Experience human-like chess AI
               </motion.h1>
-              <motion.p className="text-xl text-primary/80 md:text-2xl">
-                Maia is a neural network chess engine with a more human-like
-                style, trained from online human games.
+              <motion.p className="text-primary/80 text-xl md:text-2xl">
+                Maia is a neural network chess model that captures human style.
+                Enjoy realistic games, insightful analysis, and a new way of
+                seeing chess.
               </motion.p>
             </div>
             <motion.div className="flex flex-col gap-4 sm:flex-row">
               <motion.button
-                className="flex items-center justify-center gap-2 rounded-md border border-human-4 bg-human-4/80 px-6 py-3 text-white transition duration-200 hover:bg-human-4"
+                className="bg-human-4/80 flex items-center justify-center gap-2 rounded-md border border-human-4 px-6 py-3 text-white transition duration-200 hover:bg-human-4"
                 onClick={scrollHandler}
               >
                 <p>Learn More</p>
@@ -131,7 +132,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               </motion.button>
               {!user?.lichessId && (
                 <motion.button
-                  className="flex items-center justify-center gap-2 rounded-md border border-background-2 bg-background-1/60 px-6 py-3 transition duration-200 hover:bg-background-1"
+                  className="bg-background-1/60 flex items-center justify-center gap-2 rounded-md border border-background-2 px-6 py-3 transition duration-200 hover:bg-background-1"
                   onClick={() => connectLichess()}
                 >
                   Connect with Lichess
@@ -187,21 +188,21 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
           </div>
         </div>
         <motion.div className="grid grid-cols-3 gap-6 px-2 md:flex">
-          <p className="text-center text-base text-primary/80">
+          <p className="text-primary/80 text-center text-base">
             <AnimatedNumber
               value={globalStats?.play_moves_total || 0}
               className="font-bold"
             />{' '}
             moves played
           </p>
-          <p className="text-center text-base text-primary/80">
+          <p className="text-primary/80 text-center text-base">
             <AnimatedNumber
               value={globalStats?.puzzle_games_total || 0}
               className="font-bold"
             />{' '}
             puzzle games solved
           </p>
-          <p className="text-center text-base text-primary/80">
+          <p className="text-primary/80 text-center text-base">
             <AnimatedNumber
               value={globalStats?.turing_games_total || 0}
               className="font-bold"

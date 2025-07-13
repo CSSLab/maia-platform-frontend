@@ -344,19 +344,19 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
     >
       <div className="z-10 mx-auto flex w-full max-w-[95%] flex-col items-center px-2 md:max-w-[90%] md:flex-row md:gap-12 md:px-4 lg:gap-16">
         <div className="mb-6 w-full md:mb-0 md:mb-10 md:w-2/5">
-          <div className="mb-3 inline-block rounded-full bg-human-3/10 px-4 py-1 text-sm font-medium text-human-3 md:mb-4">
+          <div className="bg-human-3/10 mb-3 inline-block rounded-full px-4 py-1 text-sm font-medium text-human-3 md:mb-4">
             Human-Centered Puzzles
           </div>
           <h2 className="mb-4 text-2xl font-bold md:mb-6 md:text-3xl md:text-4xl lg:text-5xl">
-            Learn from real player tendencies
+            Train with Maia as your coach
           </h2>
-          <p className="mb-3 text-base text-primary/80 md:mb-4 md:text-lg">
-            Unlike traditional puzzles based on computer analysis, our puzzles
-            highlight positions where human players typically struggle. We
-            identify tactical opportunities that are commonly missed at
-            different rating levels.
+          <p className="text-primary/80 mb-3 text-base md:mb-4 md:text-lg">
+            Maia curates puzzles based on its understanding of how millions of
+            players improve. With Maia puzzles, you can benchmark your vision,
+            focus on your gaps in understanding, and turn hard-to-spot ideas
+            into second nature.
           </p>
-          <p className="mb-3 text-base text-primary/80 md:mb-4 md:text-lg">
+          <p className="text-primary/80 mb-3 text-base md:mb-4 md:text-lg">
             Each puzzle includes data showing how players of different ratings
             approach the position, making your training more targeted and
             effective.
@@ -379,7 +379,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
           <div className="flex flex-col overflow-hidden rounded-lg bg-background-2 shadow-xl">
-            <div className="border-b border-background-3/20 px-4 pt-4">
+            <div className="border-background-3/20 border-b px-4 pt-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div
@@ -396,10 +396,10 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <span className="rounded bg-background-3/80 px-2 py-1 text-xs text-primary/60">
+                  <span className="bg-background-3/80 text-primary/60 rounded px-2 py-1 text-xs">
                     {puzzle.theme}
                   </span>
-                  <span className="rounded bg-background-3/80 px-2 py-1 text-xs text-primary/60">
+                  <span className="bg-background-3/80 text-primary/60 rounded px-2 py-1 text-xs">
                     {puzzle.skill}
                   </span>
                 </div>
@@ -432,7 +432,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                 >
                   <SimplifiedMovesByRating />
                 </motion.div>
-                <div className="mt-3 text-sm text-primary/80">
+                <div className="text-primary/80 mt-3 text-sm">
                   <motion.h4
                     className="mb-1 font-medium"
                     initial={{ opacity: 0, y: 10 }}
@@ -487,7 +487,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
               </div>
             </div>
             <motion.div
-              className="flex items-center justify-center border-t border-background-3/20 p-4"
+              className="border-background-3/20 flex items-center justify-center border-t p-4"
               initial={{ opacity: 0, y: 10 }}
               animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
               transition={{ duration: 0.3, delay: 0.3 }}
