@@ -23,7 +23,13 @@ import 'react-tooltip/dist/react-tooltip.css'
 import 'node_modules/chessground/assets/chessground.base.css'
 import 'node_modules/chessground/assets/chessground.brown.css'
 import 'node_modules/chessground/assets/chessground.cburnett.css'
-import { Footer, Compose, ErrorBoundary, Header } from 'src/components'
+import {
+  Footer,
+  Compose,
+  ErrorBoundary,
+  Header,
+  FeedbackButton,
+} from 'src/components'
 
 const OpenSans = Open_Sans({ subsets: ['latin'] })
 
@@ -73,6 +79,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
               <Component {...pageProps} />
             </div>
             <Footer />
+            <FeedbackButton />
           </div>
           <Toaster position="bottom-right" />
           <Analytics />

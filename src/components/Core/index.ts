@@ -1,6 +1,7 @@
 export * from './AuthenticatedWrapper'
 export * from './Compose'
 export * from './ErrorBoundary'
+export * from './FeedbackButton'
 export * from './Footer'
 export * from './Header'
 export * from './Loading'
