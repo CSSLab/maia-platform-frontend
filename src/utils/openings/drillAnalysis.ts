@@ -550,8 +550,9 @@ export async function analyzeDrillPerformance(
           }
 
           if (maiaEval?.policy && Object.keys(maiaEval.policy).length > 0) {
-            maiaBestMove = Object.keys(maiaEval.policy).reduce((a, b) =>
-              maiaEval.policy[a] > maiaEval.policy[b] ? a : b,
+            const policy = maiaEval.policy
+            maiaBestMove = Object.keys(policy).reduce((a, b) =>
+              policy[a] > policy[b] ? a : b,
             )
           }
         } catch (error) {
