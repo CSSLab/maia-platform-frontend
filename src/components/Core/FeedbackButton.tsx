@@ -1,6 +1,13 @@
-import React from 'react'
+import React, { useContext } from 'react'
+import { AuthContext } from 'src/contexts'
 
 export const FeedbackButton: React.FC = () => {
+  const { user } = useContext(AuthContext)
+
+  if (!user?.lichessId) {
+    return null
+  }
+
   return (
     <button
       id="feedback-button"
