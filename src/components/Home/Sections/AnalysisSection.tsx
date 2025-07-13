@@ -73,12 +73,12 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
-          <div className="border-background-3/20 relative w-full overflow-hidden rounded-lg border bg-background-2 shadow-xl">
+          <div className="relative w-full overflow-hidden rounded-lg border border-background-3/20 bg-background-2 shadow-xl">
             <div className="flex flex-col gap-3 p-3">
               <div className="flex gap-3">
                 <div className="flex w-1/2 flex-col">
                   <div className="flex flex-col">
-                    <div className="bg-background-1/60 text-primary/80 w-full rounded-t-sm p-2 text-left text-sm font-medium">
+                    <div className="w-full rounded-t-sm bg-background-1/60 p-2 text-left text-sm font-medium text-primary/80">
                       Magnus Carlsen (2850)
                     </div>
                     <div
@@ -98,7 +98,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                         <SimplifiedChessboard forceKey={renderKey} />
                       </div>
                     </div>
-                    <div className="bg-background-1/60 text-primary/80 rounded-b-sm p-2 text-left text-sm font-medium">
+                    <div className="rounded-b-sm bg-background-1/60 p-2 text-left text-sm font-medium text-primary/80">
                       Hikaru Nakamura (2836)
                     </div>
                   </div>
@@ -151,13 +151,13 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
           </div>
         </motion.div>
         <div className="w-full md:w-1/2">
-          <div className="bg-engine-3/10 mb-4 inline-block rounded-full px-4 py-1 text-sm font-medium text-engine-3">
+          <div className="mb-4 inline-block rounded-full bg-engine-3/10 px-4 py-1 text-sm font-medium text-engine-3">
             Game Analysis
           </div>
           <h2 className="mb-6 max-w-2xl text-3xl font-bold md:text-4xl lg:text-5xl">
             Analyze games with human-aware AI
           </h2>
-          <p className="text-primary/80 mb-4 max-w-xl text-lg leading-relaxed">
+          <p className="mb-4 max-w-xl text-lg leading-relaxed text-primary/80">
             Don&apos;t stop at the engine line—see the human moves, too. Maia
             combines Stockfish&apos;s precision with human tendencies learned
             from millions of real games, adding real-world context to every
@@ -165,7 +165,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
             also works at your rating, and where players like you are most
             likely to stumble.
           </p>
-          <p className="text-primary/80 mb-4 max-w-xl text-lg leading-relaxed">
+          <p className="mb-4 max-w-xl text-lg leading-relaxed text-primary/80">
             View the most likely moves at every rating level, spot positions
             where blunders spike, and understand how to level up your play in
             every single position. Get personalized insights based on your

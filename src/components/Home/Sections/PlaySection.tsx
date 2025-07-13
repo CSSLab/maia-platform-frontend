@@ -52,18 +52,18 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
     >
       <div className="mx-auto flex w-full max-w-[95%] flex-col items-center px-2 md:max-w-[90%] md:flex-row md:gap-12 md:px-4 lg:gap-16">
         <div className="mb-6 w-full md:mb-10 md:w-1/2">
-          <div className="bg-human-3/10 mb-3 inline-block rounded-full px-4 py-1 text-sm font-medium text-human-3 md:mb-4">
+          <div className="mb-3 inline-block rounded-full bg-human-3/10 px-4 py-1 text-sm font-medium text-human-3 md:mb-4">
             Play Against Maia
           </div>
           <h2 className="mb-4 max-w-2xl text-2xl font-bold md:mb-6 md:text-4xl lg:text-5xl">
             Play against the most human-like chess AI
           </h2>
-          <p className="text-primary/80 mb-3 max-w-2xl text-base md:mb-4 md:text-lg">
+          <p className="mb-3 max-w-2xl text-base text-primary/80 md:mb-4 md:text-lg">
             Challenge Maia, a neural network trained to play like a human at
             various rating levels. Unlike traditional engines that play the best
             moves, Maia predicts and plays what a person would do.
           </p>
-          <p className="text-primary/80 mb-3 max-w-2xl text-base md:mb-4 md:text-lg">
+          <p className="mb-3 max-w-2xl text-base text-primary/80 md:mb-4 md:text-lg">
             By learning from millions of human games, Maia understands and acts
             with human chess intuition and decision-making style.
           </p>
@@ -102,7 +102,7 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
               <AnimatedTrainingBoards inView={inView} />
             </div>
             <motion.div
-              className="border-background-3/20 absolute bottom-0 right-0 z-10 h-3/4 w-3/4 overflow-hidden border bg-background-1 shadow-lg"
+              className="absolute bottom-0 right-0 z-10 h-3/4 w-3/4 overflow-hidden border border-background-3/20 bg-background-1 shadow-lg"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5 }}
