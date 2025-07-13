@@ -1,15 +1,6 @@
 import { Chess, Color } from 'chess.ts'
 import { StockfishEvaluation, MaiaEvaluation } from '..'
-
-// Constants for move classification based on winrate
-export const MOVE_CLASSIFICATION = {
-  BLUNDER_THRESHOLD: 0.1, // 10% winrate drop - Blunder moves
-  INACCURACY_THRESHOLD: 0.05, // 5% winrate drop - Meh moves
-  GOOD_MOVE_THRESHOLD: 0.05, // 5% winrate increase
-  EXCELLENT_MOVE_THRESHOLD: 0.1, // 10% winrate increase
-  MAIA_UNLIKELY_THRESHOLD: 0.1, // 10% or less Maia probability for a good move
-  WINRATE_LOSS_GOOD_THRESHOLD: -0.02, // Maximum acceptable winrate loss for "good" unlikely move
-}
+import { MOVE_CLASSIFICATION_THRESHOLDS } from 'src/constants/moveClassification'
 
 interface NodeAnalysis {
   maia?: { [rating: string]: MaiaEvaluation }
@@ -168,25 +159,10 @@ export class GameNode {
   private _check: boolean
   private _blunder: boolean
   private _inaccuracy: boolean
-  private _goodMove: boolean
   private _excellentMove: boolean
   private _bestMove: boolean
   private _moveNumber: number
-  private _unlikelyGoodMove: boolean
   private _time: number | null
-
-  private static readonly BLUNDER_THRESHOLD =
-    MOVE_CLASSIFICATION.BLUNDER_THRESHOLD
-  private static readonly INACCURACY_THRESHOLD =
-    MOVE_CLASSIFICATION.INACCURACY_THRESHOLD
-  private static readonly GOOD_MOVE_THRESHOLD =
-    MOVE_CLASSIFICATION.GOOD_MOVE_THRESHOLD
-  private static readonly EXCELLENT_MOVE_THRESHOLD =
-    MOVE_CLASSIFICATION.EXCELLENT_MOVE_THRESHOLD
-  private static readonly MAIA_UNLIKELY_THRESHOLD =
-    MOVE_CLASSIFICATION.MAIA_UNLIKELY_THRESHOLD
-  private static readonly WINRATE_LOSS_GOOD_THRESHOLD =
-    MOVE_CLASSIFICATION.WINRATE_LOSS_GOOD_THRESHOLD
 
   constructor(
     fen: string,
@@ -206,10 +182,8 @@ export class GameNode {
     this._analysis = {}
     this._blunder = false
     this._inaccuracy = false
-    this._goodMove = false
     this._excellentMove = false
     this._bestMove = false
-    this._unlikelyGoodMove = false
     this._turn = this.parseTurn(fen)
     this._check = fen.includes('+')
     this._moveNumber = this.parseMoveNumber(fen, this._turn)
@@ -252,9 +226,6 @@ export class GameNode {
   get inaccuracy(): boolean {
     return this._inaccuracy
   }
-  get goodMove(): boolean {
-    return this._goodMove
-  }
   get excellentMove(): boolean {
     return this._excellentMove
   }
@@ -263,9 +234,6 @@ export class GameNode {
   }
   get moveNumber(): number {
     return this._moveNumber
-  }
-  get unlikelyGoodMove(): boolean {
-    return this._unlikelyGoodMove
   }
   get time(): number | null {
     return this._time
@@ -281,84 +249,98 @@ export class GameNode {
     return parseInt(parts[5]) - (turn === 'w' ? 1 : 0)
   }
 
-  // Helper method to classify a move based on winrate
+  // Core classification logic - used by both instance and static methods
+  private performMoveClassification(
+    stockfishEval: StockfishEvaluation,
+    maiaEval: { [rating: string]: MaiaEvaluation } | undefined,
+    move: string,
+    activeModel?: string,
+  ): {
+    blunder: boolean
+    inaccuracy: boolean
+    excellent: boolean
+    bestMove: boolean
+  } {
+    if (!stockfishEval || stockfishEval.depth < 13) {
+      return {
+        blunder: false,
+        inaccuracy: false,
+        excellent: false,
+        bestMove: false,
+      }
+    }
+
+    const bestMove = move === stockfishEval.model_move
+    let blunder = false
+    let inaccuracy = false
+    let excellent = false
+
+    if (stockfishEval.winrate_loss_vec) {
+      const winrateLoss = stockfishEval.winrate_loss_vec[move]
+
+      if (winrateLoss !== undefined) {
+        const absoluteWinrateLoss = Math.abs(winrateLoss)
+
+        // Blunder: More than 10% winrate loss
+        blunder =
+          absoluteWinrateLoss >=
+          MOVE_CLASSIFICATION_THRESHOLDS.BLUNDER_THRESHOLD
+
+        // Inaccuracy: More than 5% winrate loss (but not a blunder)
+        inaccuracy =
+          !blunder &&
+          absoluteWinrateLoss >=
+            MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD
+
+        // Excellent: Less than 2% winrate loss AND less than 10% Maia probability
+        if (
+          absoluteWinrateLoss <
+          MOVE_CLASSIFICATION_THRESHOLDS.EXCELLENT_WINRATE_THRESHOLD
+        ) {
+          if (maiaEval && activeModel && maiaEval[activeModel]) {
+            const policy = maiaEval[activeModel].policy
+            if (policy && move in policy) {
+              const probability = policy[move]
+              excellent =
+                probability <=
+                MOVE_CLASSIFICATION_THRESHOLDS.MAIA_UNLIKELY_THRESHOLD
+            }
+          }
+        }
+      }
+    } else {
+      // Fallback to centipawn-based classification if winrate not available
+      const relative_eval = stockfishEval.cp_relative_vec?.[move]
+      if (relative_eval !== undefined) {
+        blunder = relative_eval < -150
+      }
+    }
+
+    return {
+      blunder,
+      inaccuracy,
+      excellent,
+      bestMove,
+    }
+  }
+
   private classifyMoveByWinrate(
     node: GameNode,
     move: string,
     stockfishEval: StockfishEvaluation,
     activeModel?: string,
   ): void {
-    // Check if this is the best move
-    const best_move = stockfishEval.model_move
-    node._bestMove = move === best_move
+    const classification = this.performMoveClassification(
+      stockfishEval,
+      this._analysis.maia,
+      move,
+      activeModel,
+    )
 
-    if (stockfishEval.winrate_loss_vec && stockfishEval.winrate_vec) {
-      const winrate_loss = stockfishEval.winrate_loss_vec[move]
-
-      // Classify based on winrate loss
-      if (winrate_loss !== undefined) {
-        node._blunder = winrate_loss <= -GameNode.BLUNDER_THRESHOLD
-        node._inaccuracy =
-          !node._blunder && winrate_loss <= -GameNode.INACCURACY_THRESHOLD
-
-        // Check if this is potentially an unlikely good move (we'll confirm with Maia data if available)
-        const isGoodStockfishEval =
-          winrate_loss >= GameNode.WINRATE_LOSS_GOOD_THRESHOLD
-
-        // If we already have Maia data in the PARENT node, check if this is an unlikely good move
-        if (isGoodStockfishEval && this._analysis.maia && move) {
-          node._unlikelyGoodMove = this.checkForUnlikelyGoodMove(
-            move,
-            activeModel,
-          )
-        }
-
-        // For good/excellent moves, we need to compare to the average winrate
-        // A move is good/excellent if it's better than the average of all moves
-        const winrates = Object.values(stockfishEval.winrate_vec)
-        if (winrates.length > 0) {
-          const avgWinrate =
-            winrates.reduce((a, b) => a + b, 0) / winrates.length
-          const moveWinrate = stockfishEval.winrate_vec[move]
-
-          if (moveWinrate !== undefined) {
-            const winrateImprovement = moveWinrate - avgWinrate
-            node._goodMove = winrateImprovement >= GameNode.GOOD_MOVE_THRESHOLD
-            node._excellentMove =
-              winrateImprovement >= GameNode.EXCELLENT_MOVE_THRESHOLD
-          }
-        }
-      }
-    } else {
-      // Fallback to CP-based classification if winrate not available
-      const relative_eval = stockfishEval.cp_relative_vec[move]
-      node._blunder = relative_eval < -150
-    }
-  }
-
-  // Helper method to check if a move is an unlikely good move based on Maia probability
-  private checkForUnlikelyGoodMove(
-    move: string,
-    activeModel?: string,
-  ): boolean {
-    if (!this._analysis.maia) return false
-
-    // Use the provided active model or fall back to first available
-    const maiaKeys = Object.keys(this._analysis.maia)
-    if (maiaKeys.length === 0) return false
-
-    const activeRating =
-      activeModel && maiaKeys.includes(activeModel) ? activeModel : maiaKeys[0]
-
-    const maiaEval = this._analysis.maia[activeRating]
-    if (maiaEval && maiaEval.policy && move in maiaEval.policy) {
-      const probability = maiaEval.policy[move]
-      // If the probability is below the threshold, consider it an unlikely move
-      if (probability <= GameNode.MAIA_UNLIKELY_THRESHOLD) {
-        return true
-      }
-    }
-    return false
+    node._bestMove = classification.bestMove
+    node._blunder = classification.blunder
+    node._inaccuracy = classification.inaccuracy
+    node._excellentMove = classification.excellent
   }
 
   addChild(
@@ -397,21 +379,16 @@ export class GameNode {
   ): void {
     this._analysis.maia = maiaEval
 
-    // Check if any existing children could be unlikely good moves
+    // Re-classify all children now that we have Maia data
     if (this._analysis.stockfish && this._analysis.stockfish.depth >= 13) {
       for (const child of this._children) {
         if (child.move) {
-          const winrate_loss =
-            this._analysis.stockfish.winrate_loss_vec?.[child.move]
-          if (
-            winrate_loss !== undefined &&
-            winrate_loss >= GameNode.WINRATE_LOSS_GOOD_THRESHOLD
-          ) {
-            child._unlikelyGoodMove = this.checkForUnlikelyGoodMove(
-              child.move,
-              activeModel,
-            )
-          }
+          this.classifyMoveByWinrate(
+            child,
+            child.move,
+            this._analysis.stockfish,
+            activeModel,
+          )
         }
       }
     }
@@ -493,8 +470,26 @@ export class GameNode {
     return true
   }
 
-  // Set the time for this move
   setTime(time: number): void {
     this._time = time
+  }
+
+  static classifyMove(
+    parentNode: GameNode,
+    move: string,
+    currentMaiaModel?: string,
+  ): {
+    blunder: boolean
+    inaccuracy: boolean
+    excellent: boolean
+    bestMove: boolean
+  } {
+    const tempNode = new GameNode('temp')
+    return tempNode.performMoveClassification(
+      parentNode.analysis.stockfish || ({} as StockfishEvaluation),
+      parentNode.analysis.maia,
+      move,
+      currentMaiaModel,
+    )
   }
 }

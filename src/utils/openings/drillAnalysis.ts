@@ -1,5 +1,6 @@
 import { Chess } from 'chess.ts'
-import { GameNode, StockfishEvaluation, MaiaEvaluation } from 'src/types'
+import { StockfishEvaluation, MaiaEvaluation } from 'src/types'
+import { GameNode } from 'src/types/base/tree'
 import {
   MoveAnalysis,
   RatingComparison,
@@ -19,59 +20,32 @@ import {
 // Minimum depth for analysis to be considered sufficient for the modal
 const MIN_STOCKFISH_ANALYSIS_DEPTH = 12
 
-// Classification thresholds based on winrate change (same as frontend)
-const MOVE_CLASSIFICATION_THRESHOLDS = {
-  BLUNDER_THRESHOLD: 0.1, // 10% winrate drop - significant mistake
-  INACCURACY_THRESHOLD: 0.05, // 5% winrate drop - noticeable error
-  EXCELLENT_THRESHOLD: 0.08, // 8% winrate gain - very good move
-}
-
 // Maia rating levels for comparison
 const MAIA_RATINGS = [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900]
 
 /**
- * Classifies a move based on winrate change
+ * Classifies a move using the unified GameNode classification
  */
 function classifyMove(
-  currentEval: number,
-  previousEval: number,
-  isPlayerMove: boolean,
-  playerColor: 'white' | 'black',
+  parentNode: GameNode,
+  move: string,
+  currentMaiaModel?: string,
 ): MoveAnalysis['classification'] {
-  // Convert evaluations to winrates
-  const currentWinrate = cpToWinrate(currentEval)
-  const previousWinrate = cpToWinrate(previousEval)
+  const classification = GameNode.classifyMove(
+    parentNode,
+    move,
+    currentMaiaModel,
+  )
 
-  // Calculate winrate change from player's perspective
-  let winrateChange: number
-
-  if (isPlayerMove) {
-    // For player moves, we need to consider which color they're playing
-    if (playerColor === 'white') {
-      // Higher evaluation is better for white
-      winrateChange = currentWinrate - previousWinrate
-    } else {
-      // Lower evaluation is better for black
-      winrateChange = previousWinrate - currentWinrate
-    }
-  } else {
-    // For opponent moves, we don't classify them
-    return 'good' // Default to good for non-player moves
-  }
-
-  if (winrateChange <= -MOVE_CLASSIFICATION_THRESHOLDS.BLUNDER_THRESHOLD) {
+  if (classification.blunder) {
     return 'blunder'
-  } else if (
-    winrateChange <= -MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD
-  ) {
+  } else if (classification.inaccuracy) {
     return 'inaccuracy'
-  } else if (
-    winrateChange >= MOVE_CLASSIFICATION_THRESHOLDS.EXCELLENT_THRESHOLD
-  ) {
+  } else if (classification.excellent) {
     return 'excellent'
   }
 
-  return 'good' // Normal moves are good (backend uses 'good', frontend filters to show only notable ones)
+  return 'good' // Normal moves are good
 }
 
 /**
@@ -320,9 +294,7 @@ function generateDetailedFeedback(
   const blunders = playerMoves.filter(
     (m) => m.classification === 'blunder',
   ).length
-  const mistakes = playerMoves.filter(
-    (m) => m.classification === 'mistake',
-  ).length
+  // Removed 'mistake' classification - now uses inaccuracy instead
 
   if (excellentMoves > playerMoves.length / 2) {
     feedback.push(
@@ -330,9 +302,8 @@ function generateDetailedFeedback(
     )
   }
 
-  if (blunders === 0 && mistakes === 0) {
+  if (blunders === 0) {
     feedback.push('🎯 Perfect accuracy! No serious errors detected.')
-  } else if (blunders === 0) {
     feedback.push('✨ No blunders - great positional awareness!')
   } else if (blunders === 1) {
     feedback.push('⚠️ One blunder detected - review that critical moment.')
@@ -465,7 +436,7 @@ export async function analyzeDrillPerformance(
       if (cachedEval && (!evaluation || cachedEval.depth > evaluation.depth)) {
         evaluation = cachedEval
         // Save to node for future reuse
-        currentGameNode.addStockfishAnalysis(evaluation, 'maia-1500')
+        currentGameNode.addStockfishAnalysis(evaluation, 'maia_kdd_1500')
       }
 
       // If analysis is missing or not deep enough, (re-)analyze to the required depth.
@@ -486,7 +457,7 @@ export async function analyzeDrillPerformance(
         ) {
           evaluation = deeperEvaluation
           // This updates the game tree, making the deeper analysis available to the rest of the app
-          currentGameNode.addStockfishAnalysis(evaluation, 'maia-1500') // Use a default model, it's not critical here
+          currentGameNode.addStockfishAnalysis(evaluation, 'maia_kdd_1500')
 
           // Store in external cache for future reuse
           if (analysisCache) {
@@ -529,7 +500,7 @@ export async function analyzeDrillPerformance(
         try {
           // Prioritize existing analysis on the node for a standard rating (e.g., 1500)
           let maiaEval: MaiaEvaluation | null =
-            currentGameNode.analysis.maia?.['maia-1500'] || null
+            currentGameNode.analysis.maia?.['maia_kdd_1500'] || null
 
           if (!maiaEval && engines.maia && engines.maia.isReady()) {
             const maiaResult = await engines.maia.batchEvaluate(
@@ -545,7 +516,7 @@ export async function analyzeDrillPerformance(
               if (!currentGameNode.analysis.maia) {
                 currentGameNode.analysis.maia = {}
               }
-              currentGameNode.analysis.maia['maia-1500'] = maiaEval
+              currentGameNode.analysis.maia['maia_kdd_1500'] = maiaEval
             }
           }
 
@@ -576,12 +547,9 @@ export async function analyzeDrillPerformance(
           moveNumber: getMoveNumberFromFen(nextNode.fen),
           isPlayerMove,
           evaluation: playedMoveEval,
-          classification: classifyMove(
-            playedMoveEval,
-            prevEval,
-            isPlayerMove,
-            drillGame.selection.playerColor,
-          ),
+          classification: isPlayerMove
+            ? classifyMove(currentGameNode, playedMove, 'maia_kdd_1500')
+            : 'good',
           evaluationLoss,
           bestMove,
           bestEvaluation: bestEval,
@@ -617,9 +585,6 @@ export async function analyzeDrillPerformance(
     ).length
     const inaccuracies = playerMoves.filter(
       (m) => m.classification === 'inaccuracy',
-    ).length
-    const mistakes = playerMoves.filter(
-      (m) => m.classification === 'mistake',
     ).length
     const blunders = playerMoves.filter(
       (m) => m.classification === 'blunder',
@@ -701,7 +666,8 @@ export async function analyzeDrillPerformance(
 
     const worstPlayerMoves = playerMoves
       .filter(
-        (m) => m.classification === 'blunder' || m.classification === 'mistake',
+        (m) =>
+          m.classification === 'blunder' || m.classification === 'inaccuracy',
       )
       .sort((a, b) => a.evaluationLoss - b.evaluationLoss)
       .slice(0, 3)
@@ -738,7 +704,7 @@ export async function analyzeDrillPerformance(
       blunderCount: blunders,
       goodMoveCount: goodMoves + excellentMoves,
       inaccuracyCount: inaccuracies,
-      mistakeCount: mistakes,
+      mistakeCount: 0, // Legacy field, mistakes classification removed // Legacy field, mistakes classification removed
       excellentMoveCount: excellentMoves,
       feedback,
       moveAnalyses,
@@ -779,7 +745,7 @@ export async function analyzeDrillPerformance(
       blunderCount: 0,
       goodMoveCount: Math.floor(playerMoveCount * 0.7),
       inaccuracyCount: 0,
-      mistakeCount: 0,
+      mistakeCount: 0, // Legacy field, mistakes classification removed
       excellentMoveCount: 0,
       feedback: ['Analysis temporarily unavailable. Please try again.'],
       moveAnalyses: [],

@@ -1,11 +1,11 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
-import { Tooltip } from 'react-tooltip'
 import React, { useContext, useMemo, Fragment, useEffect } from 'react'
 import { WindowSizeContext } from 'src/contexts'
 import { GameNode, AnalyzedGame, Termination, BaseGame } from 'src/types'
 import { TuringGame } from 'src/types/turing'
 import { useBaseTreeController } from 'src/hooks/useBaseTreeController'
+import { MoveClassificationIcon } from 'src/components/Common/MoveIcons'
 
 interface AnalysisProps {
   game: BaseGame | AnalyzedGame
@@ -36,75 +36,24 @@ interface PlayProps {
 
 type Props = AnalysisProps | TuringProps | PlayProps
 
-function BlunderIcon() {
-  return (
-    <>
-      <div
-        className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#d73027] text-[10px] font-bold text-white"
-        data-tooltip-id="blunder-tooltip"
-      >
-        !
-      </div>
-      <Tooltip
-        id="blunder-tooltip"
-        content="Critical Mistake"
-        place="top"
-        delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
-      />
-    </>
-  )
-}
+// Helper function to get move classification for display
+const getMoveClassification = (
+  node: GameNode | null,
+  currentMaiaModel?: string,
+) => {
+  if (!node || !node.parent) {
+    return {
+      blunder: false,
+      inaccuracy: false,
+      excellent: false,
+      bestMove: false,
+    }
+  }
 
-function InaccuracyIcon() {
-  return (
-    <div className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#f46d43] text-[10px] font-bold text-white">
-      ?
-    </div>
-  )
-}
-
-function GoodMoveIcon() {
-  return (
-    <div className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#74add1] text-[10px] font-bold text-white">
-      !
-    </div>
-  )
-}
-
-function ExcellentMoveIcon() {
-  return (
-    <div className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#4575b4] text-[10px] font-bold text-white">
-      !!
-    </div>
-  )
-}
-
-function BestMoveIcon() {
-  return (
-    <div className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#1a9850] text-[10px] font-bold text-white">
-      ★
-    </div>
-  )
-}
-
-function UnlikelyGoodMoveIcon() {
-  return (
-    <>
-      <div
-        className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#2ca25f] text-[10px] font-bold text-white"
-        data-tooltip-id="unlikely-good-tooltip"
-      >
-        !
-      </div>
-      <Tooltip
-        id="unlikely-good-tooltip"
-        content="Surprising Strong Move"
-        place="top"
-        delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
-      />
-    </>
+  return GameNode.classifyMove(
+    node.parent,
+    node.move || '',
+    currentMaiaModel || 'maia_kdd_1500',
   )
 }
 
@@ -256,10 +205,12 @@ export const MovesContainer: React.FC<Props> = (props) => {
                   } ${highlightSet.has(pairIndex * 2 + 1) ? 'bg-human-3/80' : ''}`}
                 >
                   <span>{pair.whiteMove.san ?? pair.whiteMove.move}</span>
-                  {shouldShowIndicators(pair.whiteMove) &&
-                    pair.whiteMove.blunder && <BlunderIcon />}
-                  {shouldShowIndicators(pair.whiteMove) &&
-                    pair.whiteMove.unlikelyGoodMove && <UnlikelyGoodMoveIcon />}
+                  {shouldShowIndicators(pair.whiteMove) && (
+                    <MoveClassificationIcon
+                      classification={getMoveClassification(pair.whiteMove)}
+                      size="medium"
+                    />
+                  )}
                 </div>
               )}
               {pair.blackMove && (
@@ -274,10 +225,12 @@ export const MovesContainer: React.FC<Props> = (props) => {
                   } ${highlightSet.has(pairIndex * 2 + 2) ? 'bg-human-3/80' : ''}`}
                 >
                   <span>{pair.blackMove.san ?? pair.blackMove.move}</span>
-                  {shouldShowIndicators(pair.blackMove) &&
-                    pair.blackMove.blunder && <BlunderIcon />}
-                  {shouldShowIndicators(pair.blackMove) &&
-                    pair.blackMove.unlikelyGoodMove && <UnlikelyGoodMoveIcon />}
+                  {shouldShowIndicators(pair.blackMove) && (
+                    <MoveClassificationIcon
+                      classification={getMoveClassification(pair.blackMove)}
+                      size="medium"
+                    />
+                  )}
                 </div>
               )}
             </React.Fragment>
@@ -317,11 +270,12 @@ export const MovesContainer: React.FC<Props> = (props) => {
               className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-background-2 ${baseController.currentNode === whiteNode && 'bg-human-4/20'} ${highlightSet.has(index * 2 + 1) && 'bg-human-3/80'}`}
             >
               {whiteNode?.san ?? whiteNode?.move}
-              {shouldShowIndicators(whiteNode) && whiteNode?.blunder && (
-                <BlunderIcon />
+              {shouldShowIndicators(whiteNode) && (
+                <MoveClassificationIcon
+                  classification={getMoveClassification(whiteNode)}
+                  size="medium"
+                />
               )}
-              {shouldShowIndicators(whiteNode) &&
-                whiteNode?.unlikelyGoodMove && <UnlikelyGoodMoveIcon />}
             </div>
             {showVariations && whiteNode?.getVariations().length ? (
               <FirstVariation
@@ -340,11 +294,12 @@ export const MovesContainer: React.FC<Props> = (props) => {
               className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-background-2 ${baseController.currentNode === blackNode && 'bg-human-4/20'} ${highlightSet.has(index * 2 + 2) && 'bg-human-3/80'}`}
             >
               {blackNode?.san ?? blackNode?.move}
-              {shouldShowIndicators(blackNode) && blackNode?.blunder && (
-                <BlunderIcon />
+              {shouldShowIndicators(blackNode) && (
+                <MoveClassificationIcon
+                  classification={getMoveClassification(blackNode)}
+                  size="medium"
+                />
               )}
-              {shouldShowIndicators(blackNode) &&
-                blackNode?.unlikelyGoodMove && <UnlikelyGoodMoveIcon />}
             </div>
             {showVariations && blackNode?.getVariations().length ? (
               <FirstVariation
@@ -447,21 +402,12 @@ function VariationTree({
         {node.moveNumber}. {node.turn === 'w' ? '...' : ''}
         {node.san}
         <span className="inline-flex items-center">
-          {shouldShowVariationIndicators(node) && node.blunder && (
-            <span
-              className="ml-0.5 text-[8px] text-[#d73027]"
-              data-tooltip-id="variation-blunder-tooltip"
-            >
-              !
-            </span>
-          )}
-          {shouldShowVariationIndicators(node) && node.unlikelyGoodMove && (
-            <span
-              className="ml-0.5 text-[8px] text-[#2ca25f]"
-              data-tooltip-id="variation-unlikely-tooltip"
-            >
-              !?
-            </span>
+          {shouldShowVariationIndicators(node) && (
+            <MoveClassificationIcon
+              classification={getMoveClassification(node)}
+              size="small"
+              className="ml-0.5"
+            />
           )}
         </span>
       </span>
@@ -489,20 +435,6 @@ function VariationTree({
           ))}
         </ul>
       ) : null}
-      <Tooltip
-        id="variation-blunder-tooltip"
-        content="Critical Mistake"
-        place="top"
-        delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
-      />
-      <Tooltip
-        id="variation-unlikely-tooltip"
-        content="Surprising Strong Move"
-        place="top"
-        delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
-      />
     </li>
   )
 }
@@ -554,42 +486,18 @@ function InlineChain({
               {child.moveNumber}. {child.turn === 'w' ? '...' : ''}
               {child.san}
               <span className="inline-flex items-center">
-                {shouldShowInlineIndicators(child) && child.blunder && (
-                  <span
-                    className="ml-0.5 text-[8px] text-[#d73027]"
-                    data-tooltip-id="inline-blunder-tooltip"
-                  >
-                    !
-                  </span>
+                {shouldShowInlineIndicators(child) && (
+                  <MoveClassificationIcon
+                    classification={getMoveClassification(child)}
+                    size="small"
+                    className="ml-0.5"
+                  />
                 )}
-                {shouldShowInlineIndicators(child) &&
-                  child.unlikelyGoodMove && (
-                    <span
-                      className="ml-0.5 text-[8px] text-[#2ca25f]"
-                      data-tooltip-id="inline-unlikely-tooltip"
-                    >
-                      !?
-                    </span>
-                  )}
               </span>
             </span>
           </Fragment>
         ))}
       </span>
-      <Tooltip
-        id="inline-blunder-tooltip"
-        content="Critical Mistake"
-        place="top"
-        delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
-      />
-      <Tooltip
-        id="inline-unlikely-tooltip"
-        content="Surprising Strong Move"
-        place="top"
-        delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
-      />
       {current.getVariations().length > 1 && (
         <ul className="tree-ul list-none">
           {current.getVariations().map((child) => (

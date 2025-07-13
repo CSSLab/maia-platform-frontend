@@ -29,6 +29,13 @@ import { GameNode } from 'src/types'
 import { cpToWinrate } from 'src/utils/stockfish'
 import { MaiaRatingInsights } from './MaiaRatingInsights'
 import { WindowSizeContext } from 'src/contexts'
+import {
+  ExcellentIcon,
+  InaccuracyIcon,
+  BlunderIcon,
+  MoveClassificationIcon,
+} from 'src/components/Common/MoveIcons'
+import { MOVE_CLASSIFICATION_THRESHOLDS } from 'src/constants/moveClassification'
 
 interface Props {
   performanceData: DrillPerformanceData
@@ -148,51 +155,11 @@ const AnimatedGameReplay: React.FC<{
     }
   }
 
-  // Classify move based on winrate loss (using proper winrate calculation)
-  const classifyMove = (analysis: MoveAnalysis, moveIndex: number): string => {
-    // Need evaluation before and after the move to calculate winrate change
-    if (moveIndex === 0) return '' // Can't calculate for first move
-
-    const currentEval = analysis.evaluation
-    const previousEval = moveAnalyses[moveIndex - 1]?.evaluation
-
-    if (currentEval === undefined || previousEval === undefined) return ''
-
-    // Convert evaluations to winrates (assuming evaluations are already in centipawns)
-    const currentWinrate = cpToWinrate(currentEval)
-    const previousWinrate = cpToWinrate(previousEval)
-
-    // Calculate winrate change from player's perspective
-    let winrateChange: number
-
-    if (analysis.isPlayerMove) {
-      // For player moves, we need to consider which color they're playing
-      if (playerColor === 'white') {
-        // Higher evaluation is better for white
-        winrateChange = currentWinrate - previousWinrate
-      } else {
-        // Lower evaluation is better for black
-        winrateChange = previousWinrate - currentWinrate
-      }
-    } else {
-      // For opponent (Maia) moves, we don't classify them
-      return ''
-    }
-
-    // Use more reasonable thresholds - excellent moves should be rare
-    const BLUNDER_THRESHOLD = 0.1 // 10% winrate drop - significant mistake
-    const INACCURACY_THRESHOLD = 0.05 // 5% winrate drop - noticeable error
-    const EXCELLENT_THRESHOLD = 0.08 // 8% winrate gain - very good move
-
-    if (winrateChange <= -BLUNDER_THRESHOLD) {
-      return 'blunder'
-    } else if (winrateChange <= -INACCURACY_THRESHOLD) {
-      return 'inaccuracy'
-    } else if (winrateChange >= EXCELLENT_THRESHOLD) {
-      return 'excellent'
-    }
-
-    return '' // Normal moves get no classification
+  // Helper function to get move classification (simplified for this component)
+  const getSimpleClassification = (analysis: MoveAnalysis): string => {
+    // For the modal, we'll use the classification from the analysis data directly
+    // This maintains compatibility while the underlying system is unified
+    return analysis.classification || ''
   }
 
   // Helper function to pair moves for display with proper chess notation
@@ -387,18 +354,21 @@ const AnimatedGameReplay: React.FC<{
                   <div className="flex items-center">
                     {pair.white &&
                       (() => {
-                        const classification = classifyMove(
+                        const classification = getSimpleClassification(
                           pair.white,
-                          pair.white.index,
                         )
-                        const symbol = getQualitySymbol(classification)
-                        return symbol ? (
-                          <span
-                            className={`ml-1 text-xs font-bold ${getQualityColor(classification)}`}
-                          >
-                            {symbol}
-                          </span>
-                        ) : null
+                        const classificationObj = {
+                          blunder: classification === 'blunder',
+                          inaccuracy: classification === 'inaccuracy',
+                          excellent: classification === 'excellent',
+                          bestMove: false,
+                        }
+                        return (
+                          <MoveClassificationIcon
+                            classification={classificationObj}
+                            size="small"
+                          />
+                        )
                       })()}
                   </div>
                 </div>
@@ -424,18 +394,21 @@ const AnimatedGameReplay: React.FC<{
                   <div className="flex items-center">
                     {pair.black &&
                       (() => {
-                        const classification = classifyMove(
+                        const classification = getSimpleClassification(
                           pair.black,
-                          pair.black.index,
                         )
-                        const symbol = getQualitySymbol(classification)
-                        return symbol ? (
-                          <span
-                            className={`ml-1 text-xs font-bold ${getQualityColor(classification)}`}
-                          >
-                            {symbol}
-                          </span>
-                        ) : null
+                        const classificationObj = {
+                          blunder: classification === 'blunder',
+                          inaccuracy: classification === 'inaccuracy',
+                          excellent: classification === 'excellent',
+                          bestMove: false,
+                        }
+                        return (
+                          <MoveClassificationIcon
+                            classification={classificationObj}
+                            size="small"
+                          />
+                        )
                       })()}
                   </div>
                 </div>
@@ -605,51 +578,9 @@ const EvaluationChart: React.FC<{
     )
   }
 
-  // Classify move based on winrate loss (using proper winrate calculation)
-  const classifyMove = (analysis: MoveAnalysis, moveIndex: number): string => {
-    // Need evaluation before and after the move to calculate winrate change
-    if (moveIndex === 0) return '' // Can't calculate for first move
-
-    const currentEval = analysis.evaluation
-    const previousEval = moveAnalyses[moveIndex - 1]?.evaluation
-
-    if (currentEval === undefined || previousEval === undefined) return ''
-
-    // Convert evaluations to winrates (assuming evaluations are already in centipawns)
-    const currentWinrate = cpToWinrate(currentEval)
-    const previousWinrate = cpToWinrate(previousEval)
-
-    // Calculate winrate change from player's perspective
-    let winrateChange: number
-
-    if (analysis.isPlayerMove) {
-      // For player moves, we need to consider which color they're playing
-      if (playerColor === 'white') {
-        // Higher evaluation is better for white
-        winrateChange = currentWinrate - previousWinrate
-      } else {
-        // Lower evaluation is better for black
-        winrateChange = previousWinrate - currentWinrate
-      }
-    } else {
-      // For opponent (Maia) moves, we don't classify them
-      return ''
-    }
-
-    // Use more reasonable thresholds - excellent moves should be rare
-    const BLUNDER_THRESHOLD = 0.1 // 10% winrate drop - significant mistake
-    const INACCURACY_THRESHOLD = 0.05 // 5% winrate drop - noticeable error
-    const EXCELLENT_THRESHOLD = 0.08 // 8% winrate gain - very good move
-
-    if (winrateChange <= -BLUNDER_THRESHOLD) {
-      return 'blunder'
-    } else if (winrateChange <= -INACCURACY_THRESHOLD) {
-      return 'inaccuracy'
-    } else if (winrateChange >= EXCELLENT_THRESHOLD) {
-      return 'excellent'
-    }
-
-    return '' // Normal moves get no classification
+  // Helper function to get move classification (use analysis data for compatibility)
+  const getChartClassification = (analysis: MoveAnalysis): string => {
+    return analysis.classification || ''
   }
 
   // Generate move numbers for chartData - create pairs first then extract chart data
@@ -727,7 +658,7 @@ const EvaluationChart: React.FC<{
     }
 
     const dynamicClassification = moveAnalysis
-      ? classifyMove(moveAnalysis, index)
+      ? getChartClassification(moveAnalysis)
       : ''
 
     // Get Stockfish depth by finding the corresponding game node
@@ -871,15 +802,15 @@ const EvaluationChart: React.FC<{
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-xs">
         <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded-full bg-green-400"></div>
+          <ExcellentIcon size="small" />
           <span className="text-secondary">Excellent</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
+          <InaccuracyIcon size="small" />
           <span className="text-secondary">Inaccuracy</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-3 w-3 rounded-full bg-red-400"></div>
+          <BlunderIcon size="small" />
           <span className="text-secondary">Blunder</span>
         </div>
       </div>
@@ -1003,39 +934,48 @@ const DesktopLayout: React.FC<{
             return { moveNumber, isWhiteMove }
           }
 
-          // Calculate critical moments for this column
-          const criticalMoments = filteredEvaluationChart
-            .map((point, index) => {
-              if (index === 0) return null
-              const currentEval = point.evaluation
-              const previousEval = filteredEvaluationChart[index - 1].evaluation
+          const criticalMoments = filteredMoveAnalyses
+            .map((moveAnalysis, index) => {
+              if (!moveAnalysis.isPlayerMove) return null
+              const classification = moveAnalysis.classification || ''
 
-              // Convert evaluations to win rates and calculate change
-              const currentWinrate = cpToWinrate(currentEval)
-              const previousWinrate = cpToWinrate(previousEval)
-              const winrateChange = Math.abs(currentWinrate - previousWinrate)
+              let winrateChange = 0
+              if (classification === 'blunder') {
+                winrateChange = MOVE_CLASSIFICATION_THRESHOLDS.BLUNDER_THRESHOLD
+              } else if (classification === 'inaccuracy') {
+                winrateChange =
+                  MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD
+              } else {
+                const evaluationLoss = Math.abs(
+                  moveAnalysis.evaluationLoss || 0,
+                )
+                winrateChange = Math.min(evaluationLoss / 300, 0.05)
+              }
 
-              const moveAnalysis = filteredMoveAnalyses[index]
               const moveInfo = getMoveNumberForIndex(index)
+              const evaluationPoint = filteredEvaluationChart[index]
+              const previousEvaluationPoint =
+                index > 0 ? filteredEvaluationChart[index - 1] : null
+
               return {
                 index,
                 moveNumber: moveInfo.moveNumber,
                 isWhiteMove: moveInfo.isWhiteMove,
                 winrateChange,
                 moveAnalysis,
-                isPlayerMove: point.isPlayerMove,
-                evaluation: point.evaluation,
-                previousEvaluation: previousEval,
+                isPlayerMove: true,
+                evaluation: evaluationPoint?.evaluation || 0,
+                previousEvaluation: previousEvaluationPoint?.evaluation || 0,
               }
             })
             .filter(
               (moment): moment is NonNullable<typeof moment> =>
                 moment !== null &&
                 moment.isPlayerMove &&
-                moment.winrateChange > 0.05, // 5% win rate change threshold
+                moment.winrateChange >
+                  MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD,
             )
             .sort((a, b) => a.index - b.index)
-            .slice(0, 3) // Show top 3
 
           const formatEvaluation = (evaluation: number) => {
             if (Math.abs(evaluation) >= 1000) {
@@ -1046,53 +986,23 @@ const DesktopLayout: React.FC<{
               : `${(evaluation / 100).toFixed(1)}`
           }
 
-          // Helper functions for move quality indicators (same as AnimatedGameReplay)
-          const getQualityColor = (quality: string) => {
-            switch (quality) {
-              case 'excellent':
-                return 'text-green-400'
-              case 'inaccuracy':
-                return 'text-yellow-400'
-              case 'blunder':
-                return 'text-red-400'
-              default:
-                return 'text-secondary'
-            }
-          }
-
-          const getQualitySymbol = (quality: string) => {
-            switch (quality) {
-              case 'excellent':
-                return '!!'
-              case 'inaccuracy':
-                return '?!'
-              case 'blunder':
-                return '??'
-              default:
-                return '' // No symbol for normal/good moves
-            }
-          }
-
-          // Classify move based on winrate loss (same logic as AnimatedGameReplay)
           const classifyMoveInCritical = (
             moment: (typeof criticalMoments)[0],
           ): string => {
             const winrateChange = moment.winrateChange
 
-            // Use same thresholds as AnimatedGameReplay
-            const BLUNDER_THRESHOLD = 0.1 // 10% winrate drop - significant mistake
-            const INACCURACY_THRESHOLD = 0.05 // 5% winrate drop - noticeable error
-            const EXCELLENT_THRESHOLD = 0.08 // 8% winrate gain - very good move
-
-            // For critical moments, we're looking at negative changes (mistakes)
-            // since these are moments that shifted evaluation unfavorably
-            if (winrateChange >= BLUNDER_THRESHOLD) {
+            if (
+              winrateChange >= MOVE_CLASSIFICATION_THRESHOLDS.BLUNDER_THRESHOLD
+            ) {
               return 'blunder'
-            } else if (winrateChange >= INACCURACY_THRESHOLD) {
+            } else if (
+              winrateChange >=
+              MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD
+            ) {
               return 'inaccuracy'
             }
 
-            return '' // Normal moves get no classification
+            return ''
           }
 
           return criticalMoments.length > 0 ? (
@@ -1106,7 +1016,12 @@ const DesktopLayout: React.FC<{
               <div className="flex flex-col">
                 {criticalMoments.map((moment) => {
                   const classification = classifyMoveInCritical(moment)
-                  const symbol = getQualitySymbol(classification)
+                  const classificationObj = {
+                    blunder: classification === 'blunder',
+                    inaccuracy: classification === 'inaccuracy',
+                    excellent: classification === 'excellent',
+                    bestMove: false,
+                  }
 
                   return (
                     <div
@@ -1130,16 +1045,14 @@ const DesktopLayout: React.FC<{
                               : `...${moment.moveNumber}.`}{' '}
                             {moment.moveAnalysis?.san}
                           </span>
-                          {symbol && (
-                            <span
-                              className={`text-xs font-bold ${getQualityColor(classification)}`}
-                            >
-                              {symbol}
-                            </span>
-                          )}
+                          <MoveClassificationIcon
+                            classification={classificationObj}
+                            size="small"
+                          />
                         </div>
                         <span className="text-xs text-secondary">
-                          Swing: {(moment.winrateChange * 100).toFixed(1)}%
+                          Loss:{' '}
+                          {Math.abs(moment.moveAnalysis?.evaluationLoss || 0)}cp
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
@@ -1376,15 +1289,6 @@ export const DrillPerformanceModal: React.FC<Props> = ({
       ...move,
       originalIndex: startIndex + index, // Track original index for board navigation
     }))
-  }, [moveAnalyses])
-
-  // Store the first player move index for offset calculations
-  const firstPlayerMoveIndex = useMemo(() => {
-    const originalFirstPlayerIndex = moveAnalyses.findIndex(
-      (move) => move.isPlayerMove,
-    )
-    // Account for the fact that we now start one move earlier
-    return Math.max(0, originalFirstPlayerIndex - 1)
   }, [moveAnalyses])
 
   // Filter evaluation chart to match the filtered moves
