@@ -659,6 +659,15 @@ const OpeningsPage: NextPage = () => {
                       Next Drill
                     </button>
                   )}
+                {controller.currentPerformanceData &&
+                  !controller.showPerformanceModal && (
+                    <button
+                      onClick={controller.showCurrentPerformance}
+                      className="rounded bg-background-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-background-3"
+                    >
+                      View Performance
+                    </button>
+                  )}
                 {controller.areAllDrillsCompleted && (
                   <button
                     onClick={controller.showSummary}
@@ -861,6 +870,15 @@ const OpeningsPage: NextPage = () => {
                     className="rounded bg-human-4 px-6 py-2 text-sm font-medium"
                   >
                     Next Drill
+                  </button>
+                )}
+              {controller.currentPerformanceData &&
+                !controller.showPerformanceModal && (
+                  <button
+                    onClick={controller.showCurrentPerformance}
+                    className="rounded bg-background-2 px-6 py-2 text-sm font-medium"
+                  >
+                    View Performance
                   </button>
                 )}
               {controller.areAllDrillsCompleted && (

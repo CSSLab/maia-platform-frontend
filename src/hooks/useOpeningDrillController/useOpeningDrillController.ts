@@ -567,6 +567,112 @@ export const useOpeningDrillController = (
     setShowFinalModal(true)
   }, [])
 
+  // Show performance modal for a specific drill or current drill
+  const showPerformance = useCallback(
+    async (drill?: CompletedDrill | OpeningDrillGame) => {
+      let performanceData: DrillPerformanceData | null = null
+
+      if (drill) {
+        if ('selection' in drill && 'finalNode' in drill) {
+          // This is a CompletedDrill - we might need to re-analyze or use cached data
+          const completedDrill = drill as CompletedDrill
+
+          // Try to find existing performance data from a previous analysis
+          if (
+            currentPerformanceData &&
+            currentPerformanceData.drill.selection.id ===
+              completedDrill.selection.id
+          ) {
+            performanceData = currentPerformanceData
+          } else {
+            // Re-analyze the completed drill
+            try {
+              setIsAnalyzingDrill(true)
+              isPostDrillAnalysis.current = true
+              setAnalysisProgress({
+                total: 0,
+                completed: 0,
+                currentMove: 'Preparing analysis...',
+              })
+
+              // Convert CompletedDrill back to OpeningDrillGame format for analysis
+              const drillGame: OpeningDrillGame = {
+                id: completedDrill.selection.id,
+                selection: completedDrill.selection,
+                moves: completedDrill.allMoves || completedDrill.playerMoves,
+                tree: currentDrillGame?.tree || new GameTree(new Chess().fen()),
+                currentFen: completedDrill.finalNode?.fen || new Chess().fen(),
+                toPlay: completedDrill.finalNode
+                  ? new Chess(completedDrill.finalNode.fen).turn() === 'w'
+                    ? 'white'
+                    : 'black'
+                  : 'white',
+                openingEndNode: currentDrillGame?.openingEndNode || null,
+                playerMoveCount: completedDrill.totalMoves,
+              }
+
+              performanceData = await evaluateDrillPerformance(drillGame)
+            } catch (error) {
+              console.error('Error analyzing drill performance:', error)
+            } finally {
+              setIsAnalyzingDrill(false)
+              isPostDrillAnalysis.current = false
+            }
+          }
+        } else {
+          // This is an OpeningDrillGame - analyze it directly
+          const drillGame = drill as OpeningDrillGame
+          try {
+            setIsAnalyzingDrill(true)
+            isPostDrillAnalysis.current = true
+            setAnalysisProgress({
+              total: 0,
+              completed: 0,
+              currentMove: 'Preparing analysis...',
+            })
+
+            performanceData = await evaluateDrillPerformance(drillGame)
+          } catch (error) {
+            console.error('Error analyzing drill performance:', error)
+          } finally {
+            setIsAnalyzingDrill(false)
+            isPostDrillAnalysis.current = false
+          }
+        }
+      } else if (currentDrillGame) {
+        // No specific drill provided, analyze current drill
+        try {
+          setIsAnalyzingDrill(true)
+          isPostDrillAnalysis.current = true
+          setAnalysisProgress({
+            total: 0,
+            completed: 0,
+            currentMove: 'Preparing analysis...',
+          })
+
+          performanceData = await evaluateDrillPerformance(currentDrillGame)
+        } catch (error) {
+          console.error('Error analyzing current drill performance:', error)
+        } finally {
+          setIsAnalyzingDrill(false)
+          isPostDrillAnalysis.current = false
+        }
+      }
+
+      // Set the performance data and show the modal
+      if (performanceData) {
+        setCurrentPerformanceData(performanceData)
+      }
+      setShowPerformanceModal(true)
+    },
+    [currentDrillGame, currentPerformanceData, evaluateDrillPerformance],
+  )
+
+  // Simple version for button handlers - shows performance for current drill
+  const showCurrentPerformance = useCallback(() => {
+    showPerformance()
+  }, [showPerformance])
+
   // Reset drill session for new openings
   const resetDrillSession = useCallback(() => {
     setAllDrillsCompleted(false)
@@ -1362,6 +1468,12 @@ export const useOpeningDrillController = (
 
     // Show final summary modal
     showSummary,
+
+    // Show performance modal for a specific drill or current drill
+    showPerformance,
+
+    // Show performance modal for current drill (for button handlers)
+    showCurrentPerformance,
 
     // Analysis cache for sharing with analysis controller
     analysisCache,
