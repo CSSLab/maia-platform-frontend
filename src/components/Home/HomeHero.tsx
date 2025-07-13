@@ -6,11 +6,12 @@ import {
   SunIcon,
   UserIcon,
   ArrowIcon,
-  TuringIcon,
+  BrainIcon, // Use BrainIcon for Hand & Brain
   TrainIcon,
   RegularPlayIcon,
   ChessboardIcon,
   StarIcon,
+  BotOrNotIcon, // The old BrainIcon
 } from 'src/components/Icons/icons'
 import { PlayType } from 'src/types'
 import { getGlobalStats } from 'src/api'
@@ -165,7 +166,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               index={2}
             />
             <FeatureCard
-              icon={<TuringIcon />}
+              icon={<BrainIcon />}
               title="Hand & Brain"
               description="Play a collaborative chess variant with Maia"
               onClick={() => startGame('handAndBrain')}
@@ -179,7 +180,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               index={4}
             />
             <FeatureCard
-              icon={<TuringIcon />}
+              icon={<BotOrNotIcon />}
               title="Bot-or-Not"
               description="Distinguish between human and AI play"
               href="/turing"

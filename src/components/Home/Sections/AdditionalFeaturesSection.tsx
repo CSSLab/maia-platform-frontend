@@ -5,7 +5,7 @@ import { useInView } from 'react-intersection-observer'
 
 import { ModalContext } from 'src/contexts'
 import { PlayType } from 'src/types'
-import { StarIcon, TuringIcon } from 'src/components/Icons/icons'
+import { StarIcon, BrainIcon, BotOrNotIcon } from 'src/components/Icons/icons'
 
 const animationVariants = {
   container: {
@@ -108,7 +108,7 @@ const SectionHeader = () => {
       <div className="mb-2 inline-block rounded-full bg-human-3/10 px-4 py-1 text-sm font-medium text-human-3">
         More Features
       </div>
-      <h2 className="mb-3 text-2xl font-bold md:mb-4 md:text-3xl md:text-4xl lg:text-5xl">
+      <h2 className="mb-3 text-2xl font-bold md:mb-4 md:text-3xl lg:text-5xl">
         Explore other ways to use Maia
       </h2>
       <p className="max-w-2xl text-base text-primary/80 md:text-lg">
@@ -143,7 +143,7 @@ export const AdditionalFeaturesSection = ({
       iconTextColor: 'text-human-3',
     },
     {
-      icon: <TuringIcon />,
+      icon: <BrainIcon />,
       title: 'Hand & Brain',
       description:
         'Team up with Maia in this collaborative chess variant. You can be the "Hand" making moves while Maia is the "Brain" selecting pieces, or vice versa.',
@@ -156,7 +156,7 @@ export const AdditionalFeaturesSection = ({
       iconTextColor: 'text-engine-3',
     },
     {
-      icon: <TuringIcon />,
+      icon: <BotOrNotIcon />,
       title: 'Bot or Not',
       description:
         'Test your ability to distinguish between human and AI chess play. This Turing Test for chess is a fun way to see if you understand the differences between human and engine moves.',

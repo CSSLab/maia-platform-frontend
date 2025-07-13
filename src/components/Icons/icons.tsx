@@ -14,15 +14,15 @@ export const RegularPlayIcon = () => (
   <Image src={regular_play_icon} alt="Regular Play Icon" />
 )
 
-export const TuringIcon = () => (
+export const BrainIcon = () => <Image src={brain_icon} alt="Brain Icon" />
+
+export const BotOrNotIcon = () => (
   <Image src={turing_icon} alt="Bot-or-Not Icon" />
 )
 
 export const TrainIcon = () => <Image src={train_icon} alt="Train Icon" />
 
 export const HandIcon = () => <Image src={hand_icon} alt="Hand Icon" />
-
-export const BrainIcon = () => <Image src={brain_icon} alt="Brain Icon" />
 
 export const StarIcon = () => <Image src={star_icon} alt="Star Icon" />
 

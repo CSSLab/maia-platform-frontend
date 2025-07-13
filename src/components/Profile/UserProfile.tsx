@@ -4,7 +4,7 @@ import {
   HandIcon,
   BrainIcon,
   TrainIcon,
-  TuringIcon,
+  BotOrNotIcon,
   RegularPlayIcon,
 } from '../Icons/icons'
 import { ProfileColumn } from 'src/components'
@@ -68,7 +68,7 @@ export const UserProfile = ({ wide, stats }: Props) => {
         }}
       />
       <ProfileColumn
-        icon={<TuringIcon />}
+        icon={<BotOrNotIcon />}
         name="Bot / Not"
         data={{
           rating: stats.botNotRating,

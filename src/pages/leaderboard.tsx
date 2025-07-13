@@ -6,7 +6,7 @@ import {
   HandIcon,
   RegularPlayIcon,
   TrainIcon,
-  TuringIcon,
+  BotOrNotIcon,
 } from 'src/components/Icons/icons'
 import { getLeaderboard } from 'src/api'
 import { LeaderboardColumn } from 'src/components'
@@ -59,7 +59,7 @@ const Leaderboard: React.FC = () => {
       },
       {
         id: 'turing',
-        icon: <TuringIcon />,
+        icon: <BotOrNotIcon />,
         name: 'Bot/Not',
         ranking: lb.turing_leaders,
       },
