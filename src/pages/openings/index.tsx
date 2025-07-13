@@ -318,43 +318,53 @@ const OpeningsPage: NextPage = () => {
   // Make move function for analysis components
   const makeMove = useCallback(
     async (move: string) => {
+      // Allow moves when analysis is enabled OR in continue analyzing mode
       if (
-        !controller.analysisEnabled ||
+        !(controller.analysisEnabled || controller.continueAnalyzingMode) ||
         !controller.currentNode ||
         !controller.gameTree
       )
         return
 
-      const chess = new Chess(controller.currentNode.fen)
-      const moveAttempt = chess.move({
-        from: move.slice(0, 2),
-        to: move.slice(2, 4),
-        promotion: move[4] ? (move[4] as PieceSymbol) : undefined,
-      })
+      if (controller.continueAnalyzingMode) {
+        // In continue analyzing mode, allow moves from both sides and create variations
+        const chess = new Chess(controller.currentNode.fen)
+        const moveAttempt = chess.move({
+          from: move.slice(0, 2),
+          to: move.slice(2, 4),
+          promotion: move[4] ? (move[4] as PieceSymbol) : undefined,
+        })
 
-      if (moveAttempt) {
-        const newFen = chess.fen()
-        const moveString =
-          moveAttempt.from +
-          moveAttempt.to +
-          (moveAttempt.promotion ? moveAttempt.promotion : '')
-        const san = moveAttempt.san
+        if (moveAttempt) {
+          const newFen = chess.fen()
+          const moveString =
+            moveAttempt.from +
+            moveAttempt.to +
+            (moveAttempt.promotion ? moveAttempt.promotion : '')
+          const san = moveAttempt.san
 
-        // Follow the same logic as analysis page: check main child first, then create variation
-        if (controller.currentNode.mainChild?.move === moveString) {
-          // Move matches main line, just navigate to it
-          controller.setCurrentNode(controller.currentNode.mainChild)
-        } else {
-          // Create variation for different move
-          const newVariation = controller.gameTree.addVariation(
-            controller.currentNode,
-            newFen,
-            moveString,
-            san,
-            analysisController.currentMaiaModel,
-          )
-          controller.setCurrentNode(newVariation)
+          // Use analysis page logic for variations
+          if (controller.currentNode.mainChild?.move === moveString) {
+            // Move matches main line, just navigate to it
+            controller.setCurrentNode(controller.currentNode.mainChild)
+          } else {
+            // Create variation for different move
+            const newVariation = controller.gameTree.addVariation(
+              controller.currentNode,
+              newFen,
+              moveString,
+              san,
+              analysisController.currentMaiaModel,
+            )
+            controller.setCurrentNode(newVariation)
+          }
         }
+      } else {
+        // In regular drill mode, only allow moves when it's the player's turn
+        // and use the controller's makePlayerMove method so Maia can respond
+        if (!controller.isPlayerTurn) return
+
+        await controller.makePlayerMove(move)
       }
     },
     [controller, analysisController.currentMaiaModel],
@@ -522,6 +532,11 @@ const OpeningsPage: NextPage = () => {
                         moves: movesForContainer,
                       }}
                       type="analysis"
+                      showAnnotations={
+                        controller.analysisEnabled ||
+                        controller.continueAnalyzingMode
+                      }
+                      showVariations={controller.continueAnalyzingMode}
                     />
                   </div>
                   <div className="border-t border-white/10">
@@ -556,22 +571,36 @@ const OpeningsPage: NextPage = () => {
                     controller.analysisEnabled ||
                     controller.continueAnalyzingMode
                       ? (() => {
-                          const currentFen = controller.currentNode?.fen
-                          if (!currentFen) return new Map<string, string[]>()
+                          // In continue analyzing mode, show all legal moves
+                          if (controller.continueAnalyzingMode) {
+                            const currentFen = controller.currentNode?.fen
+                            if (!currentFen) return new Map<string, string[]>()
 
-                          const moveMap = new Map<string, string[]>()
-                          const chess = new Chess(currentFen)
-                          const legalMoves = chess.moves({ verbose: true })
+                            const moveMap = new Map<string, string[]>()
+                            const chess = new Chess(currentFen)
+                            const legalMoves = chess.moves({ verbose: true })
 
-                          legalMoves.forEach((move) => {
-                            const { from, to } = move
-                            moveMap.set(
-                              from,
-                              (moveMap.get(from) ?? []).concat([to]),
-                            )
-                          })
+                            legalMoves.forEach((move) => {
+                              const { from, to } = move
+                              moveMap.set(
+                                from,
+                                (moveMap.get(from) ?? []).concat([to]),
+                              )
+                            })
 
-                          return moveMap
+                            return moveMap
+                          }
+
+                          // In regular drill mode with analysis enabled:
+                          // Only show moves if we're at the latest position AND it's player's turn
+                          const isAtLatestPosition =
+                            !controller.currentNode?.mainChild
+                          if (isAtLatestPosition && controller.isPlayerTurn) {
+                            return controller.moves
+                          }
+
+                          // If viewing previous moves or not player's turn, show no moves
+                          return new Map<string, string[]>()
                         })()
                       : controller.moves
                   }
@@ -722,22 +751,36 @@ const OpeningsPage: NextPage = () => {
                 availableMoves={
                   controller.analysisEnabled || controller.continueAnalyzingMode
                     ? (() => {
-                        const currentFen = controller.currentNode?.fen
-                        if (!currentFen) return new Map<string, string[]>()
+                        // In continue analyzing mode, show all legal moves
+                        if (controller.continueAnalyzingMode) {
+                          const currentFen = controller.currentNode?.fen
+                          if (!currentFen) return new Map<string, string[]>()
 
-                        const moveMap = new Map<string, string[]>()
-                        const chess = new Chess(currentFen)
-                        const legalMoves = chess.moves({ verbose: true })
+                          const moveMap = new Map<string, string[]>()
+                          const chess = new Chess(currentFen)
+                          const legalMoves = chess.moves({ verbose: true })
 
-                        legalMoves.forEach((move) => {
-                          const { from, to } = move
-                          moveMap.set(
-                            from,
-                            (moveMap.get(from) ?? []).concat([to]),
-                          )
-                        })
+                          legalMoves.forEach((move) => {
+                            const { from, to } = move
+                            moveMap.set(
+                              from,
+                              (moveMap.get(from) ?? []).concat([to]),
+                            )
+                          })
 
-                        return moveMap
+                          return moveMap
+                        }
+
+                        // In regular drill mode with analysis enabled:
+                        // Only show moves if we're at the latest position AND it's player's turn
+                        const isAtLatestPosition =
+                          !controller.currentNode?.mainChild
+                        if (isAtLatestPosition && controller.isPlayerTurn) {
+                          return controller.moves
+                        }
+
+                        // If viewing previous moves or not player's turn, show no moves
+                        return new Map<string, string[]>()
                       })()
                     : controller.moves
                 }
@@ -840,6 +883,11 @@ const OpeningsPage: NextPage = () => {
                     moves: movesForContainer,
                   }}
                   type="analysis"
+                  showAnnotations={
+                    controller.analysisEnabled ||
+                    controller.continueAnalyzingMode
+                  }
+                  showVariations={controller.continueAnalyzingMode}
                 />
               </div>
             )}

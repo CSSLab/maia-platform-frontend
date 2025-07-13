@@ -13,6 +13,7 @@ interface AnalysisProps {
   termination?: Termination
   type: 'analysis'
   showAnnotations?: boolean
+  showVariations?: boolean
 }
 
 interface TuringProps {
@@ -21,6 +22,7 @@ interface TuringProps {
   termination?: Termination
   type: 'turing'
   showAnnotations?: boolean
+  showVariations?: boolean
 }
 
 interface PlayProps {
@@ -29,6 +31,7 @@ interface PlayProps {
   termination?: Termination
   type: 'play'
   showAnnotations?: boolean
+  showVariations?: boolean
 }
 
 type Props = AnalysisProps | TuringProps | PlayProps
@@ -112,6 +115,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
     termination,
     type,
     showAnnotations = true,
+    showVariations = true,
   } = props
   const { isMobile } = useContext(WindowSizeContext)
 
@@ -319,12 +323,13 @@ export const MovesContainer: React.FC<Props> = (props) => {
               {shouldShowIndicators(whiteNode) &&
                 whiteNode?.unlikelyGoodMove && <UnlikelyGoodMoveIcon />}
             </div>
-            {showAnnotations && whiteNode?.getVariations().length ? (
+            {showVariations && whiteNode?.getVariations().length ? (
               <FirstVariation
                 color="white"
                 node={whiteNode}
                 currentNode={baseController.currentNode}
                 goToNode={baseController.goToNode}
+                showAnnotations={showAnnotations}
               />
             ) : null}
             <div
@@ -341,12 +346,13 @@ export const MovesContainer: React.FC<Props> = (props) => {
               {shouldShowIndicators(blackNode) &&
                 blackNode?.unlikelyGoodMove && <UnlikelyGoodMoveIcon />}
             </div>
-            {showAnnotations && blackNode?.getVariations().length ? (
+            {showVariations && blackNode?.getVariations().length ? (
               <FirstVariation
                 color="black"
                 node={blackNode}
                 currentNode={baseController.currentNode}
                 goToNode={baseController.goToNode}
+                showAnnotations={showAnnotations}
               />
             ) : null}
           </>
@@ -375,11 +381,13 @@ function FirstVariation({
   color,
   currentNode,
   goToNode,
+  showAnnotations,
 }: {
   node: GameNode
   color: 'white' | 'black'
   currentNode: GameNode | undefined
   goToNode: (node: GameNode) => void
+  showAnnotations: boolean
 }) {
   return (
     <>
@@ -393,6 +401,7 @@ function FirstVariation({
               currentNode={currentNode}
               goToNode={goToNode}
               level={0}
+              showAnnotations={showAnnotations}
             />
           ))}
         </ul>
@@ -407,16 +416,19 @@ function VariationTree({
   currentNode,
   goToNode,
   level,
+  showAnnotations,
 }: {
   node: GameNode
   currentNode: GameNode | undefined
   goToNode: (node: GameNode) => void
   level: number
+  showAnnotations: boolean
 }) {
   const variations = node.getVariations()
 
   // Helper function to determine if move indicators should be shown in variations
   const shouldShowVariationIndicators = (node: GameNode) => {
+    if (!showAnnotations) return false
     const moveNumber = node.moveNumber
     const turn = node.turn
     const plyFromStart = (moveNumber - 1) * 2 + (turn === 'b' ? 1 : 0)
@@ -460,6 +472,7 @@ function VariationTree({
             currentNode={currentNode}
             goToNode={goToNode}
             level={level}
+            showAnnotations={showAnnotations}
           />
         </span>
       ) : variations.length > 1 ? (
@@ -471,6 +484,7 @@ function VariationTree({
               currentNode={currentNode}
               goToNode={goToNode}
               level={level + 1}
+              showAnnotations={showAnnotations}
             />
           ))}
         </ul>
@@ -498,17 +512,20 @@ function InlineChain({
   currentNode,
   goToNode,
   level,
+  showAnnotations,
 }: {
   node: GameNode
   currentNode: GameNode | undefined
   goToNode: (node: GameNode) => void
   level: number
+  showAnnotations: boolean
 }) {
   const chain: GameNode[] = []
   let current = node
 
   // Helper function to determine if move indicators should be shown in inline chains
   const shouldShowInlineIndicators = (node: GameNode) => {
+    if (!showAnnotations) return false
     const moveNumber = node.moveNumber
     const turn = node.turn
     const plyFromStart = (moveNumber - 1) * 2 + (turn === 'b' ? 1 : 0)
@@ -582,6 +599,7 @@ function InlineChain({
               currentNode={currentNode}
               goToNode={goToNode}
               level={level + 1}
+              showAnnotations={showAnnotations}
             />
           ))}
         </ul>

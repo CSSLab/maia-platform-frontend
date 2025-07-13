@@ -1176,6 +1176,25 @@ export const useOpeningDrillController = (
     ],
   )
 
+  // Helper function to get the latest position in the game tree (where Maia should move from)
+  const getLatestPosition = useCallback((): GameNode | null => {
+    if (!controller.gameTree) return null
+
+    const mainLine = controller.gameTree.getMainLine()
+    if (mainLine.length === 0) return null
+
+    // Find the last node in the main line (the one without a mainChild)
+    for (let i = mainLine.length - 1; i >= 0; i--) {
+      const node = mainLine[i]
+      if (!node.mainChild) {
+        return node
+      }
+    }
+
+    // Fallback to the last node if somehow all have children
+    return mainLine[mainLine.length - 1]
+  }, [controller.gameTree])
+
   // This ref stores the move-making function to ensure the `useEffect` has the latest version
   const makeMaiaMoveRef = useRef(makeMaiaMove)
   useEffect(() => {
@@ -1194,7 +1213,10 @@ export const useOpeningDrillController = (
       !continueAnalyzingMode // Don't make Maia moves in post-drill analysis mode
     ) {
       const timeoutId = setTimeout(() => {
-        makeMaiaMoveRef.current(controller.currentNode)
+        const latestPosition = getLatestPosition()
+        if (latestPosition) {
+          makeMaiaMoveRef.current(latestPosition)
+        }
       }, 1500)
 
       // Make sure to clear the timeout if dependencies change
@@ -1207,6 +1229,7 @@ export const useOpeningDrillController = (
     waitingForMaiaResponse,
     isDrillComplete,
     continueAnalyzingMode, // Add this dependency
+    getLatestPosition,
   ])
 
   // Handle initial Maia move if needed
@@ -1224,7 +1247,10 @@ export const useOpeningDrillController = (
       // It's Maia's turn to move first from the opening position
       setWaitingForMaiaResponse(true)
       setTimeout(() => {
-        makeMaiaMoveRef.current(controller.currentNode)
+        const latestPosition = getLatestPosition()
+        if (latestPosition) {
+          makeMaiaMoveRef.current(latestPosition)
+        }
       }, 1000)
     }
   }, [
@@ -1233,6 +1259,7 @@ export const useOpeningDrillController = (
     isPlayerTurn,
     isDrillComplete,
     continueAnalyzingMode,
+    getLatestPosition,
   ])
 
   // Reset current drill to starting position
