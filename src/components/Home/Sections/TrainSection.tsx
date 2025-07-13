@@ -181,14 +181,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
     setTooltipData(null)
   }
 
-  const handleHover = (move?: string) => {
-    // Handle move hover for highlighting
-  }
-
-  const handleMakeMove = (move: string) => {
-    // Handle move selection
-    console.log('Move selected:', move)
-  }
+  const handleMakeMove = (move: string) => void 0
 
   useEffect(() => {
     const handleResize = () => {

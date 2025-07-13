@@ -133,15 +133,6 @@ export const useAnalysisController = (
     return undefined
   }, [currentMove, controller.currentNode])
 
-  console.log({
-    movesByRating,
-    moveMap,
-    moveRecommendations,
-    blunderMeter,
-    boardDescription,
-    colorSanMapping,
-  })
-
   return {
     gameTree: controller.gameTree,
     currentNode: controller.currentNode,

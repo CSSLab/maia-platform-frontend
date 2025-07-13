@@ -995,8 +995,8 @@ export const useOpeningDrillController = (
       try {
         const nodeToMoveFrom = fromNode || controller.currentNode
 
-        // Validate the move first
         const chess = new Chess(nodeToMoveFrom.fen)
+        const isCapture = !!chess.get(moveUci.slice(2, 4))
         const moveObj = chess.move(moveUci, { sloppy: true })
 
         if (!moveObj) {
@@ -1039,17 +1039,10 @@ export const useOpeningDrillController = (
         }
 
         if (newNode) {
-          // Check if this was a capture move for sound effect
-          const isCapture = !!chess.get(moveUci.slice(2, 4))
-
-          // Play sound effect
           playSound(isCapture)
 
-          // Update the controller to the new node
           controller.setCurrentNode(newNode)
 
-          // Update drill game state
-          // Recalculate from the main line after opening
           const mainLine = controller.gameTree.getMainLine()
           const openingLength = currentDrillGame.openingEndNode
             ? currentDrillGame.openingEndNode.getPath().length
@@ -1166,8 +1159,9 @@ export const useOpeningDrillController = (
 
         if (maiaMove && maiaMove.length >= 4) {
           let newNode: GameNode | null = null
+          const chess = new Chess(fromNode.fen)
+          const isCapture = !!chess.get(maiaMove.slice(2, 4))
 
-          // Check if this move already exists as a child
           const existingChild = fromNode.children.find(
             (child: GameNode) => child.move === maiaMove,
           )
@@ -1175,8 +1169,6 @@ export const useOpeningDrillController = (
           if (existingChild) {
             newNode = existingChild
           } else {
-            // For opening drills, always continue the main line to ensure proper navigation
-            const chess = new Chess(fromNode.fen)
             const moveObj = chess.move(maiaMove, { sloppy: true })
 
             if (moveObj) {
@@ -1190,15 +1182,8 @@ export const useOpeningDrillController = (
           }
 
           if (newNode) {
-            // Check if this was a capture move for sound effect
-            const chess = new Chess(fromNode.fen)
-            const pieceAtDestination = chess.get(maiaMove.slice(2, 4))
-            const isCapture = !!pieceAtDestination
-
-            // Play sound effect for Maia's move
             playSound(isCapture)
 
-            // Update the controller to the new node immediately
             controller.setCurrentNode(newNode)
 
             // Update the drill game state

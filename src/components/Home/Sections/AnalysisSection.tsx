@@ -209,20 +209,14 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
     ),
   }
 
-  // Mock node for current position
   const mockCurrentNode = {
     moveNumber: 15,
     turn: 'w' as const,
   } as GameNode
 
-  const handleHover = (move?: string) => {
-    // Handle move hover for highlighting
-  }
+  const handleHover = (move?: string) => void 0
 
-  const handleMakeMove = (move: string) => {
-    // Handle move selection
-    console.log('Move selected:', move)
-  }
+  const handleMakeMove = (move: string) => void 0
 
   return (
     <section
