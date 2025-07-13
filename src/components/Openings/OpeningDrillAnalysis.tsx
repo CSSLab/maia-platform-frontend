@@ -270,92 +270,84 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
       </div>
 
       {/* Mobile and smaller screens: optimized stacked layout */}
-      <div className="flex h-full flex-col gap-2 xl:hidden">
-        {/* Row 1: BlunderMeter */}
-        <div className="relative">
-          <BlunderMeter
-            hover={analysisEnabled ? hover : mockHover}
-            makeMove={analysisEnabled ? makeMove : mockMakeMove}
-            data={
-              analysisEnabled
-                ? analysisController.blunderMeter
-                : emptyBlunderMeterData
-            }
-            colorSanMapping={
-              analysisEnabled ? analysisController.colorSanMapping : {}
-            }
-          />
+      <div className="flex h-[calc(85vh-4.5rem)] flex-col gap-2 xl:hidden">
+        {/* Row 1: Combined Highlight + BlunderMeter container */}
+        <div className="relative flex h-[calc((85vh-4.5rem)*0.4)] overflow-hidden rounded border-[0.5px] border-white/40 bg-background-1">
+          <div className="flex h-full w-full border-r-[0.5px] border-white/40">
+            <Highlight
+              setCurrentMaiaModel={analysisController.setCurrentMaiaModel}
+              hover={analysisEnabled ? hover : mockHover}
+              makeMove={analysisEnabled ? makeMove : mockMakeMove}
+              currentMaiaModel={analysisController.currentMaiaModel}
+              recommendations={
+                analysisEnabled
+                  ? analysisController.moveRecommendations
+                  : emptyRecommendations
+              }
+              moveEvaluation={
+                analysisEnabled && analysisController.moveEvaluation
+                  ? analysisController.moveEvaluation
+                  : {
+                      maia: undefined,
+                      stockfish: undefined,
+                    }
+              }
+              colorSanMapping={
+                analysisEnabled ? analysisController.colorSanMapping : {}
+              }
+              boardDescription={
+                analysisEnabled
+                  ? analysisController.boardDescription || {
+                      segments: [
+                        { type: 'text', content: 'Analyzing position...' },
+                      ],
+                    }
+                  : {
+                      segments: [
+                        {
+                          type: 'text',
+                          content:
+                            'Analysis is disabled. Enable analysis to see detailed move evaluations and recommendations.',
+                        },
+                      ],
+                    }
+              }
+            />
+          </div>
+          <div className="flex h-full w-auto min-w-[40%] max-w-[40%] bg-background-1 p-3">
+            <div className="h-full w-full">
+              <BlunderMeter
+                hover={analysisEnabled ? hover : mockHover}
+                makeMove={analysisEnabled ? makeMove : mockMakeMove}
+                data={
+                  analysisEnabled
+                    ? analysisController.blunderMeter
+                    : emptyBlunderMeterData
+                }
+                colorSanMapping={
+                  analysisEnabled ? analysisController.colorSanMapping : {}
+                }
+                showContainer={false}
+              />
+            </div>
+          </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
-                <span className="material-symbols-outlined mb-1 text-xl text-human-3">
+            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded bg-background-1/80 backdrop-blur-sm">
+              <div className="rounded bg-background-2/90 p-4 text-center shadow-lg">
+                <span className="material-symbols-outlined mb-2 text-3xl text-human-3">
                   lock
                 </span>
-                <p className="text-xs font-medium text-primary">
-                  Analysis Disabled
+                <p className="font-medium text-primary">Analysis Disabled</p>
+                <p className="text-sm text-secondary">
+                  Enable analysis to see move evaluations
                 </p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Row 2: Highlight */}
-        <div className="relative">
-          <Highlight
-            setCurrentMaiaModel={analysisController.setCurrentMaiaModel}
-            hover={analysisEnabled ? hover : mockHover}
-            makeMove={analysisEnabled ? makeMove : mockMakeMove}
-            currentMaiaModel={analysisController.currentMaiaModel}
-            recommendations={
-              analysisEnabled
-                ? analysisController.moveRecommendations
-                : emptyRecommendations
-            }
-            moveEvaluation={
-              analysisEnabled && analysisController.moveEvaluation
-                ? analysisController.moveEvaluation
-                : {
-                    maia: undefined,
-                    stockfish: undefined,
-                  }
-            }
-            colorSanMapping={
-              analysisEnabled ? analysisController.colorSanMapping : {}
-            }
-            boardDescription={
-              analysisEnabled
-                ? analysisController.boardDescription || {
-                    segments: [
-                      { type: 'text', content: 'Analyzing position...' },
-                    ],
-                  }
-                : {
-                    segments: [
-                      {
-                        type: 'text',
-                        content:
-                          'Analysis is disabled. Enable analysis to see detailed move evaluations and recommendations.',
-                      },
-                    ],
-                  }
-            }
-          />
-          {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
-                <span className="material-symbols-outlined mb-1 text-xl text-human-3">
-                  lock
-                </span>
-                <p className="text-xs font-medium text-primary">
-                  Analysis Disabled
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Row 3: MoveMap */}
-        <div className="relative flex h-[25vh] w-full">
+        {/* Row 2: MoveMap */}
+        <div className="relative flex h-[calc((85vh-4.5rem)*0.3)] w-full">
           <div className="h-full w-full">
             <MoveMap
               moveMap={analysisEnabled ? analysisController.moveMap : undefined}
@@ -383,8 +375,8 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Row 4: MovesByRating */}
-        <div className="relative flex h-[25vh] w-full rounded bg-background-1/60">
+        {/* Row 3: MovesByRating */}
+        <div className="relative flex h-[calc((85vh-4.5rem)*0.3)] w-full rounded bg-background-1/60">
           <div className="h-full w-full">
             <MovesByRating
               moves={
