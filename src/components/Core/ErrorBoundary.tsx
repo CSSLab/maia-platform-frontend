@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { Header } from './Header'
+import { Footer } from './Footer'
 import { Component } from 'react'
 import { Open_Sans } from 'next/font/google'
 import Chessground from '@react-chess/chessground'
