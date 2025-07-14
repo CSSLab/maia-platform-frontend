@@ -1,6 +1,6 @@
 import Maia from './model'
 import { MaiaStatus } from 'src/types'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 
 export const useMaiaEngine = () => {
   const [status, setStatus] = useState<MaiaStatus>('loading')
@@ -10,7 +10,6 @@ export const useMaiaEngine = () => {
   const maia = useMemo(() => {
     const model = new Maia({
       model: '/maia2/maia_rapid.onnx',
-      type: 'rapid',
       setStatus: setStatus,
       setProgress: setProgress,
       setError: setError,
@@ -28,11 +27,21 @@ export const useMaiaEngine = () => {
     }
   }
 
+  const getStorageInfo = async () => {
+    return await maia.getStorageInfo()
+  }
+
+  const clearStorage = async () => {
+    return await maia.clearStorage()
+  }
+
   return {
     maia,
     status,
     progress,
     error,
     downloadModel,
+    getStorageInfo,
+    clearStorage,
   }
 }

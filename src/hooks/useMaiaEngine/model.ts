@@ -2,10 +2,10 @@ import { MaiaStatus } from 'src/types'
 import { InferenceSession, Tensor } from 'onnxruntime-web'
 
 import { mirrorMove, preprocess, allPossibleMovesReversed } from './utils'
+import { MaiaModelStorage } from './storage'
 
 interface MaiaOptions {
   model: string
-  type: 'rapid' | 'blitz'
   setStatus: (status: MaiaStatus) => void
   setProgress: (progress: number) => void
   setError: (error: string) => void
@@ -13,23 +13,49 @@ interface MaiaOptions {
 
 class Maia {
   private model!: InferenceSession
-  private type: 'rapid' | 'blitz'
   private modelUrl: string
   private options: MaiaOptions
+  private storage: MaiaModelStorage
 
   constructor(options: MaiaOptions) {
-    this.type = options.type
     this.modelUrl = options.model
     this.options = options
+    this.storage = new MaiaModelStorage()
 
     this.initialize()
   }
 
   private async initialize() {
-    try {
-      const buffer = await this.getCachedModel(this.modelUrl, this.type)
-      await this.initializeModel(buffer)
-    } catch (e) {
+    // Request persistent storage for better reliability
+    await this.storage.requestPersistentStorage()
+
+    console.log('Attempting to get model from IndexedDB...')
+    const buffer = await this.storage.getModel(this.modelUrl)
+
+    if (buffer) {
+      console.log('Model found in IndexedDB, initializing...')
+      try {
+        await this.initializeModel(buffer)
+        console.log('Model initialized successfully')
+      } catch (e) {
+        console.error('Failed to initialize model:', e)
+        this.options.setStatus('error')
+      }
+    } else {
+      console.log('Model not found in cache, will show download modal')
+
+      const storageInfo = await this.storage.getStorageInfo()
+      console.log('Maia cache status:', {
+        modelUrl: this.modelUrl,
+        userAgent: navigator.userAgent,
+        indexedDBSupported: storageInfo.supported,
+        storageEstimate: storageInfo.quota
+          ? { quota: storageInfo.quota, usage: storageInfo.usage }
+          : 'not supported',
+        modelSize: storageInfo.modelSize,
+        modelTimestamp: storageInfo.modelTimestamp,
+      })
+
       this.options.setStatus('no-cache')
     }
   }
@@ -68,35 +94,18 @@ class Maia {
       position += chunk.length
     }
 
-    const cache = await caches.open(`MAIA2-${this.type.toUpperCase()}-MODEL`)
-    await cache.put(this.modelUrl, new Response(buffer.buffer))
+    await this.storage.storeModel(this.modelUrl, buffer.buffer)
 
     await this.initializeModel(buffer.buffer)
     this.options.setStatus('ready')
   }
 
-  public async getCachedModel(
-    url: string,
-    type: 'rapid' | 'blitz',
-  ): Promise<ArrayBuffer> {
-    const cache = await caches.open(`MAIA2-${type.toUpperCase()}-MODEL`)
-    const response = await cache.match(url)
-    if (response) {
-      return response.arrayBuffer()
-    } else {
-      throw new Error('Model not found in cache')
-    }
+  public async getStorageInfo() {
+    return await this.storage.getStorageInfo()
   }
 
-  public async fetchModel(url: string, type: 'rapid' | 'blitz') {
-    const cache = await caches.open(`MAIA2-${type.toUpperCase()}-MODEL`)
-    const response = await fetch(url)
-    if (response.ok) {
-      await cache.put(url, response.clone())
-      return response.arrayBuffer()
-    } else {
-      throw new Error('Failed to fetch model')
-    }
+  public async clearStorage() {
+    return await this.storage.clearAllStorage()
   }
 
   public async initializeModel(buffer: ArrayBuffer) {
