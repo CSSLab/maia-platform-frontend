@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import { Header } from './Header'
-import { Footer } from './Footer'
 import { Component } from 'react'
 import { Open_Sans } from 'next/font/google'
 import Chessground from '@react-chess/chessground'
+import { Header } from './Header'
+import { Footer } from './Footer'
 import { trackErrorEncountered } from 'src/utils/analytics'
 
 interface Props {
@@ -60,26 +60,29 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.state.isUnauthorized) {
         return (
-          <div className="flex min-h-screen w-screen flex-col bg-backdrop">
-            <Header />
-            <div className="flex flex-1 flex-col items-center justify-center gap-4">
-              <h2 className="text-3xl font-bold text-primary">
-                Unauthorized Access
-              </h2>
-              <p className="text-primary">
-                You do not have permission to view this content. Please log in.
-              </p>
-              <Link
-                href="/"
-                className="flex items-center justify-center rounded bg-human-3 px-8 py-2 transition duration-200 hover:bg-human-4"
-                onClick={() => this.setState({ hasError: false })}
-              >
-                <span className="text-lg text-primary">
-                  Click here to go home
-                </span>
-              </Link>
+          <div className={`${OpenSans.className} app-container`}>
+            <div className="flex min-h-screen w-screen flex-col bg-backdrop">
+              <Header />
+              <div className="flex flex-1 flex-col items-center justify-center gap-4">
+                <h2 className="text-3xl font-bold text-primary">
+                  Unauthorized Access
+                </h2>
+                <p className="text-primary">
+                  You do not have permission to view this content. Please log
+                  in.
+                </p>
+                <Link
+                  href="/"
+                  className="flex items-center justify-center rounded bg-human-3 px-8 py-2 transition duration-200 hover:bg-human-4"
+                  onClick={() => this.setState({ hasError: false })}
+                >
+                  <span className="text-lg text-primary">
+                    Click here to go home
+                  </span>
+                </Link>
+              </div>
+              <Footer />
             </div>
-            <Footer />
           </div>
         )
       }
