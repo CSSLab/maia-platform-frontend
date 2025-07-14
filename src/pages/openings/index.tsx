@@ -28,12 +28,7 @@ import {
   DownloadModelModal,
   AuthenticatedWrapper,
 } from 'src/components'
-import {
-  useOpeningDrillController,
-  useMaiaEngine,
-  useStockfishEngine,
-  useAnalysisController,
-} from 'src/hooks'
+import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
 import {
   getCurrentPlayer,
   getAvailableMovesArray,
@@ -63,10 +58,6 @@ const OpeningsPage: NextPage = () => {
   >(null)
   const [arrows, setArrows] = useState<DrawShape[]>([])
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
-
-  // Pre-load engines when page loads
-  useMaiaEngine()
-  useStockfishEngine()
 
   useEffect(() => {
     if (user !== null && !user.lichessId) {
