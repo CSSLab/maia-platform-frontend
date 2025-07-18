@@ -173,8 +173,15 @@ export const useEngineAnalysis = (
             ) {
               break
             }
-            nodeForAnalysis.addStockfishAnalysis(evaluation, currentMaiaModel)
-            setAnalysisState((state) => state + 1)
+
+            // Check current depth dynamically to handle concurrent analysis sessions
+            const currentDepth = nodeForAnalysis.analysis.stockfish?.depth || 0
+
+            // Only update analysis if we've reached a deeper depth than currently stored
+            if (evaluation.depth > currentDepth) {
+              nodeForAnalysis.addStockfishAnalysis(evaluation, currentMaiaModel)
+              setAnalysisState((state) => state + 1)
+            }
           }
         } catch (error) {
           if (!cancelled) {
