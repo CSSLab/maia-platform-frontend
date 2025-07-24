@@ -50,7 +50,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
               key={s.id}
               tabIndex={0}
               role="button"
-              onKeyPress={(e) => {
+              onKeyDown={(e) => {
                 if (e.key === 'Enter') setScreen(s)
               }}
               onClick={() => setScreen(s)}

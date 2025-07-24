@@ -11,7 +11,7 @@ export const VerticalEvaluationBar: React.FC<Props> = ({
   value,
   label,
 }: Props) => {
-  const height = ((value ?? min - min) / (max - min)) * 100
+  const height = (((value ?? min) - min) / (max - min)) * 100
 
   return (
     <div className="relative flex h-[75vh] max-h-[75vw] w-6 flex-col justify-end overflow-hidden rounded-sm bg-human-3/30">

@@ -5,7 +5,9 @@ export const useTreeController = (
   gameTree: GameTree,
   initialOrientation: Color = 'white',
 ) => {
-  const [currentNode, setCurrentNode] = useState<GameNode>(gameTree.getRoot())
+  const [currentNode, setCurrentNode] = useState<GameNode>(
+    gameTree?.getRoot() || null,
+  )
   const [orientation, setOrientation] = useState<Color>(initialOrientation)
 
   const plyCount = useMemo(() => {

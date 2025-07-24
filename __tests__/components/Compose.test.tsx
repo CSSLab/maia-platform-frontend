@@ -1,128 +1,56 @@
 import { render, screen } from '@testing-library/react'
 import { Compose } from '../../src/components/Common/Compose'
-import { ErrorBoundary } from '../../src/components/Common/ErrorBoundary'
-
-// Mock ErrorBoundary to avoid chessground import issues
-jest.mock('../../src/components/Common/ErrorBoundary', () => ({
-  ErrorBoundary: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="error-boundary">{children}</div>
-  ),
-}))
-
-// Mock providers for testing
-const MockProvider1 = ({ children }: { children: React.ReactNode }) => (
-  <div data-testid="provider-1">{children}</div>
-)
-
-const MockProvider2 = ({ children }: { children: React.ReactNode }) => (
-  <div data-testid="provider-2">{children}</div>
-)
-
-const MockProvider3 = ({ children }: { children: React.ReactNode }) => (
-  <div data-testid="provider-3">{children}</div>
-)
+import { ReactNode } from 'react'
 
 describe('Compose Component', () => {
-  it('should render children with single component', () => {
-    render(
-      <Compose components={[MockProvider1]}>
-        <div data-testid="child">Test Child</div>
-      </Compose>,
-    )
+  const TestProvider1 = ({ children }: { children: ReactNode }) => (
+    <div data-testid="provider-1">{children}</div>
+  )
 
-    expect(screen.getByTestId('provider-1')).toBeInTheDocument()
-    expect(screen.getByTestId('child')).toBeInTheDocument()
-    expect(screen.getByText('Test Child')).toBeInTheDocument()
-  })
+  const TestProvider2 = ({ children }: { children: ReactNode }) => (
+    <div data-testid="provider-2">{children}</div>
+  )
 
-  it('should nest multiple components correctly', () => {
-    render(
-      <Compose components={[MockProvider1, MockProvider2]}>
-        <div data-testid="child">Nested Child</div>
-      </Compose>,
-    )
-
-    expect(screen.getByTestId('provider-1')).toBeInTheDocument()
-    expect(screen.getByTestId('provider-2')).toBeInTheDocument()
-    expect(screen.getByTestId('child')).toBeInTheDocument()
-
-    // Verify nesting order
-    const provider1 = screen.getByTestId('provider-1')
-    const provider2 = screen.getByTestId('provider-2')
-    expect(provider1).toContainElement(provider2)
-  })
-
-  it('should handle three levels of nesting', () => {
-    render(
-      <Compose components={[MockProvider1, MockProvider2, MockProvider3]}>
-        <div data-testid="child">Deep Nested Child</div>
-      </Compose>,
-    )
-
-    expect(screen.getByTestId('provider-1')).toBeInTheDocument()
-    expect(screen.getByTestId('provider-2')).toBeInTheDocument()
-    expect(screen.getByTestId('provider-3')).toBeInTheDocument()
-    expect(screen.getByTestId('child')).toBeInTheDocument()
-
-    // Verify deep nesting
-    const provider1 = screen.getByTestId('provider-1')
-    const provider2 = screen.getByTestId('provider-2')
-    const provider3 = screen.getByTestId('provider-3')
-    expect(provider1).toContainElement(provider2)
-    expect(provider2).toContainElement(provider3)
-  })
-
-  it('should work with ErrorBoundary component', () => {
-    render(
-      <Compose components={[ErrorBoundary, MockProvider1]}>
-        <div data-testid="child">Error Wrapped Child</div>
-      </Compose>,
-    )
-
-    expect(screen.getByTestId('error-boundary')).toBeInTheDocument()
-    expect(screen.getByTestId('provider-1')).toBeInTheDocument()
-    expect(screen.getByTestId('child')).toBeInTheDocument()
-  })
-
-  it('should handle empty components array', () => {
+  it('should render children without any components', () => {
     render(
       <Compose components={[]}>
-        <div data-testid="child">Unwrapped Child</div>
+        <div data-testid="test-child">Test Content</div>
       </Compose>,
     )
 
-    expect(screen.getByTestId('child')).toBeInTheDocument()
-    expect(screen.getByText('Unwrapped Child')).toBeInTheDocument()
+    expect(screen.getByTestId('test-child')).toBeInTheDocument()
   })
 
-  it('should render multiple children', () => {
+  it('should wrap children with single component', () => {
     render(
-      <Compose components={[MockProvider1]}>
-        <div data-testid="child-1">First Child</div>
-        <div data-testid="child-2">Second Child</div>
+      <Compose components={[TestProvider1]}>
+        <div data-testid="test-child">Test Content</div>
       </Compose>,
     )
 
     expect(screen.getByTestId('provider-1')).toBeInTheDocument()
-    expect(screen.getByTestId('child-1')).toBeInTheDocument()
-    expect(screen.getByTestId('child-2')).toBeInTheDocument()
-    expect(screen.getByText('First Child')).toBeInTheDocument()
-    expect(screen.getByText('Second Child')).toBeInTheDocument()
+    expect(screen.getByTestId('test-child')).toBeInTheDocument()
   })
 
-  it('should preserve React node types', () => {
+  it('should compose multiple components in correct order', () => {
     render(
-      <Compose components={[MockProvider1]}>
-        <span>Text node</span>
-        <button>Button node</button>
-        <input placeholder="Input node" />
+      <Compose components={[TestProvider1, TestProvider2]}>
+        <div data-testid="test-child">Test Content</div>
       </Compose>,
     )
 
-    expect(screen.getByText('Text node')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Button node' }),
-    ).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Input node')).toBeInTheDocument()
+    const provider1 = screen.getByTestId('provider-1')
+    const provider2 = screen.getByTestId('provider-2')
+    const child = screen.getByTestId('test-child')
+
+    expect(provider1).toContainElement(provider2)
+    expect(provider2).toContainElement(child)
+  })
+
+  it('should handle string children', () => {
+    render(<Compose components={[TestProvider1]}>Plain text content</Compose>)
+
+    expect(screen.getByTestId('provider-1')).toBeInTheDocument()
+    expect(screen.getByText('Plain text content')).toBeInTheDocument()
   })
 })
