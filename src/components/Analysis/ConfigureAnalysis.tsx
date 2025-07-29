@@ -12,6 +12,7 @@ interface Props {
   onDeleteCustomGame?: () => void
   onAnalyzeEntireGame?: () => void
   onLearnFromMistakes?: () => void
+  onDrillFromPosition?: () => void
   isAnalysisInProgress?: boolean
   isLearnFromMistakesActive?: boolean
   autoSave?: {
@@ -30,6 +31,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
   onDeleteCustomGame,
   onAnalyzeEntireGame,
   onLearnFromMistakes,
+  onDrillFromPosition,
   isAnalysisInProgress = false,
   isLearnFromMistakesActive = false,
   autoSave,
@@ -87,6 +89,17 @@ export const ConfigureAnalysis: React.FC<Props> = ({
                 ? 'Learning in progress...'
                 : 'Learn from mistakes'}
             </span>
+          </div>
+        </button>
+      )}
+      {onDrillFromPosition && (
+        <button
+          onClick={onDrillFromPosition}
+          className="flex w-full items-center gap-1.5 rounded-sm bg-human-4/60 !px-2 !py-1 !text-sm text-primary/70 transition duration-200 hover:bg-human-4/80 hover:text-primary"
+        >
+          <div className="flex items-center justify-center gap-1.5">
+            <span className="material-symbols-outlined !text-sm">explore</span>
+            <span className="text-xs">Drill from this position</span>
           </div>
         </button>
       )}
