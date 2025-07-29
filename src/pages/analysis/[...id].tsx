@@ -463,6 +463,35 @@ const Analysis: React.FC<Props> = ({
     setAnalysisEnabled(true) // Auto-enable analysis when stopping learn mode
   }, [controller.learnFromMistakes])
 
+  const handleDrillFromPosition = useCallback(() => {
+    const fen = controller.currentNode?.fen as string
+    const turn = controller.currentNode?.turn || 'w'
+    const path = controller.currentNode?.getPath()
+
+    let pgn = ''
+    path?.forEach((node, index) => {
+      if (index === 0) return // Skip the root node
+      const moveIndex = index - 1
+      if (moveIndex % 2 === 0) {
+        pgn += `${Math.floor(moveIndex / 2) + 1}. `
+      }
+      pgn += node.san + ' '
+    })
+    pgn = pgn.trim()
+
+    if (!fen) return
+
+    // Navigate to openings page with current position as starting FEN
+    const url =
+      '/openings?mode=drill-from-position&fen=' +
+      encodeURIComponent(fen) +
+      '&turn=' +
+      encodeURIComponent(turn) +
+      '&pgn=' +
+      encodeURIComponent(pgn)
+    router.push(url)
+  }, [controller.currentNode, router])
+
   const handleShowSolution = useCallback(() => {
     controller.learnFromMistakes.showSolution()
     setAnalysisEnabled(true) // Auto-enable analysis when showing solution
@@ -922,6 +951,7 @@ const Analysis: React.FC<Props> = ({
             onDeleteCustomGame={handleDeleteCustomGame}
             onAnalyzeEntireGame={handleAnalyzeEntireGame}
             onLearnFromMistakes={handleLearnFromMistakes}
+            onDrillFromPosition={handleDrillFromPosition}
             isAnalysisInProgress={controller.gameAnalysis.progress.isAnalyzing}
             isLearnFromMistakesActive={
               controller.learnFromMistakes.state.isActive
