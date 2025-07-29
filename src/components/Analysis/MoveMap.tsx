@@ -330,7 +330,7 @@ export const MoveMap: React.FC<Props> = ({
               tickMargin={0}
               tickLine={false}
               tickFormatter={(value) => `${value}%`}
-              domain={([dataMin, dataMax]) => [0, dataMax > 60 ? 100 : 60]}
+              domain={([dataMin, dataMax]) => [0, dataMax > 40 ? 100 : 40]}
             >
               <Label
                 value="← Unlikely"
