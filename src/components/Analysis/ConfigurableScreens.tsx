@@ -20,6 +20,7 @@ interface Props {
   onDeleteCustomGame?: () => void
   onAnalyzeEntireGame?: () => void
   onLearnFromMistakes?: () => void
+  onDrillFromPosition?: () => void
   isAnalysisInProgress?: boolean
   isLearnFromMistakesActive?: boolean
   autoSave?: {
@@ -51,6 +52,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
   onDeleteCustomGame,
   onAnalyzeEntireGame,
   onLearnFromMistakes,
+  onDrillFromPosition,
   isAnalysisInProgress,
   isLearnFromMistakesActive,
   autoSave,
@@ -161,6 +163,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
             onDeleteCustomGame={onDeleteCustomGame}
             onAnalyzeEntireGame={onAnalyzeEntireGame}
             onLearnFromMistakes={onLearnFromMistakes}
+            onDrillFromPosition={onDrillFromPosition}
             isAnalysisInProgress={isAnalysisInProgress}
             isLearnFromMistakesActive={isLearnFromMistakesActive}
             autoSave={autoSave}
