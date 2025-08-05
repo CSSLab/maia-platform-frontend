@@ -114,7 +114,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                   <p className="text-center text-xs font-semibold uppercase tracking-wide text-human-2">
                     SELECT PIECE
                   </p>
-                  <div className="mx-auto grid max-w-48 grid-cols-3 gap-2">
+                  <div className="mx-auto grid max-w-full grid-cols-6 gap-1 md:max-w-48 md:grid-cols-3 md:gap-2">
                     {pieceTypes.map((p) => (
                       <button
                         key={p}
@@ -124,7 +124,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                           !playerActive ||
                           !!selectedPiece
                         }
-                        className={`flex h-12 w-12 items-center justify-center border transition-colors duration-200 ${
+                        className={`flex h-10 w-10 items-center justify-center border transition-colors duration-200 md:h-12 md:w-12 ${
                           movablePieceTypes.indexOf(p) !== -1 &&
                           playerActive &&
                           !selectedPiece
@@ -134,7 +134,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                       >
                         <img
                           src={`/assets/pieces/${pieceColorMap[color[0] + p]}.svg`}
-                          className="h-6 w-6"
+                          className="h-5 w-5 md:h-6 md:w-6"
                           alt={pieceColorMap[color[0] + p]}
                         />
                       </button>
