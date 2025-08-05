@@ -14,6 +14,12 @@ import {
 } from 'src/types'
 import { ModalContext } from 'src/contexts'
 import { ModalContainer } from './ModalContainer'
+import { Slider } from './Slider'
+import {
+  customToPresetTimeControl,
+  parseTimeControl,
+  getPresetOptions,
+} from 'src/lib/timeControlUtils'
 
 const maiaOptions = [
   'maia_kdd_1100',
@@ -82,6 +88,9 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
   const [timeControl, setTimeControl] = useState<TimeControl>(
     props.timeControl || TimeControlOptions[0],
   )
+  const [useCustomTime, setUseCustomTime] = useState<boolean>(false)
+  const [customMinutes, setCustomMinutes] = useState<number>(10)
+  const [customIncrement, setCustomIncrement] = useState<number>(0)
   const [isBrain, setIsBrain] = useState<boolean>(props.isBrain || false)
   const [sampleMoves, setSampleMoves] = useState<boolean>(
     props.sampleMoves || true,
@@ -102,9 +111,18 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
 
   const [openMoreOptions, setMoreOptionsOpen] = useState<boolean>(true)
 
+  // Helper function to get the effective time control
+  const getEffectiveTimeControl = (): TimeControl => {
+    if (useCustomTime) {
+      return customToPresetTimeControl(customMinutes, customIncrement)
+    }
+    return timeControl
+  }
+
   const start = useCallback(
     (color: Color | undefined) => {
       const player = color ?? ['white', 'black'][Math.floor(Math.random() * 2)]
+      const effectiveTimeControl = getEffectiveTimeControl()
 
       if (fen && !new Chess().validateFen(fen).valid) {
         toast.error('Invalid Starting FEN provided')
@@ -120,7 +138,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
             player: player,
             //maiaPartnerVersion: maiaPartnerVersion,
             maiaVersion: maiaVersion,
-            timeControl: timeControl,
+            timeControl: effectiveTimeControl,
             sampleMoves: sampleMoves,
             simulateMaiaTime: simulateMaiaTime,
             startFen: fen,
@@ -133,7 +151,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
             player: player,
             maiaPartnerVersion: maiaPartnerVersion,
             maiaVersion: maiaVersion,
-            timeControl: timeControl,
+            timeControl: effectiveTimeControl,
             isBrain: isBrain,
             sampleMoves: sampleMoves,
             simulateMaiaTime: simulateMaiaTime,
@@ -148,7 +166,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
       push,
       maiaPartnerVersion,
       maiaVersion,
-      timeControl,
+      getEffectiveTimeControl,
       sampleMoves,
       simulateMaiaTime,
       fen,
@@ -250,18 +268,61 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <div>
                 <label
                   htmlFor="time-control-select"
-                  className="mb-1 block text-sm font-medium text-primary"
+                  className="mb-2 block text-sm font-medium text-primary"
                 >
                   Time control:
                 </label>
-                <div id="time-control-select">
+
+                {/* Toggle between preset and custom */}
+                <div className="mb-3">
                   <OptionSelect
-                    options={TimeControlOptions}
-                    labels={TimeControlOptionNames}
-                    selected={timeControl}
-                    onChange={setTimeControl}
+                    options={[false, true]}
+                    labels={['Preset', 'Custom']}
+                    selected={useCustomTime}
+                    onChange={setUseCustomTime}
                   />
                 </div>
+
+                {useCustomTime ? (
+                  /* Custom time controls with sliders */
+                  <div className="space-y-3 rounded bg-background-2 p-3">
+                    <Slider
+                      id="time-slider"
+                      label="Time per side"
+                      value={customMinutes}
+                      min={1}
+                      max={180}
+                      step={1}
+                      unit=" min"
+                      onChange={setCustomMinutes}
+                    />
+                    <Slider
+                      id="increment-slider"
+                      label="Increment per move"
+                      value={customIncrement}
+                      min={0}
+                      max={60}
+                      step={1}
+                      unit=" sec"
+                      onChange={setCustomIncrement}
+                    />
+                    <div className="mt-2 text-center">
+                      <span className="text-xs text-secondary">
+                        Time control: {customMinutes}+{customIncrement}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Preset time controls */
+                  <div id="time-control-select">
+                    <OptionSelect
+                      options={TimeControlOptions}
+                      labels={TimeControlOptionNames}
+                      selected={timeControl}
+                      onChange={setTimeControl}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
