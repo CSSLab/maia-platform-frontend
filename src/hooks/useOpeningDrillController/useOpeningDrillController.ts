@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Chess } from 'chess.ts'
 import { getGameMove } from 'src/api/play/play'
-import { submitOpeningDrill } from 'src/api/opening'
+import { logOpeningDrill } from 'src/api/opening'
 import { useTreeController } from '../useTreeController'
 import { useLocalStorage } from '../useLocalStorage'
 import {
@@ -530,21 +530,20 @@ export const useOpeningDrillController = (
           currentMove: 'Preparing analysis...',
         })
 
-        // Submit drill data to backend if session ID is available
-        if (configuration.sessionId) {
-          try {
-            await submitOpeningDrill({
-              session_id: configuration.sessionId,
-              opening_fen: drillGame.selection.variation
-                ? drillGame.selection.variation.fen
-                : drillGame.selection.opening.fen,
-              side_played: drillGame.selection.playerColor,
-              moves_played_uci: drillGame.moves,
-            })
-          } catch (error) {
-            console.error('Failed to submit drill to backend:', error)
-            // Continue even if backend submission fails
-          }
+        // Submit drill data to backend
+        try {
+          await logOpeningDrill({
+            opening_fen: drillGame.selection.variation
+              ? drillGame.selection.variation.fen
+              : drillGame.selection.opening.fen,
+            side_played: drillGame.selection.playerColor,
+            opponent: drillGame.selection.maiaVersion,
+            num_moves: drillGame.selection.targetMoveNumber,
+            moves_played_uci: drillGame.moves,
+          })
+        } catch (error) {
+          console.error('Failed to log drill to backend:', error)
+          // Continue even if backend submission fails
         }
 
         // Ensure all positions in the drill are analyzed to sufficient depth
@@ -593,23 +592,24 @@ export const useOpeningDrillController = (
         setIsAnalyzingDrill(false)
       }
     },
-    [currentDrillGame, evaluateDrillPerformance, configuration.sessionId],
+    [currentDrillGame, evaluateDrillPerformance],
   )
 
   const moveToNextDrill = useCallback(async () => {
-    // Submit drill data to backend if session ID is available
-    if (configuration.sessionId && currentDrillGame) {
+    // Submit drill data to backend
+    if (currentDrillGame) {
       try {
-        await submitOpeningDrill({
-          session_id: configuration.sessionId,
+        await logOpeningDrill({
           opening_fen: currentDrillGame.selection.variation
             ? currentDrillGame.selection.variation.fen
             : currentDrillGame.selection.opening.fen,
           side_played: currentDrillGame.selection.playerColor,
+          opponent: currentDrillGame.selection.maiaVersion,
+          num_moves: currentDrillGame.selection.targetMoveNumber,
           moves_played_uci: currentDrillGame.moves,
         })
       } catch (error) {
-        console.error('Failed to submit drill to backend:', error)
+        console.error('Failed to log drill to backend:', error)
       }
     }
 
