@@ -21,10 +21,11 @@ import {
   AuthContext,
   MaiaEngineContext,
 } from 'src/contexts'
-import { DrillConfiguration, AnalyzedGame } from 'src/types'
+import { DrillConfiguration, AnalyzedGame, EcoDatabase } from 'src/types'
 import { GameNode } from 'src/types/base/tree'
 import { MIN_STOCKFISH_DEPTH } from 'src/constants/analysis'
 import openings from 'src/lib/openings/openings.json'
+import { getComprehensiveOpenings } from 'src/lib/openings'
 
 const LazyOpeningDrillAnalysis = lazy(() =>
   import('src/components/Openings/OpeningDrillAnalysis').then((module) => ({
@@ -61,6 +62,45 @@ const OpeningsPage: NextPage = () => {
   const { user } = useContext(AuthContext)
   const [showSelectionModal, setShowSelectionModal] = useState(true)
   const [isReopenedModal, setIsReopenedModal] = useState(false)
+
+  // Load comprehensive ECO database (async, TSV-backed)
+  const [ecoDatabase, setEcoDatabase] = useState<EcoDatabase>({
+    meta: {
+      title: 'Loading ECO Database',
+      description: 'Loading...',
+      version: 'pending',
+      totalOpenings: 0,
+      ecoSections: [],
+    },
+    openings: {},
+  })
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const db = await getComprehensiveOpenings()
+        if (!cancelled) setEcoDatabase(db)
+      } catch (error) {
+        console.error('Failed to load comprehensive openings database:', error)
+        if (!cancelled) {
+          setEcoDatabase({
+            meta: {
+              title: 'Fallback ECO Database',
+              description: 'Minimal database for error handling',
+              version: '1.0.0',
+              totalOpenings: 0,
+              ecoSections: [],
+            },
+            openings: {},
+          })
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleCloseModal = () => {
     if (isReopenedModal) {
@@ -674,6 +714,7 @@ const OpeningsPage: NextPage = () => {
         <AnimatePresence>
           <OpeningSelectionModal
             openings={openings}
+            ecoDatabase={ecoDatabase}
             initialSelections={drillConfiguration?.selections || []}
             onComplete={handleCompleteSelection}
             onClose={handleCloseModal}

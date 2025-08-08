@@ -9,6 +9,49 @@ export interface Opening {
   variations: OpeningVariation[]
 }
 
+export interface EcoOpening {
+  eco: string
+  id: string
+  name: string
+  description: string
+  pgn: string
+  fen: string
+  variations: EcoOpeningVariation[]
+}
+
+export interface EcoOpeningVariation {
+  eco: string
+  id: string
+  name: string
+  pgn: string
+  fen: string
+}
+
+export interface EcoSection {
+  code: string
+  name: string
+  openings: EcoOpening[]
+}
+
+export interface EcoDatabase {
+  meta: {
+    title: string
+    description: string
+    version: string
+    totalOpenings: number
+    ecoSections: string[]
+  }
+  openings: {
+    [key: string]: EcoOpening[]
+  }
+}
+
+export interface PopularOpening {
+  opening: EcoOpening
+  variation?: EcoOpeningVariation
+  popularity: number
+}
+
 export interface OpeningVariation {
   id: string
   name: string

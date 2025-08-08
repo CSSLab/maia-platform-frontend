@@ -6,6 +6,14 @@ const withTM = require('next-transpile-modules')(['@react-chess/chessground'])
 module.exports = withTM({
   reactStrictMode: false,
   output: 'standalone',
+  webpack: (config) => {
+    // Load .tsv assets as resources so we can fetch their URLs at runtime
+    config.module.rules.push({
+      test: /\.tsv$/i,
+      type: 'asset/resource',
+    })
+    return config
+  },
   async rewrites() {
     return [
       {

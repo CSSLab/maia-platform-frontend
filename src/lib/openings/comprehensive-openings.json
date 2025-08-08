@@ -1,0 +1,2144 @@
+{
+  "meta": {
+    "title": "Comprehensive Chess ECO Opening Database",
+    "description": "Complete database of chess openings organized by ECO codes A00-E99",
+    "version": "1.0.0",
+    "totalOpenings": 150,
+    "ecoSections": ["A", "B", "C", "D", "E"]
+  },
+  "openings": {
+    "A": [
+      {
+        "eco": "A00",
+        "id": "polish-opening",
+        "name": "Polish Opening",
+        "description": "The Polish Opening is an irregular flank opening starting with b4, aiming to control the dark squares and create early imbalance.",
+        "pgn": "1. b4",
+        "fen": "rnbqkbnr/pppppppp/8/8/1P6/8/P1PPPPPP/RNBQKBNR b KQkq b3 0 1",
+        "variations": [
+          {
+            "eco": "A00",
+            "id": "polish-symmetrical",
+            "name": "Symmetrical Variation",
+            "pgn": "1. b4 b5",
+            "fen": "rnbqkbnr/p1pppppp/8/1p6/1P6/8/P1PPPPPP/RNBQKBNR w KQkq b6 0 2"
+          },
+          {
+            "eco": "A00",
+            "id": "polish-german-defense",
+            "name": "German Defense",
+            "pgn": "1. b4 d5",
+            "fen": "rnbqkbnr/ppp1pppp/8/3p4/1P6/8/P1PPPPPP/RNBQKBNR w KQkq d6 0 2"
+          }
+        ]
+      },
+      {
+        "eco": "A00",
+        "id": "grob-attack",
+        "name": "Grob Attack",
+        "description": "The Grob Attack is a highly irregular opening starting with g4, creating immediate kingside weakness but surprise value.",
+        "pgn": "1. g4",
+        "fen": "rnbqkbnr/pppppppp/8/8/6P1/8/PPPPPP1P/RNBQKBNR b KQkq g3 0 1",
+        "variations": [
+          {
+            "eco": "A00",
+            "id": "grob-double-grob",
+            "name": "Double Grob",
+            "pgn": "1. g4 d5 2. Bg2 g5",
+            "fen": "rnbqkbnr/ppp1pp1p/8/3p2p1/6P1/8/PPPPPPBP/RNBQK1NR w KQkq g6 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "A00",
+        "id": "anderssen-opening",
+        "name": "Anderssen Opening",
+        "description": "The Anderssen Opening begins with a3, a very slow and passive move that offers little to White.",
+        "pgn": "1. a3",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/P7/1PPPPPPP/RNBQKBNR b KQkq - 0 1",
+        "variations": []
+      },
+      {
+        "eco": "A00",
+        "id": "durkin-opening",
+        "name": "Durkin Opening",
+        "description": "The Durkin Opening starts with Na3, developing the knight to a poor square.",
+        "pgn": "1. Na3",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/N7/PPPPPPPP/R1BQKBNR b KQkq - 1 1",
+        "variations": []
+      },
+      {
+        "eco": "A01",
+        "id": "nimzovich-larsen-attack",
+        "name": "Nimzovich-Larsen Attack",
+        "description": "The Nimzovich-Larsen Attack starts with b3, fianchettoing the bishop to control the long diagonal.",
+        "pgn": "1. b3",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/1P6/P1PPPPPP/RNBQKBNR b KQkq - 0 1",
+        "variations": [
+          {
+            "eco": "A01",
+            "id": "nimzovich-larsen-modern",
+            "name": "Modern Variation",
+            "pgn": "1. b3 e5",
+            "fen": "rnbqkbnr/pppp1ppp/8/4p3/8/1P6/P1PPPPPP/RNBQKBNR w KQkq e6 0 2"
+          },
+          {
+            "eco": "A01",
+            "id": "nimzovich-larsen-classical",
+            "name": "Classical Variation", 
+            "pgn": "1. b3 d5",
+            "fen": "rnbqkbnr/ppp1pppp/8/3p4/8/1P6/P1PPPPPP/RNBQKBNR w KQkq d6 0 2"
+          },
+          {
+            "eco": "A01",
+            "id": "nimzovich-larsen-indian",
+            "name": "Indian Variation",
+            "pgn": "1. b3 Nf6",
+            "fen": "rnbqkb1r/pppppppp/5n2/8/8/1P6/P1PPPPPP/RNBQKBNR w KQkq - 1 2"
+          }
+        ]
+      },
+      {
+        "eco": "A02",
+        "id": "bird-opening",
+        "name": "Bird Opening",
+        "description": "The Bird Opening starts with f4, controlling the e5 square and preparing a kingside pawn storm.",
+        "pgn": "1. f4",
+        "fen": "rnbqkbnr/pppppppp/8/8/5P2/8/PPPPP1PP/RNBQKBNR b KQkq f3 0 1",
+        "variations": [
+          {
+            "eco": "A02",
+            "id": "bird-froms-gambit",
+            "name": "From's Gambit",
+            "pgn": "1. f4 e5",
+            "fen": "rnbqkbnr/pppp1ppp/8/4p3/5P2/8/PPPPP1PP/RNBQKBNR w KQkq e6 0 2"
+          },
+          {
+            "eco": "A02",
+            "id": "bird-hobbs-gambit",
+            "name": "Hobbs Gambit",
+            "pgn": "1. f4 g5",
+            "fen": "rnbqkbnr/pppppp1p/8/6p1/5P2/8/PPPPP1PP/RNBQKBNR w KQkq g6 0 2"
+          }
+        ]
+      },
+      {
+        "eco": "A03",
+        "id": "bird-opening-d5",
+        "name": "Bird Opening: Dutch Variation",
+        "description": "Bird Opening with Black's immediate central response d5.",
+        "pgn": "1. f4 d5",
+        "fen": "rnbqkbnr/ppp1pppp/8/3p4/5P2/8/PPPPP1PP/RNBQKBNR w KQkq d6 0 2",
+        "variations": [
+          {
+            "eco": "A03",
+            "id": "bird-lasker-variation",
+            "name": "Lasker Variation",
+            "pgn": "1. f4 d5 2. Nf3 Nf6",
+            "fen": "rnbqkb1r/ppp1pppp/5n2/3p4/5P2/5N2/PPPPP1PP/RNBQKB1R w KQkq - 2 3"
+          }
+        ]
+      },
+      {
+        "eco": "A04",
+        "id": "reti-opening",
+        "name": "Réti Opening",
+        "description": "The Réti Opening begins with Nf3, a flexible move that can transpose into many different openings.",
+        "pgn": "1. Nf3",
+        "fen": "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1",
+        "variations": [
+          {
+            "eco": "A04",
+            "id": "reti-wade-defense",
+            "name": "Wade Defense",
+            "pgn": "1. Nf3 d6",
+            "fen": "rnbqkbnr/ppp1pppp/3p4/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 2"
+          },
+          {
+            "eco": "A04",
+            "id": "reti-lisitsin-gambit",
+            "name": "Lisitsin Gambit",
+            "pgn": "1. Nf3 f5",
+            "fen": "rnbqkbnr/ppppp1pp/8/5p2/8/5N2/PPPPPPPP/RNBQKB1R w KQkq f6 0 2"
+          }
+        ]
+      },
+      {
+        "eco": "A05",
+        "id": "reti-opening-nf6",
+        "name": "Réti Opening: Nimzowitsch-Larsen Attack",
+        "description": "Réti Opening with Black playing Nf6, leading to flexible development.",
+        "pgn": "1. Nf3 Nf6",
+        "fen": "rnbqkb1r/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 2 2",
+        "variations": [
+          {
+            "eco": "A05",
+            "id": "reti-queens-indian-formation",
+            "name": "Queen's Indian Formation",
+            "pgn": "1. Nf3 Nf6 2. c4 b6",
+            "fen": "rnbqkb1r/p1pppppp/1p3n2/8/2P5/5N2/PP1PPPPP/RNBQKB1R w KQkq - 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "A06",
+        "id": "reti-opening-d5",
+        "name": "Réti Opening: 1...d5",
+        "description": "Réti Opening with Black occupying the center with d5.",
+        "pgn": "1. Nf3 d5",
+        "fen": "rnbqkbnr/ppp1pppp/8/3p4/8/5N2/PPPPPPPP/RNBQKB1R w KQkq d6 0 2",
+        "variations": [
+          {
+            "eco": "A06",
+            "id": "reti-tennison-gambit",
+            "name": "Tennison Gambit",
+            "pgn": "1. Nf3 d5 2. e4",
+            "fen": "rnbqkbnr/ppp1pppp/8/3p4/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq e3 0 2"
+          }
+        ]
+      },
+      {
+        "eco": "A07",
+        "id": "kings-indian-attack",
+        "name": "King's Indian Attack",
+        "description": "The King's Indian Attack setup with g3, preparing to fianchetto the bishop.",
+        "pgn": "1. Nf3 d5 2. g3",
+        "fen": "rnbqkbnr/ppp1pppp/8/3p4/8/5NP1/PPPPPP1P/RNBQKB1R b KQkq - 0 2",
+        "variations": [
+          {
+            "eco": "A07",
+            "id": "kings-indian-attack-yugoslav",
+            "name": "Yugoslav Variation",
+            "pgn": "1. Nf3 d5 2. g3 g6",
+            "fen": "rnbqkbnr/ppp1pp1p/6p1/3p4/8/5NP1/PPPPPP1P/RNBQKB1R w KQkq - 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "A08",
+        "id": "kings-indian-attack-bg2",
+        "name": "King's Indian Attack: Fianchetto Variation",
+        "description": "King's Indian Attack with the fianchettoed bishop on g2.",
+        "pgn": "1. Nf3 d5 2. g3 c5 3. Bg2",
+        "fen": "rnbqkbnr/pp2pppp/8/2pp4/8/5NP1/PPPPPPBP/RNBQK2R b KQkq - 1 3",
+        "variations": []
+      },
+      {
+        "eco": "A09",
+        "id": "reti-opening-c4",
+        "name": "Réti Opening: Advance Variation",
+        "description": "Réti Opening transposing to English with c4.",
+        "pgn": "1. Nf3 d5 2. c4",
+        "fen": "rnbqkbnr/ppp1pppp/8/3p4/2P5/5N2/PP1PPPPP/RNBQKB1R b KQkq c3 0 2",
+        "variations": [
+          {
+            "eco": "A09",
+            "id": "reti-accepted",
+            "name": "Réti Accepted",
+            "pgn": "1. Nf3 d5 2. c4 dxc4",
+            "fen": "rnbqkbnr/ppp1pppp/8/8/2p5/5N2/PP1PPPPP/RNBQKB1R w KQkq - 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "A10",
+        "id": "english-opening",
+        "name": "English Opening",
+        "description": "The English Opening starts with c4, controlling the d5 square and allowing for flexible development.",
+        "pgn": "1. c4",
+        "fen": "rnbqkbnr/pppppppp/8/8/2P5/8/PP1PPPPP/RNBQKBNR b KQkq c3 0 1",
+        "variations": [
+          {
+            "eco": "A10",
+            "id": "english-mikenas-carls",
+            "name": "Mikenas-Carls Variation",
+            "pgn": "1. c4 Nc6",
+            "fen": "r1bqkbnr/pppppppp/2n5/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq - 1 2"
+          },
+          {
+            "eco": "A10",
+            "id": "english-anglo-lithuanian",
+            "name": "Anglo-Lithuanian Variation",
+            "pgn": "1. c4 Nc6 2. Nc3 Nd4",
+            "fen": "r1bqkbnr/pppppppp/8/8/2Pn4/2N5/PP1PPPPP/R1BQKBNR w KQkq - 1 3"
+          }
+        ]
+      },
+      {
+        "eco": "A11",
+        "id": "english-caro-kann-defensive",
+        "name": "English Opening: Caro-Kann Defensive System",
+        "description": "English Opening with Black adopting a Caro-Kann setup.",
+        "pgn": "1. c4 c6",
+        "fen": "rnbqkbnr/pp1ppppp/2p5/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq - 0 2",
+        "variations": [
+          {
+            "eco": "A11",
+            "id": "english-caro-kann-flohr",
+            "name": "Flohr Variation",
+            "pgn": "1. c4 c6 2. Nf3 d5 3. b3",
+            "fen": "rnbqkbnr/pp2pppp/2p5/3p4/2P5/1P3N2/P2PPPPP/RNBQKB1R b KQkq - 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "A12",
+        "id": "english-london-defensive",
+        "name": "English Opening: London Defensive System",
+        "description": "English Opening with Black setting up a London System defense.",
+        "pgn": "1. c4 c6 2. Nf3 d5 3. b3 Bf5",
+        "fen": "rn1qkbnr/pp2pppp/2p5/3p1b2/2P5/1P3N2/P2PPPPP/RNBQKB1R w KQkq - 1 4",
+        "variations": []
+      },
+      {
+        "eco": "A13",
+        "id": "english-agincourt-defense",
+        "name": "English Opening: Agincourt Defense",
+        "description": "English Opening with Black playing the Agincourt Defense with e6.",
+        "pgn": "1. c4 e6",
+        "fen": "rnbqkbnr/pppp1ppp/4p3/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq - 0 2",
+        "variations": [
+          {
+            "eco": "A13",
+            "id": "english-agincourt-kurajica",
+            "name": "Kurajica Defense",
+            "pgn": "1. c4 e6 2. Nf3 d5 3. g3 c6",
+            "fen": "rnbqkbnr/pp3ppp/2p1p3/3p4/2P5/5NP1/PP1PPP1P/RNBQKB1R w KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "A14",
+        "id": "english-neo-catalan",
+        "name": "English Opening: Neo-Catalan",
+        "description": "English Opening developing into a Neo-Catalan structure.",
+        "pgn": "1. c4 e6 2. Nf3 d5 3. g3 Nf6 4. Bg2",
+        "fen": "rnbqkb1r/ppp2ppp/4pn2/3p4/2P5/5NP1/PP1PPPBP/RNBQK2R b KQkq - 1 4",
+        "variations": []
+      },
+      {
+        "eco": "A15",
+        "id": "english-anglo-indian-defense",
+        "name": "English Opening: Anglo-Indian Defense",
+        "description": "English Opening with Black adopting an Indian Defense setup.",
+        "pgn": "1. c4 Nf6",
+        "fen": "rnbqkb1r/pppppppp/5n2/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq - 1 2",
+        "variations": [
+          {
+            "eco": "A15",
+            "id": "english-anglo-indian-queens",
+            "name": "Queen's Indian Formation",
+            "pgn": "1. c4 Nf6 2. Nc3 e6 3. Nf3 b6",
+            "fen": "rnbqkb1r/p1pp1ppp/1p2pn2/8/2P5/2N2N2/PP1PPPPP/R1BQKB1R w KQkq - 0 4"
+          },
+          {
+            "eco": "A15",
+            "id": "english-anglo-indian-mikenas-carls",
+            "name": "Mikenas-Carls Variation",
+            "pgn": "1. c4 Nf6 2. Nc3",
+            "fen": "rnbqkb1r/pppppppp/5n2/8/2P5/2N5/PP1PPPPP/R1BQKBNR b KQkq - 2 2"
+          }
+        ]
+      },
+      {
+        "eco": "A16",
+        "id": "english-anglo-indian-queens-knight",
+        "name": "English Opening: Anglo-Indian Defense, Queen's Knight Variation",
+        "description": "Anglo-Indian Defense with early development of the queen's knight.",
+        "pgn": "1. c4 Nf6 2. Nc3 d5",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/3p4/2P5/2N5/PP1PPPPP/R1BQKBNR w KQkq d6 0 3",
+        "variations": []
+      },
+      {
+        "eco": "A17",
+        "id": "english-queens-gambit-formation",
+        "name": "English Opening: Queens Gambit Formation",
+        "description": "English Opening transposing to Queen's Gambit structures.",
+        "pgn": "1. c4 Nf6 2. Nc3 e6 3. d4",
+        "fen": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/2N5/PP2PPPP/R1BQKBNR b KQkq d3 0 3",
+        "variations": []
+      },
+      {
+        "eco": "A18",
+        "id": "english-mikenas-carls-flohr",
+        "name": "English Opening: Mikenas-Carls, Flohr Variation",
+        "description": "English Opening with the Flohr Variation in the Mikenas-Carls system.",
+        "pgn": "1. c4 Nf6 2. Nc3 e6 3. e4",
+        "fen": "rnbqkb1r/pppp1ppp/4pn2/8/2P1P3/2N5/PP1P1PPP/R1BQKBNR b KQkq e3 0 3",
+        "variations": []
+      },
+      {
+        "eco": "A19",
+        "id": "english-mikenas-carls-sicilian",
+        "name": "English Opening: Mikenas-Carls, Sicilian Variation",
+        "description": "English Opening with Sicilian Defense characteristics.",
+        "pgn": "1. c4 Nf6 2. Nc3 e6 3. e4 c5",
+        "fen": "rnbqkb1r/pp1p1ppp/4pn2/2p5/2P1P3/2N5/PP1P1PPP/R1BQKBNR w KQkq c6 0 4",
+        "variations": []
+      },
+      {
+        "eco": "A20",
+        "id": "english-kings-english",
+        "name": "English Opening: King's English Variation",
+        "description": "English Opening with Black responding with e5, creating a reversed Sicilian.",
+        "pgn": "1. c4 e5",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/2P5/8/PP1PPPPP/RNBQKBNR w KQkq e6 0 2",
+        "variations": [
+          {
+            "eco": "A20",
+            "id": "english-kramnik-shirov",
+            "name": "Kramnik-Shirov Counterattack",
+            "pgn": "1. c4 e5 2. g3 h5",
+            "fen": "rnbqkbnr/pppp1pp1/8/4p2p/2P5/6P1/PP1PPP1P/RNBQKBNR w KQkq h6 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "A21",
+        "id": "english-kings-english-reversed-sicilian",
+        "name": "English Opening: King's English Variation, Reversed Sicilian",
+        "description": "King's English with development leading to a reversed Sicilian structure.",
+        "pgn": "1. c4 e5 2. Nc3",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/2P5/2N5/PP1PPPPP/R1BQKBNR b KQkq - 1 2",
+        "variations": [
+          {
+            "eco": "A21",
+            "id": "english-troger-defense",
+            "name": "Troger Defense",
+            "pgn": "1. c4 e5 2. Nc3 d6 3. g3 Be6",
+            "fen": "rn1qkbnr/ppp2ppp/3pb3/4p3/2P5/2N3P1/PP1PPP1P/R1BQKBNR w KQkq - 1 4"
+          }
+        ]
+      },
+      {
+        "eco": "A22",
+        "id": "english-kings-english-two-knights",
+        "name": "English Opening: King's English Variation, Two Knights' Variation",
+        "description": "King's English with both sides developing knights early.",
+        "pgn": "1. c4 e5 2. Nc3 Nf6",
+        "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2P5/2N5/PP1PPPPP/R1BQKBNR w KQkq - 2 3",
+        "variations": [
+          {
+            "eco": "A22",
+            "id": "english-bellon-gambit",
+            "name": "Bellon Gambit",
+            "pgn": "1. c4 e5 2. Nc3 Nf6 3. f4",
+            "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2P2P2/2N5/PP1PP1PP/R1BQKBNR b KQkq f3 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "A23",
+        "id": "english-kings-english-closed",
+        "name": "English Opening: King's English Variation, Closed System",
+        "description": "King's English developing into a closed system.",
+        "pgn": "1. c4 e5 2. Nc3 Nc6",
+        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2P5/2N5/PP1PPPPP/R1BQKBNR w KQkq - 2 3",
+        "variations": [
+          {
+            "eco": "A23",
+            "id": "english-closed-keres",
+            "name": "Keres Variation",
+            "pgn": "1. c4 e5 2. Nc3 Nc6 3. g3 g6 4. Bg2 Bg7 5. d3 d6 6. f4",
+            "fen": "r1bqk1nr/ppp2pbp/2np2p1/4p3/2P2P2/2NP2P1/PP2P1BP/R1BQK1NR b KQkq f3 0 6"
+          }
+        ]
+      },
+      {
+        "eco": "A24",
+        "id": "english-kings-english-closed-advance",
+        "name": "English Opening: King's English Variation, Closed System, Full Symmetry",
+        "description": "King's English with full symmetrical development.",
+        "pgn": "1. c4 e5 2. Nc3 Nc6 3. g3 g6 4. Bg2 Bg7",
+        "fen": "r1bqk1nr/pppp1pbp/2n3p1/4p3/2P5/2N3P1/PP1PPPBP/R1BQK1NR w KQkq - 2 5",
+        "variations": []
+      },
+      {
+        "eco": "A25",
+        "id": "english-kings-english-closed-taimanov",
+        "name": "English Opening: King's English Variation, Closed System, Taimanov Variation",
+        "description": "King's English with the Taimanov setup.",
+        "pgn": "1. c4 e5 2. Nc3 Nc6 3. g3 g6 4. Bg2 Bg7 5. d3",
+        "fen": "r1bqk1nr/pppp1pbp/2n3p1/4p3/2P5/2NP2P1/PP2PPBP/R1BQK1NR b KQkq - 0 5",
+        "variations": []
+      },
+      {
+        "eco": "A26",
+        "id": "english-kings-english-closed-botvinnik",
+        "name": "English Opening: King's English Variation, Closed System, Botvinnik Variation",
+        "description": "King's English with the Botvinnik system.",
+        "pgn": "1. c4 e5 2. Nc3 Nc6 3. g3 g6 4. Bg2 Bg7 5. d3 d6 6. Nf3",
+        "fen": "r1bqk1nr/ppp2pbp/2np2p1/4p3/2P5/2NP1NP1/PP2PPBP/R1BQK2R b KQkq - 1 6",
+        "variations": []
+      },
+      {
+        "eco": "A27",
+        "id": "english-kings-english-three-knights",
+        "name": "English Opening: King's English Variation, Three Knights System",
+        "description": "King's English with three knights developed.",
+        "pgn": "1. c4 e5 2. Nc3 Nc6 3. Nf3",
+        "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2P5/2N2N2/PP1PPPPP/R1BQKB1R b KQkq - 3 3",
+        "variations": [
+          {
+            "eco": "A27",
+            "id": "english-three-knights-hungarian",
+            "name": "Hungarian Attack",
+            "pgn": "1. c4 e5 2. Nc3 Nc6 3. Nf3 f5",
+            "fen": "r1bqkbnr/pppp2pp/2n5/4pp2/2P5/2N2N2/PP1PPPPP/R1BQKB1R w KQkq f6 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "A28",
+        "id": "english-kings-english-four-knights",
+        "name": "English Opening: King's English Variation, Four Knights Variation",
+        "description": "King's English with all four knights developed.",
+        "pgn": "1. c4 e5 2. Nc3 Nc6 3. Nf3 Nf6",
+        "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2P5/2N2N2/PP1PPPPP/R1BQKB1R w KQkq - 4 4",
+        "variations": [
+          {
+            "eco": "A28",
+            "id": "english-four-knights-kingside",
+            "name": "Kingside Fianchetto",
+            "pgn": "1. c4 e5 2. Nc3 Nc6 3. Nf3 Nf6 4. g3",
+            "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2P5/2N2NP1/PP1PPP1P/R1BQKB1R b KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "A29",
+        "id": "english-kings-english-four-knights-fianchetto",
+        "name": "English Opening: King's English Variation, Four Knights, Fianchetto Line",
+        "description": "Four Knights variation with kingside fianchetto.",
+        "pgn": "1. c4 e5 2. Nc3 Nc6 3. Nf3 Nf6 4. g3 d5 5. cxd5 Nxd5 6. Bg2",
+        "fen": "r1bqkb1r/ppp2ppp/2n5/3np3/8/2N2NP1/PP1PPPBP/R1BQK2R b KQkq - 1 6",
+        "variations": []
+      },
+      {
+        "eco": "A30",
+        "id": "english-symmetrical-variation",
+        "name": "English Opening: Symmetrical Variation",
+        "description": "English Opening with Black mirroring White's moves with c5.",
+        "pgn": "1. c4 c5",
+        "fen": "rnbqkbnr/pp1ppppp/8/2p5/2P5/8/PP1PPPPP/RNBQKBNR w KQkq c6 0 2",
+        "variations": [
+          {
+            "eco": "A30",
+            "id": "english-symmetrical-hedgehog",
+            "name": "Hedgehog Defense",
+            "pgn": "1. c4 c5 2. Nf3 Nf6 3. g3 b6 4. Bg2 Bb7",
+            "fen": "rn1qkb1r/pb1ppppp/1p3n2/2p5/2P5/5NP1/PP1PPPBP/RNBQK2R w KQkq - 2 5"
+          }
+        ]
+      }
+    ],
+    "B": [
+      {
+        "eco": "B00",
+        "id": "kings-pawn-uncommon",
+        "name": "King's Pawn Opening",
+        "description": "King's Pawn opening where Black does not respond with the main defenses (e5, d5, Nf6, c5, c6, e6).",
+        "pgn": "1. e4",
+        "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+        "variations": [
+          {
+            "eco": "B00",
+            "id": "barnes-defense",
+            "name": "Barnes Defense",
+            "pgn": "1. e4 f6",
+            "fen": "rnbqkbnr/ppppp1pp/5p2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+          },
+          {
+            "eco": "B00",
+            "id": "carr-defense",
+            "name": "Carr Defense",
+            "pgn": "1. e4 h6",
+            "fen": "rnbqkbnr/ppppppp1/7p/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+          },
+          {
+            "eco": "B00",
+            "id": "st-george-defense",
+            "name": "St. George Defense",
+            "pgn": "1. e4 a6",
+            "fen": "rnbqkbnr/1ppppppp/p7/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+          }
+        ]
+      },
+      {
+        "eco": "B01",
+        "id": "scandinavian-defense",
+        "name": "Scandinavian Defense",
+        "description": "The Scandinavian Defense is Black's most direct counter to e4, immediately challenging White's center pawn.",
+        "pgn": "1. e4 d5",
+        "fen": "rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2",
+        "variations": [
+          {
+            "eco": "B01",
+            "id": "scandinavian-main-line",
+            "name": "Main Line",
+            "pgn": "1. e4 d5 2. exd5 Qxd5 3. Nc3 Qa5",
+            "fen": "rnb1kbnr/ppp1pppp/8/q7/8/2N5/PPPP1PPP/R1BQKBNR w KQkq - 2 4"
+          },
+          {
+            "eco": "B01",
+            "id": "scandinavian-modern-variation",
+            "name": "Modern Variation",
+            "pgn": "1. e4 d5 2. exd5 Nf6",
+            "fen": "rnbqkb1r/ppp1pppp/5n2/3P4/8/8/PPPP1PPP/RNBQKBNR w KQkq - 1 3"
+          },
+          {
+            "eco": "B01",
+            "id": "scandinavian-gubinsky-melts",
+            "name": "Gubinsky-Melts Defense",
+            "pgn": "1. e4 d5 2. exd5 Qxd5 3. Nc3 Qd6",
+            "fen": "rnb1kbnr/ppp1pppp/3q4/8/8/2N5/PPPP1PPP/R1BQKBNR w KQkq - 2 4"
+          }
+        ]
+      },
+      {
+        "eco": "B02",
+        "id": "alekhine-defense",
+        "name": "Alekhine Defense",
+        "description": "The Alekhine Defense provokes White's pawns to advance, with the idea of later attacking the overextended center.",
+        "pgn": "1. e4 Nf6",
+        "fen": "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2",
+        "variations": [
+          {
+            "eco": "B02",
+            "id": "alekhine-brooklyn-variation",
+            "name": "Brooklyn Variation",
+            "pgn": "1. e4 Nf6 2. e5 Ng8",
+            "fen": "rnbqkbnr/pppppppp/8/4P3/8/8/PPPP1PPP/RNBQKBNR w KQkq - 2 3"
+          },
+          {
+            "eco": "B02",
+            "id": "alekhine-spielmann-variation",
+            "name": "Spielmann Variation",
+            "pgn": "1. e4 Nf6 2. Nc3",
+            "fen": "rnbqkb1r/pppppppp/5n2/8/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 2 2"
+          }
+        ]
+      },
+      {
+        "eco": "B03",
+        "id": "alekhine-defense-d4",
+        "name": "Alekhine Defense: Exchange Variation",
+        "description": "Alekhine Defense with White playing d4 and developing the center.",
+        "pgn": "1. e4 Nf6 2. e5 Nd5 3. d4",
+        "fen": "rnbqkb1r/pppppppp/8/3nP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq d3 0 3",
+        "variations": [
+          {
+            "eco": "B03",
+            "id": "alekhine-hunt-variation",
+            "name": "Hunt Variation",
+            "pgn": "1. e4 Nf6 2. e5 Nd5 3. d4 d6 4. Nf3 Bg4",
+            "fen": "rn1qkb1r/ppp1pppp/3p4/3nP3/3P2b1/5N2/PPP2PPP/RNBQKB1R w KQkq - 1 5"
+          }
+        ]
+      },
+      {
+        "eco": "B04",
+        "id": "alekhine-modern-variation",
+        "name": "Alekhine Defense: Modern Variation",
+        "description": "Alekhine Defense with the modern continuation developing pieces actively.",
+        "pgn": "1. e4 Nf6 2. e5 Nd5 3. d4 d6 4. Nf3",
+        "fen": "rnbqkb1r/ppp1pppp/3p4/3nP3/3P4/5N2/PPP2PPP/RNBQKB1R b KQkq - 1 4",
+        "variations": [
+          {
+            "eco": "B04",
+            "id": "alekhine-modern-larsen",
+            "name": "Larsen Variation",
+            "pgn": "1. e4 Nf6 2. e5 Nd5 3. d4 d6 4. Nf3 g6",
+            "fen": "rnbqkb1r/ppp1pp1p/3p2p1/3nP3/3P4/5N2/PPP2PPP/RNBQKB1R w KQkq - 0 5"
+          }
+        ]
+      },
+      {
+        "eco": "B05",
+        "id": "alekhine-modern-bg4",
+        "name": "Alekhine Defense: Modern Variation, 4...Bg4",
+        "description": "Modern Alekhine with Black developing the bishop to g4 to pin the knight.",
+        "pgn": "1. e4 Nf6 2. e5 Nd5 3. d4 d6 4. Nf3 Bg4",
+        "fen": "rn1qkb1r/ppp1pppp/3p4/3nP3/3P2b1/5N2/PPP2PPP/RNBQKB1R w KQkq - 1 5",
+        "variations": []
+      },
+      {
+        "eco": "B06",
+        "id": "modern-defense",
+        "name": "Modern Defense",
+        "description": "The Modern Defense is a hypermodern opening where Black fianchettoes the king's bishop and delays central pawn advances.",
+        "pgn": "1. e4 g6",
+        "fen": "rnbqkbnr/pppppp1p/6p1/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "variations": [
+          {
+            "eco": "B06",
+            "id": "modern-defense-monkey",
+            "name": "Monkey's Bum",
+            "pgn": "1. e4 g6 2. Bc4 Bg7 3. Qf3 e6 4. d4 Bxd4",
+            "fen": "rnbqk1nr/pppp1p1p/4p1p1/8/2Bb4/5Q2/PPP2PPP/RNB1K1NR w KQkq - 0 5"
+          },
+          {
+            "eco": "B06",
+            "id": "modern-defense-standard",
+            "name": "Standard Line",
+            "pgn": "1. e4 g6 2. d4 Bg7",
+            "fen": "rnbqk1nr/ppppppbp/6p1/8/3PP3/8/PPP2PPP/RNBQKBNR w KQkq - 1 3"
+          }
+        ]
+      },
+      {
+        "eco": "B07",
+        "id": "pirc-defense",
+        "name": "Pirc Defense",
+        "description": "The Pirc Defense is a hypermodern defense where Black allows White to build a strong center while preparing counterplay.",
+        "pgn": "1. e4 d6 2. d4 Nf6 3. Nc3",
+        "fen": "rnbqkb1r/ppp1pppp/3p1n2/8/3PP3/2N5/PPP2PPP/R1BQKBNR b KQkq - 1 3",
+        "variations": [
+          {
+            "eco": "B07",
+            "id": "pirc-defense-kholmov",
+            "name": "Kholmov System",
+            "pgn": "1. e4 d6 2. d4 Nf6 3. Nc3 c6",
+            "fen": "rnbqkb1r/pp2pppp/2pp1n2/8/3PP3/2N5/PPP2PPP/R1BQKBNR w KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "B08",
+        "id": "pirc-classical",
+        "name": "Pirc Defense: Classical Variation",
+        "description": "Classical Pirc Defense with both knights developed and kingside fianchetto.",
+        "pgn": "1. e4 d6 2. d4 Nf6 3. Nc3 g6 4. Nf3",
+        "fen": "rnbqkb1r/ppp1pp1p/3p1np1/8/3PP3/2N2N2/PPP2PPP/R1BQKB1R b KQkq - 1 4",
+        "variations": [
+          {
+            "eco": "B08",
+            "id": "pirc-classical-quiet",
+            "name": "Quiet System",
+            "pgn": "1. e4 d6 2. d4 Nf6 3. Nc3 g6 4. Nf3 Bg7 5. h3",
+            "fen": "rnbqk2r/ppp1ppbp/3p1np1/8/3PP3/2N2N1P/PPP2PP1/R1BQKB1R b KQkq - 0 5"
+          }
+        ]
+      },
+      {
+        "eco": "B09",
+        "id": "pirc-austrian-attack",
+        "name": "Pirc Defense: Austrian Attack",
+        "description": "The Austrian Attack in the Pirc Defense with f4, creating a powerful pawn center.",
+        "pgn": "1. e4 d6 2. d4 Nf6 3. Nc3 g6 4. f4",
+        "fen": "rnbqkb1r/ppp1pp1p/3p1np1/8/3PPP2/2N5/PPP3PP/R1BQKBNR b KQkq f3 0 4",
+        "variations": [
+          {
+            "eco": "B09",
+            "id": "pirc-austrian-dragon",
+            "name": "Dragon Formation",
+            "pgn": "1. e4 d6 2. d4 Nf6 3. Nc3 g6 4. f4 Bg7 5. Nf3 c5",
+            "fen": "rnbqk2r/pp2ppbp/3p1np1/2p5/3PPP2/2N2N2/PPP3PP/R1BQKB1R w KQkq c6 0 6"
+          }
+        ]
+      },
+      {
+        "eco": "B10",
+        "id": "caro-kann-defense",
+        "name": "Caro-Kann Defense",
+        "description": "The Caro-Kann Defense is a solid opening that leads to good endgame prospects for Black with a sound pawn structure.",
+        "pgn": "1. e4 c6",
+        "fen": "rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "variations": [
+          {
+            "eco": "B10",
+            "id": "caro-kann-hillbilly-attack",
+            "name": "Hillbilly Attack",
+            "pgn": "1. e4 c6 2. Bc4",
+            "fen": "rnbqkbnr/pp1ppppp/2p5/8/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2"
+          },
+          {
+            "eco": "B10",
+            "id": "caro-kann-two-knights",
+            "name": "Two Knights Attack",
+            "pgn": "1. e4 c6 2. Nc3 d5 3. Nf3",
+            "fen": "rnbqkbnr/pp2pppp/2p5/3p4/4P3/2N2N2/PPPP1PPP/R1BQKB1R b KQkq - 1 3"
+          }
+        ]
+      },
+      {
+        "eco": "B11",
+        "id": "caro-kann-two-knights-bg4",
+        "name": "Caro-Kann Defense: Two Knights, 3...Bg4",
+        "description": "Caro-Kann Two Knights variation with Black developing the bishop to g4.",
+        "pgn": "1. e4 c6 2. Nc3 d5 3. Nf3 Bg4",
+        "fen": "rn1qkbnr/pp2pppp/2p5/3p4/4P1b1/2N2N2/PPPP1PPP/R1BQKB1R w KQkq - 1 4",
+        "variations": []
+      },
+      {
+        "eco": "B12",
+        "id": "caro-kann-advance",
+        "name": "Caro-Kann Defense: Advance Variation",
+        "description": "Caro-Kann Advance Variation where White pushes the e-pawn to e5.",
+        "pgn": "1. e4 c6 2. d4 d5 3. e5",
+        "fen": "rnbqkbnr/pp2pppp/2p5/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "B12",
+            "id": "caro-kann-advance-short",
+            "name": "Short Variation",
+            "pgn": "1. e4 c6 2. d4 d5 3. e5 Bf5 4. Nf3",
+            "fen": "rn1qkbnr/pp2pppp/2p5/3pPb2/3P4/5N2/PPP2PPP/RNBQKB1R b KQkq - 1 4"
+          }
+        ]
+      },
+      {
+        "eco": "B13",
+        "id": "caro-kann-exchange",
+        "name": "Caro-Kann Defense: Exchange Variation",
+        "description": "Caro-Kann Exchange Variation with simplified pawn structure in the center.",
+        "pgn": "1. e4 c6 2. d4 d5 3. exd5 cxd5",
+        "fen": "rnbqkbnr/pp2pppp/8/3p4/3P4/8/PPP2PPP/RNBQKBNR w KQkq - 0 4",
+        "variations": [
+          {
+            "eco": "B13",
+            "id": "caro-kann-exchange-rubinstein",
+            "name": "Rubinstein Variation",
+            "pgn": "1. e4 c6 2. d4 d5 3. exd5 cxd5 4. Bd3 Nc6 5. c3 Nf6 6. Bf4",
+            "fen": "r1bqkb1r/pp2pppp/2n2n2/3p4/3P1B2/2PB4/PP3PPP/RN1QK1NR b KQkq - 1 6"
+          }
+        ]
+      },
+      {
+        "eco": "B14",
+        "id": "caro-kann-panov-botvinnik",
+        "name": "Caro-Kann Defense: Panov-Botvinnik Attack",
+        "description": "Caro-Kann Panov-Botvinnik Attack with c4, creating an isolated queen's pawn.",
+        "pgn": "1. e4 c6 2. d4 d5 3. exd5 cxd5 4. c4 Nf6 5. Nc3 e6",
+        "fen": "rnbqkb1r/pp3ppp/4pn2/3p4/2PP4/2N5/PP3PPP/R1BQKBNR w KQkq - 0 6",
+        "variations": [
+          {
+            "eco": "B14",
+            "id": "caro-kann-panov-herzog",
+            "name": "Herzog Defense",
+            "pgn": "1. e4 c6 2. d4 d5 3. exd5 cxd5 4. c4 Nf6 5. Nc3 Nc6 6. Bg5 Be6",
+            "fen": "r2qkb1r/pp3ppp/2n1bn2/3p2B1/2PP4/2N5/PP3PPP/R2QKBNR w KQkq - 2 7"
+          }
+        ]
+      },
+      {
+        "eco": "B15",
+        "id": "caro-kann-forgacs",
+        "name": "Caro-Kann Defense: Forgacs Variation",
+        "description": "Caro-Kann with the Forgacs Variation featuring early Bf5 development.",
+        "pgn": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Nxf6+ exf6",
+        "fen": "rnbqkb1r/pp3ppp/2p2p2/8/3P4/8/PPP2PPP/R1BQKBNR w KQkq - 0 6",
+        "variations": []
+      },
+      {
+        "eco": "B16",
+        "id": "caro-kann-bronstein-larsen",
+        "name": "Caro-Kann Defense: Bronstein-Larsen Variation",
+        "description": "Caro-Kann Bronstein-Larsen Variation with active piece play.",
+        "pgn": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Nxf6+ gxf6",
+        "fen": "rnbqkb1r/pp3p1p/2p2p2/8/3P4/8/PPP2PPP/R1BQKBNR w KQkq - 0 6",
+        "variations": []
+      },
+      {
+        "eco": "B17",
+        "id": "caro-kann-steinitz",
+        "name": "Caro-Kann Defense: Steinitz Variation",
+        "description": "Caro-Kann Steinitz Variation with h6 to prevent knight jumps to g5.",
+        "pgn": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nd7 5. Ng5 Ngf6 6. Bd3 e6 7. N1f3 h6",
+        "fen": "r1bqkb1r/ppp2pp1/2p1pn1p/6N1/3P4/3B1N2/PPP2PPP/R1BQK2R w KQkq - 0 8",
+        "variations": []
+      },
+      {
+        "eco": "B18",
+        "id": "caro-kann-classical",
+        "name": "Caro-Kann Defense: Classical Variation",
+        "description": "Classical Caro-Kann with Bf5 and sound development.",
+        "pgn": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5",
+        "fen": "rn1qkbnr/pp2pppp/2p5/5b2/3PN3/8/PPP2PPP/R1BQKBNR w KQkq - 1 5",
+        "variations": [
+          {
+            "eco": "B18",
+            "id": "caro-kann-classical-maroczy",
+            "name": "Maróczy Variation",
+            "pgn": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4",
+            "fen": "rn1qkbnr/pp2pppp/2p3b1/8/3P3P/6N1/PPP2PP1/R1BQKBNR b KQkq h3 0 6"
+          }
+        ]
+      },
+      {
+        "eco": "B19",
+        "id": "caro-kann-classical-nd7",
+        "name": "Caro-Kann Defense: Classical Variation, 7...Nd7",
+        "description": "Classical Caro-Kann with Nd7 developing the knight.",
+        "pgn": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5 5. Ng3 Bg6 6. h4 h6 7. Nf3 Nd7",
+        "fen": "r2qkbnr/pppnppp1/2p3bp/8/3P3P/5NN1/PPP2PP1/R1BQKB1R w KQkq - 1 8",
+        "variations": []
+      },
+      {
+        "eco": "B20",
+        "id": "sicilian-defense",
+        "name": "Sicilian Defense",
+        "description": "The Sicilian Defense is Black's most popular response to e4, leading to sharp, tactical games with winning chances for both sides.",
+        "pgn": "1. e4 c5",
+        "fen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2",
+        "variations": [
+          {
+            "eco": "B20",
+            "id": "sicilian-bowdler-attack",
+            "name": "Bowdler Attack",
+            "pgn": "1. e4 c5 2. Bc4",
+            "fen": "rnbqkbnr/pp1ppppp/8/2p5/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2"
+          },
+          {
+            "eco": "B20",
+            "id": "sicilian-wing-gambit",
+            "name": "Wing Gambit",
+            "pgn": "1. e4 c5 2. b4",
+            "fen": "rnbqkbnr/pp1ppppp/8/2p5/1P2P3/8/P1PP1PPP/RNBQKBNR b KQkq b3 0 2"
+          },
+          {
+            "eco": "B20",
+            "id": "sicilian-staunton-cochrane",
+            "name": "Staunton-Cochrane Variation",
+            "pgn": "1. e4 c5 2. c4",
+            "fen": "rnbqkbnr/pp1ppppp/8/2p5/2P1P3/8/PP1P1PPP/RNBQKBNR b KQkq c3 0 2"
+          }
+        ]
+      },
+      {
+        "eco": "B21",
+        "id": "sicilian-smith-morra-gambit",
+        "name": "Sicilian Defense: Smith-Morra Gambit",
+        "description": "The Smith-Morra Gambit offers a pawn for quick development and attacking chances.",
+        "pgn": "1. e4 c5 2. d4 cxd4 3. c3",
+        "fen": "rnbqkbnr/pp1ppppp/8/8/3pP3/2P5/PP3PPP/RNBQKBNR b KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "B21",
+            "id": "sicilian-smith-morra-accepted",
+            "name": "Smith-Morra Gambit Accepted",
+            "pgn": "1. e4 c5 2. d4 cxd4 3. c3 dxc3 4. Nxc3",
+            "fen": "rnbqkbnr/pp1ppppp/8/8/4P3/2N5/PP3PPP/R1BQKBNR b KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "B22",
+        "id": "sicilian-alapin",
+        "name": "Sicilian Defense: Alapin Variation",
+        "description": "The Alapin Variation with c3 aims to build a strong pawn center with d4.",
+        "pgn": "1. e4 c5 2. c3",
+        "fen": "rnbqkbnr/pp1ppppp/8/2p5/4P3/2P5/PP1P1PPP/RNBQKBNR b KQkq - 0 2",
+        "variations": [
+          {
+            "eco": "B22",
+            "id": "sicilian-alapin-barmen",
+            "name": "Barmen Defense",
+            "pgn": "1. e4 c5 2. c3 d5 3. exd5 Qxd5",
+            "fen": "rnb1kbnr/pp2pppp/8/2pq4/8/2P5/PP1P1PPP/RNBQKBNR w KQkq - 0 4"
+          }
+        ]
+      }
+    ],
+    "C": [
+      {
+        "eco": "C00",
+        "id": "french-defense",
+        "name": "French Defense",
+        "description": "The French Defense is a solid and strategic opening where Black allows White to build a strong center while preparing counterplay.",
+        "pgn": "1. e4 e6",
+        "fen": "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+        "variations": [
+          {
+            "eco": "C00",
+            "id": "french-defense-chigorin",
+            "name": "Chigorin Variation",
+            "pgn": "1. e4 e6 2. Qe2",
+            "fen": "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPPQPPP/RNB1KBNR b KQkq - 1 2"
+          },
+          {
+            "eco": "C00",
+            "id": "french-defense-la-bourdonnais",
+            "name": "La Bourdonnais Variation",
+            "pgn": "1. e4 e6 2. f4",
+            "fen": "rnbqkbnr/pppp1ppp/4p3/8/4PP2/8/PPPP2PP/RNBQKBNR b KQkq f3 0 2"
+          }
+        ]
+      },
+      {
+        "eco": "C01",
+        "id": "french-defense-exchange",
+        "name": "French Defense: Exchange Variation",
+        "description": "French Defense Exchange Variation where White immediately trades pawns in the center.",
+        "pgn": "1. e4 e6 2. d4 d5 3. exd5",
+        "fen": "rnbqkbnr/ppp2ppp/4p3/3P4/3P4/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "C01",
+            "id": "french-exchange-svenonius",
+            "name": "Svenonius Variation",
+            "pgn": "1. e4 e6 2. d4 d5 3. exd5 exd5 4. Nc3 Nf6 5. Bg5",
+            "fen": "rnbqkb1r/ppp2ppp/5n2/3p2B1/3P4/2N5/PPP2PPP/R2QKBNR b KQkq - 3 5"
+          }
+        ]
+      },
+      {
+        "eco": "C02",
+        "id": "french-defense-advance",
+        "name": "French Defense: Advance Variation",
+        "description": "French Defense Advance Variation where White advances the e-pawn to e5, gaining space.",
+        "pgn": "1. e4 e6 2. d4 d5 3. e5",
+        "fen": "rnbqkbnr/ppp2ppp/4p3/3pP3/3P4/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "C02",
+            "id": "french-advance-paulsen",
+            "name": "Paulsen Attack",
+            "pgn": "1. e4 e6 2. d4 d5 3. e5 c5 4. c3 Nc6 5. Nf3",
+            "fen": "r1bqkbnr/pp3ppp/2n1p3/2ppP3/3P4/2P2N2/PP3PPP/RNBQKB1R b KQkq - 1 5"
+          }
+        ]
+      },
+      {
+        "eco": "C03",
+        "id": "french-defense-tarrasch",
+        "name": "French Defense: Tarrasch Variation",
+        "description": "French Defense Tarrasch Variation with Nd2, preparing to recapture on e4 with the knight.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nd2",
+        "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/8/PPPN1PPP/R1BQKBNR b KQkq - 1 3",
+        "variations": [
+          {
+            "eco": "C03",
+            "id": "french-tarrasch-guimard",
+            "name": "Guimard Variation",
+            "pgn": "1. e4 e6 2. d4 d5 3. Nd2 Nc6",
+            "fen": "r1bqkbnr/ppp2ppp/2n1p3/3p4/3PP3/8/PPPN1PPP/R1BQKBNR w KQkq - 2 4"
+          }
+        ]
+      },
+      {
+        "eco": "C04",
+        "id": "french-defense-tarrasch-guimard-main",
+        "name": "French Defense: Tarrasch Variation, Guimard Main Line",
+        "description": "Main line of the Tarrasch Variation with Guimard Defense.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nd2 Nc6 4. Ngf3 Nf6",
+        "fen": "r1bqkb1r/ppp2ppp/2n1pn2/3p4/3PP3/5N2/PPPN1PPP/R1BQKB1R w KQkq - 3 5",
+        "variations": []
+      },
+      {
+        "eco": "C05",
+        "id": "french-defense-tarrasch-closed",
+        "name": "French Defense: Tarrasch Variation, Closed System",
+        "description": "Tarrasch Variation with closed system development.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nd2 Nf6 4. e5 Nfd7 5. Bd3 c5 6. c3 Nc6",
+        "fen": "r1bqkb1r/pp1n1ppp/2n1p3/2ppP3/3P4/2PB4/PP1N1PPP/R1BQK1NR w KQkq - 1 7",
+        "variations": []
+      },
+      {
+        "eco": "C06",
+        "id": "french-defense-tarrasch-closed-main",
+        "name": "French Defense: Tarrasch Variation, Closed System, Main Line",
+        "description": "Main line of the Tarrasch closed system.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nd2 Nf6 4. e5 Nfd7 5. Bd3 c5 6. c3 Nc6 7. Ne2 cxd4 8. cxd4",
+        "fen": "r1bqkb1r/pp1n1ppp/2n1p3/3pP3/3P4/3B4/PP1NNPPP/R1BQK2R b KQkq - 0 8",
+        "variations": []
+      },
+      {
+        "eco": "C07",
+        "id": "french-defense-tarrasch-open",
+        "name": "French Defense: Tarrasch Variation, Open System",
+        "description": "Tarrasch Variation with open system where White plays f4.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nd2 c5",
+        "fen": "rnbqkbnr/pp3ppp/4p3/2pp4/3PP3/8/PPPN1PPP/R1BQKBNR w KQkq c6 0 4",
+        "variations": [
+          {
+            "eco": "C07",
+            "id": "french-tarrasch-eliskases",
+            "name": "Eliskases Variation",
+            "pgn": "1. e4 e6 2. d4 d5 3. Nd2 c5 4. exd5 Qxd5",
+            "fen": "rnb1kbnr/pp3ppp/4p3/2pq4/3P4/8/PPPN1PPP/R1BQKBNR w KQkq - 0 5"
+          }
+        ]
+      },
+      {
+        "eco": "C08",
+        "id": "french-defense-tarrasch-open-main",
+        "name": "French Defense: Tarrasch Variation, Open System, Main Line",
+        "description": "Main line of the Tarrasch open system.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nd2 c5 4. exd5 exd5",
+        "fen": "rnbqkbnr/pp3ppp/8/2pp4/3P4/8/PPPN1PPP/R1BQKBNR w KQkq - 0 5",
+        "variations": []
+      },
+      {
+        "eco": "C09",
+        "id": "french-defense-tarrasch-open-main-advanced",
+        "name": "French Defense: Tarrasch Variation, Open System, Advanced Line",
+        "description": "Advanced line of the Tarrasch open system.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nd2 c5 4. exd5 exd5 5. Ngf3 Nc6",
+        "fen": "r1bqkbnr/pp3ppp/2n5/2pp4/3P4/5N2/PPPN1PPP/R1BQKB1R w KQkq - 2 6",
+        "variations": []
+      },
+      {
+        "eco": "C10",
+        "id": "french-defense-classical",
+        "name": "French Defense: Classical Variation",
+        "description": "Classical French Defense with Nc3 developing the knight naturally.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3",
+        "fen": "rnbqkbnr/ppp2ppp/4p3/3p4/3PP3/2N5/PPP2PPP/R1BQKBNR b KQkq - 1 3",
+        "variations": [
+          {
+            "eco": "C10",
+            "id": "french-classical-marshall",
+            "name": "Marshall Variation",
+            "pgn": "1. e4 e6 2. d4 d5 3. Nc3 c5",
+            "fen": "rnbqkbnr/pp3ppp/4p3/2pp4/3PP3/2N5/PPP2PPP/R1BQKBNR w KQkq c6 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "C11",
+        "id": "french-defense-steinitz",
+        "name": "French Defense: Classical Variation, Steinitz Variation",
+        "description": "Classical French with the Steinitz setup featuring early Be2 development.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. e5",
+        "fen": "rnbqkb1r/ppp2ppp/4pn2/3pP3/3P4/2N5/PPP2PPP/R1BQKBNR b KQkq - 0 4",
+        "variations": [
+          {
+            "eco": "C11",
+            "id": "french-steinitz-boleslavsky",
+            "name": "Boleslavsky Variation",
+            "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. e5 Nfd7 5. f4 c5 6. Nf3 Nc6 7. Be3",
+            "fen": "r1bqkb1r/pp1n1ppp/2n1p3/2ppP3/3P1P2/2N1BN2/PPP3PP/R2QKB1R b KQkq - 1 7"
+          }
+        ]
+      },
+      {
+        "eco": "C12",
+        "id": "french-defense-maccutcheon",
+        "name": "French Defense: MacCutcheon Variation",
+        "description": "French Defense MacCutcheon Variation with early Bg4 to pin the knight.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. Bg5 Bb4",
+        "fen": "rnbqk2r/ppp2ppp/4pn2/3p2B1/1b1PP3/2N5/PPP2PPP/R2QKBNR w KQkq - 2 5",
+        "variations": [
+          {
+            "eco": "C12",
+            "id": "french-maccutcheon-advance",
+            "name": "Advance Variation",
+            "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. Bg5 Bb4 5. e5 h6 6. Bd2 Bxc3 7. bxc3 Ne4",
+            "fen": "rnbqk2r/ppp2pp1/4p2p/3pP3/3Pn3/2P5/P1PB1PPP/R2QKBNR w KQkq - 0 8"
+          }
+        ]
+      },
+      {
+        "eco": "C13",
+        "id": "french-defense-classical-albin-chatard",
+        "name": "French Defense: Classical Variation, Albin-Chatard-Alekhine Gambit",
+        "description": "French Classical with the Albin-Chatard-Alekhine Gambit offering h4-h5.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. Bg5 Be7 5. e5 Nfd7 6. h4",
+        "fen": "rnbqk2r/pppnbppp/4p3/3pP1B1/3P3P/2N5/PPP2PP1/R2QKBNR b KQkq h3 0 6",
+        "variations": []
+      },
+      {
+        "eco": "C14",
+        "id": "french-defense-classical-normal",
+        "name": "French Defense: Classical Variation, Normal Variation",
+        "description": "Classical French with normal development featuring Be2.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Nf6 4. Bg5 Be7 5. e5 Nfd7 6. Bxe7 Qxe7",
+        "fen": "rnb1k2r/pppnqppp/4p3/3pP3/3P4/2N5/PPP2PPP/R2QKBNR w KQkq - 0 7",
+        "variations": []
+      },
+      {
+        "eco": "C15",
+        "id": "french-defense-winawer",
+        "name": "French Defense: Winawer Variation",
+        "description": "The Winawer Variation is a sharp system where Black develops the bishop to b4.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Bb4",
+        "fen": "rnbqk1nr/ppp2ppp/4p3/3p4/1b1PP3/2N5/PPP2PPP/R1BQKBNR w KQkq - 2 4",
+        "variations": [
+          {
+            "eco": "C15",
+            "id": "french-winawer-kondratiyev",
+            "name": "Kondratiyev Variation",
+            "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. Bd3",
+            "fen": "rnbqk1nr/ppp2ppp/4p3/3p4/1b1PP3/2NB4/PPP2PPP/R1BQK1NR b KQkq - 3 4"
+          }
+        ]
+      },
+      {
+        "eco": "C16",
+        "id": "french-defense-winawer-advance",
+        "name": "French Defense: Winawer Variation, Advance Variation",
+        "description": "Winawer Variation with White advancing the e-pawn.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5",
+        "fen": "rnbqk1nr/ppp2ppp/4p3/3pP3/1b1P4/2N5/PPP2PPP/R1BQKBNR b KQkq - 0 4",
+        "variations": [
+          {
+            "eco": "C16",
+            "id": "french-winawer-petrosian",
+            "name": "Petrosian Variation",
+            "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 Qd7",
+            "fen": "rnb1k1nr/pppq1ppp/4p3/3pP3/1b1P4/2N5/PPP2PPP/R1BQKBNR w KQkq - 1 5"
+          }
+        ]
+      },
+      {
+        "eco": "C17",
+        "id": "french-defense-winawer-advance-main",
+        "name": "French Defense: Winawer Variation, Advance Variation, Main Line",
+        "description": "Main line of the Winawer Advance Variation.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Bxc3+ 6. bxc3",
+        "fen": "rnbqk1nr/pp3ppp/4p3/2ppP3/3P4/P1P5/2P2PPP/R1BQKBNR b KQkq - 0 6",
+        "variations": []
+      },
+      {
+        "eco": "C18",
+        "id": "french-defense-winawer-advance-poisoned-pawn",
+        "name": "French Defense: Winawer Variation, Advance Variation, Poisoned Pawn Line",
+        "description": "Poisoned Pawn line in the Winawer Advance Variation.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Bxc3+ 6. bxc3 Ne7 7. Qg4",
+        "fen": "rnbqk2r/pp2nppp/4p3/2ppP3/3P2Q1/P1P5/2P2PPP/R1B1KBNR b KQkq - 1 7",
+        "variations": []
+      },
+      {
+        "eco": "C19",
+        "id": "french-defense-winawer-advance-positional",
+        "name": "French Defense: Winawer Variation, Advance Variation, Positional Main Line",
+        "description": "Positional main line of the Winawer Advance Variation.",
+        "pgn": "1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 c5 5. a3 Bxc3+ 6. bxc3 Ne7 7. Nf3",
+        "fen": "rnbqk2r/pp2nppp/4p3/2ppP3/3P4/P1P2N2/2P2PPP/R1BQKB1R b KQkq - 1 7",
+        "variations": []
+      },
+      {
+        "eco": "C20",
+        "id": "kings-pawn-game",
+        "name": "King's Pawn Game",
+        "description": "King's Pawn Game with various responses to 1.e4 e5 that don't fit into other major categories.",
+        "pgn": "1. e4 e5",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+        "variations": [
+          {
+            "eco": "C20",
+            "id": "center-game",
+            "name": "Center Game",
+            "pgn": "1. e4 e5 2. d4 exd4",
+            "fen": "rnbqkbnr/pppp1ppp/8/8/3pP3/8/PPP2PPP/RNBQKBNR w KQkq - 0 3"
+          },
+          {
+            "eco": "C20",
+            "id": "portuguese-opening",
+            "name": "Portuguese Opening",
+            "pgn": "1. e4 e5 2. Bb5",
+            "fen": "rnbqkbnr/pppp1ppp/8/1B2p3/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2"
+          }
+        ]
+      },
+      {
+        "eco": "C21",
+        "id": "center-game-accepted",
+        "name": "Center Game: Accepted",
+        "description": "Center Game where Black accepts the gambit with exd4.",
+        "pgn": "1. e4 e5 2. d4 exd4 3. Qxd4",
+        "fen": "rnbqkbnr/pppp1ppp/8/8/3QP3/8/PPP2PPP/RNB1KBNR b KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "C21",
+            "id": "center-game-kieseritzky",
+            "name": "Kieseritzky Variation",
+            "pgn": "1. e4 e5 2. d4 exd4 3. Qxd4 Nc6 4. Qe3",
+            "fen": "r1bqkbnr/pppp1ppp/2n5/8/4P3/4Q3/PPP2PPP/RNB1KBNR b KQkq - 1 4"
+          }
+        ]
+      },
+      {
+        "eco": "C22",
+        "id": "center-game-normal",
+        "name": "Center Game: Normal Variation",
+        "description": "Normal variation of the Center Game with typical development.",
+        "pgn": "1. e4 e5 2. d4 exd4 3. Qxd4 Nc6",
+        "fen": "r1bqkbnr/pppp1ppp/2n5/8/3QP3/8/PPP2PPP/RNB1KBNR w KQkq - 1 4",
+        "variations": []
+      },
+      {
+        "eco": "C23",
+        "id": "bishops-opening",
+        "name": "Bishop's Opening",
+        "description": "Bishop's Opening where White develops the bishop to c4 on move 2.",
+        "pgn": "1. e4 e5 2. Bc4",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2",
+        "variations": [
+          {
+            "eco": "C23",
+            "id": "bishops-opening-lewis-counter",
+            "name": "Lewis Counter-Gambit",
+            "pgn": "1. e4 e5 2. Bc4 Bc5 3. c3 f5",
+            "fen": "rnbqk1nr/pppp2pp/8/2b1pp2/2B1P3/2P5/PP1P1PPP/RNBQK1NR w KQkq f6 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "C24",
+        "id": "bishops-opening-berlin-defense",
+        "name": "Bishop's Opening: Berlin Defense",
+        "description": "Bishop's Opening Berlin Defense with Black playing Nf6.",
+        "pgn": "1. e4 e5 2. Bc4 Nf6",
+        "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3",
+        "variations": [
+          {
+            "eco": "C24",
+            "id": "bishops-opening-ponziani-gambit",
+            "name": "Ponziani Gambit",
+            "pgn": "1. e4 e5 2. Bc4 Nf6 3. f4",
+            "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/2B1PP2/8/PPPP2PP/RNBQK1NR b KQkq f3 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "C25",
+        "id": "vienna-game",
+        "name": "Vienna Game",
+        "description": "The Vienna Game develops the knight to c3 early, offering flexible development options.",
+        "pgn": "1. e4 e5 2. Nc3",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 2",
+        "variations": [
+          {
+            "eco": "C25",
+            "id": "vienna-game-max-lange-defense",
+            "name": "Max Lange Defense",
+            "pgn": "1. e4 e5 2. Nc3 Nc6 3. Bc4 Be7",
+            "fen": "r1bqk1nr/ppppbppp/2n5/4p3/2B1P3/2N5/PPPP1PPP/R1BQK1NR w KQkq - 3 4"
+          }
+        ]
+      },
+      {
+        "eco": "C26",
+        "id": "vienna-game-falkbeer",
+        "name": "Vienna Game: Falkbeer Variation",
+        "description": "Vienna Game Falkbeer Variation with early f4.",
+        "pgn": "1. e4 e5 2. Nc3 Nf6 3. f4",
+        "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/4PP2/2N5/PPPP2PP/R1BQKBNR b KQkq f3 0 3",
+        "variations": []
+      },
+      {
+        "eco": "C27",
+        "id": "vienna-game-frankenstein-dracula",
+        "name": "Vienna Game: Frankenstein-Dracula Variation",
+        "description": "Vienna Game with the sharp Frankenstein-Dracula Variation.",
+        "pgn": "1. e4 e5 2. Nc3 Nf6 3. Bc4 Nxe4",
+        "fen": "rnbqkb1r/pppp1ppp/8/4p3/2B1n3/2N5/PPPP1PPP/R1BQK1NR w KQkq - 0 4",
+        "variations": []
+      },
+      {
+        "eco": "C28",
+        "id": "vienna-game-stanley-variation",
+        "name": "Vienna Game: Stanley Variation",
+        "description": "Vienna Game Stanley Variation with Be2 development.",
+        "pgn": "1. e4 e5 2. Nc3 Nc6 3. Bc4 Bc5 4. d3",
+        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/2NP4/PPP2PPP/R1BQK1NR b KQkq - 0 4",
+        "variations": []
+      },
+      {
+        "eco": "C29",
+        "id": "vienna-gambit",
+        "name": "Vienna Gambit",
+        "description": "The Vienna Gambit offers a pawn for quick development and attacking chances.",
+        "pgn": "1. e4 e5 2. Nc3 Nf6 3. f4 d5",
+        "fen": "rnbqkb1r/ppp2ppp/5n2/3pp3/4PP2/2N5/PPPP2PP/R1BQKBNR w KQkq d6 0 4",
+        "variations": [
+          {
+            "eco": "C29",
+            "id": "vienna-gambit-kaufmann",
+            "name": "Kaufmann Variation",
+            "pgn": "1. e4 e5 2. Nc3 Nf6 3. f4 d5 4. fxe5 Nxe4",
+            "fen": "rnbqkb1r/ppp2ppp/8/3pP3/4n3/2N5/PPPP2PP/R1BQKBNR w KQkq - 0 5"
+          }
+        ]
+      },
+      {
+        "eco": "C30",
+        "id": "kings-gambit",
+        "name": "King's Gambit",
+        "description": "The King's Gambit is one of the oldest openings, sacrificing a pawn for rapid development and attacking chances.",
+        "pgn": "1. e4 e5 2. f4",
+        "fen": "rnbqkbnr/pppp1ppp/8/4p3/4PP2/8/PPPP2PP/RNBQKBNR b KQkq f3 0 2",
+        "variations": [
+          {
+            "eco": "C30",
+            "id": "kings-gambit-norwalde",
+            "name": "Norwalde Variation",
+            "pgn": "1. e4 e5 2. f4 Qf6",
+            "fen": "rnb1kbnr/pppp1ppp/5q2/4p3/4PP2/8/PPPP2PP/RNBQKBNR w KQkq - 1 3"
+          }
+        ]
+      }
+    ],
+    "D": [
+      {
+        "eco": "D00",
+        "id": "queens-pawn-game",
+        "name": "Queen's Pawn Game",
+        "description": "Queen's Pawn Game where White begins with d4, offering a solid and positional approach to the opening.",
+        "pgn": "1. d4",
+        "fen": "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq d3 0 1",
+        "variations": [
+          {
+            "eco": "D00",
+            "id": "blackmar-diemer-gambit",
+            "name": "Blackmar-Diemer Gambit",
+            "pgn": "1. d4 d5 2. e4 dxe4 3. Nc3",
+            "fen": "rnbqkbnr/ppp1pppp/8/8/3Pp3/2N5/PPP2PPP/R1BQKBNR b KQkq - 1 3"
+          },
+          {
+            "eco": "D00",
+            "id": "queens-pawn-mason-attack",
+            "name": "Mason Attack",
+            "pgn": "1. d4 d5 2. Bf4",
+            "fen": "rnbqkbnr/ppp1pppp/8/3p4/3P1B2/8/PPP1PPPP/RN1QKBNR b KQkq - 1 2"
+          }
+        ]
+      },
+      {
+        "eco": "D01",
+        "id": "queens-pawn-richter-veresov",
+        "name": "Queen's Pawn Game: Richter-Veresov Attack",
+        "description": "Richter-Veresov Attack with early Nc3 and Bg5 development.",
+        "pgn": "1. d4 d5 2. Nc3 Nf6 3. Bg5",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/3p2B1/3P4/2N5/PPP1PPPP/R2QKBNR b KQkq - 3 3",
+        "variations": []
+      },
+      {
+        "eco": "D02",
+        "id": "queens-pawn-london-system",
+        "name": "Queen's Pawn Game: London System",
+        "description": "London System with Bf4 and solid pawn structure, popular at all levels.",
+        "pgn": "1. d4 d5 2. Nf3 Nf6 3. Bf4",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/3p4/3P1B2/5N2/PPP1PPPP/RN1QKB1R b KQkq - 1 3",
+        "variations": [
+          {
+            "eco": "D02",
+            "id": "london-system-accelerated",
+            "name": "Accelerated London System",
+            "pgn": "1. d4 Nf6 2. Bf4",
+            "fen": "rnbqkb1r/pppppppp/5n2/8/3P1B2/8/PPP1PPPP/RN1QKBNR b KQkq - 1 2"
+          }
+        ]
+      },
+      {
+        "eco": "D03",
+        "id": "queens-pawn-torre-attack",
+        "name": "Queen's Pawn Game: Torre Attack",
+        "description": "Torre Attack with Bg5 pinning the knight on f6.",
+        "pgn": "1. d4 d5 2. Nf3 Nf6 3. Bg5",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/3p2B1/3P4/5N2/PPP1PPPP/RN1QKB1R b KQkq - 3 3",
+        "variations": [
+          {
+            "eco": "D03",
+            "id": "torre-attack-gossip",
+            "name": "Gossip Variation",
+            "pgn": "1. d4 d5 2. Nf3 Nf6 3. Bg5 Ne4",
+            "fen": "rnbqkb1r/ppp1pppp/8/3p2B1/3Pn3/5N2/PPP1PPPP/RN1QKB1R w KQkq - 1 4"
+          }
+        ]
+      },
+      {
+        "eco": "D04",
+        "id": "queens-pawn-colle-system",
+        "name": "Queen's Pawn Game: Colle System",
+        "description": "Colle System with e3, Bd3, and 0-0, a solid setup for White.",
+        "pgn": "1. d4 d5 2. Nf3 Nf6 3. e3",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/3p4/3P4/4PN2/PPP2PPP/RNBQKB1R b KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "D04",
+            "id": "colle-system-anti-colle",
+            "name": "Anti-Colle",
+            "pgn": "1. d4 d5 2. Nf3 Nf6 3. e3 Bf5",
+            "fen": "rn1qkb1r/ppp1pppp/5n2/3p1b2/3P4/4PN2/PPP2PPP/RNBQKB1R w KQkq - 1 4"
+          }
+        ]
+      },
+      {
+        "eco": "D05",
+        "id": "queens-pawn-colle-zukertort",
+        "name": "Queen's Pawn Game: Colle-Zukertort System",
+        "description": "Colle-Zukertort System with b3 and Ba3 to control the light squares.",
+        "pgn": "1. d4 d5 2. Nf3 Nf6 3. e3 e6 4. Bd3 c5 5. b3",
+        "fen": "rnbqkb1r/pp3ppp/4pn2/2pp4/3P4/1P1BPN2/P1P2PPP/RNBQK2R b KQkq - 0 5",
+        "variations": []
+      },
+      {
+        "eco": "D06",
+        "id": "queens-gambit",
+        "name": "Queen's Gambit",
+        "description": "The Queen's Gambit offers the c-pawn to gain control of the center and develop quickly.",
+        "pgn": "1. d4 d5 2. c4",
+        "fen": "rnbqkbnr/ppp1pppp/8/3p4/2PP4/8/PP2PPPP/RNBQKBNR b KQkq c3 0 2",
+        "variations": [
+          {
+            "eco": "D06",
+            "id": "queens-gambit-marshall-defense",
+            "name": "Marshall Defense",
+            "pgn": "1. d4 d5 2. c4 Nf6",
+            "fen": "rnbqkb1r/ppp1pppp/5n2/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 1 3"
+          }
+        ]
+      },
+      {
+        "eco": "D07",
+        "id": "queens-gambit-chigorin-defense",
+        "name": "Queen's Gambit: Chigorin Defense",
+        "description": "Chigorin Defense where Black develops the knight to c6 instead of protecting the d5 pawn.",
+        "pgn": "1. d4 d5 2. c4 Nc6",
+        "fen": "r1bqkbnr/ppp1pppp/2n5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 1 3",
+        "variations": [
+          {
+            "eco": "D07",
+            "id": "chigorin-defense-exchange",
+            "name": "Exchange Variation",
+            "pgn": "1. d4 d5 2. c4 Nc6 3. cxd5 Qxd5",
+            "fen": "r1b1kbnr/ppp1pppp/2n5/3q4/3P4/8/PP2PPPP/RNBQKBNR w KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "D08",
+        "id": "queens-gambit-albin-counter",
+        "name": "Queen's Gambit: Albin Counter-Gambit",
+        "description": "Albin Counter-Gambit where Black sacrifices a pawn for active piece play.",
+        "pgn": "1. d4 d5 2. c4 e5",
+        "fen": "rnbqkbnr/ppp2ppp/8/3pp3/2PP4/8/PP2PPPP/RNBQKBNR w KQkq e6 0 3",
+        "variations": [
+          {
+            "eco": "D08",
+            "id": "albin-counter-fianchetto",
+            "name": "Fianchetto Variation",
+            "pgn": "1. d4 d5 2. c4 e5 3. dxe5 d4 4. Nf3 Nc6 5. g3",
+            "fen": "r1bqkbnr/ppp2ppp/2n5/4P3/2Pp4/5NP1/PP2PP1P/RNBQKB1R b KQkq - 0 5"
+          }
+        ]
+      },
+      {
+        "eco": "D09",
+        "id": "queens-gambit-albin-counter-main",
+        "name": "Queen's Gambit: Albin Counter-Gambit, Main Line",
+        "description": "Main line of the Albin Counter-Gambit with standard development.",
+        "pgn": "1. d4 d5 2. c4 e5 3. dxe5 d4 4. Nf3",
+        "fen": "rnbqkbnr/ppp2ppp/8/4P3/2Pp4/5N2/PP2PPPP/RNBQKB1R b KQkq - 1 4",
+        "variations": []
+      },
+      {
+        "eco": "D10",
+        "id": "queens-gambit-slav-defense",
+        "name": "Queen's Gambit Declined: Slav Defense",
+        "description": "The Slav Defense supports the d5 pawn with c6, maintaining a solid pawn structure.",
+        "pgn": "1. d4 d5 2. c4 c6",
+        "fen": "rnbqkbnr/pp2pppp/2p5/3p4/2PP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "D10",
+            "id": "slav-defense-exchange",
+            "name": "Exchange Variation",
+            "pgn": "1. d4 d5 2. c4 c6 3. cxd5 cxd5",
+            "fen": "rnbqkbnr/pp2pppp/8/3p4/3P4/8/PP2PPPP/RNBQKBNR w KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "D11",
+        "id": "slav-defense-modern",
+        "name": "Slav Defense: Modern Variation",
+        "description": "Modern Slav with Nf3 and Nf6 development.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6",
+        "fen": "rnbqkb1r/pp2pppp/2p2n2/3p4/2PP4/5N2/PP2PPPP/RNBQKB1R w KQkq - 1 4",
+        "variations": [
+          {
+            "eco": "D11",
+            "id": "slav-defense-breyer",
+            "name": "Breyer Variation",
+            "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nbd2",
+            "fen": "rnbqkb1r/pp2pppp/2p2n2/3p4/2PP4/5N2/PP1NPPPP/R1BQKB1R b KQkq - 2 4"
+          }
+        ]
+      },
+      {
+        "eco": "D12",
+        "id": "slav-defense-quiet",
+        "name": "Slav Defense: Quiet Variation",
+        "description": "Quiet variation of the Slav Defense with e3 development.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. e3 Bf5",
+        "fen": "rn1qkb1r/pp2pppp/2p2n2/3p1b2/2PP4/4PN2/PP3PPP/RNBQKB1R w KQkq - 2 5",
+        "variations": []
+      },
+      {
+        "eco": "D13",
+        "id": "slav-defense-exchange-variation",
+        "name": "Slav Defense: Exchange Variation, Main Line",
+        "description": "Main line of the Slav Exchange Variation.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. cxd5 cxd5 5. Nc3 Nc6 6. Bf4",
+        "fen": "r1bqkb1r/pp2pppp/2n2n2/3p4/3P1B2/2N2N2/PP2PPPP/R2QKB1R b KQkq - 3 6",
+        "variations": []
+      },
+      {
+        "eco": "D14",
+        "id": "slav-defense-exchange-variation-trifunovic",
+        "name": "Slav Defense: Exchange Variation, Trifunovic Variation",
+        "description": "Trifunovic Variation in the Slav Exchange.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. cxd5 cxd5 5. Nc3 Nc6 6. Bf4 Bf5",
+        "fen": "r2qkb1r/pp2pppp/2n2n2/3p1b2/3P1B2/2N2N2/PP2PPPP/R2QKB1R w KQkq - 4 7",
+        "variations": []
+      },
+      {
+        "eco": "D15",
+        "id": "slav-defense-three-knights",
+        "name": "Slav Defense: Three Knights Variation",
+        "description": "Three Knights Variation in the Slav Defense.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3",
+        "fen": "rnbqkb1r/pp2pppp/2p2n2/3p4/2PP4/2N2N2/PP2PPPP/R1BQKB1R b KQkq - 2 4",
+        "variations": [
+          {
+            "eco": "D15",
+            "id": "slav-defense-schlechter",
+            "name": "Schlechter Variation",
+            "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 g6",
+            "fen": "rnbqkb1r/pp2pp1p/2p2np1/3p4/2PP4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 0 5"
+          }
+        ]
+      },
+      {
+        "eco": "D16",
+        "id": "slav-defense-steiner",
+        "name": "Slav Defense: Steiner Variation",
+        "description": "Steiner Variation with early Bg5.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 dxc4 5. a4",
+        "fen": "rnbqkb1r/pp2pppp/2p2n2/8/P1pP4/2N2N2/1P2PPPP/R1BQKB1R b KQkq a3 0 5",
+        "variations": []
+      },
+      {
+        "eco": "D17",
+        "id": "slav-defense-czech",
+        "name": "Slav Defense: Czech Variation",
+        "description": "Czech Variation of the Slav Defense with active piece play.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 dxc4 5. a4 Bf5",
+        "fen": "rn1qkb1r/pp2pppp/2p2n2/5b2/P1pP4/2N2N2/1P2PPPP/R1BQKB1R w KQkq - 1 6",
+        "variations": []
+      },
+      {
+        "eco": "D18",
+        "id": "slav-defense-czech-krause",
+        "name": "Slav Defense: Czech Variation, Krause Attack",
+        "description": "Krause Attack in the Czech Variation.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 dxc4 5. a4 Bf5 6. Ne5",
+        "fen": "rn1qkb1r/pp2pppp/2p2n2/4Nb2/P1pP4/2N5/1P2PPPP/R1BQKB1R b KQkq - 2 6",
+        "variations": []
+      },
+      {
+        "eco": "D19",
+        "id": "slav-defense-czech-dutch",
+        "name": "Slav Defense: Czech Variation, Dutch Variation",
+        "description": "Dutch Variation in the Czech Slav.",
+        "pgn": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 dxc4 5. a4 Bf5 6. e3",
+        "fen": "rn1qkb1r/pp2pppp/2p2n2/5b2/P1pP4/2N1PN2/1P3PPP/R1BQKB1R b KQkq - 0 6",
+        "variations": []
+      },
+      {
+        "eco": "D20",
+        "id": "queens-gambit-accepted",
+        "name": "Queen's Gambit Accepted",
+        "description": "Queen's Gambit Accepted where Black takes the offered pawn with dxc4.",
+        "pgn": "1. d4 d5 2. c4 dxc4",
+        "fen": "rnbqkbnr/ppp1pppp/8/8/2pP4/8/PP2PPPP/RNBQKBNR w KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "D20",
+            "id": "qga-linares",
+            "name": "Linares Variation",
+            "pgn": "1. d4 d5 2. c4 dxc4 3. e4",
+            "fen": "rnbqkbnr/ppp1pppp/8/8/2pPP3/8/PP3PPP/RNBQKBNR b KQkq e3 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "D21",
+        "id": "queens-gambit-accepted-main",
+        "name": "Queen's Gambit Accepted: Central Variation",
+        "description": "Central Variation of the Queen's Gambit Accepted.",
+        "pgn": "1. d4 d5 2. c4 dxc4 3. Nf3",
+        "fen": "rnbqkbnr/ppp1pppp/8/8/2pP4/5N2/PP2PPPP/RNBQKB1R b KQkq - 1 3",
+        "variations": [
+          {
+            "eco": "D21",
+            "id": "qga-alekhine-defense",
+            "name": "Alekhine Defense",
+            "pgn": "1. d4 d5 2. c4 dxc4 3. Nf3 a6",
+            "fen": "rnbqkbnr/1pp1pppp/p7/8/2pP4/5N2/PP2PPPP/RNBQKB1R w KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "D22",
+        "id": "queens-gambit-accepted-alekhine",
+        "name": "Queen's Gambit Accepted: Alekhine Defense, Borisenko-Furman Variation",
+        "description": "Borisenko-Furman Variation in the Alekhine Defense of the QGA.",
+        "pgn": "1. d4 d5 2. c4 dxc4 3. Nf3 a6 4. e3",
+        "fen": "rnbqkbnr/1pp1pppp/p7/8/2pP4/4PN2/PP3PPP/RNBQKB1R b KQkq - 0 4",
+        "variations": []
+      },
+      {
+        "eco": "D23",
+        "id": "queens-gambit-accepted-mannheim",
+        "name": "Queen's Gambit Accepted: Mannheim Variation",
+        "description": "Mannheim Variation of the Queen's Gambit Accepted.",
+        "pgn": "1. d4 d5 2. c4 dxc4 3. Nf3 Nf6 4. Qa4+",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/8/Q1pP4/5N2/PP2PPPP/RNB1KB1R b KQkq - 1 4",
+        "variations": []
+      },
+      {
+        "eco": "D24",
+        "id": "queens-gambit-accepted-showalter",
+        "name": "Queen's Gambit Accepted: Showalter Variation",
+        "description": "Showalter Variation with early development.",
+        "pgn": "1. d4 d5 2. c4 dxc4 3. Nf3 Nf6 4. Nc3",
+        "fen": "rnbqkb1r/ppp1pppp/5n2/8/2pP4/2N2N2/PP2PPPP/R1BQKB1R b KQkq - 2 4",
+        "variations": []
+      },
+      {
+        "eco": "D25",
+        "id": "queens-gambit-accepted-flohr",
+        "name": "Queen's Gambit Accepted: Flohr Variation",
+        "description": "Flohr Variation of the Queen's Gambit Accepted.",
+        "pgn": "1. d4 d5 2. c4 dxc4 3. Nf3 Nf6 4. e3 Be6",
+        "fen": "rnbqk2r/ppp1ppbp/4bn2/8/2pP4/4PN2/PP3PPP/RNBQKB1R w KQkq - 1 5",
+        "variations": []
+      }
+    ],
+    "E": [
+      {
+        "eco": "E00",
+        "id": "catalan-opening",
+        "name": "Catalan Opening",
+        "description": "The Catalan Opening combines Queen's Gambit and King's Indian Attack ideas with g3 and Bg2 fianchetto.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3",
+        "fen": "rnbqkb1r/pppp1ppp/4pn2/8/2PP4/6P1/PP2PP1P/RNBQKBNR b KQkq - 0 3",
+        "variations": [
+          {
+            "eco": "E00",
+            "id": "catalan-closed",
+            "name": "Closed Variation",
+            "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7",
+            "fen": "rnbqk2r/ppppbppp/4pn2/3p4/2PP4/6P1/PP2PPBP/RNBQK1NR w KQkq - 1 5"
+          }
+        ]
+      },
+      {
+        "eco": "E01",
+        "id": "catalan-closed-early-castle",
+        "name": "Catalan Opening: Closed Variation, Early castling",
+        "description": "Catalan Closed with early kingside castling.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O 6. O-O",
+        "fen": "rnbq1rk1/ppppbppp/4pn2/3p4/2PP4/5NP1/PP2PPBP/RNBQ1RK1 b - - 2 6",
+        "variations": []
+      },
+      {
+        "eco": "E02",
+        "id": "catalan-open",
+        "name": "Catalan Opening: Open Variation",
+        "description": "Catalan Opening where Black captures on c4.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 dxc4",
+        "fen": "rnbqkb1r/pppp1ppp/4pn2/8/2pP4/6P1/PP2PPBP/RNBQK1NR w KQkq - 0 5",
+        "variations": [
+          {
+            "eco": "E02",
+            "id": "catalan-open-5qa4",
+            "name": "5.Qa4+ Variation",
+            "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 dxc4 5. Qa4+",
+            "fen": "rnbqkb1r/pppp1ppp/4pn2/8/Q1pP4/6P1/PP2PPBP/RNB1K1NR b KQkq - 1 5"
+          }
+        ]
+      },
+      {
+        "eco": "E03",
+        "id": "catalan-open-alekhine",
+        "name": "Catalan Opening: Open Variation, Alekhine Variation",
+        "description": "Open Catalan with Alekhine Variation featuring early development.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 dxc4 5. Nf3 Nc6",
+        "fen": "r1bqkb1r/pppp1ppp/2n1pn2/8/2pP4/5NP1/PP2PPBP/RNBQK2R w KQkq - 2 6",
+        "variations": []
+      },
+      {
+        "eco": "E04",
+        "id": "catalan-open-qbd7",
+        "name": "Catalan Opening: Open Variation, 5...Nbd7",
+        "description": "Open Catalan with knight development to d7.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 dxc4 5. Nf3 Nbd7",
+        "fen": "r1bqkb1r/pppn1ppp/4pn2/8/2pP4/5NP1/PP2PPBP/RNBQK2R w KQkq - 2 6",
+        "variations": []
+      },
+      {
+        "eco": "E05",
+        "id": "catalan-open-classical",
+        "name": "Catalan Opening: Open Variation, Classical Line",
+        "description": "Classical line of the Open Catalan.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 dxc4 5. Nf3 Be7",
+        "fen": "rnbqk2r/ppppbppp/4pn2/8/2pP4/5NP1/PP2PPBP/RNBQK2R w KQkq - 1 6",
+        "variations": []
+      },
+      {
+        "eco": "E06",
+        "id": "catalan-closed-5nf3",
+        "name": "Catalan Opening: Closed Variation, 5.Nf3",
+        "description": "Closed Catalan with natural knight development.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3",
+        "fen": "rnbqk2r/ppppbppp/4pn2/3p4/2PP4/5NP1/PP2PPBP/RNBQK2R b KQkq - 1 5",
+        "variations": []
+      },
+      {
+        "eco": "E07",
+        "id": "catalan-closed-6castle",
+        "name": "Catalan Opening: Closed Variation, 6.O-O",
+        "description": "Closed Catalan with kingside castling.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O 6. O-O",
+        "fen": "rnbq1rk1/ppppbppp/4pn2/3p4/2PP4/5NP1/PP2PPBP/RNBQ1RK1 b - - 2 6",
+        "variations": []
+      },
+      {
+        "eco": "E08",
+        "id": "catalan-closed-7qc2",
+        "name": "Catalan Opening: Closed Variation, 7.Qc2",
+        "description": "Closed Catalan with queen development to c2.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O 6. O-O Nbd7 7. Qc2",
+        "fen": "r1bq1rk1/pppnbppp/4pn2/3p4/2PP4/5NP1/PPQPPPBP/RNB2RK1 b - - 1 7",
+        "variations": []
+      },
+      {
+        "eco": "E09",
+        "id": "catalan-closed-main-line",
+        "name": "Catalan Opening: Closed Variation, Main Line",
+        "description": "Main line of the Closed Catalan with typical development.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O 6. O-O Nbd7 7. Qc2 c6 8. Nbd2",
+        "fen": "r1bq1rk1/pp1nbppp/2p1pn2/3p4/2PP4/5NP1/PPQNPPBP/R1B2RK1 b - - 2 8",
+        "variations": []
+      },
+      {
+        "eco": "E10",
+        "id": "queens-indian-defense",
+        "name": "Queen's Indian Defense",
+        "description": "The Queen's Indian Defense where Black fianchettoes the light-squared bishop to control the center.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6",
+        "fen": "rnbqkb1r/p1pp1ppp/1p2pn2/8/2PP4/5N2/PP2PPPP/RNBQKB1R w KQkq - 0 4",
+        "variations": [
+          {
+            "eco": "E10",
+            "id": "queens-indian-bogoljubow",
+            "name": "Bogoljubow Variation",
+            "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. g3",
+            "fen": "rnbqkb1r/p1pp1ppp/1p2pn2/8/2PP4/5NP1/PP2PP1P/RNBQKB1R b KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "E11",
+        "id": "bogo-indian-defense",
+        "name": "Bogo-Indian Defense",
+        "description": "The Bogo-Indian Defense where Black plays Bb4+ to disrupt White's development.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 Bb4+",
+        "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/5N2/PP2PPPP/RNBQKB1R w KQkq - 2 4",
+        "variations": [
+          {
+            "eco": "E11",
+            "id": "bogo-indian-monticelli",
+            "name": "Monticelli Trap",
+            "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 Bb4+ 4. Bd2",
+            "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/5N2/PP1BPPPP/RN1QKB1R b KQkq - 3 4"
+          }
+        ]
+      },
+      {
+        "eco": "E12",
+        "id": "queens-indian-4a3",
+        "name": "Queen's Indian Defense: 4.a3",
+        "description": "Queen's Indian Defense with 4.a3 controlling the b4 square.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. a3",
+        "fen": "rnbqkb1r/p1pp1ppp/1p2pn2/8/2PP4/P4N2/1P2PPPP/RNBQKB1R b KQkq - 0 4",
+        "variations": []
+      },
+      {
+        "eco": "E13",
+        "id": "queens-indian-4nc3",
+        "name": "Queen's Indian Defense: 4.Nc3",
+        "description": "Queen's Indian Defense with knight development to c3.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. Nc3 Bb7 5. Bg5 h6 6. Bh4 Be7",
+        "fen": "rn1qk2r/pbppbpp1/1p2pn1p/8/2PP3B/2N2N2/PP2PPPP/R2QKB1R w KQkq - 0 7",
+        "variations": []
+      },
+      {
+        "eco": "E14",
+        "id": "queens-indian-4e3",
+        "name": "Queen's Indian Defense: 4.e3",
+        "description": "Queen's Indian Defense with solid e3 development.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. e3",
+        "fen": "rnbqkb1r/p1pp1ppp/1p2pn2/8/2PP4/4PN2/PP3PPP/RNBQKB1R b KQkq - 0 4",
+        "variations": [
+          {
+            "eco": "E14",
+            "id": "queens-indian-averbakh",
+            "name": "Averbakh Variation",
+            "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. e3 Bb7 5. Bd3 c5",
+            "fen": "rn1qkb1r/pb1p1ppp/1p2pn2/2p5/2PP4/3BPN2/PP3PPP/RNBQK2R w KQkq c6 0 6"
+          }
+        ]
+      },
+      {
+        "eco": "E15",
+        "id": "queens-indian-4g3",
+        "name": "Queen's Indian Defense: 4.g3",
+        "description": "Queen's Indian Defense with fianchetto setup via g3.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. g3 Bb7 5. Bg2 Be7",
+        "fen": "rn1qk2r/pbppbppp/1p2pn2/8/2PP4/5NP1/PP2PPBP/RNBQK2R w KQkq - 2 6",
+        "variations": []
+      },
+      {
+        "eco": "E16",
+        "id": "queens-indian-capablanca",
+        "name": "Queen's Indian Defense: Capablanca Variation",
+        "description": "Capablanca Variation of the Queen's Indian Defense.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. g3 Bb7 5. Bg2 Be7 6. O-O O-O 7. Nc3 Ne4",
+        "fen": "rn1q1rk1/pbppbppp/1p2p3/8/2PPn3/2N2NP1/PP2PPBP/R1BQ1RK1 w - - 1 8",
+        "variations": []
+      },
+      {
+        "eco": "E17",
+        "id": "queens-indian-old-main-line",
+        "name": "Queen's Indian Defense: Old Main Line",
+        "description": "Old main line of the Queen's Indian Defense.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. g3 Bb7 5. Bg2 Be7 6. O-O O-O 7. Nc3",
+        "fen": "rn1q1rk1/pbppbppp/1p2pn2/8/2PP4/2N2NP1/PP2PPBP/R1BQ1RK1 b - - 2 7",
+        "variations": []
+      },
+      {
+        "eco": "E18",
+        "id": "queens-indian-old-main-line-7nc3",
+        "name": "Queen's Indian Defense: Old Main Line, 7.Nc3",
+        "description": "Old main line with 7.Nc3 development.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. g3 Bb7 5. Bg2 Be7 6. O-O O-O 7. Nc3 Ne4 8. Qc2",
+        "fen": "rn1q1rk1/pbppbppp/1p2p3/8/2PPn3/2N2NP1/PPQPPPBP/R1B2RK1 b - - 2 8",
+        "variations": []
+      },
+      {
+        "eco": "E19",
+        "id": "queens-indian-old-main-line-9qxc4",
+        "name": "Queen's Indian Defense: Old Main Line, 9.Qxc4",
+        "description": "Old main line with queen capturing on c4.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. g3 Bb7 5. Bg2 Be7 6. O-O O-O 7. Nc3 Ne4 8. Qc2 Nxc3 9. Qxc3",
+        "fen": "rn1q1rk1/pbppbppp/1p2p3/8/2PP4/2Q2NP1/PP2PPBP/R1B2RK1 b - - 0 9",
+        "variations": []
+      },
+      {
+        "eco": "E20",
+        "id": "nimzo-indian-defense",
+        "name": "Nimzo-Indian Defense",
+        "description": "The Nimzo-Indian Defense where Black pins the knight and controls the center with pieces rather than pawns.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4",
+        "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4",
+        "variations": [
+          {
+            "eco": "E20",
+            "id": "nimzo-indian-kmoch",
+            "name": "Kmoch Variation",
+            "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. f3",
+            "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/2N2P2/PP2P1PP/R1BQKBNR b KQkq - 0 4"
+          }
+        ]
+      },
+      {
+        "eco": "E21",
+        "id": "nimzo-indian-three-knights",
+        "name": "Nimzo-Indian Defense: Three Knights Variation",
+        "description": "Nimzo-Indian Defense with three knights developed.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. Nf3",
+        "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/2N2N2/PP2PPPP/R1BQKB1R b KQkq - 3 4",
+        "variations": [
+          {
+            "eco": "E21",
+            "id": "nimzo-indian-three-knights-korchnoi",
+            "name": "Korchnoi Variation",
+            "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. Nf3 c5 5. g3 cxd4 6. Nxd4 O-O 7. Bg2 d5 8. cxd5 Nxd5",
+            "fen": "rnbq1rk1/pp3ppp/4p3/3n4/1b1N4/2N3P1/PP2PPBP/R1BQK2R w KQ - 0 9"
+          }
+        ]
+      },
+      {
+        "eco": "E22",
+        "id": "nimzo-indian-spielmann",
+        "name": "Nimzo-Indian Defense: Spielmann Variation",
+        "description": "Spielmann Variation of the Nimzo-Indian Defense.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. Qb3",
+        "fen": "rnbqk2r/pppp1ppp/4pn2/8/1bPP4/1QN5/PP2PPPP/R1B1KBNR b KQkq - 1 4",
+        "variations": []
+      },
+      {
+        "eco": "E23",
+        "id": "nimzo-indian-saemisch",
+        "name": "Nimzo-Indian Defense: Sämisch Variation",
+        "description": "Sämisch Variation where White doubles the pawns to gain the bishop pair.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. a3 Bxc3+ 5. bxc3",
+        "fen": "rnbqk2r/pppp1ppp/4pn2/8/2PP4/P1P5/4PPPP/R1BQKBNR b KQkq - 0 5",
+        "variations": [
+          {
+            "eco": "E23",
+            "id": "nimzo-indian-saemisch-romanovsky",
+            "name": "Romanovsky Variation",
+            "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. a3 Bxc3+ 5. bxc3 c5",
+            "fen": "rnbqk2r/pp1p1ppp/4pn2/2p5/2PP4/P1P5/4PPPP/R1BQKBNR w KQkq c6 0 6"
+          }
+        ]
+      },
+      {
+        "eco": "E24",
+        "id": "nimzo-indian-saemisch-accelerated",
+        "name": "Nimzo-Indian Defense: Sämisch Variation, Accelerated",
+        "description": "Accelerated Sämisch Variation with early f3.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. a3 Bxc3+ 5. bxc3 c5 6. f3",
+        "fen": "rnbqk2r/pp1p1ppp/4pn2/2p5/2PP4/P1P2P2/4P1PP/R1BQKBNR b KQkq - 0 6",
+        "variations": []
+      },
+      {
+        "eco": "E25",
+        "id": "nimzo-indian-saemisch-keres",
+        "name": "Nimzo-Indian Defense: Sämisch Variation, Keres Variation",
+        "description": "Keres Variation in the Sämisch Nimzo-Indian.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. a3 Bxc3+ 5. bxc3 c5 6. f3 d6 7. e4",
+        "fen": "rnbqk2r/pp3ppp/3ppn2/2p5/2PPP3/P1P2P2/6PP/R1BQKBNR b KQkq e3 0 7",
+        "variations": []
+      },
+      {
+        "eco": "E26",
+        "id": "nimzo-indian-saemisch-o-neill",
+        "name": "Nimzo-Indian Defense: Sämisch Variation, O'Neill Variation",
+        "description": "O'Neill Variation in the Sämisch Nimzo-Indian.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. a3 Bxc3+ 5. bxc3 c5 6. e3",
+        "fen": "rnbqk2r/pp1p1ppp/4pn2/2p5/2PP4/P1P1P3/5PPP/R1BQKBNR b KQkq - 0 6",
+        "variations": []
+      },
+      {
+        "eco": "E27",
+        "id": "nimzo-indian-saemisch-5bd3",
+        "name": "Nimzo-Indian Defense: Sämisch Variation, 5.Bd3",
+        "description": "Sämisch Variation with early bishop development to d3.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. a3 Bxc3+ 5. bxc3 O-O 6. e3 c5 7. Bd3",
+        "fen": "rnbq1rk1/pp1p1ppp/4pn2/2p5/2PP4/P1PBP3/5PPP/R1BQK1NR b KQ - 1 7",
+        "variations": []
+      },
+      {
+        "eco": "E28",
+        "id": "nimzo-indian-saemisch-6e3",
+        "name": "Nimzo-Indian Defense: Sämisch Variation, 6.e3",
+        "description": "Sämisch Variation with 6.e3 development.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. a3 Bxc3+ 5. bxc3 O-O 6. e3",
+        "fen": "rnbq1rk1/pppp1ppp/4pn2/8/2PP4/P1P1P3/5PPP/R1BQKBNR b KQ - 0 6",
+        "variations": []
+      },
+      {
+        "eco": "E29",
+        "id": "nimzo-indian-saemisch-main-line",
+        "name": "Nimzo-Indian Defense: Sämisch Variation, Main Line",
+        "description": "Main line of the Sämisch Variation.",
+        "pgn": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. a3 Bxc3+ 5. bxc3 O-O 6. e3 c5 7. Bd3 Nc6",
+        "fen": "r1bq1rk1/pp1p1ppp/2n1pn2/2p5/2PP4/P1PBP3/5PPP/R1BQK1NR w KQ - 2 8",
+        "variations": []
+      },
+      {
+        "eco": "E60",
+        "id": "kings-indian-defense",
+        "name": "King's Indian Defense",
+        "description": "The King's Indian Defense is a hypermodern opening where Black allows White to occupy the center and prepares counterplay.",
+        "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7",
+        "fen": "rnbqk2r/ppppppbp/5np1/8/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4",
+        "variations": [
+          {
+            "eco": "E60",
+            "id": "kings-indian-immediate-fianchetto",
+            "name": "Immediate Fianchetto",
+            "pgn": "1. d4 Nf6 2. c4 g6 3. g3",
+            "fen": "rnbqkb1r/pppppp1p/5np1/8/2PP4/6P1/PP2PP1P/RNBQKBNR b KQkq - 0 3"
+          }
+        ]
+      },
+      {
+        "eco": "E61",
+        "id": "kings-indian-main-line",
+        "name": "King's Indian Defense: Main Line",
+        "description": "Main line of the King's Indian Defense with standard development.",
+        "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. Nf3 d6",
+        "fen": "rnbqk2r/ppp1ppbp/3p1np1/8/2PP4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 0 5",
+        "variations": []
+      },
+      {
+        "eco": "E62",
+        "id": "kings-indian-fianchetto",
+        "name": "King's Indian Defense: Fianchetto Variation",
+        "description": "King's Indian Defense with White fianchettoing the bishop via g3.",
+        "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. Nf3 d6 5. g3",
+        "fen": "rnbqk2r/ppp1ppbp/3p1np1/8/2PP4/2N2NP1/PP2PP1P/R1BQKB1R b KQkq - 0 5",
+        "variations": [
+          {
+            "eco": "E62",
+            "id": "kings-indian-fianchetto-panno",
+            "name": "Panno Variation",
+            "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. Nf3 d6 5. g3 O-O 6. Bg2 Nc6 7. O-O a6",
+            "fen": "r1bq1rk1/1pp1ppbp/p1np1np1/8/2PP4/2N2NP1/PP2PPBP/R1BQ1RK1 w - - 0 8"
+          }
+        ]
+      },
+      {
+        "eco": "E70",
+        "id": "kings-indian-normal-variation",
+        "name": "King's Indian Defense: Normal Variation",
+        "description": "Normal variation of the King's Indian Defense with e4.",
+        "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4",
+        "fen": "rnbqk2r/ppppppbp/5np1/8/2PPP3/2N5/PP3PPP/R1BQKBNR b KQkq e3 0 4",
+        "variations": [
+          {
+            "eco": "E70",
+            "id": "kings-indian-accelerated-averbakh",
+            "name": "Accelerated Averbakh Variation",
+            "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. Bg5",
+            "fen": "rnbqk2r/ppp1ppbp/3p1np1/6B1/2PPP3/2N5/PP3PPP/R2QKBNR b KQkq - 3 5"
+          }
+        ]
+      },
+      {
+        "eco": "E80",
+        "id": "kings-indian-saemisch-variation",
+        "name": "King's Indian Defense: Sämisch Variation",
+        "description": "Sämisch Variation where White plays f3 to support the center.",
+        "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. f3",
+        "fen": "rnbqk2r/ppp1ppbp/3p1np1/8/2PPP3/2N2P2/PP4PP/R1BQKBNR b KQkq - 0 5",
+        "variations": [
+          {
+            "eco": "E80",
+            "id": "kings-indian-saemisch-byrne",
+            "name": "Byrne Variation",
+            "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. f3 O-O 6. Be3 c5",
+            "fen": "rnbq1rk1/pp2ppbp/3p1np1/2p5/2PPP3/2N1BP2/PP4PP/R2QKBNR w KQ c6 0 7"
+          }
+        ]
+      },
+      {
+        "eco": "E90",
+        "id": "kings-indian-classical",
+        "name": "King's Indian Defense: Classical Variation",
+        "description": "Classical variation of the King's Indian Defense with standard piece development.",
+        "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. Nf3 O-O 6. Be2 e5",
+        "fen": "rnbq1rk1/ppp2pbp/3p1np1/4p3/2PPP3/2N2N2/PP2BPPP/R1BQK2R w KQ - 0 7",
+        "variations": [
+          {
+            "eco": "E90",
+            "id": "kings-indian-classical-kramer",
+            "name": "Kramer Variation",
+            "pgn": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. Nf3 O-O 6. Be2 e5 7. d5 a5",
+            "fen": "rnbq1rk1/1pp2pbp/3p1np1/p2Pp3/2P1P3/2N2N2/PP2BPPP/R1BQK2R w KQ - 0 8"
+          }
+        ]
+      }
+    ]
+  }
+}
