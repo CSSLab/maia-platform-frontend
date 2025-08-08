@@ -21,9 +21,10 @@ import {
   AuthContext,
   MaiaEngineContext,
 } from 'src/contexts'
-import { DrillConfiguration, AnalyzedGame } from 'src/types'
+import { DrillConfiguration, AnalyzedGame, OpeningSelection } from 'src/types'
 import { GameNode } from 'src/types/base/tree'
 import { MIN_STOCKFISH_DEPTH } from 'src/constants/analysis'
+import { MAIA_MODELS } from 'src/constants/common'
 import openings from 'src/lib/openings/openings.json'
 
 const LazyOpeningDrillAnalysis = lazy(() =>
@@ -59,7 +60,21 @@ import {
 const OpeningsPage: NextPage = () => {
   const router = useRouter()
   const { user } = useContext(AuthContext)
-  const [showSelectionModal, setShowSelectionModal] = useState(true)
+  const {
+    mode,
+    fen,
+    turn,
+    pgn,
+    maiaVersion,
+    targetMoveNumber,
+    drillCount,
+    playerColor,
+  } = router.query // Extract all drill configuration parameters from query
+
+  const isDrillFromPosition = mode === 'drill-from-position' && fen
+
+  const [showSelectionModal, setShowSelectionModal] =
+    useState(!isDrillFromPosition)
   const [isReopenedModal, setIsReopenedModal] = useState(false)
 
   const handleCloseModal = () => {
@@ -69,8 +84,86 @@ const OpeningsPage: NextPage = () => {
       router.push('/')
     }
   }
+
+  // Create drill configuration for drill-from-position mode
+  const createCustomDrillConfiguration = useCallback(
+    (
+      fenPosition: string,
+      turn: string,
+      pgn: string,
+      maiaVersionParam?: string,
+      targetMoveNumberParam?: string,
+      drillCountParam?: string,
+      playerColorParam?: string,
+    ): DrillConfiguration => {
+      // Use provided parameters or fall back to defaults
+      const selectedMaiaVersion = maiaVersionParam || MAIA_MODELS[0]
+      const selectedTargetMoveNumber = targetMoveNumberParam
+        ? parseInt(targetMoveNumberParam, 10)
+        : 10
+      const selectedDrillCount = drillCountParam
+        ? parseInt(drillCountParam, 10)
+        : 1
+      const selectedPlayerColor =
+        (playerColorParam as 'white' | 'black') ||
+        (turn === 'b' ? 'black' : 'white')
+
+      const customSelection: OpeningSelection = {
+        id: `custom-position-${Date.now()}`,
+        opening: {
+          id: 'custom',
+          name: 'Custom Position',
+          description: 'Drill from analysis position',
+          fen: fenPosition, // Use the custom FEN as starting position
+          pgn: pgn, // Use the provided PGN
+          variations: [],
+        },
+        variation: null,
+        playerColor: selectedPlayerColor,
+        maiaVersion: selectedMaiaVersion,
+        targetMoveNumber: selectedTargetMoveNumber,
+      }
+
+      // Generate drill sequence with the requested number of drills
+      const drillSequence: OpeningSelection[] = []
+      for (let i = 0; i < selectedDrillCount; i++) {
+        drillSequence.push({
+          ...customSelection,
+          id: `custom-position-${Date.now()}-${i}`, // Unique ID for each drill
+        })
+      }
+
+      return {
+        selections: [customSelection],
+        drillCount: selectedDrillCount,
+        drillSequence: drillSequence,
+      }
+    },
+    [],
+  )
+
+  // Initialize drill configuration based on mode
   const [drillConfiguration, setDrillConfiguration] =
-    useState<DrillConfiguration | null>(null)
+    useState<DrillConfiguration | null>(() => {
+      if (
+        isDrillFromPosition &&
+        typeof fen === 'string' &&
+        typeof turn === 'string' &&
+        typeof pgn === 'string'
+      ) {
+        return createCustomDrillConfiguration(
+          fen,
+          turn,
+          pgn,
+          typeof maiaVersion === 'string' ? maiaVersion : undefined,
+          typeof targetMoveNumber === 'string' ? targetMoveNumber : undefined,
+          typeof drillCount === 'string' ? drillCount : undefined,
+          typeof playerColor === 'string' ? playerColor : undefined,
+        )
+      }
+      return null
+    })
+
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
@@ -658,9 +751,10 @@ const OpeningsPage: NextPage = () => {
 
   // Show selection modal when no drill configuration exists (after model is ready)
   if (
-    !drillConfiguration ||
-    drillConfiguration.selections.length === 0 ||
-    showSelectionModal
+    (!drillConfiguration ||
+      drillConfiguration.selections.length === 0 ||
+      showSelectionModal) &&
+    !isDrillFromPosition // Don't show selection modal in drill-from-position mode
   ) {
     return (
       <>
@@ -1072,10 +1166,18 @@ const OpeningsPage: NextPage = () => {
   return (
     <>
       <Head>
-        <title>Opening Drills – Maia Chess</title>
+        <title>
+          {isDrillFromPosition
+            ? 'Drill from Position – Maia Chess'
+            : 'Opening Drills – Maia Chess'}
+        </title>
         <meta
           name="description"
-          content="Master chess openings with interactive drills against Maia AI. Practice popular openings, learn key variations, and get performance analysis to improve your opening repertoire."
+          content={
+            isDrillFromPosition
+              ? 'Practice from your analysis position with Maia AI. Continue playing from where you left off and improve your technique in real positions.'
+              : 'Master chess openings with interactive drills against Maia AI. Practice popular openings, learn key variations, and get performance analysis to improve your opening repertoire.'
+          }
         />
       </Head>
       <TreeControllerContext.Provider

@@ -35,6 +35,7 @@ import { MovesByRating } from 'src/components/Analysis/MovesByRating'
 import { AnalysisGameList } from 'src/components/Analysis/AnalysisGameList'
 import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
 import { CustomAnalysisModal } from 'src/components/Analysis/CustomAnalysisModal'
+import { DrillFromPositionModal } from 'src/components/Analysis/DrillFromPositionModal'
 import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens'
 import { AnalysisConfigModal } from 'src/components/Analysis/AnalysisConfigModal'
 import { AnalysisNotification } from 'src/components/Analysis/AnalysisNotification'
@@ -377,6 +378,8 @@ const Analysis: React.FC<Props> = ({
   >(null)
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [showAnalysisConfigModal, setShowAnalysisConfigModal] = useState(false)
+  const [showDrillFromPositionModal, setShowDrillFromPositionModal] =
+    useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [analysisEnabled, setAnalysisEnabled] = useState(true) // Analysis enabled by default
   const [lastMoveResult, setLastMoveResult] = useState<
@@ -461,6 +464,62 @@ const Analysis: React.FC<Props> = ({
     setLastMoveResult('not-learning')
     setAnalysisEnabled(true) // Auto-enable analysis when stopping learn mode
   }, [controller.learnFromMistakes])
+
+  const handleDrillFromPosition = useCallback(() => {
+    // Show the drill configuration modal instead of direct navigation
+    setShowDrillFromPositionModal(true)
+  }, [])
+
+  const getCurrentPgn = useCallback(() => {
+    const path = controller.currentNode?.getPath()
+    let pgn = ''
+    path?.forEach((node, index) => {
+      if (index === 0) return // Skip the root node
+      const moveIndex = index - 1
+      if (moveIndex % 2 === 0) {
+        pgn += `${Math.floor(moveIndex / 2) + 1}. `
+      }
+      pgn += node.san + ' '
+    })
+    return pgn.trim()
+  }, [controller.currentNode])
+
+  const handleDrillFromPositionConfirm = useCallback(
+    (config: {
+      maiaVersion: string
+      targetMoveNumber: number
+      drillCount: number
+      playerColor: 'white' | 'black'
+      position: {
+        fen: string
+        turn: string
+        pgn: string
+      }
+    }) => {
+      // Close the modal
+      setShowDrillFromPositionModal(false)
+
+      // Navigate to openings page with user configuration
+      const url =
+        '/openings?mode=drill-from-position&fen=' +
+        encodeURIComponent(config.position.fen) +
+        '&turn=' +
+        encodeURIComponent(config.position.turn) +
+        '&pgn=' +
+        encodeURIComponent(config.position.pgn) +
+        '&maiaVersion=' +
+        encodeURIComponent(config.maiaVersion) +
+        '&targetMoveNumber=' +
+        encodeURIComponent(config.targetMoveNumber.toString()) +
+        '&drillCount=' +
+        encodeURIComponent(config.drillCount.toString()) +
+        '&playerColor=' +
+        encodeURIComponent(config.playerColor)
+
+      router.push(url)
+    },
+    [router],
+  )
 
   const handleShowSolution = useCallback(() => {
     controller.learnFromMistakes.showSolution()
@@ -921,6 +980,7 @@ const Analysis: React.FC<Props> = ({
             onDeleteCustomGame={handleDeleteCustomGame}
             onAnalyzeEntireGame={handleAnalyzeEntireGame}
             onLearnFromMistakes={handleLearnFromMistakes}
+            onDrillFromPosition={handleDrillFromPosition}
             isAnalysisInProgress={controller.gameAnalysis.progress.isAnalyzing}
             isLearnFromMistakesActive={
               controller.learnFromMistakes.state.isActive
@@ -1444,6 +1504,17 @@ const Analysis: React.FC<Props> = ({
               onCancel={handleAnalysisCancel}
             />
           </>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showDrillFromPositionModal && controller.currentNode && (
+          <DrillFromPositionModal
+            isOpen={showDrillFromPositionModal}
+            onClose={() => setShowDrillFromPositionModal(false)}
+            onConfirm={handleDrillFromPositionConfirm}
+            currentNode={controller.currentNode}
+            initialPgn={getCurrentPgn()}
+          />
         )}
       </AnimatePresence>
     </>

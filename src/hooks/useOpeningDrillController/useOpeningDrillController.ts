@@ -169,7 +169,9 @@ export const useOpeningDrillController = (
 
     setAnalysisProgress({ total: 0, completed: 0, currentMove: null })
 
+    // Use custom FEN if available, otherwise default starting position
     const startingFen =
+      currentDrill.opening.fen ||
       'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
     const gameTree = new GameTree(startingFen)
 
