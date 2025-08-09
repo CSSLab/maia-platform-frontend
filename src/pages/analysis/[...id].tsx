@@ -39,6 +39,7 @@ import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens
 import { AnalysisConfigModal } from 'src/components/Analysis/AnalysisConfigModal'
 import { AnalysisNotification } from 'src/components/Analysis/AnalysisNotification'
 import { AnalysisOverlay } from 'src/components/Analysis/AnalysisOverlay'
+import { AnalysisSummaryModal } from 'src/components/Analysis/AnalysisSummaryModal'
 import { LearnFromMistakes } from 'src/components/Analysis/LearnFromMistakes'
 import { GameBoard } from 'src/components/Board/GameBoard'
 import { MovesContainer } from 'src/components/Board/MovesContainer'
@@ -378,6 +379,8 @@ const Analysis: React.FC<Props> = ({
   >(null)
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [showAnalysisConfigModal, setShowAnalysisConfigModal] = useState(false)
+  const [showAnalysisSummaryModal, setShowAnalysisSummaryModal] =
+    useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [analysisEnabled, setAnalysisEnabled] = useState(true) // Analysis enabled by default
   const [lastMoveResult, setLastMoveResult] = useState<
@@ -402,6 +405,19 @@ const Analysis: React.FC<Props> = ({
   useEffect(() => {
     setHoverArrow(null)
   }, [controller.currentNode])
+
+  // Show analysis summary modal when analysis completes
+  useEffect(() => {
+    if (
+      controller.gameAnalysis.progress.isComplete &&
+      !controller.gameAnalysis.progress.isCancelled
+    ) {
+      setShowAnalysisSummaryModal(true)
+    }
+  }, [
+    controller.gameAnalysis.progress.isComplete,
+    controller.gameAnalysis.progress.isCancelled,
+  ])
 
   const launchContinue = useCallback(() => {
     const fen = controller.currentNode?.fen as string
@@ -1430,6 +1446,15 @@ const Analysis: React.FC<Props> = ({
             onClose={() => setShowAnalysisConfigModal(false)}
             onConfirm={handleAnalysisConfigConfirm}
             initialDepth={controller.gameAnalysis.config.targetDepth}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showAnalysisSummaryModal && (
+          <AnalysisSummaryModal
+            isOpen={showAnalysisSummaryModal}
+            onClose={() => setShowAnalysisSummaryModal(false)}
+            game={analyzedGame}
           />
         )}
       </AnimatePresence>
