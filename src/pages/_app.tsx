@@ -44,6 +44,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
     '/openings',
     '/puzzles',
     '/settings',
+    '/broadcast',
   ].some((path) => router.pathname.includes(path))
 
   useEffect(() => {

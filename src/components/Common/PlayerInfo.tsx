@@ -84,11 +84,15 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
           </div>
         )}
         {clock && (
-          <div className="flex items-center bg-primary px-2 py-0.5">
+          <div
+            className={`flex items-center px-2 py-1 ${
+              clock.isActive ? 'bg-primary' : 'bg-background-2'
+            }`}
+          >
             <span
               className={`font-mono text-xs font-medium ${
-                clock.isActive ? 'text-black' : 'text-black/60'
-              } ${currentTime < 60 ? 'text-red-700' : ''}`}
+                clock.isActive ? 'text-black' : 'text-secondary/80'
+              } ${currentTime < 60 && clock.isActive ? 'text-red-700' : ''}`}
             >
               {formatTime(currentTime)}
             </span>
