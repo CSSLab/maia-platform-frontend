@@ -18,7 +18,6 @@ import { PlayType } from 'src/types'
 import { getGlobalStats, getActiveUserCount } from 'src/api'
 import { AuthContext, ModalContext } from 'src/contexts'
 import { AnimatedNumber } from 'src/components/Common/AnimatedNumber'
-import { LiveChessBoard } from 'src/components/Home/LiveChessBoard'
 
 interface Props {
   scrollHandler: () => void
@@ -292,7 +291,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
             <></>
           )}
         </motion.div>
-        <LiveChessBoard />
       </div>
     </Fragment>
   )

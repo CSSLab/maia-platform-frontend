@@ -1,5 +1,6 @@
 export * from './useAnalysisController'
 export * from './useBaseTreeController'
+export * from './useBroadcastController'
 export * from './useChessSound'
 export * from './useLocalStorage'
 export * from './useOpeningDrillController'
