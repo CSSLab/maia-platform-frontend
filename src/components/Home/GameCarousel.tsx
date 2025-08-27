@@ -25,73 +25,59 @@ interface GameData {
 const SAMPLE_GAMES: GameData[] = [
   {
     id: 'sample1',
-    white: { name: 'Magnus Carlsen', rating: 2830 },
-    black: { name: 'Fabiano Caruana', rating: 2805 },
+    white: { name: 'Veselin Topalov' },
+    black: { name: 'Viswanathan Anand' },
     isLive: false,
-    url: '/analysis/magnus-vs-fabiano-2024',
+    url: '/analysis/a3SlSwsE/12',
   },
   {
     id: 'sample2',
-    white: { name: 'Ding Liren', rating: 2780 },
-    black: { name: 'Hikaru Nakamura', rating: 2760 },
+    white: { name: 'Vladimir Kramnik' },
+    black: { name: 'Viswanathan Anand' },
     isLive: false,
-    url: '/analysis/ding-vs-hikaru-2024',
+    url: '/analysis/HALtyMwL/5',
   },
   {
     id: 'sample3',
-    white: { name: 'Ian Nepomniachtchi', rating: 2755 },
-    black: { name: 'Wesley So', rating: 2745 },
+    white: { name: 'Anatoly Karpov' },
+    black: { name: 'Garry Kasparov' },
     isLive: false,
-    url: '/analysis/nepo-vs-wesley-2024',
+    url: '/analysis/b6q7gDGK/16',
   },
   {
     id: 'sample4',
-    white: { name: 'Alireza Firouzja', rating: 2740 },
-    black: { name: 'Anish Giri', rating: 2720 },
+    white: { name: 'Anatoly Karpov' },
+    black: { name: 'Garry Kasparov' },
     isLive: false,
-    url: '/analysis/alireza-vs-anish-2024',
+    url: '/analysis/b6q7gDGK/24',
   },
   {
     id: 'sample5',
-    white: { name: 'Levon Aronian', rating: 2735 },
-    black: { name: 'Maxime Vachier-Lagrave', rating: 2730 },
+    white: { name: 'Robert Fischer' },
+    black: { name: 'Boris Spassky' },
     isLive: false,
-    url: '/analysis/levon-vs-mvl-2024',
+    url: '/analysis/Eyl4uwTZ/6',
   },
   {
     id: 'sample6',
-    white: { name: 'Shakhriyar Mamedyarov', rating: 2725 },
-    black: { name: 'Teimour Radjabov', rating: 2715 },
+    white: { name: 'Tigran Petrosian' },
+    black: { name: 'Boris Spassky' },
     isLive: false,
-    url: '/analysis/shakh-vs-teimour-2024',
+    url: '/analysis/hm6ViybN/10',
   },
   {
     id: 'sample7',
-    white: { name: 'Richard Rapport', rating: 2710 },
-    black: { name: 'Sergey Karjakin', rating: 2700 },
+    white: { name: 'Mikhail Botvinnik' },
+    black: { name: 'Mikhail Tal' },
     isLive: false,
-    url: '/analysis/rapport-vs-karjakin-2024',
+    url: '/analysis/wC9lnnUr/6',
   },
   {
     id: 'sample8',
-    white: { name: 'Viswanathan Anand', rating: 2690 },
-    black: { name: 'Vladimir Kramnik', rating: 2685 },
+    white: { name: 'Jose Capablanca' },
+    black: { name: 'Alexander Alekhine' },
     isLive: false,
-    url: '/analysis/anand-vs-kramnik-2024',
-  },
-  {
-    id: 'sample9',
-    white: { name: 'Pentala Harikrishna', rating: 2675 },
-    black: { name: 'Yu Yangyi', rating: 2670 },
-    isLive: false,
-    url: '/analysis/hari-vs-yangyi-2024',
-  },
-  {
-    id: 'sample10',
-    white: { name: 'Alexander Grischuk', rating: 2665 },
-    black: { name: 'Jan-Krzysztof Duda', rating: 2660 },
-    isLive: false,
-    url: '/analysis/grischuk-vs-duda-2024',
+    url: '/analysis/G5ogxOsz/11',
   },
 ]
 
@@ -154,7 +140,7 @@ const GameChip: React.FC<GameChipProps> = ({ game, onClick }) => {
           ? `View broadcast: ${game.black.name}${game.isLive ? ' (Live)' : ''}`
           : `View game between ${game.white.name} and ${game.black.name}${game.isLive ? ' (Live)' : ''}`
       }
-      className="group relative flex h-14 min-w-48 max-w-48 cursor-pointer flex-row items-center gap-3 rounded bg-white/[3%] px-4 py-2 backdrop-blur-sm transition-all duration-200 hover:bg-white/[6%] focus:outline-none focus:ring-2 focus:ring-white/20"
+      className="group relative flex h-14 min-w-48 max-w-48 cursor-pointer flex-row items-center gap-3 rounded bg-white/[3%] px-4 py-2 backdrop-blur-sm transition-all duration-200 hover:bg-white/[6%]"
       style={{ transform: rotation }}
     >
       {game.isLive && (
