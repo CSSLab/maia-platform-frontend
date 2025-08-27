@@ -215,6 +215,12 @@ export const Header: React.FC = () => {
             BOT-OR-NOT
           </Link>
           <Link
+            href="/broadcast"
+            className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/broadcast') ? '!text-primary' : '!text-primary/80'}`}
+          >
+            BROADCASTS
+          </Link>
+          <Link
             href="/leaderboard"
             className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/leaderboard') ? '!text-primary' : '!text-primary/80'}`}
           >
@@ -352,6 +358,9 @@ export const Header: React.FC = () => {
             </Link>
             <Link href="/turing" className="uppercase">
               Bot-or-not
+            </Link>
+            <Link href="/broadcast" className="uppercase">
+              Broadcasts
             </Link>
             <Link href="/leaderboard" className="uppercase">
               Leaderboard

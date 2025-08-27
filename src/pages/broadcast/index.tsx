@@ -134,17 +134,24 @@ const BroadcastsPage: NextPage = () => {
       </Head>
 
       <div className="min-h-screen bg-backdrop">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+          }}
+        />
         <motion.div
-          className="container mx-auto px-6 py-8"
+          className="container relative mx-auto px-6 py-8"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
           <motion.div variants={itemVariants} className="mb-8 text-center">
-            <h1 className="mb-2 text-3xl font-bold text-primary">
+            <h1 className="mb-2 text-3xl font-bold text-white">
               Live Broadcasts
             </h1>
-            <p className="text-secondary">
+            <p className="text-white/80">
               Watch ongoing chess tournaments with real-time Maia AI analysis
             </p>
           </motion.div>
@@ -154,13 +161,13 @@ const BroadcastsPage: NextPage = () => {
               variants={itemVariants}
               className="flex flex-col items-center justify-center py-16 text-center"
             >
-              <span className="material-symbols-outlined mb-4 !text-6xl text-secondary">
+              <span className="material-symbols-outlined mb-4 !text-6xl text-white/60">
                 live_tv
               </span>
-              <h2 className="mb-2 text-xl font-semibold text-primary">
+              <h2 className="mb-2 text-xl font-semibold text-white">
                 No Live Broadcasts
               </h2>
-              <p className="text-secondary">
+              <p className="text-white/70">
                 There are currently no ongoing tournaments available.
               </p>
               <button
@@ -172,139 +179,120 @@ const BroadcastsPage: NextPage = () => {
             </motion.div>
           ) : (
             <div className="space-y-6">
-              {broadcastController.broadcastSections.map(
-                (section, sectionIndex) => (
-                  <motion.div
-                    key={section.type}
-                    variants={itemVariants}
-                    className="space-y-3"
+              {broadcastController.broadcastSections.map((section) => (
+                <motion.div
+                  key={section.type}
+                  variants={itemVariants}
+                  className="space-y-3"
+                >
+                  <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
+                    {section.title}
+                    {(section.type === 'official-active' ||
+                      section.type === 'unofficial-active') && (
+                      <div className="flex items-center gap-1">
+                        <div className="h-2 w-2 animate-pulse rounded-full bg-red-500"></div>
+                        <span className="text-xs font-medium text-red-400">
+                          LIVE
+                        </span>
+                      </div>
+                    )}
+                  </h2>
+
+                  <div
+                    className={
+                      section.type === 'official-active'
+                        ? 'flex flex-wrap gap-4'
+                        : 'grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                    }
                   >
-                    <h2 className="flex items-center gap-2 text-xl font-semibold text-primary">
-                      {section.title}
-                      {(section.type === 'official-active' ||
-                        section.type === 'unofficial-active') && (
-                        <div className="flex items-center gap-1">
-                          <div className="h-2 w-2 animate-pulse rounded-full bg-red-500"></div>
-                          <span className="text-xs font-medium text-red-400">
-                            LIVE
-                          </span>
-                        </div>
-                      )}
-                    </h2>
+                    {section.broadcasts.map((broadcast) => {
+                      const ongoingRounds = broadcast.rounds.filter(
+                        (r) => r.ongoing,
+                      )
+                      const hasOngoingRounds = ongoingRounds.length > 0
+                      const isActive =
+                        section.type.includes('active') ||
+                        section.type.includes('community')
+                      const isPast = section.type === 'past'
 
-                    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                      {section.broadcasts.map((broadcast, index) => {
-                        const ongoingRounds = broadcast.rounds.filter(
-                          (r) => r.ongoing,
-                        )
-                        const hasOngoingRounds = ongoingRounds.length > 0
-                        const isActive =
-                          section.type.includes('active') ||
-                          section.type.includes('community')
-                        const isPast = section.type === 'past'
-
-                        return (
-                          <motion.div
-                            key={broadcast.tour.id}
-                            variants={itemVariants}
-                            className="overflow-hidden rounded-lg border border-white/10 bg-background-1 transition-all duration-200 hover:border-white/20 hover:bg-background-1/80"
-                          >
-                            <div className="p-3">
-                              <div className="mb-3 flex items-start justify-between">
-                                <div className="flex-1">
-                                  <h3 className="mb-1 line-clamp-2 text-base font-semibold text-primary">
-                                    {broadcast.tour.name}
-                                  </h3>
-                                  {hasOngoingRounds && isActive && (
-                                    <div className="flex items-center gap-1">
-                                      <div className="h-2 w-2 animate-pulse rounded-full bg-red-500"></div>
-                                      <span className="text-xs font-medium text-red-400">
-                                        LIVE
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="text-right">
-                                  <div className="mb-1 text-xs text-secondary">
-                                    Tier {broadcast.tour.tier}
+                      return (
+                        <motion.div
+                          key={broadcast.tour.id}
+                          variants={itemVariants}
+                          className={`from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md transition-all duration-300 hover:border-white/20 ${
+                            section.type === 'official-active'
+                              ? 'w-[280px]'
+                              : ''
+                          }`}
+                        >
+                          <div className="flex flex-1 flex-col gap-3 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <h3 className="line-clamp-2 text-base font-semibold text-white/95 transition-colors duration-300 group-hover:text-white">
+                                  {broadcast.tour.name}
+                                </h3>
+                                {hasOngoingRounds && isActive && (
+                                  <div className="mt-2 flex items-center gap-1.5">
+                                    <div className="h-2 w-2 animate-pulse rounded-full bg-red-500"></div>
+                                    <span className="text-xs font-medium text-red-400">
+                                      LIVE
+                                    </span>
                                   </div>
-                                  {broadcast.tour.dates.length > 0 && (
-                                    <div className="text-xs text-secondary">
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="text-xs text-white/60">
+                                  Tier {broadcast.tour.tier}
+                                </span>
+                                {broadcast.tour.dates &&
+                                  broadcast.tour.dates.length > 0 && (
+                                    <span className="text-xs text-white/60">
                                       {formatDate(broadcast.tour.dates[0])}
-                                    </div>
+                                    </span>
                                   )}
-                                </div>
                               </div>
-
-                              <div className="mb-3 border-t border-white/10 pt-2">
-                                <div className="mb-1.5 text-xs font-medium text-primary">
-                                  Rounds ({broadcast.rounds.length})
-                                </div>
-                                <div className="space-y-1">
-                                  {broadcast.rounds.slice(0, 3).map((round) => (
-                                    <div
-                                      key={round.id}
-                                      className="flex items-center justify-between text-xs"
-                                    >
-                                      <span className="text-secondary">
-                                        {round.name}
-                                      </span>
-                                      <span
-                                        className={`rounded px-2 py-0.5 text-xs ${
-                                          round.ongoing
-                                            ? 'bg-red-500/20 text-red-400'
-                                            : isPast
-                                              ? 'bg-background-2 text-secondary'
-                                              : 'bg-blue-500/20 text-blue-400'
-                                        }`}
-                                      >
-                                        {round.ongoing
-                                          ? 'Live'
-                                          : isPast
-                                            ? 'Finished'
-                                            : 'Upcoming'}
-                                      </span>
-                                    </div>
-                                  ))}
-                                  {broadcast.rounds.length > 3 && (
-                                    <div className="text-xs text-secondary">
-                                      +{broadcast.rounds.length - 3} more rounds
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              <button
-                                onClick={() => handleSelectBroadcast(broadcast)}
-                                disabled={!hasOngoingRounds && !isPast}
-                                className={`w-full rounded border py-1.5 text-sm font-medium transition-all duration-200 ${
-                                  hasOngoingRounds
-                                    ? 'border-human-4/30 bg-human-4 text-white hover:border-human-4/50 hover:bg-human-4/80'
-                                    : isPast
-                                      ? 'border-white/10 bg-background-2 text-secondary hover:border-white/20 hover:bg-background-2/80'
-                                      : 'cursor-not-allowed border-white/5 bg-background-2/50 text-secondary/50'
-                                }`}
-                              >
-                                {hasOngoingRounds
-                                  ? 'Watch Live'
-                                  : isPast
-                                    ? 'View Tournament'
-                                    : 'Coming Soon'}
-                              </button>
                             </div>
-                          </motion.div>
-                        )
-                      })}
-                    </div>
-                  </motion.div>
-                ),
-              )}
+
+                            <div className="text-xs text-white/70">
+                              {broadcast.rounds.length} round
+                              {broadcast.rounds.length !== 1 ? 's' : ''}
+                              {hasOngoingRounds && (
+                                <span className="ml-2 text-red-400">
+                                  • {ongoingRounds.length} live
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleSelectBroadcast(broadcast)}
+                            disabled={!hasOngoingRounds && !isPast}
+                            className={`border-t py-2 text-sm font-medium transition-all duration-300 ${
+                              hasOngoingRounds
+                                ? 'border-red-500/30 bg-red-500/20 text-red-400 group-hover:bg-red-500/30'
+                                : isPast
+                                  ? 'border-white/10 bg-white/5 text-white/60 group-hover:bg-white/10 group-hover:text-white/80'
+                                  : 'cursor-not-allowed border-white/10 bg-white/5 text-white/40'
+                            }`}
+                          >
+                            {hasOngoingRounds
+                              ? 'Watch Live'
+                              : isPast
+                                ? 'View Tournament'
+                                : 'Coming Soon'}
+                          </button>
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                </motion.div>
+              ))}
             </div>
           )}
 
           <motion.div
             variants={itemVariants}
-            className="mt-8 text-center text-xs text-secondary"
+            className="mt-8 text-center text-xs text-white/60"
           >
             <p>
               Broadcasts powered by{' '}
@@ -312,7 +300,7 @@ const BroadcastsPage: NextPage = () => {
                 href="https://lichess.org"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary/60 underline hover:text-primary"
+                className="text-white/80 underline hover:text-white"
               >
                 Lichess
               </a>

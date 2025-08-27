@@ -70,80 +70,79 @@ export const useBroadcastController = (): BroadcastStreamController => {
       // Organize broadcasts into sections
       const sections: BroadcastSection[] = []
 
-      // 1. Official active broadcasts (Lichess official live tournaments)
+      // 1. All live tournaments (currently ongoing) - only include if they have ongoing rounds
       const officialActive = officialBroadcasts.filter((b) =>
         b.rounds.some((r) => r.ongoing),
       )
-      if (officialActive.length > 0) {
-        sections.push({
-          title: 'Official Live Tournaments',
-          broadcasts: officialActive,
-          type: 'official-active',
-        })
-      }
-
-      // 2. Official upcoming broadcasts (Lichess official upcoming tournaments) - max 4
-      const officialUpcoming = officialBroadcasts
-        .filter(
-          (b) =>
-            b.rounds.every((r) => !r.ongoing) &&
-            b.rounds.some((r) => r.startsAt > Date.now()),
-        )
-        .slice(0, 4) // Limit to 4
-      if (officialUpcoming.length > 0) {
-        sections.push({
-          title: 'Upcoming Official Tournaments',
-          broadcasts: officialUpcoming,
-          type: 'official-upcoming',
-        })
-      }
-
-      // 3. Community live broadcasts (all live community broadcasts)
       const unofficialActive = topBroadcasts.active
         .map(convertTopBroadcastToBroadcast)
         .filter(
           (b) =>
-            !officialActive.some((official) => official.tour.id === b.tour.id),
+            !officialActive.some(
+              (official) => official.tour.id === b.tour.id,
+            ) && b.rounds.some((r) => r.ongoing), // Only include if has ongoing rounds
         )
-      if (unofficialActive.length > 0) {
+
+      const allLiveBroadcasts = [...officialActive, ...unofficialActive]
+        // Double-check: only include broadcasts that actually have ongoing rounds
+        .filter((b) => b.rounds.some((r) => r.ongoing))
+
+      // Get coming soon tournaments to add to live section (max 5)
+      const officialUpcoming = officialBroadcasts.filter(
+        (b) =>
+          b.rounds.every((r) => !r.ongoing) &&
+          b.rounds.some((r) => r.startsAt > Date.now()),
+      )
+      const unofficialUpcoming = topBroadcasts.upcoming.map(
+        convertTopBroadcastToBroadcast,
+      )
+
+      const filteredUpcoming = [...officialUpcoming, ...unofficialUpcoming]
+        .filter(
+          (b) =>
+            b.rounds.every((r) => !r.ongoing) && // No ongoing rounds
+            b.rounds.some((r) => r.startsAt > Date.now()) && // Has future rounds
+            !allLiveBroadcasts.some((live) => live.tour.id === b.tour.id), // Not already in live section
+        )
+        .slice(0, 5) // Max 5 coming soon tournaments
+
+      // Combine live and coming soon tournaments in one section
+      const liveAndUpcomingBroadcasts = [
+        ...allLiveBroadcasts,
+        ...filteredUpcoming,
+      ]
+      if (liveAndUpcomingBroadcasts.length > 0) {
         sections.push({
-          title: 'Community Live Broadcasts',
-          broadcasts: unofficialActive,
-          type: 'unofficial-active',
+          title: 'Live Tournaments',
+          broadcasts: liveAndUpcomingBroadcasts,
+          type: 'official-active', // Keep this for styling purposes (shows LIVE indicator)
         })
       }
 
-      // 4. Community upcoming broadcasts - max 5
-      const unofficialUpcoming = topBroadcasts.upcoming
-        .map(convertTopBroadcastToBroadcast)
-        .slice(0, 5) // Limit to 5
-      if (unofficialUpcoming.length > 0) {
-        sections.push({
-          title: 'Upcoming Community Broadcasts',
-          broadcasts: unofficialUpcoming,
-          type: 'unofficial-upcoming',
-        })
-      }
-
-      // 5. Past tournaments (separate section) - max 8
+      // 2. All past tournaments that can be watched (finished tournaments)
       const officialPast = officialBroadcasts.filter(
         (b) =>
           b.rounds.every((r) => !r.ongoing) &&
-          b.rounds.every((r) => r.startsAt <= Date.now()),
+          b.rounds.every((r) => r.startsAt <= Date.now()) &&
+          b.rounds.length > 0,
       )
-      const pastBroadcasts = [
-        ...officialPast,
-        ...topBroadcasts.past.currentPageResults.map(
-          convertTopBroadcastToBroadcast,
-        ),
-      ].slice(0, 8) // Limit to 8
-      if (pastBroadcasts.length > 0) {
+      const communityPast = topBroadcasts.past.currentPageResults.map(
+        convertTopBroadcastToBroadcast,
+      )
+
+      const watchablePastBroadcasts = [...officialPast, ...communityPast].slice(
+        0,
+        8,
+      )
+      if (watchablePastBroadcasts.length > 0) {
         sections.push({
           title: 'Past Tournaments',
-          broadcasts: pastBroadcasts,
+          broadcasts: watchablePastBroadcasts,
           type: 'past',
         })
       }
+
+      // Note: Coming Soon tournaments are now included in the Live Tournaments section above
 
       setBroadcastSections(sections)
       console.log(

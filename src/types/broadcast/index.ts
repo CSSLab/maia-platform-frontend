@@ -6,7 +6,7 @@ export interface BroadcastTour {
   createdAt: number
   url: string
   tier: number
-  dates: number[]
+  dates?: number[]
 }
 
 export interface BroadcastRound {
