@@ -120,25 +120,25 @@ export const LiveChessBoardShowcase: React.FC = () => {
   return (
     <div className="flex flex-col items-center">
       <motion.div
-        className="relative inline-block h-[192px] w-[192px] cursor-pointer overflow-hidden rounded-lg transition-colors duration-200"
+        className="relative inline-block h-[64px] w-[64px] cursor-pointer overflow-hidden rounded-lg transition-colors duration-200"
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
         onClick={handleClick}
       >
         {/* Live indicator */}
-        {liveGame?.isLive && (
+        {/* {liveGame?.isLive && (
           <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full bg-red-500 px-2 py-1">
             <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
             <span className="text-xs font-semibold text-white">LIVE</span>
           </div>
-        )}
+        )} */}
 
         {/* Chess board */}
         <Chessground
           contained
-          width={192}
-          height={192}
+          width={64}
+          height={64}
           config={{
             fen: currentFen,
             viewOnly: true,

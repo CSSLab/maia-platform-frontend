@@ -41,7 +41,7 @@ const Home: NextPage = () => {
         />
       </Head>
       <HomeHero scrollHandler={scrollHandler} />
-      <LiveChessShowcase />
+      {/* <LiveChessShowcase /> */}
       <PageNavigation />
       <div ref={featuresRef}>
         <div className="bg-background-1">

@@ -6,14 +6,6 @@ import {
   trackLichessConnectionInitiated,
 } from 'src/lib/analytics'
 
-import {
-  BrainIcon,
-  TrainIcon,
-  RegularPlayIcon,
-  ChessboardIcon,
-  StarIcon,
-  BotOrNotIcon,
-} from 'src/components/Common/Icons'
 import { PlayType } from 'src/types'
 import { getGlobalStats, getActiveUserCount } from 'src/api'
 import { AuthContext, ModalContext } from 'src/contexts'
@@ -32,7 +24,7 @@ type FeatureKey =
   | 'bot_or_not'
 
 interface FeatureCardProps {
-  icon: React.ReactNode
+  icon: string
   title: string
   description: string
   onClick?: () => void
@@ -49,7 +41,6 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
   onClick,
   href,
   external,
-  index,
   featureKey,
 }) => {
   const { user } = useContext(AuthContext)
@@ -96,13 +87,17 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 
   return (
     <CardWrapper>
-      <div className="group relative flex h-full cursor-pointer select-none flex-row items-center justify-start gap-4 overflow-hidden rounded-xl border border-white/10 bg-black/20 p-4 text-center backdrop-blur-sm transition-all duration-200 hover:border-white/15 hover:bg-black/30 md:min-h-[140px] md:flex-col md:justify-center md:gap-3">
-        <div className="w-10 text-white/90 group-hover:text-white">{icon}</div>
+      <div className="from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex h-full cursor-pointer select-none flex-row items-center justify-start gap-4 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br p-4 text-center backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-lg hover:shadow-white/5 md:min-h-[140px] md:flex-col md:items-center md:justify-center md:gap-0">
+        <div className="text-white/60 transition-colors duration-300 group-hover:text-white/90">
+          <span className="material-symbols-outlined material-symbols-filled leading-0 text-6xl">
+            {icon}
+          </span>
+        </div>
         <div className="flex flex-col items-start md:items-center">
-          <h2 className="text-lg font-bold text-white/95 group-hover:text-white">
+          <h2 className="text-lg font-bold text-white/95 transition-colors duration-300 group-hover:text-white">
             {title}
           </h2>
-          <p className="text-xs text-white/70 group-hover:text-white/80">
+          <p className="text-xs text-white/70 transition-colors duration-300 group-hover:text-white/85">
             {description}
           </p>
         </div>
@@ -208,7 +203,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
           </div>
           <div className="grid w-full flex-1 grid-cols-1 gap-2 md:grid-cols-3 md:gap-4">
             <FeatureCard
-              icon={<RegularPlayIcon />}
+              icon="chess_knight"
               title="Play Maia"
               description="Play chess against the human-like Maia engine"
               onClick={() => startGame('againstMaia')}
@@ -216,7 +211,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="play_maia"
             />
             <FeatureCard
-              icon={<ChessboardIcon />}
+              icon="network_intelligence"
               title="Analysis"
               description="Analyze games with Maia's human insights"
               href="/analysis"
@@ -224,7 +219,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="analysis"
             />
             <FeatureCard
-              icon={<TrainIcon />}
+              icon="toys_and_games"
               title="Puzzles"
               description="Improve your skills with Maia's training puzzles"
               href="/puzzles"
@@ -232,7 +227,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="puzzles"
             />
             <FeatureCard
-              icon={<BrainIcon />}
+              icon="network_intel_node"
               title="Hand & Brain"
               description="Play a collaborative chess variant with Maia"
               onClick={() => startGame('handAndBrain')}
@@ -240,7 +235,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="hand_brain"
             />
             <FeatureCard
-              icon={<StarIcon />}
+              icon="play_lesson"
               title="Openings"
               description="Learn and practice chess openings with Maia"
               href="/openings"
@@ -248,8 +243,8 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="openings"
             />
             <FeatureCard
-              icon={<BotOrNotIcon />}
-              title="Bot-or-Not"
+              icon="mystery"
+              title="Bot or Not"
               description="Distinguish between human and AI play"
               href="/turing"
               index={5}

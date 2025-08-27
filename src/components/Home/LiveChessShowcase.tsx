@@ -30,16 +30,16 @@ const BroadcastWidget: React.FC<BroadcastWidgetProps> = ({ broadcast }) => {
         href={`/broadcast/${broadcast.tour.id}/${activeRound?.id || broadcast.rounds[0]?.id}`}
         className="w-full"
       >
-        <div className="relative w-48 overflow-hidden rounded-lg border border-background-2 bg-background-1 transition-colors duration-200 hover:border-primary/40">
+        <div className="relative w-36 overflow-hidden rounded-md border border-white/10 bg-black/20 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-black/30">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-background-2 px-3 py-2">
-            <h4 className="line-clamp-1 text-[13px] font-semibold text-primary">
+          <div className="flex items-center justify-between border-b border-white/10 px-2 py-1.5">
+            <h4 className="line-clamp-1 text-[10px] font-semibold text-white/95">
               {broadcast.tour.name}
             </h4>
             {activeRound?.ongoing && (
-              <div className="flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
-                <span className="text-[10px] font-semibold text-white">
+              <div className="flex items-center gap-0.5 rounded-full bg-red-500/90 px-1 py-0.5">
+                <span className="h-0.5 w-0.5 animate-pulse rounded-full bg-white" />
+                <span className="text-[8px] font-semibold text-white">
                   LIVE
                 </span>
               </div>
@@ -47,21 +47,20 @@ const BroadcastWidget: React.FC<BroadcastWidgetProps> = ({ broadcast }) => {
           </div>
 
           {/* Body */}
-          <div className="flex h-28 flex-col justify-between px-3 py-2">
+          <div className="flex h-12 flex-col justify-between px-2 py-1.5">
             <div>
               <p
-                className="line-clamp-1 text-xs text-secondary"
+                className="line-clamp-1 text-[10px] text-white/70"
                 title={activeRound?.name}
               >
                 {activeRound?.name}
               </p>
-              {/* Placeholder meta; could be expanded when we parse PGN/game counts */}
-              <p className="mt-1 text-[11px] text-primary/70">Ongoing round</p>
+              <p className="text-[8px] text-white/50">Ongoing round</p>
             </div>
 
-            <div className="flex items-center justify-end gap-1">
-              <span className="text-[11px] text-human-4">View</span>
-              <span className="material-symbols-outlined text-sm text-human-4">
+            <div className="flex items-center justify-end gap-0.5">
+              <span className="text-[8px] text-white/60">View</span>
+              <span className="material-symbols-outlined text-xs text-white/60">
                 chevron_right
               </span>
             </div>
@@ -124,66 +123,69 @@ export const LiveChessShowcase: React.FC = () => {
   }, [fetchBroadcasts])
 
   return (
-    <section className="bg-background-2 py-4">
-      <div className="container mx-auto px-4">
-        <div className="mb-4 flex flex-col items-center justify-between gap-4 lg:flex-row lg:items-center">
-          {/* Header on the left */}
-          <div className="text-center lg:text-left">
-            <h2 className="mb-1 text-2xl font-bold text-primary">Live Chess</h2>
-            <p className="text-secondary">
+    <section className="relative py-3">
+      {/* Glass morphism background */}
+      <div className="absolute inset-0 border-y border-white/10 bg-black/10 backdrop-blur-sm" />
+
+      <div className="relative mx-auto max-w-4xl px-4">
+        <div className="flex flex-col items-center gap-4">
+          {/* Centered header */}
+          <div className="text-center">
+            <h2 className="text-lg font-bold text-white/95">Live Chess</h2>
+            <p className="text-xs text-white/70">
               Watch live games and tournaments with real-time Maia AI analysis
             </p>
           </div>
 
-          {/* Live content on the right */}
-          <div className="flex items-start gap-4 sm:flex-row sm:items-start sm:gap-6">
+          {/* Centered live content */}
+          <div className="flex items-center gap-8">
             {/* Live Lichess TV Game */}
             <div className="flex flex-col items-center">
-              <h3 className="mb-2 text-base font-semibold text-primary">
+              <h3 className="mb-2 text-xs font-medium text-white/80">
                 Maia TV
               </h3>
-              <LiveChessBoardShowcase />
+              <div className="rounded-md border border-white/10 bg-black/20 p-1.5 backdrop-blur-sm">
+                <LiveChessBoardShowcase />
+              </div>
             </div>
 
             {/* Top Live Broadcasts */}
             {isLoading ? (
               <div className="flex flex-col items-center">
-                <h3 className="mb-2 text-base font-semibold text-primary">
+                <h3 className="mb-2 text-xs font-medium text-white/80">
                   Live Tournament
                 </h3>
                 <motion.div
-                  className="flex h-[180px] w-48 flex-col items-center justify-center rounded-lg border border-background-2 bg-background-1"
+                  className="flex h-[80px] w-36 flex-col items-center justify-center rounded-md border border-white/10 bg-black/20 backdrop-blur-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <span className="material-symbols-outlined animate-pulse text-2xl text-secondary">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <span className="material-symbols-outlined animate-pulse text-lg text-white/60">
                       stadia_controller
                     </span>
-                    <p className="px-3 text-xs text-secondary">
-                      Loading tournaments...
-                    </p>
+                    <p className="px-2 text-[10px] text-white/70">Loading...</p>
                   </div>
                 </motion.div>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center">
-                <h3 className="mb-2 text-base font-semibold text-primary">
+                <h3 className="mb-2 text-xs font-medium text-white/80">
                   Live Tournament
                 </h3>
                 <motion.div
-                  className="flex h-[180px] w-48 flex-col items-center justify-center rounded-lg border border-background-2 bg-background-1"
+                  className="flex h-[80px] w-36 flex-col items-center justify-center rounded-md border border-white/10 bg-black/20 backdrop-blur-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <span className="material-symbols-outlined text-2xl text-red-400">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <span className="material-symbols-outlined text-lg text-red-400/80">
                       error
                     </span>
-                    <p className="px-3 text-xs text-secondary">{error}</p>
+                    <p className="px-2 text-[10px] text-white/70">Error</p>
                     <button
                       onClick={fetchBroadcasts}
-                      className="text-xs font-medium text-human-4 hover:underline"
+                      className="text-[9px] font-medium text-white/60 transition-colors hover:text-white/80 hover:underline"
                     >
                       Retry
                     </button>
@@ -192,31 +194,31 @@ export const LiveChessShowcase: React.FC = () => {
               </div>
             ) : topBroadcasts.length > 0 ? (
               <div className="flex flex-col items-center">
-                <h3 className="mb-2 text-base font-semibold text-primary">
+                <h3 className="mb-2 text-xs font-medium text-white/80">
                   Live Tournament
                 </h3>
                 <BroadcastWidget broadcast={topBroadcasts[0]} />
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                <h3 className="mb-2 text-base font-semibold text-primary">
+                <h3 className="mb-2 text-xs font-medium text-white/80">
                   Live Tournament
                 </h3>
                 <motion.div
-                  className="flex h-[180px] w-48 flex-col items-center justify-center rounded-lg border border-background-2 bg-background-1"
+                  className="flex h-[80px] w-36 flex-col items-center justify-center rounded-md border border-white/10 bg-black/20 backdrop-blur-sm"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <span className="material-symbols-outlined text-xl text-secondary">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <span className="material-symbols-outlined text-base text-white/60">
                       stadia_controller
                     </span>
-                    <p className="px-3 text-xs text-secondary">
-                      No live tournaments
+                    <p className="px-2 text-[10px] text-white/70">
+                      No tournaments
                     </p>
                     <Link
                       href="/broadcast"
-                      className="text-xs font-medium text-engine-4 hover:underline"
+                      className="text-[9px] font-medium text-white/60 transition-colors hover:text-white/80 hover:underline"
                     >
                       View all
                     </Link>
