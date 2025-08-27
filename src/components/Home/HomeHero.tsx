@@ -87,7 +87,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 
   return (
     <CardWrapper>
-      <div className="from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex h-full cursor-pointer select-none flex-row items-center justify-start gap-4 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br p-4 text-center backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-lg hover:shadow-white/5 md:min-h-[140px] md:flex-col md:items-center md:justify-center md:gap-0">
+      <div className="from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex h-full cursor-pointer select-none flex-row items-center justify-start gap-4 overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br p-4 text-center backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-md hover:shadow-white/5 md:min-h-[140px] md:flex-col md:items-center md:justify-center md:gap-0">
         <div className="text-white/60 transition-colors duration-300 group-hover:text-white/90">
           <span className="material-symbols-outlined material-symbols-filled leading-0 text-6xl">
             {icon}
@@ -165,7 +165,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
         }}
       />
       <BetaBlurb />
-      <div className="relative flex flex-col items-center justify-center gap-4 overflow-hidden pb-12 pt-4 md:gap-14 md:pb-16 md:pt-20">
+      <div className="relative flex flex-col items-center justify-center gap-4 overflow-hidden pb-6 pt-4 md:gap-14 md:pt-16">
         <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">
           <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[45%] md:gap-8">
             <div className="flex flex-col gap-3 md:gap-4">
@@ -297,13 +297,13 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
 
 function BetaBlurb() {
   return (
-    <div className="mt-2 flex items-center justify-center md:mt-8">
-      <div className="rounded-full border border-white/10 bg-black/20 px-6 py-3 backdrop-blur-sm transition-all duration-200 hover:border-white/15">
-        <div className="flex flex-row items-center gap-3">
-          <span className="material-symbols-outlined material-symbols-filled text-lg text-white/90">
+    <div className="mt-2 flex items-center justify-center md:mt-10">
+      <div className="select-none rounded-full border border-white/10 bg-black/20 px-6 py-2.5 backdrop-blur-sm transition-all duration-200 hover:border-white/15">
+        <div className="flex flex-row items-center gap-2">
+          <span className="material-symbols-outlined material-symbols-filled text-sm text-white/90">
             favorite
           </span>
-          <p className="text-white/90">
+          <p className="text-sm text-white/90">
             Maia Chess is in open beta. You now have full access to the
             platform!
           </p>
