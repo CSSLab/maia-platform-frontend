@@ -124,7 +124,12 @@ export const Header: React.FC = () => {
       </AnimatePresence>
     </div>
   ) : (
-    <button onClick={connectLichess}>Sign in</button>
+    <button
+      onClick={connectLichess}
+      className="px-2 py-1 text-sm tracking-wide text-primary/80 transition-all duration-200 hover:text-primary"
+    >
+      Sign in
+    </button>
   )
 
   const desktopLayout = (

@@ -178,28 +178,45 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                 seeing chess.
               </motion.p>
             </div>
-            <motion.div className="flex flex-col gap-4 sm:flex-row">
-              <motion.button
-                className="flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-black/30 px-6 py-3 text-white backdrop-blur-sm transition-all duration-200 hover:border-white/25 hover:bg-black/40"
-                onClick={scrollHandler}
-              >
-                <p>Learn More</p>
-                <span className="material-symbols-outlined text-base text-white">
-                  keyboard_double_arrow_down
-                </span>
-              </motion.button>
-              {!user?.lichessId && (
+            {!user?.lichessId && (
+              <motion.div className="flex flex-wrap items-center gap-3 sm:gap-3">
+                <p className="text-sm tracking-wider text-white/80">
+                  Sign in with:
+                </p>
                 <motion.button
-                  className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-white/90 backdrop-blur-sm transition-all duration-200 hover:border-white/15 hover:bg-white/10 hover:text-white"
+                  className="group flex items-center gap-2.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
                   onClick={() => {
                     trackLichessConnectionInitiated('homepage')
                     connectLichess()
                   }}
                 >
-                  Connect with Lichess
+                  <img
+                    src="/assets/icons/lichess.svg"
+                    className="h-4 w-4 transition-opacity duration-200 group-hover:opacity-100"
+                    alt="Lichess"
+                  />
+                  <span className="text-sm font-medium text-white/90 transition-colors duration-200 group-hover:text-white">
+                    Lichess
+                  </span>
                 </motion.button>
-              )}
-            </motion.div>
+                <motion.button
+                  className="group flex items-center gap-2.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
+                  onClick={() => {
+                    trackLichessConnectionInitiated('homepage')
+                    connectLichess()
+                  }}
+                >
+                  <img
+                    src="/assets/icons/chessdotcom.svg"
+                    className="h-4 w-4 transition-opacity duration-200 group-hover:opacity-100"
+                    alt="Chess.com"
+                  />
+                  <span className="text-sm font-medium text-white/90 transition-colors duration-200 group-hover:text-white">
+                    Chess.com
+                  </span>
+                </motion.button>
+              </motion.div>
+            )}
           </div>
           <div className="grid w-full flex-1 grid-cols-1 gap-2 md:grid-cols-3 md:gap-4">
             <FeatureCard
