@@ -9,24 +9,38 @@ import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper
 import { useBroadcastController } from 'src/hooks/useBroadcastController'
 import { Broadcast } from 'src/types'
 
+const fadeInUp = {
+  initial: { opacity: 0, y: 15 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3, ease: 'easeOut' },
+}
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.05,
+    },
+  },
+}
+
 const BroadcastsPage: NextPage = () => {
   const router = useRouter()
-  const broadcastController = useBroadcastController()
+  const { broadcastSections, broadcastState, loadBroadcasts } =
+    useBroadcastController()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        await broadcastController.loadBroadcasts()
+        await loadBroadcasts()
       } catch (error) {
         console.error('Error loading broadcasts:', error)
       } finally {
         setLoading(false)
       }
     }
-
     loadData()
-  }, [])
+  }, [loadBroadcasts])
 
   const handleSelectBroadcast = (broadcast: Broadcast) => {
     const defaultRound =
@@ -45,32 +59,6 @@ const BroadcastsPage: NextPage = () => {
       day: 'numeric',
       year: 'numeric',
     })
-  }
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        duration: 0.3,
-        staggerChildren: 0.1,
-      },
-    },
-  }
-
-  const itemVariants = {
-    hidden: {
-      opacity: 0,
-      y: 20,
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.4,
-        ease: [0.25, 0.46, 0.45, 0.94],
-      },
-    },
   }
 
   if (loading) {
@@ -97,7 +85,7 @@ const BroadcastsPage: NextPage = () => {
     )
   }
 
-  if (broadcastController.broadcastState.error) {
+  if (broadcastState.error) {
     return (
       <>
         <Head>
@@ -106,16 +94,20 @@ const BroadcastsPage: NextPage = () => {
         <div className="flex min-h-screen items-center justify-center bg-backdrop">
           <div className="rounded-lg border border-white/10 bg-background-1 p-6 text-center">
             <h2 className="mb-4 text-xl font-semibold text-red-400">
-              Error Loading Broadcasts
+              Failed to Load Broadcasts
             </h2>
             <p className="mb-4 text-secondary">
-              {broadcastController.broadcastState.error}
+              Unable to connect to Lichess. Please check your internet
+              connection and try again.
             </p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                setLoading(true)
+                loadBroadcasts().finally(() => setLoading(false))
+              }}
               className="rounded border border-human-4/30 bg-human-4 px-4 py-2 text-white transition-all duration-200 hover:border-human-4/50 hover:bg-human-4/80"
             >
-              Try Again
+              Retry
             </button>
           </div>
         </div>
@@ -141,13 +133,14 @@ const BroadcastsPage: NextPage = () => {
               'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
           }}
         />
+
         <motion.div
           className="container relative mx-auto px-6 py-8"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
+          initial="initial"
+          animate="animate"
+          variants={staggerContainer}
         >
-          <motion.div variants={itemVariants} className="mb-8 text-center">
+          <motion.div className="mb-8 text-center" variants={fadeInUp}>
             <h1 className="mb-2 text-3xl font-bold text-white">
               Live Broadcasts
             </h1>
@@ -156,10 +149,10 @@ const BroadcastsPage: NextPage = () => {
             </p>
           </motion.div>
 
-          {broadcastController.broadcastSections.length === 0 ? (
+          {broadcastSections.length === 0 ? (
             <motion.div
-              variants={itemVariants}
               className="flex flex-col items-center justify-center py-16 text-center"
+              variants={fadeInUp}
             >
               <span className="material-symbols-outlined mb-4 !text-6xl text-white/60">
                 live_tv
@@ -171,19 +164,33 @@ const BroadcastsPage: NextPage = () => {
                 There are currently no ongoing tournaments available.
               </p>
               <button
-                onClick={() => broadcastController.loadBroadcasts()}
+                onClick={() => {
+                  setLoading(true)
+                  loadBroadcasts().finally(() => setLoading(false))
+                }}
                 className="mt-4 rounded border border-human-4/30 bg-human-4 px-4 py-2 text-white transition-all duration-200 hover:border-human-4/50 hover:bg-human-4/80"
               >
                 Refresh
               </button>
             </motion.div>
           ) : (
-            <div className="space-y-6">
-              {broadcastController.broadcastSections.map((section) => (
+            <motion.div className="space-y-6" variants={staggerContainer}>
+              {broadcastSections.map((section, sectionIndex) => (
                 <motion.div
                   key={section.type}
-                  variants={itemVariants}
                   className="space-y-3"
+                  variants={{
+                    initial: { opacity: 0, y: 15 },
+                    animate: {
+                      opacity: 1,
+                      y: 0,
+                      transition: {
+                        duration: 0.25,
+                        ease: 'easeOut',
+                        delay: sectionIndex * 0.2,
+                      },
+                    },
+                  }}
                 >
                   <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
                     {section.title}
@@ -198,12 +205,22 @@ const BroadcastsPage: NextPage = () => {
                     )}
                   </h2>
 
-                  <div
+                  <motion.div
                     className={
                       section.type === 'official-active'
                         ? 'flex flex-wrap gap-4'
                         : 'grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
                     }
+                    initial="initial"
+                    animate="animate"
+                    variants={{
+                      animate: {
+                        transition: {
+                          staggerChildren: 0.03,
+                          delayChildren: sectionIndex * 0.2 + 0.15,
+                        },
+                      },
+                    }}
                   >
                     {section.broadcasts.map((broadcast) => {
                       const ongoingRounds = broadcast.rounds.filter(
@@ -218,12 +235,19 @@ const BroadcastsPage: NextPage = () => {
                       return (
                         <motion.div
                           key={broadcast.tour.id}
-                          variants={itemVariants}
                           className={`from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md transition-all duration-300 hover:border-white/20 ${
                             section.type === 'official-active'
                               ? 'w-[280px]'
                               : ''
                           }`}
+                          variants={{
+                            initial: { opacity: 0, y: 15 },
+                            animate: {
+                              opacity: 1,
+                              y: 0,
+                              transition: { duration: 0.2, ease: 'easeOut' },
+                            },
+                          }}
                         >
                           <div className="flex flex-1 flex-col gap-3 p-4">
                             <div className="flex items-start justify-between gap-3">
@@ -267,7 +291,7 @@ const BroadcastsPage: NextPage = () => {
                           <button
                             onClick={() => handleSelectBroadcast(broadcast)}
                             disabled={!hasOngoingRounds && !isPast}
-                            className={`border-t py-2 text-sm font-medium transition-all duration-300 ${
+                            className={`border-t py-2 text-sm font-medium tracking-wide transition-all duration-300 ${
                               hasOngoingRounds
                                 ? 'border-red-500/30 bg-red-500/20 text-red-400 group-hover:bg-red-500/30'
                                 : isPast
@@ -284,18 +308,18 @@ const BroadcastsPage: NextPage = () => {
                         </motion.div>
                       )
                     })}
-                  </div>
+                  </motion.div>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
 
           <motion.div
-            variants={itemVariants}
             className="mt-8 text-center text-xs text-white/60"
+            variants={fadeInUp}
           >
             <p>
-              Broadcasts powered by{' '}
+              Broadcasts streamed from{' '}
               <a
                 href="https://lichess.org"
                 target="_blank"
