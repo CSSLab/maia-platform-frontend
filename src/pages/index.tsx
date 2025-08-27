@@ -12,7 +12,7 @@ import {
   AdditionalFeaturesSection,
   PageNavigation,
 } from 'src/components'
-import { LiveChessShowcase } from 'src/components/Home/LiveChessShowcase'
+import { GameCarousel } from 'src/components/Home/GameCarousel'
 
 const Home: NextPage = () => {
   const { setPlaySetupModalProps } = useContext(ModalContext)
@@ -41,7 +41,7 @@ const Home: NextPage = () => {
         />
       </Head>
       <HomeHero scrollHandler={scrollHandler} />
-      <LiveChessShowcase />
+      <GameCarousel />
       <PageNavigation />
       <div ref={featuresRef}>
         <div className="bg-background-1">

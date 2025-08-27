@@ -22,7 +22,6 @@ interface GameData {
   url?: string
 }
 
-// Sample predefined games
 const SAMPLE_GAMES: GameData[] = [
   {
     id: 'sample1',
@@ -109,7 +108,6 @@ const GameChip: React.FC<GameChipProps> = ({ game, onClick }) => {
     }
   }
 
-  // Preset rotation options
   const rotationOptions = [
     'rotate(-2deg)',
     'rotate(-1deg)',
@@ -118,17 +116,14 @@ const GameChip: React.FC<GameChipProps> = ({ game, onClick }) => {
     'rotate(2deg)',
   ]
 
-  // Chess icon options
   const chessIcons = [
     'chess_knight',
     'chess_bishop',
-    'chess_king',
     'chess_rook',
     'chess_pawn',
     'chess',
   ]
 
-  // Select rotation and icon based on game ID hash
   const hash = (() => {
     let h = 0
     for (let i = 0; i < game.id.length; i++) {
@@ -140,7 +135,7 @@ const GameChip: React.FC<GameChipProps> = ({ game, onClick }) => {
   const rotation = rotationOptions[hash % rotationOptions.length]
   const chessIcon = chessIcons[hash % chessIcons.length]
 
-  const truncateName = (name: string, maxLength = 12) => {
+  const truncateName = (name: string, maxLength = 15) => {
     return name.length > maxLength
       ? name.substring(0, maxLength - 1) + '…'
       : name
@@ -162,35 +157,33 @@ const GameChip: React.FC<GameChipProps> = ({ game, onClick }) => {
       className="group relative flex h-14 min-w-48 max-w-48 cursor-pointer flex-row items-center gap-3 rounded bg-white/[3%] px-4 py-2 backdrop-blur-sm transition-all duration-200 hover:bg-white/[6%] focus:outline-none focus:ring-2 focus:ring-white/20"
       style={{ transform: rotation }}
     >
-      {/* Live Indicator */}
       {game.isLive && (
         <div className="absolute -right-1 -top-1 flex items-center gap-1 rounded-full bg-red-500/90 px-2 py-0.5">
           <div className="h-1 w-1 animate-pulse rounded-full bg-white" />
           <span className="text-[8px] font-semibold text-white">LIVE</span>
         </div>
       )}
-      {/* Chess Icon */}
+
       <span className="material-symbols-outlined material-symbols-filled text-2xl text-white/30 transition-all duration-200 group-hover:text-white/60">
         {chessIcon}
       </span>
 
-      {/* Text Content */}
       {isBroadcast ? (
         <div className="flex flex-1 flex-col justify-center gap-0.5">
           <span className="text-[10px] font-medium text-white/30 transition-all duration-200 group-hover:text-white/70">
             Broadcast
           </span>
           <span className="truncate text-xs font-medium text-white/40 transition-all duration-200 group-hover:text-white">
-            {truncateName(game.black.name, 16)}
+            {truncateName(game.black.name, 18)}
           </span>
         </div>
       ) : (
         <div className="flex flex-1 flex-col justify-center gap-0.5">
           <span className="truncate text-xs font-medium text-white/40 transition-all duration-200 group-hover:text-white">
-            {truncateName(game.white.name, 13)}
+            {truncateName(game.white.name, 16)}
           </span>
           <span className="truncate text-xs font-medium text-white/40 transition-all duration-200 group-hover:text-white">
-            vs {truncateName(game.black.name, 10)}
+            vs {truncateName(game.black.name, 14)}
           </span>
         </div>
       )}
@@ -198,16 +191,14 @@ const GameChip: React.FC<GameChipProps> = ({ game, onClick }) => {
   )
 }
 
-export const LiveChessBoardShowcase: React.FC = () => {
+export const GameCarousel: React.FC = () => {
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
   const [games, setGames] = useState<GameData[]>(SAMPLE_GAMES)
   const [isPaused, setIsPaused] = useState(false)
   const abortController = useRef<AbortController | null>(null)
   const carouselRef = useRef<HTMLDivElement>(null)
 
   const handleGameStart = useCallback((gameData: StreamedGame) => {
-    // Update the games list with live game data
     setGames((prevGames) => {
       const newGames = [...prevGames]
       const liveGameData: GameData = {
@@ -224,15 +215,13 @@ export const LiveChessBoardShowcase: React.FC = () => {
         url: `/analysis/stream/${gameData.id}`,
       }
 
-      // Check if this live game already exists
       const existingLiveIndex = newGames.findIndex(
         (g) => g.id === `live-${gameData.id}`,
       )
+
       if (existingLiveIndex !== -1) {
-        // Update existing live game
         newGames[existingLiveIndex] = liveGameData
       } else {
-        // Replace a sample game at index 2 (3rd position) with live game data
         const targetIndex = 2
         if (targetIndex < newGames.length && !newGames[targetIndex].isLive) {
           newGames[targetIndex] = liveGameData
@@ -247,21 +236,17 @@ export const LiveChessBoardShowcase: React.FC = () => {
   }, [])
 
   const handleStreamComplete = useCallback(() => {
-    console.log('Live board showcase - Stream completed')
     fetchNewGame()
   }, [])
 
   const fetchNewGame = useCallback(async () => {
     try {
-      setError(null)
       const tvGame = await fetchLichessTVGame()
 
-      // Stop current stream if any
       if (abortController.current) {
         abortController.current.abort()
       }
 
-      // Start new stream
       abortController.current = new AbortController()
 
       streamLichessGameMoves(
@@ -272,13 +257,11 @@ export const LiveChessBoardShowcase: React.FC = () => {
         abortController.current.signal,
       ).catch((err) => {
         if (err.name !== 'AbortError') {
-          console.error('Live board streaming error:', err)
-          setError('Connection lost')
+          console.error('Live game streaming error:', err)
         }
       })
     } catch (err) {
-      console.error('Error fetching new live game:', err)
-      setError('Failed to load live game')
+      console.error('Error fetching live game:', err)
     }
   }, [handleGameStart, handleMove, handleStreamComplete])
 
@@ -291,7 +274,6 @@ export const LiveChessBoardShowcase: React.FC = () => {
           topBroadcasts.active[0],
         )
 
-        // Add broadcast to games list
         setGames((prevGames) => {
           const newGames = [...prevGames]
           const broadcastGameData: GameData = {
@@ -308,15 +290,13 @@ export const LiveChessBoardShowcase: React.FC = () => {
             url: `/broadcast/${broadcastData.tour.id}/${broadcastData.rounds[0]?.id}`,
           }
 
-          // Check if this broadcast already exists
           const existingBroadcastIndex = newGames.findIndex(
             (g) => g.id === `broadcast-${broadcastData.tour.id}`,
           )
+
           if (existingBroadcastIndex !== -1) {
-            // Update existing broadcast
             newGames[existingBroadcastIndex] = broadcastGameData
           } else {
-            // Replace a sample game at index 7 (8th position) with broadcast data
             const targetIndex = 7
             if (
               targetIndex < newGames.length &&
@@ -333,7 +313,6 @@ export const LiveChessBoardShowcase: React.FC = () => {
     }
   }, [])
 
-  // Auto-scroll effect
   useEffect(() => {
     if (isPaused || !carouselRef.current) return
 
@@ -343,10 +322,8 @@ export const LiveChessBoardShowcase: React.FC = () => {
         const halfWidth = scrollWidth / 2
 
         if (scrollLeft >= halfWidth - 10) {
-          // Reset to beginning without animation when we reach the duplicate section
           carouselRef.current.scrollTo({ left: 0, behavior: 'auto' })
         } else {
-          // Smooth continuous scroll
           carouselRef.current.scrollBy({ left: 0.5, behavior: 'auto' })
         }
       }
@@ -357,11 +334,9 @@ export const LiveChessBoardShowcase: React.FC = () => {
   }, [isPaused])
 
   useEffect(() => {
-    // Initial fetch
     fetchNewGame()
     fetchBroadcast()
 
-    // Cleanup on unmount
     return () => {
       if (abortController.current) {
         abortController.current.abort()
@@ -379,51 +354,33 @@ export const LiveChessBoardShowcase: React.FC = () => {
   )
 
   return (
-    <div className="relative mb-10 w-full overflow-y-visible">
-      <motion.div
-        ref={carouselRef}
-        className="flex gap-10 overflow-x-hidden overflow-y-visible py-2 pl-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-        }}
-      >
-        {/* Render games twice for seamless loop */}
-        {[...games, ...games].map((game, index) => (
-          <GameChip
-            key={`${game.id}-${index}`}
-            game={game}
-            onClick={() => handleGameClick(game)}
-          />
-        ))}
-      </motion.div>
-
-      {error && (
-        <div className="mt-2 text-center">
-          <p className="text-xs text-red-400">{error}</p>
-          <button
-            onClick={fetchNewGame}
-            className="mt-1 text-[10px] font-medium text-white/60 hover:text-white/80 hover:underline"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-    </div>
+    <section className="relative w-full overflow-y-visible py-6">
+      <div className="relative mb-10 w-full overflow-y-visible">
+        <motion.div
+          ref={carouselRef}
+          className="flex gap-10 overflow-x-hidden overflow-y-visible py-2 pl-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+          style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+        >
+          {[...games, ...games].map((game, index) => (
+            <GameChip
+              key={`${game.id}-${index}`}
+              game={game}
+              onClick={() => handleGameClick(game)}
+            />
+          ))}
+        </motion.div>
+      </div>
+    </section>
   )
 }
-
-// Hide scrollbar for webkit browsers
-const styles = `
-  .carousel-container::-webkit-scrollbar {
-    display: none;
-  }
-`
 
 if (
   typeof document !== 'undefined' &&
@@ -431,6 +388,10 @@ if (
 ) {
   const styleSheet = document.createElement('style')
   styleSheet.id = 'carousel-styles'
-  styleSheet.innerText = styles
+  styleSheet.innerText = `
+    .carousel-container::-webkit-scrollbar {
+      display: none;
+    }
+  `
   document.head.appendChild(styleSheet)
 }
