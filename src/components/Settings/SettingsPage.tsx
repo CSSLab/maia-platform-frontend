@@ -54,11 +54,14 @@ export const SettingsPage: React.FC = () => {
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-4xl text-white/90">settings</span>
+          <span className="material-symbols-outlined text-4xl text-white/90">
+            settings
+          </span>
           <h1 className="text-3xl font-bold text-white">Settings</h1>
         </div>
         <p className="text-white/70">
-          Customize your Maia Chess experience. Settings are saved locally in your browser.
+          Customize your Maia Chess experience. Settings are saved locally in
+          your browser.
         </p>
       </motion.div>
 

@@ -76,22 +76,25 @@ export const ChessboardSettings: React.FC = () => {
   return (
     <div className="from-white/8 to-white/4 flex flex-col gap-4 rounded-lg border border-white/10 bg-gradient-to-br px-5 pb-0 pt-5 backdrop-blur-md transition-all duration-300">
       <div className="flex flex-col items-start justify-between">
-        <h3 className="text-lg font-semibold text-white/95">Chessboard Theme</h3>
+        <h3 className="text-lg font-semibold text-white/95">
+          Chessboard Theme
+        </h3>
         <p className="text-sm text-white/70">
-          Choose your preferred chessboard style. Changes will apply to all chess boards across the platform.
+          Choose your preferred chessboard style. Changes will apply to all
+          chess boards across the platform.
         </p>
       </div>
 
       <div className="flex flex-col gap-4">
         {/* Theme Grid */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+        <div className="flex flex-row flex-wrap justify-around gap-3">
           {ALL_THEMES.map((theme) => (
             <label
               key={theme}
               className={`group relative flex cursor-pointer select-none items-center justify-center overflow-hidden rounded-md border p-2 text-white/90 backdrop-blur-md transition-all duration-300 ${
                 settings.chessboardTheme === theme
                   ? 'border-red-500/40 bg-gradient-to-br from-red-500/15 to-red-500/5 shadow-white/5'
-                  : 'border-white/10 bg-gradient-to-br from-white/8 to-white/4 hover:border-white/20 hover:from-white/12 hover:to-white/6 hover:shadow-md hover:shadow-white/5 hover:-translate-y-0.5'
+                  : 'from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 border-white/10 bg-gradient-to-br hover:-translate-y-0.5 hover:border-white/20 hover:shadow-md hover:shadow-white/5'
               }`}
             >
               <input
@@ -103,7 +106,7 @@ export const ChessboardSettings: React.FC = () => {
                 className="sr-only"
               />
               <div
-                className={`theme-preview-${theme} aspect-square h-16 w-16 overflow-hidden rounded`}
+                className={`theme-preview-${theme} aspect-square h-16 min-h-16 w-16 min-w-16 overflow-hidden rounded`}
               >
                 <Chessground
                   contained
@@ -120,9 +123,13 @@ export const ChessboardSettings: React.FC = () => {
 
         <div className="-mx-5 mt-1 border-t border-white/10 px-5 py-4 text-white/80">
           <div className="flex items-start gap-2">
-            <span className="material-symbols-outlined inline !text-base text-white/70">info</span>
+            <span className="material-symbols-outlined inline !text-base text-white/70">
+              info
+            </span>
             <p className="text-sm">
-              Theme changes take effect immediately and will be remembered across browser sessions. Preview shows how the board will appear in games.
+              Theme changes take effect immediately and will be remembered
+              across browser sessions. Preview shows how the board will appear
+              in games.
             </p>
           </div>
         </div>

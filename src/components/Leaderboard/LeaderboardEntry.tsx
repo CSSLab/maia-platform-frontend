@@ -29,7 +29,8 @@ export const LeaderboardEntry = ({
 
   const entryKey = `${typeId}-${display_name}-${index}`
   const isPopupVisible = activePopup === entryKey
-  const isCurrentUser = user?.lichessId?.toLowerCase() === display_name.toLowerCase()
+  const isCurrentUser =
+    user?.lichessId?.toLowerCase() === display_name.toLowerCase()
 
   let ratingKey:
     | 'regularRating'
@@ -133,12 +134,8 @@ export const LeaderboardEntry = ({
 
   return (
     <div
-      className={`group relative flex w-full items-center justify-between px-3 py-1 text-sm transition-colors duration-200 ${
-        isCurrentUser 
-          ? 'bg-yellow-500/10 hover:bg-yellow-500/15' 
-          : index % 2 === 0 
-            ? 'bg-transparent hover:bg-white/3' 
-            : 'bg-white/3 hover:bg-white/5'
+      className={`group relative flex w-full items-center justify-between px-3 py-1 text-sm transition-colors duration-200 hover:bg-white/[3%] ${
+        isCurrentUser ? 'bg-yellow-500/10 hover:bg-yellow-500/15' : ''
       }`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
@@ -156,8 +153,8 @@ export const LeaderboardEntry = ({
       </div>
       <p className="text-sm font-medium text-white/95">{elo}</p>
       {isPopupVisible && stats && (
-        <div className="absolute left-0 top-[100%] z-50 flex w-full max-w-[24rem] flex-col overflow-hidden rounded border border-white/20 bg-black backdrop-blur-sm">
-          <div className="flex w-full justify-between border-b border-white/10 bg-black/40 px-3 py-2">
+        <div className="absolute left-0 top-[100%] z-50 flex w-full max-w-[24rem] flex-col overflow-hidden rounded border border-white/20 bg-[#171214]">
+          <div className="flex w-full justify-between border-b border-white/10 bg-[#171214] px-3 py-2">
             <p className="text-sm text-white/95">
               <span className="font-bold">{display_name}</span>&apos;s {type}{' '}
               Statistics
