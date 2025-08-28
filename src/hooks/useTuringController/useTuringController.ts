@@ -1,8 +1,9 @@
 import { useRouter } from 'next/router'
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import { Chess } from 'chess.ts'
 
 import { useStats } from '../useStats'
-import { Color } from 'src/types'
+import { Color, GameTree } from 'src/types'
 import { TuringGame } from 'src/types/turing'
 import { useTreeController } from '../useTreeController'
 import {
@@ -52,7 +53,8 @@ export const useTuringController = () => {
     [turingGames, currentIndex],
   )
 
-  const controller = useTreeController(game.tree, 'white')
+  const fallbackTree = useMemo(() => new GameTree(new Chess().fen()), [])
+  const controller = useTreeController(game?.tree ?? fallbackTree, 'white')
 
   useEffect(() => {
     if (controller.tree && game) {
