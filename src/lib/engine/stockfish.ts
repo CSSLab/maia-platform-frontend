@@ -173,7 +173,11 @@ class Engine {
       return
     }
 
+    // Handle mate values properly instead of converting to ±10000
+    let mateIn: number | undefined = undefined
     if (!isNaN(mate) && isNaN(cp)) {
+      // For mate scores, use a very high cp value for sorting but keep mate info
+      mateIn = mate
       cp = mate > 0 ? 10000 : -10000
     }
 
@@ -189,11 +193,16 @@ class Engine {
       For example:
         - If Stockfish reports CP = 100 (White's advantage) and it's White's turn, we keep CP = 100.
         - If Stockfish reports CP = 100 (White's advantage) and it's Black's turn, we change CP to -100, indicating that Black is at a disadvantage.
+      
+      The same logic applies to mate values - they need to be adjusted for the current player's perspective.
     */
     const board = new Chess(this.fen)
     const isBlackTurn = board.turn() === 'b'
     if (isBlackTurn) {
       cp *= -1
+      if (mateIn !== undefined) {
+        mateIn *= -1
+      }
     }
 
     if (this.store[depth]) {
@@ -215,7 +224,11 @@ class Engine {
         ? this.store[depth].model_optimal_cp - cp
         : cp - this.store[depth].model_optimal_cp
 
-      const winrate = cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
+      const winrate = mateIn
+        ? mateIn > 0
+          ? 1.0
+          : 0.0
+        : cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
 
       if (!this.store[depth].winrate_vec) {
         this.store[depth].winrate_vec = {}
@@ -229,7 +242,11 @@ class Engine {
         winrateVec[move] = winrate
       }
     } else {
-      const winrate = cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
+      const winrate = mateIn
+        ? mateIn > 0
+          ? 1.0
+          : 0.0
+        : cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
 
       this.store[depth] = {
         depth: depth,
@@ -239,6 +256,7 @@ class Engine {
         cp_relative_vec: { [move]: 0 },
         winrate_vec: { [move]: winrate },
         winrate_loss_vec: { [move]: 0 },
+        mate_in: mateIn,
         sent: false,
       }
     }
@@ -278,6 +296,10 @@ class Engine {
           ),
         )
       }
+
+      // Check if position is checkmate (no legal moves and king in check)
+      const board = new Chess(this.fen)
+      this.store[depth].is_checkmate = board.inCheckmate()
 
       this.store[depth].sent = true
       if (this.evaluationResolver) {

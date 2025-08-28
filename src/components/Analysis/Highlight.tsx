@@ -1,3 +1,4 @@
+import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
 import { MoveTooltip } from './MoveTooltip'
 import { InteractiveDescription } from './InteractiveDescription'
@@ -54,6 +55,35 @@ export const Highlight: React.FC<Props> = ({
   isHomePage = false,
 }: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
+
+  // Check if current position is checkmate (independent of Stockfish analysis)
+  const isCurrentPositionCheckmate = currentNode
+    ? (() => {
+        try {
+          const chess = new Chess(currentNode.fen)
+          return chess.inCheckmate()
+        } catch {
+          return false
+        }
+      })()
+    : false
+
+  // Helper function to format evaluation values
+  const formatEvaluation = (
+    cp: number,
+    mateIn?: number,
+    isCheckmate?: boolean,
+  ) => {
+    if (isCheckmate) {
+      return 'Checkmate'
+    }
+    if (mateIn !== undefined) {
+      // Show +M2/-M2 to indicate whose mate it is
+      const sign = mateIn > 0 ? '+' : '-'
+      return `${sign}M${Math.abs(mateIn)}`
+    }
+    return `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`
+  }
   const [tooltipData, setTooltipData] = useState<{
     move: string
     maiaProb?: number
@@ -210,6 +240,26 @@ export const Highlight: React.FC<Props> = ({
 
   // Get the appropriate win rate
   const getWhiteWinRate = () => {
+    // Handle checkmate positions (check this first, even without Stockfish analysis)
+    if (isCurrentPositionCheckmate) {
+      // If it's checkmate, the current player has lost
+      const currentTurn = currentNode?.turn || 'w'
+      return currentTurn === 'w' ? '0.0%' : '100.0%'
+    }
+
+    // Handle checkmate positions detected by Stockfish
+    if (moveEvaluation?.stockfish?.is_checkmate) {
+      // If it's checkmate, the current player has lost
+      const currentTurn = currentNode?.turn || 'w'
+      return currentTurn === 'w' ? '0.0%' : '100.0%'
+    }
+
+    // Handle mate in X positions
+    if (moveEvaluation?.stockfish?.mate_in !== undefined) {
+      const mateIn = moveEvaluation.stockfish.mate_in
+      return mateIn > 0 ? '100.0%' : '0.0%'
+    }
+
     if (
       isInFirst10Ply &&
       moveEvaluation?.stockfish?.model_optimal_cp !== undefined
@@ -330,9 +380,15 @@ export const Highlight: React.FC<Props> = ({
                 : ''}
             </p>
             <p className="text-base font-bold text-engine-1 md:text-sm lg:text-lg">
-              {moveEvaluation?.stockfish
-                ? `${moveEvaluation.stockfish.model_optimal_cp > 0 ? '+' : ''}${moveEvaluation.stockfish.model_optimal_cp / 100}`
-                : '...'}
+              {isCurrentPositionCheckmate
+                ? 'Checkmate'
+                : moveEvaluation?.stockfish
+                  ? formatEvaluation(
+                      moveEvaluation.stockfish.model_optimal_cp,
+                      moveEvaluation.stockfish.mate_in,
+                      moveEvaluation.stockfish.is_checkmate,
+                    )
+                  : '...'}
             </p>
           </div>
 
@@ -386,8 +442,9 @@ export const Highlight: React.FC<Props> = ({
                       {colorSanMapping[move]?.san ?? move}
                     </p>
                     <p className="text-right font-mono text-sm md:text-xxs xl:text-xs">
-                      {cp > 0 ? '+' : null}
-                      {`${(cp / 100).toFixed(2)}`}
+                      {Math.abs(cp) >= 10000
+                        ? `${cp > 0 ? '+' : '-'}M${Math.max(1, Math.floor(Math.abs(10000 - Math.abs(cp)) / 100) + 1)}`
+                        : `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`}
                     </p>
                   </button>
                 )

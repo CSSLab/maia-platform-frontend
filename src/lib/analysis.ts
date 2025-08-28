@@ -17,13 +17,29 @@ export function convertBackendEvalToStockfishEval(
   const cp_relative_vec: { [key: string]: number } = {}
   let model_optimal_cp = -Infinity
   let model_move = ''
+  let bestMateIn: number | undefined = undefined
 
+  // Detect mate values and convert them
   for (const move in possibleMoves) {
     const cp = possibleMoves[move]
+
+    // Detect mate patterns (±10000 indicates mate)
+    let mateIn: number | undefined = undefined
+    if (Math.abs(cp) >= 10000) {
+      // Estimate mate in moves based on how close to 10000 it is
+      // The closer to 10000, the faster the mate
+      const mateDistance = Math.abs(10000 - Math.abs(cp))
+      mateIn =
+        cp > 0
+          ? Math.max(1, Math.floor(mateDistance / 100) + 1)
+          : -Math.max(1, Math.floor(mateDistance / 100) + 1)
+    }
+
     cp_vec[move] = cp
     if (cp > model_optimal_cp) {
       model_optimal_cp = cp
       model_move = move
+      bestMateIn = mateIn
     }
   }
 
@@ -45,7 +61,9 @@ export function convertBackendEvalToStockfishEval(
 
   for (const move in cp_vec_sorted) {
     const cp = cp_vec_sorted[move]
-    const winrate = cpToWinrate(cp, false)
+    // For mate positions, set winrate to 1.0 or 0.0
+    const isMate = Math.abs(cp) >= 10000
+    const winrate = isMate ? (cp > 0 ? 1.0 : 0.0) : cpToWinrate(cp, false)
     winrate_vec[move] = winrate
 
     if (winrate_vec[move] > max_winrate) {
@@ -71,8 +89,13 @@ export function convertBackendEvalToStockfishEval(
     for (const move in cp_vec_sorted) {
       cp_vec_sorted[move] *= -1
     }
+    if (bestMateIn !== undefined) {
+      bestMateIn *= -1
+    }
   }
 
+  // We can't easily detect checkmate from backend data without FEN,
+  // so we'll leave is_checkmate as undefined for backend evaluations
   return {
     sent: true,
     depth: 20,
@@ -82,6 +105,8 @@ export function convertBackendEvalToStockfishEval(
     cp_relative_vec: cp_relative_vec_sorted,
     winrate_vec: winrate_vec_sorted,
     winrate_loss_vec: winrate_loss_vec_sorted,
+    mate_in: bestMateIn,
+    is_checkmate: undefined,
   }
 }
 
