@@ -33,7 +33,9 @@ export const SoundSettings: React.FC = () => {
         {/* Sound Toggle */}
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-white/90">Enable Move Sounds</span>
+            <span className="text-sm font-medium text-white/90">
+              Enable Move Sounds
+            </span>
             <p className="text-xs text-white/70">
               Play sounds when chess pieces are moved or captured
             </p>
