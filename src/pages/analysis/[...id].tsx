@@ -630,31 +630,44 @@ const Analysis: React.FC<Props> = ({
       <div className="flex h-full w-[90%] flex-row gap-2">
         <motion.div
           id="navigation"
-          className="desktop-left-column-container flex flex-col gap-2 overflow-hidden"
+          className="desktop-left-column-container flex flex-col overflow-hidden"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <GameInfo title="Analysis" icon="bar_chart" type="analysis">
-            <NestedGameInfo />
-          </GameInfo>
-          <div className="flex max-h-[25vh] min-h-[25vh] flex-col bg-backdrop/30">
-            <AnalysisGameList
-              currentId={currentId}
-              loadNewWorldChampionshipGame={(newId, setCurrentMove) =>
-                getAndSetTournamentGame(newId, setCurrentMove)
-              }
-              loadNewLichessGame={(id, pgn, setCurrentMove) =>
-                getAndSetLichessGame(id, pgn, setCurrentMove)
-              }
-              loadNewMaiaGame={(id, type, setCurrentMove) =>
-                getAndSetUserGame(id, type, setCurrentMove)
-              }
-              onCustomAnalysis={() => setShowCustomModal(true)}
-              refreshTrigger={refreshTrigger}
-            />
-          </div>
-          <div className="flex h-1/2 w-full flex-1 flex-col gap-2">
-            <div className="flex h-full flex-col overflow-y-scroll">
+          <div className="border-glassBorder bg-glass flex h-full w-full flex-col overflow-hidden rounded-md border backdrop-blur-md">
+            {/* Game info header */}
+            <GameInfo
+              title="Analysis"
+              icon="bar_chart"
+              type="analysis"
+              embedded
+            >
+              <NestedGameInfo />
+            </GameInfo>
+            {/* Game list */}
+            <div className="flex flex-col overflow-hidden">
+              <div className="h-4" />
+              <div className="max-h-[32vh] min-h-[32vh]">
+                <AnalysisGameList
+                  currentId={currentId}
+                  loadNewWorldChampionshipGame={(newId, setCurrentMove) =>
+                    getAndSetTournamentGame(newId, setCurrentMove)
+                  }
+                  loadNewLichessGame={(id, pgn, setCurrentMove) =>
+                    getAndSetLichessGame(id, pgn, setCurrentMove)
+                  }
+                  loadNewMaiaGame={(id, type, setCurrentMove) =>
+                    getAndSetUserGame(id, type, setCurrentMove)
+                  }
+                  onCustomAnalysis={() => setShowCustomModal(true)}
+                  refreshTrigger={refreshTrigger}
+                  embedded
+                />
+              </div>
+            </div>
+            {/* Moves + controller */}
+            <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
+              <div className="h-4" />
               <MovesContainer
                 game={analyzedGame}
                 termination={analyzedGame.termination}
@@ -666,7 +679,10 @@ const Analysis: React.FC<Props> = ({
                 disableMoveClicking={
                   controller.learnFromMistakes.state.isActive
                 }
+                embedded
+                heightClass="h-40"
               />
+              {/* No spacer here to keep controller tight to moves */}
               <BoardController
                 gameTree={controller.gameTree}
                 orientation={controller.orientation}
@@ -682,6 +698,7 @@ const Analysis: React.FC<Props> = ({
                   controller.learnFromMistakes.state.isActive
                 }
                 disableNavigation={controller.learnFromMistakes.state.isActive}
+                embedded
               />
             </div>
           </div>
@@ -1265,13 +1282,13 @@ const Analysis: React.FC<Props> = ({
         />
       </Head>
       {/* Radial gradient backdrop to match new design language */}
-      <div
+      {/* <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
             'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
         }}
-      />
+      /> */}
       <AnimatePresence>
         {controller.maia.status === 'no-cache' ||
         controller.maia.status === 'downloading' ? (

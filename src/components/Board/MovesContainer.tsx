@@ -35,7 +35,9 @@ const getMoveClassification = (node: GameNode | null) => {
   }
 }
 
-export const MovesContainer: React.FC<Props> = (props) => {
+export const MovesContainer: React.FC<
+  Props & { embedded?: boolean; heightClass?: string }
+> = (props) => {
   const {
     game,
     termination,
@@ -46,7 +48,9 @@ export const MovesContainer: React.FC<Props> = (props) => {
     disableMoveClicking = false,
     startFromNode,
     restrictNavigationBefore,
-  } = props
+    embedded = false,
+    heightClass = 'h-48',
+  } = props as Props & { embedded?: boolean; heightClass?: string }
   const { isMobile } = useContext(WindowSizeContext)
   const containerRef = useRef<HTMLDivElement>(null)
   const currentMoveRef = useRef<HTMLDivElement>(null)
@@ -367,12 +371,16 @@ export const MovesContainer: React.FC<Props> = (props) => {
   return (
     <div
       ref={containerRef}
-      className="red-scrollbar grid h-48 auto-rows-min grid-cols-5 overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-md border border-glassBorder bg-glass text-white/90 backdrop-blur-md md:h-full md:w-full"
+      className={`red-scrollbar grid ${heightClass} auto-rows-min grid-cols-5 overflow-y-auto overflow-x-hidden whitespace-nowrap text-white/90 md:h-full md:w-full ${
+        embedded
+          ? 'border-glassBorder border-b bg-transparent'
+          : 'border-glassBorder bg-glass rounded-md border backdrop-blur-md'
+      }`}
     >
       {moves.map(([whiteNode, blackNode], index) => {
         return (
           <>
-            <span className="flex h-7 items-center justify-center bg-glass-strong text-sm text-white/70">
+            <span className="bg-glass-strong flex h-7 items-center justify-center text-sm text-white/70">
               {(whiteNode || blackNode)?.moveNumber}
             </span>
             <div
@@ -383,7 +391,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
                 }
               }}
               data-index={index * 2 + 1}
-              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
+              className={`hover:bg-glass-hover col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -424,7 +432,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
                 }
               }}
               data-index={index * 2 + 2}
-              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
+              className={`hover:bg-glass-hover col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -462,7 +470,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
       })}
       {termination && !isMobile && (
         <div
-          className="col-span-5 cursor-pointer rounded-md border border-glassBorder bg-glass p-5 text-center text-white/90 backdrop-blur-md"
+          className="border-glassBorder bg-glass col-span-5 cursor-pointer rounded-md border p-5 text-center text-white/90 backdrop-blur-md"
           onClick={() => {
             if (!disableMoveClicking) {
               controller.goToNode(mainLineNodes[mainLineNodes.length - 1])

@@ -18,6 +18,7 @@ interface Props {
     error: string | null
     gameEnded: boolean
   }
+  embedded?: boolean
 }
 
 export const GameInfo: React.FC<Props> = ({
@@ -31,13 +32,18 @@ export const GameInfo: React.FC<Props> = ({
   showGameListButton,
   onGameListClick,
   streamState,
+  embedded = false,
 }: Props) => {
   const { startTour } = useTour()
 
   return (
     <div
       id="analysis-game-list"
-      className="flex w-full flex-col items-start justify-start gap-1 overflow-hidden rounded-md border border-glassBorder bg-glass p-3 backdrop-blur-md"
+      className={
+        embedded
+          ? 'flex w-full flex-col items-start justify-start gap-1 overflow-hidden border-b border-glassBorder bg-transparent p-3'
+          : 'flex w-full flex-col items-start justify-start gap-1 overflow-hidden rounded-md border border-glassBorder bg-glass p-3 backdrop-blur-md'
+      }
     >
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center justify-start gap-1.5">

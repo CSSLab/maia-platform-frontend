@@ -20,7 +20,7 @@ interface Props {
   disableNavigation?: boolean
 }
 
-export const BoardController: React.FC<Props> = ({
+export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
   orientation,
   setOrientation,
   currentNode,
@@ -35,6 +35,7 @@ export const BoardController: React.FC<Props> = ({
   disablePrevious = false,
   disableKeyboardNavigation = false,
   disableNavigation = false,
+  embedded = false,
 }: Props) => {
   const { width } = useWindowSize()
 
@@ -123,7 +124,13 @@ export const BoardController: React.FC<Props> = ({
   ])
 
   return (
-    <div className="flex w-full flex-row items-center gap-[1px] rounded-md border border-glassBorder bg-glass p-1 backdrop-blur-md">
+    <div
+      className={`flex w-full flex-row items-center gap-[1px] ${
+        embedded
+          ? 'border-t border-glassBorder bg-transparent'
+          : 'rounded-md border border-glassBorder bg-glass backdrop-blur-md'
+      }`}
+    >
       <button
         onClick={disableFlip ? undefined : toggleBoardOrientation}
         disabled={disableFlip}

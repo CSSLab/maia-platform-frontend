@@ -48,6 +48,7 @@ interface AnalysisGameListProps {
   onCustomAnalysis?: () => void
   onGameSelected?: () => void // Called when a game is selected (for mobile popup closing)
   refreshTrigger?: number // Used to trigger refresh when custom analysis is added
+  embedded?: boolean // Render without outer card container
 }
 
 export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
@@ -56,6 +57,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   onGameSelected,
   refreshTrigger,
   loadNewWorldChampionshipGame,
+  embedded = false,
 }) => {
   const router = useRouter()
   const { analysisLichessList, analysisTournamentList } =
@@ -584,7 +586,11 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   return analysisTournamentList ? (
     <div
       id="analysis-game-list"
-      className="flex h-full flex-col items-start justify-start overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md"
+      className={
+        embedded
+          ? 'flex h-full flex-col items-start justify-start overflow-hidden border-t border-b border-glassBorder bg-transparent'
+          : 'flex h-full flex-col items-start justify-start overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md'
+      }
     >
       <div className="flex h-full w-full flex-col">
         <div className="flex select-none items-center border-b border-white/10">

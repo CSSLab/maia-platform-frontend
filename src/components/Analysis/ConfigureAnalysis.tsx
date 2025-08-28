@@ -35,7 +35,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
   autoSave,
 }: Props) => {
   return (
-    <div className="border-glassBorder bg-glass flex w-full flex-col items-start justify-start gap-2 rounded-md border p-3 text-white/90 backdrop-blur-md">
+    <div className="flex w-full flex-col items-start justify-start gap-2 rounded-md p-3 text-white/90">
       <div className="flex w-full flex-col gap-0.5">
         <p className="text-xs text-white/70">Analyze using:</p>
         <div className="relative inline-flex w-full items-center">

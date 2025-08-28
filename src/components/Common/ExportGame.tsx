@@ -117,7 +117,7 @@ export const ExportGame: React.FC<Props> = (props) => {
           role="button"
           tabIndex={0}
           onClick={() => copy(fen)}
-          className="border-1 group flex w-full cursor-pointer overflow-x-hidden rounded border border-white/5 bg-background-1/50 p-1"
+          className="border-1 group flex w-full cursor-pointer overflow-x-hidden rounded border border-white/5 p-1"
         >
           <p className="whitespace-nowrap text-xxs text-secondary group-hover:text-secondary/80">
             {fen}
@@ -144,7 +144,7 @@ export const ExportGame: React.FC<Props> = (props) => {
           role="button"
           tabIndex={0}
           onClick={() => copy(pgn)}
-          className="group flex w-full cursor-pointer overflow-x-hidden overflow-y-scroll rounded border border-white/5 bg-background-1/50 p-1"
+          className="group flex w-full cursor-pointer overflow-x-hidden overflow-y-scroll rounded border border-white/5 p-1"
         >
           <p className="whitespace-pre-wrap text-xxs text-secondary group-hover:text-secondary/80">
             {pgn}
