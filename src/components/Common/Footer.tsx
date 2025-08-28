@@ -88,7 +88,25 @@ export const Footer: React.FC = () => {
   ]
 
   return (
-    <div className="flex flex-col items-start justify-center gap-8 bg-background-1/60 px-6 py-8 md:items-center md:px-4">
+    <div className="flex flex-col items-start justify-center gap-8 bg-transparent px-6 py-8 md:items-center md:px-4">
+      {/* Decorative divider: line × line × line (not full-width) */}
+      <div className="mx-auto mt-1 flex w-full max-w-5xl select-none items-center gap-7 px-2">
+        <div className="h-px flex-1 rounded bg-white/10" aria-hidden="true" />
+        <span
+          className="text-[12px] tracking-widest text-white/30"
+          aria-hidden="true"
+        >
+          ×
+        </span>
+        <div className="h-px flex-1 rounded bg-white/10" aria-hidden="true" />
+        <span
+          className="text-[12px] tracking-widest text-white/30"
+          aria-hidden="true"
+        >
+          ×
+        </span>
+        <div className="h-px flex-1 rounded bg-white/10" aria-hidden="true" />
+      </div>
       <div className="flex w-full max-w-4xl flex-col items-start justify-start gap-4 md:flex-row md:items-center md:justify-center md:gap-8">
         <div className="mb-2 flex flex-col items-start gap-1 md:mb-0 md:items-center md:gap-0.5">
           <div className="flex items-center gap-2">
@@ -112,7 +130,7 @@ export const Footer: React.FC = () => {
             </a>
           </p>
         </div>
-        <div className="hidden h-10 w-[1px] rounded-full bg-white opacity-20 md:block" />
+        <div className="hidden h-10 w-[1px] rounded-full bg-white/10 md:block" />
         <div className="flex flex-col gap-6 md:flex-row md:gap-10">
           {footerSections.map((section, index) => (
             <div
