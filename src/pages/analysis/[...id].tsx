@@ -705,6 +705,8 @@ const Analysis: React.FC<Props> = ({
               }
               color={controller.orientation === 'white' ? 'black' : 'white'}
               termination={analyzedGame.termination?.winner}
+              currentFen={controller.currentNode?.fen}
+              orientation={controller.orientation}
             />
             <div className="desktop-board-container relative flex aspect-square">
               <GameBoard
@@ -776,6 +778,8 @@ const Analysis: React.FC<Props> = ({
               color={controller.orientation === 'white' ? 'white' : 'black'}
               termination={analyzedGame.termination?.winner}
               showArrowLegend={true}
+              currentFen={controller.currentNode?.fen}
+              orientation={controller.orientation}
             />
           </div>
           <ConfigurableScreens

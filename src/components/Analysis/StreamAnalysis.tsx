@@ -339,6 +339,8 @@ export const StreamAnalysis: React.FC<Props> = ({
                 analysisController.orientation === 'white' ? 'black' : 'white'
               }
               termination={game.termination?.winner}
+              currentFen={analysisController.currentNode?.fen}
+              orientation={analysisController.orientation}
               clock={
                 clockState
                   ? analysisController.orientation === 'white'
@@ -397,6 +399,8 @@ export const StreamAnalysis: React.FC<Props> = ({
               }
               termination={game.termination?.winner}
               showArrowLegend={true}
+              currentFen={analysisController.currentNode?.fen}
+              orientation={analysisController.orientation}
               clock={
                 clockState
                   ? analysisController.orientation === 'white'

@@ -4,6 +4,8 @@ interface PlayerInfoProps {
   rating?: number
   termination?: string
   showArrowLegend?: boolean
+  currentFen?: string
+  orientation?: 'white' | 'black'
   clock?: {
     timeInSeconds: number
     isActive: boolean
@@ -11,7 +13,94 @@ interface PlayerInfoProps {
   }
 }
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { Chess } from 'chess.ts'
+
+type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
+type MaterialCount = Record<PieceType, number>
+
+const PIECE_VALUES: Record<string, number> = {
+  p: 1, // pawn
+  n: 3, // knight
+  b: 3, // bishop
+  r: 5, // rook
+  q: 9, // queen
+  k: 0, // king (not counted)
+}
+
+const STARTING_MATERIAL: { white: MaterialCount; black: MaterialCount } = {
+  white: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
+  black: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
+}
+
+const calculateCapturedPieces = (fen?: string) => {
+  if (!fen) return { white: {}, black: {} }
+
+  const chess = new Chess(fen)
+  const board = chess.board()
+
+  // Count current pieces on board
+  const currentMaterial: { white: MaterialCount; black: MaterialCount } = {
+    white: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+    black: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
+  }
+
+  for (const row of board) {
+    for (const square of row) {
+      if (square) {
+        const piece = square.type.toLowerCase() as PieceType
+        const color = square.color === 'w' ? 'white' : 'black'
+        currentMaterial[color][piece]++
+      }
+    }
+  }
+
+  // Calculate captured pieces (starting - current)
+  const captured = {
+    white: {} as Record<string, number>,
+    black: {} as Record<string, number>,
+  }
+
+  for (const piece of Object.keys(STARTING_MATERIAL.white) as PieceType[]) {
+    const whiteCaptured =
+      STARTING_MATERIAL.white[piece] - currentMaterial.white[piece]
+    const blackCaptured =
+      STARTING_MATERIAL.black[piece] - currentMaterial.black[piece]
+
+    if (whiteCaptured > 0) captured.white[piece] = whiteCaptured
+    if (blackCaptured > 0) captured.black[piece] = blackCaptured
+  }
+
+  return captured
+}
+
+const calculateMaterialAdvantage = (
+  fen?: string,
+): { white: number; black: number } => {
+  if (!fen) return { white: 0, black: 0 }
+
+  const chess = new Chess(fen)
+  const board = chess.board()
+
+  let whiteTotal = 0
+  let blackTotal = 0
+
+  for (const row of board) {
+    for (const square of row) {
+      if (square) {
+        const piece = square.type.toLowerCase()
+        const value = PIECE_VALUES[piece] || 0
+        if (square.color === 'w') {
+          whiteTotal += value
+        } else {
+          blackTotal += value
+        }
+      }
+    }
+  }
+
+  return { white: whiteTotal, black: blackTotal }
+}
 
 export const PlayerInfo: React.FC<PlayerInfoProps> = ({
   name,
@@ -19,11 +108,69 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
   color,
   termination,
   showArrowLegend = false,
+  currentFen,
+  orientation = 'white',
   clock,
 }) => {
   const [currentTime, setCurrentTime] = useState<number>(
     clock?.timeInSeconds || 0,
   )
+
+  // Calculate captured pieces and material advantage
+  const capturedPieces = useMemo(
+    () => calculateCapturedPieces(currentFen),
+    [currentFen],
+  )
+  const materialAdvantage = useMemo(
+    () => calculateMaterialAdvantage(currentFen),
+    [currentFen],
+  )
+
+  // Get pieces captured by this player (pieces of opposite color that were captured)
+  const myCapturedPieces =
+    color === 'white' ? capturedPieces.black : capturedPieces.white
+
+  // Calculate score advantage for this player
+  const myAdvantage =
+    materialAdvantage[color as 'white' | 'black'] -
+    materialAdvantage[color === 'white' ? 'black' : 'white']
+
+  // Map chess pieces to Material UI icons
+  const getPieceIcon = (piece: string): string => {
+    const iconMap: Record<string, string> = {
+      p: 'chess_pawn',
+      n: 'chess_knight',
+      b: 'chess_bishop',
+      r: 'chess_rook',
+      q: 'chess', // queen uses 'chess' icon
+    }
+    return iconMap[piece] || 'chess'
+  }
+
+  // Render captured pieces
+  const renderCapturedPieces = () => {
+    const pieces: React.JSX.Element[] = []
+
+    // Order pieces by value (lowest to highest)
+    const orderedPieces = ['p', 'n', 'b', 'r', 'q']
+
+    orderedPieces.forEach((piece) => {
+      const count = myCapturedPieces[piece] || 0
+      for (let i = 0; i < count; i++) {
+        pieces.push(
+          <span
+            key={`${piece}-${i}`}
+            className="material-symbols-outlined text-sm text-secondary"
+            title={`${piece === 'p' ? 'pawn' : piece === 'n' ? 'knight' : piece === 'b' ? 'bishop' : piece === 'r' ? 'rook' : 'queen'}`}
+          >
+            {getPieceIcon(piece)}
+          </span>,
+        )
+      }
+    })
+
+    return pieces
+  }
 
   // Update clock countdown every second if this clock is active
   useEffect(() => {
@@ -83,6 +230,24 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
             </div>
           </div>
         )}
+
+        {/* Captured pieces and material advantage */}
+        {currentFen && (
+          <div className="flex items-center gap-2">
+            {/* Captured pieces icons */}
+            <div className="flex items-center gap-0.5">
+              {renderCapturedPieces()}
+            </div>
+
+            {/* Material advantage score */}
+            {myAdvantage !== 0 && (
+              <span className="text-xs font-medium text-primary">
+                +{Math.abs(myAdvantage)}
+              </span>
+            )}
+          </div>
+        )}
+
         {clock && (
           <div
             className={`flex items-center px-2 py-1 ${

@@ -548,7 +548,12 @@ const OpeningsPage: NextPage = () => {
         {/* Center - Board */}
         <div className="desktop-middle-column-container flex flex-col gap-2">
           <div className="flex w-full flex-col overflow-hidden rounded">
-            <PlayerInfo name={topPlayer.name} color={topPlayer.color} />
+            <PlayerInfo
+              name={topPlayer.name}
+              color={topPlayer.color}
+              currentFen={controller.currentNode?.fen}
+              orientation={controller.orientation}
+            />
             <div className="desktop-board-container relative flex aspect-square">
               <GameBoard
                 currentNode={controller.currentNode}
@@ -578,6 +583,8 @@ const OpeningsPage: NextPage = () => {
               name={bottomPlayer.name}
               color={bottomPlayer.color}
               showArrowLegend={controller.analysisEnabled}
+              currentFen={controller.currentNode?.fen}
+              orientation={controller.orientation}
             />
           </div>
 
@@ -691,7 +698,12 @@ const OpeningsPage: NextPage = () => {
 
         {/* Board Section */}
         <div className="flex w-full flex-col">
-          <PlayerInfo name={topPlayer.name} color={topPlayer.color} />
+          <PlayerInfo
+            name={topPlayer.name}
+            color={topPlayer.color}
+            currentFen={controller.currentNode?.fen}
+            orientation={controller.orientation}
+          />
           <div className="relative flex aspect-square h-[100vw] w-screen">
             <GameBoard
               currentNode={controller.currentNode}
@@ -721,6 +733,8 @@ const OpeningsPage: NextPage = () => {
             name={bottomPlayer.name}
             color={bottomPlayer.color}
             showArrowLegend={controller.analysisEnabled}
+            currentFen={controller.currentNode?.fen}
+            orientation={controller.orientation}
           />
         </div>
 

@@ -333,6 +333,8 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 analysisController.orientation === 'white' ? 'black' : 'white'
               }
               termination={game.termination?.winner}
+              currentFen={analysisController.currentNode?.fen}
+              orientation={analysisController.orientation}
               clock={(() => {
                 const clock =
                   analysisController.orientation === 'white'
@@ -393,6 +395,8 @@ export const BroadcastAnalysis: React.FC<Props> = ({
               }
               termination={game.termination?.winner}
               showArrowLegend={true}
+              currentFen={analysisController.currentNode?.fen}
+              orientation={analysisController.orientation}
               clock={
                 analysisController.orientation === 'white'
                   ? broadcastController.currentGame?.whiteClock
