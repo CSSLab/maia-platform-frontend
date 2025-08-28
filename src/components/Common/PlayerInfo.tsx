@@ -130,10 +130,21 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
   const myCapturedPieces =
     color === 'white' ? capturedPieces.black : capturedPieces.white
 
-  // Calculate score advantage for this player
-  const myAdvantage =
-    materialAdvantage[color as 'white' | 'black'] -
-    materialAdvantage[color === 'white' ? 'black' : 'white']
+  // Calculate net material advantage (white total - black total)
+  const netAdvantage = materialAdvantage.white - materialAdvantage.black
+
+  // Only show advantage for the side that actually has more material
+  const myAdvantage = useMemo(() => {
+    if (netAdvantage === 0) return 0
+
+    if (netAdvantage > 0) {
+      // White has advantage
+      return color === 'white' ? netAdvantage : 0
+    } else {
+      // Black has advantage
+      return color === 'black' ? Math.abs(netAdvantage) : 0
+    }
+  }, [netAdvantage, color])
 
   // Map chess pieces to Material UI icons
   const getPieceIcon = (piece: string): string => {
@@ -149,30 +160,39 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
 
   // Render captured pieces
   const renderCapturedPieces = () => {
-    const pieces: React.JSX.Element[] = []
+    const pieceGroups: React.JSX.Element[] = []
 
     // Order pieces by value (lowest to highest)
     const orderedPieces = ['p', 'n', 'b', 'r', 'q']
 
     orderedPieces.forEach((piece) => {
       const count = myCapturedPieces[piece] || 0
-      for (let i = 0; i < count; i++) {
-        pieces.push(
-          <span
-            key={`${piece}-${i}`}
-            className="material-symbols-outlined text-sm text-secondary"
-            title={`${piece === 'p' ? 'pawn' : piece === 'n' ? 'knight' : piece === 'b' ? 'bishop' : piece === 'r' ? 'rook' : 'queen'}`}
-          >
-            {getPieceIcon(piece)}
-          </span>,
+      if (count > 0) {
+        const piecesOfType: React.JSX.Element[] = []
+
+        for (let i = 0; i < count; i++) {
+          piecesOfType.push(
+            <span
+              key={`${piece}-${i}`}
+              className={`material-symbols-outlined material-symbols-filled text-sm text-secondary ${i > 0 ? '-ml-1.5' : ''}`}
+              title={`${piece === 'p' ? 'pawn' : piece === 'n' ? 'knight' : piece === 'b' ? 'bishop' : piece === 'r' ? 'rook' : 'queen'}`}
+            >
+              {getPieceIcon(piece)}
+            </span>,
+          )
+        }
+
+        pieceGroups.push(
+          <div key={piece} className="flex items-center gap-0">
+            {piecesOfType}
+          </div>,
         )
       }
     })
 
-    return pieces
+    return pieceGroups
   }
 
-  // Update clock countdown every second if this clock is active
   useEffect(() => {
     if (!clock || !clock.isActive) return
 
@@ -181,7 +201,7 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
       const elapsedSinceUpdate = (now - clock.lastUpdateTime) / 1000
       const newTime = Math.max(0, clock.timeInSeconds - elapsedSinceUpdate)
       setCurrentTime(newTime)
-    }, 100) // Update every 100ms for smooth countdown
+    }, 100)
 
     return () => clearInterval(interval)
   }, [clock])
@@ -212,6 +232,16 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
             {rating ? `(${rating})` : null}
           </span>
         </p>
+        {currentFen && (
+          <div className="ml-1 flex select-none items-center gap-1">
+            <div className="flex items-center">{renderCapturedPieces()}</div>
+            {myAdvantage > 0 && (
+              <span className="text-xxs font-medium text-secondary">
+                +{myAdvantage}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-4">
         {showArrowLegend && (
@@ -228,23 +258,6 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
               </span>
               <span className="text-xxs text-engine-3">Best Engine Move</span>
             </div>
-          </div>
-        )}
-
-        {/* Captured pieces and material advantage */}
-        {currentFen && (
-          <div className="flex items-center gap-2">
-            {/* Captured pieces icons */}
-            <div className="flex items-center gap-0.5">
-              {renderCapturedPieces()}
-            </div>
-
-            {/* Material advantage score */}
-            {myAdvantage !== 0 && (
-              <span className="text-xs font-medium text-primary">
-                +{Math.abs(myAdvantage)}
-              </span>
-            )}
           </div>
         )}
 
