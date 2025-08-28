@@ -8,7 +8,7 @@ import { PlayGameConfig } from 'src/types'
 import { useStats } from 'src/hooks/useStats'
 import { usePlayController } from './usePlayController'
 import { fetchGameMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
-import { chessSoundManager } from 'src/lib/sound'
+import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
 
 const brainStatsLoader = async () => {
@@ -36,6 +36,7 @@ export const useHandBrainController = (
 ) => {
   const isBrain = playGameConfig.isBrain
   const controller = usePlayController(id, playGameConfig)
+  const { playMoveSound } = useSound()
 
   const [selectedPiece, setSelectedPiece] = useState<PieceSymbol | undefined>(
     undefined,
@@ -121,9 +122,9 @@ export const useHandBrainController = (
       controller.addMoveWithTime(moveUci, moveTime)
       setSelectedPiece(undefined)
 
-      chessSoundManager.playMoveSound(isCapture)
+      playMoveSound(isCapture)
     },
-    [controller],
+    [controller, playMoveSound],
   )
 
   useEffect(() => {
@@ -168,7 +169,7 @@ export const useHandBrainController = (
           const isCapture = !!chess.get(destinationSquare)
 
           controller.addMoveWithTime(nextMove, moveTime)
-          chessSoundManager.playMoveSound(isCapture)
+          playMoveSound(isCapture)
         },
         simulateMaiaTime ? moveDelay * 1000 : 0,
       )

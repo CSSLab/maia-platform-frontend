@@ -16,7 +16,7 @@ import {
 } from 'src/types/openings'
 import { MAIA_MODELS } from 'src/constants/common'
 import { MIN_STOCKFISH_DEPTH } from 'src/constants/analysis'
-import { chessSoundManager } from 'src/lib/sound'
+import { useSound } from 'src/hooks/useSound'
 
 const parsePgnToTree = (pgn: string, gameTree: GameTree): GameNode | null => {
   if (!pgn || pgn.trim() === '') return gameTree.getRoot()
@@ -61,6 +61,7 @@ const parsePgnToTree = (pgn: string, gameTree: GameTree): GameNode | null => {
 export const useOpeningDrillController = (
   configuration: DrillConfiguration,
 ) => {
+  const { playMoveSound } = useSound()
   const [currentDrillIndex, setCurrentDrillIndex] = useState(0)
   const [currentDrillGame, setCurrentDrillGame] =
     useState<OpeningDrillGame | null>(null)
@@ -752,7 +753,7 @@ export const useOpeningDrillController = (
             const tempChess = new Chess(fromNode.fen)
             const tempMoveObj = tempChess.move(maiaMove, { sloppy: true })
             const isCapture = tempMoveObj?.captured !== undefined
-            chessSoundManager.playMoveSound(isCapture)
+            playMoveSound(isCapture)
 
             // Update the moves array by getting all moves after the opening
             const mainLine = gameTree.getMainLine()

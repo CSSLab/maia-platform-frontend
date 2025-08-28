@@ -5,7 +5,7 @@ import { backOff } from 'exponential-backoff'
 import { useStats } from 'src/hooks/useStats'
 import { usePlayController } from 'src/hooks/usePlayController'
 import { fetchGameMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
-import { chessSoundManager } from 'src/lib/sound'
+import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
 
 const playStatsLoader = async () => {
@@ -24,6 +24,7 @@ export const useVsMaiaPlayController = (
 ) => {
   const controller = usePlayController(id, playGameConfig)
   const [stats, incrementStats, updateRating] = useStats(playStatsLoader)
+  const { playMoveSound } = useSound()
 
   const makePlayerMove = async (moveUci: string) => {
     const moveTime = controller.updateClock()
@@ -77,7 +78,7 @@ export const useVsMaiaPlayController = (
             const isCapture = !!chess.get(destinationSquare)
 
             controller.addMoveWithTime(nextMove, moveTime)
-            chessSoundManager.playMoveSound(isCapture)
+            playMoveSound(isCapture)
           }, moveDelay * 1000)
         } else {
           const moveTime = controller.updateClock()
@@ -87,7 +88,7 @@ export const useVsMaiaPlayController = (
           const isCapture = !!chess.get(destinationSquare)
 
           controller.addMoveWithTime(nextMove, moveTime)
-          chessSoundManager.playMoveSound(isCapture)
+          playMoveSound(isCapture)
         }
       }
     }

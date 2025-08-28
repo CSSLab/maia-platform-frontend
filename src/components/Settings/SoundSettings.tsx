@@ -1,10 +1,10 @@
 import React from 'react'
 import { useSettings } from 'src/contexts/SettingsContext'
-import { useChessSoundManager } from 'src/lib/sound'
+import { useSound } from 'src/hooks/useSound'
 
 export const SoundSettings: React.FC = () => {
   const { settings, updateSetting } = useSettings()
-  const { playMoveSound } = useChessSoundManager()
+  const { playMoveSound } = useSound()
 
   const handleToggleSound = () => {
     const newValue = !settings.soundEnabled

@@ -8,7 +8,7 @@ import posthog from 'posthog-js'
 import { Open_Sans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react'
 import { PostHogProvider } from 'posthog-js/react'
-import { chessSoundManager } from 'src/lib/sound'
+import { SoundProvider } from 'src/contexts/SoundContext'
 
 import {
   AuthContextProvider,
@@ -55,12 +55,6 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
       capture_exceptions: true,
       debug: false,
     })
-
-    chessSoundManager.initialize()
-
-    return () => {
-      chessSoundManager.cleanup()
-    }
   }, [])
 
   return (
@@ -69,6 +63,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
         <Compose
           components={[
             SettingsProvider,
+            SoundProvider,
             WindowSizeContextProvider,
             AuthContextProvider,
             ErrorBoundary,
