@@ -49,32 +49,34 @@ export const SettingsPage: React.FC = () => {
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
-      className="mx-auto flex h-full w-[90%] max-w-4xl flex-col gap-6 py-6 md:py-8"
+      className="container relative mx-auto flex flex-col gap-6 px-6 py-8 md:gap-8"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-4xl">settings</span>
-          <h1 className="text-3xl font-semibold">Settings</h1>
+          <span className="material-symbols-outlined text-4xl text-white/90">settings</span>
+          <h1 className="text-3xl font-bold text-white">Settings</h1>
         </div>
-        <p className="text-secondary">
-          Customize your Maia Chess experience. All settings are saved locally
-          in your browser.
+        <p className="text-white/70">
+          Customize your Maia Chess experience. Settings are saved locally in your browser.
         </p>
       </motion.div>
 
-      {/* Settings Sections */}
-      <div className="flex flex-col gap-6">
-        <motion.div variants={itemVariants}>
-          <SoundSettings />
-        </motion.div>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:gap-8">
+        {/* Left column: Sound + Model */}
+        <div className="flex flex-col gap-4 md:gap-6">
+          <motion.div variants={itemVariants}>
+            <SoundSettings />
+          </motion.div>
+          <motion.div variants={itemVariants}>
+            <MaiaModelSettings />
+          </motion.div>
+        </div>
 
-        <motion.div variants={itemVariants}>
+        {/* Right column: Chessboard */}
+        <motion.div variants={itemVariants} className="min-h-full">
           <ChessboardSettings />
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <MaiaModelSettings />
         </motion.div>
       </div>
     </motion.div>

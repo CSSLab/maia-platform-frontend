@@ -74,12 +74,11 @@ export const ChessboardSettings: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded bg-background-1 p-6">
+    <div className="from-white/8 to-white/4 flex flex-col gap-4 rounded-lg border border-white/10 bg-gradient-to-br px-5 pb-0 pt-5 backdrop-blur-md transition-all duration-300">
       <div className="flex flex-col items-start justify-between">
-        <h3 className="text-lg font-semibold">Chessboard Theme</h3>
-        <p className="text-sm text-secondary">
-          Choose your preferred chessboard style. Changes will apply to all
-          chess boards across the platform.
+        <h3 className="text-lg font-semibold text-white/95">Chessboard Theme</h3>
+        <p className="text-sm text-white/70">
+          Choose your preferred chessboard style. Changes will apply to all chess boards across the platform.
         </p>
       </div>
 
@@ -89,10 +88,10 @@ export const ChessboardSettings: React.FC = () => {
           {ALL_THEMES.map((theme) => (
             <label
               key={theme}
-              className={`flex cursor-pointer items-center justify-center rounded border p-2 transition-colors ${
+              className={`group relative flex cursor-pointer select-none items-center justify-center overflow-hidden rounded-md border p-2 text-white/90 backdrop-blur-md transition-all duration-300 ${
                 settings.chessboardTheme === theme
-                  ? 'border-human-4 bg-human-3/20'
-                  : 'border-white/10 bg-background-2/60 hover:bg-background-2'
+                  ? 'border-red-500/40 bg-gradient-to-br from-red-500/15 to-red-500/5 shadow-white/5'
+                  : 'border-white/10 bg-gradient-to-br from-white/8 to-white/4 hover:border-white/20 hover:from-white/12 hover:to-white/6 hover:shadow-md hover:shadow-white/5 hover:-translate-y-0.5'
               }`}
             >
               <input
@@ -119,14 +118,13 @@ export const ChessboardSettings: React.FC = () => {
           ))}
         </div>
 
-        <div className="flex items-start gap-2 rounded bg-background-2/60 px-3 py-2">
-          <span className="material-symbols-outlined inline !text-base text-secondary">
-            info
-          </span>
-          <p className="text-sm text-secondary">
-            Theme changes take effect immediately and will be remembered across
-            browser sessions. Preview shows how the board will appear in games.
-          </p>
+        <div className="-mx-5 mt-1 border-t border-white/10 px-5 py-4 text-white/80">
+          <div className="flex items-start gap-2">
+            <span className="material-symbols-outlined inline !text-base text-white/70">info</span>
+            <p className="text-sm">
+              Theme changes take effect immediately and will be remembered across browser sessions. Preview shows how the board will appear in games.
+            </p>
+          </div>
         </div>
       </div>
     </div>
