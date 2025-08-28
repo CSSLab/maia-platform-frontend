@@ -150,7 +150,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
           )
         })}
       </div>
-      <div className="red-scrollbar flex flex-1 flex-col items-start justify-start overflow-y-scroll bg-backdrop/30">
+      <div className="red-scrollbar flex flex-1 flex-col items-start justify-start overflow-y-scroll">
         {screen.id === 'configure' ? (
           <ConfigureAnalysis
             currentMaiaModel={currentMaiaModel}

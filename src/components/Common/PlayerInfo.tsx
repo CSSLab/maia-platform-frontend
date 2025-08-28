@@ -54,7 +54,7 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
   }
 
   return (
-    <div className="flex h-10 w-full items-center justify-between bg-background-1 px-4">
+    <div className="flex h-10 w-full items-center justify-between rounded-md border border-glassBorder bg-glass px-4 backdrop-blur-md">
       <div className="flex items-center gap-1.5">
         <div
           className={`h-2.5 w-2.5 rounded-full ${color === 'white' ? 'bg-white' : 'border bg-black'}`}
@@ -85,13 +85,13 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
         )}
         {clock && (
           <div
-            className={`flex items-center px-2 py-1 ${
-              clock.isActive ? 'bg-primary' : 'bg-background-2'
+            className={`flex items-center rounded bg-glass px-2 py-1 ${
+              clock.isActive ? 'bg-primary text-black' : ''
             }`}
           >
             <span
               className={`font-mono text-xs font-medium ${
-                clock.isActive ? 'text-black' : 'text-secondary/80'
+                clock.isActive ? '' : 'text-secondary/80'
               } ${currentTime < 60 && clock.isActive ? 'text-red-700' : ''}`}
             >
               {formatTime(currentTime)}

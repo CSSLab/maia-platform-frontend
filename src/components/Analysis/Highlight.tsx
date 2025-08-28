@@ -238,10 +238,10 @@ export const Highlight: React.FC<Props> = ({
   return (
     <div
       id="analysis-highlight"
-      className="flex h-full w-full flex-col border-white/40 bg-background-1"
+      className="flex h-full w-full flex-col border-white/10 bg-transparent"
     >
-      <div className="grid grid-cols-2 border-b border-white/20">
-        <div className="flex flex-col items-center justify-start gap-0.5 border-r border-white/20 bg-human-3/5 xl:gap-1">
+      <div className="grid grid-cols-2 border-b border-white/10">
+        <div className="flex flex-col items-center justify-start gap-0.5 border-r border-white/10 xl:gap-1">
           <div className="relative flex w-full flex-col border-b border-white/5">
             {isHomePage ? (
               <div className="py-2 text-center text-sm font-semibold text-human-1 md:text-xxs lg:text-xs">
@@ -258,7 +258,7 @@ export const Highlight: React.FC<Props> = ({
                     <option
                       value={model}
                       key={model}
-                      className="bg-background-1 text-human-1"
+                      className="bg-transparent text-human-1"
                     >
                       Maia {model.slice(-4)}
                     </option>
@@ -315,7 +315,7 @@ export const Highlight: React.FC<Props> = ({
             })}
           </div>
         </div>
-        <div className="flex flex-col items-center justify-start gap-0.5 bg-engine-3/5 xl:gap-1">
+        <div className="flex flex-col items-center justify-start gap-0.5 xl:gap-1">
           <div className="flex w-full flex-col border-b border-white/5 py-2">
             <p className="whitespace-nowrap text-center text-base font-semibold text-engine-1 md:text-xxs lg:text-xs">
               Stockfish 17
@@ -395,7 +395,7 @@ export const Highlight: React.FC<Props> = ({
           </div>
         </div>
       </div>
-      <div className="flex flex-col items-start justify-start bg-background-1/80 p-2 text-sm">
+      <div className="flex flex-col items-start justify-start bg-transparent p-2 text-sm">
         <AnimatePresence mode="wait">
           {boardDescription?.segments?.length > 0 ? (
             <motion.div

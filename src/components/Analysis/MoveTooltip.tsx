@@ -39,7 +39,7 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
 
   const tooltipContent = (
     <div
-      className={`fixed z-50 flex w-auto min-w-[12rem] flex-col overflow-hidden rounded-lg border border-white/30 bg-background-1 text-primary backdrop-blur-sm ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
+      className={`fixed z-50 flex w-auto min-w-[12rem] flex-col overflow-hidden rounded-md border border-glassBorder bg-glass text-primary backdrop-blur-md ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
       style={{
         left: position.x + 15,
         top: position.y - 10,
@@ -53,14 +53,14 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
       aria-label={onClickMove ? `Make move ${san}` : undefined}
     >
       {/* Header */}
-      <div className="flex w-full justify-between border-b border-white/20 bg-gradient-to-r from-background-2/90 to-background-2/70 px-3 py-1.5">
+      <div className="flex w-full justify-between border-b border-glassBorder bg-glass px-3 py-1.5">
         <span style={{ color }} className="font-medium">
           {san}
         </span>
       </div>
 
       {/* Content */}
-      <div className="flex flex-col items-start justify-start gap-1 bg-gradient-to-b from-background-1 to-background-1/90 px-3 py-1.5 text-sm">
+      <div className="flex flex-col items-start justify-start gap-1 bg-transparent px-3 py-1.5 text-sm">
         {/* Maia Probability */}
         {maiaProb !== undefined && (
           <div className="flex w-full items-center justify-between gap-2 font-mono">

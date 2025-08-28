@@ -80,90 +80,93 @@ export const AnalysisSidebar: React.FC<Props> = ({
       className="desktop-right-column-container flex flex-col gap-2"
       style={{ willChange: 'transform, opacity' }}
     >
-      {/* Analysis Toggle Bar */}
-      <div className="flex h-10 min-h-10 items-center justify-between rounded bg-background-1 px-4">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-xl">analytics</span>
-          <h3 className="font-semibold">Analysis</h3>
-        </div>
-        <button
-          onClick={handleToggleAnalysis}
-          className={`flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors ${
-            analysisEnabled
-              ? 'bg-human-4 text-white hover:bg-human-4/80'
-              : 'bg-background-2 text-secondary hover:bg-background-3'
-          }`}
-        >
-          <span className="material-symbols-outlined !text-xs">
-            {analysisEnabled ? 'visibility' : 'visibility_off'}
-          </span>
-          {analysisEnabled ? 'Visible' : 'Hidden'}
-        </button>
-      </div>
-
       {/* Large screens : 2-row layout */}
       <div className="hidden xl:flex xl:h-full xl:flex-col xl:gap-2">
         {/* Combined Highlight + MovesByRating container */}
         <div className="desktop-analysis-big-row-1-container relative flex gap-2">
-          <div className="flex h-full w-full overflow-hidden rounded border-[0.5px] border-white/40">
-            <div className="flex h-full w-auto min-w-[40%] max-w-[40%] border-r-[0.5px] border-white/40">
-              <Highlight
-                hover={analysisEnabled ? hover : mockHover}
-                makeMove={analysisEnabled ? makeMove : mockMakeMove}
-                currentMaiaModel={controller.currentMaiaModel}
-                setCurrentMaiaModel={controller.setCurrentMaiaModel}
-                recommendations={
-                  analysisEnabled
-                    ? controller.moveRecommendations
-                    : emptyRecommendations
-                }
-                moveEvaluation={
-                  analysisEnabled
-                    ? (controller.moveEvaluation as {
-                        maia?: MaiaEvaluation
-                        stockfish?: StockfishEvaluation
-                      })
-                    : {
-                        maia: undefined,
-                        stockfish: undefined,
-                      }
-                }
-                colorSanMapping={
-                  analysisEnabled ? controller.colorSanMapping : {}
-                }
-                boardDescription={
-                  analysisEnabled
-                    ? controller.boardDescription
-                    : {
-                        segments: [
-                          {
-                            type: 'text',
-                            content:
-                              'Analysis is disabled. Enable analysis to see detailed move evaluations and recommendations.',
-                          },
-                        ],
-                      }
-                }
-                currentNode={controller.currentNode ?? undefined}
-              />
+          <div className="border-glassBorder bg-glass-strong flex h-full w-full flex-col overflow-hidden rounded-md border backdrop-blur-md">
+            {/* Merged header with toggle */}
+            <div className="border-glassBorder flex h-10 min-h-10 items-center justify-between border-b bg-transparent px-4 text-white/90">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-xl text-white/80">
+                  analytics
+                </span>
+                <h3 className="font-semibold text-white">Analysis</h3>
+              </div>
+              <button
+                onClick={handleToggleAnalysis}
+                className={`border-glassBorder bg-glass flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+                  analysisEnabled ? 'text-white' : 'text-white/80'
+                } hover:bg-glass-hover`}
+              >
+                <span className="material-symbols-outlined !text-xs text-white/80">
+                  {analysisEnabled ? 'visibility' : 'visibility_off'}
+                </span>
+                <span className="text-white/90">
+                  {analysisEnabled ? 'Visible' : 'Hidden'}
+                </span>
+              </button>
             </div>
-            <div className="flex h-full w-full bg-background-1">
-              <MovesByRating
-                moves={analysisEnabled ? controller.movesByRating : undefined}
-                colorSanMapping={
-                  analysisEnabled ? controller.colorSanMapping : {}
-                }
-              />
+            <div className="flex h-full w-full flex-1">
+              <div className="flex h-full w-auto min-w-[40%] max-w-[40%] border-r border-white/10">
+                <Highlight
+                  hover={analysisEnabled ? hover : mockHover}
+                  makeMove={analysisEnabled ? makeMove : mockMakeMove}
+                  currentMaiaModel={controller.currentMaiaModel}
+                  setCurrentMaiaModel={controller.setCurrentMaiaModel}
+                  recommendations={
+                    analysisEnabled
+                      ? controller.moveRecommendations
+                      : emptyRecommendations
+                  }
+                  moveEvaluation={
+                    analysisEnabled
+                      ? (controller.moveEvaluation as {
+                          maia?: MaiaEvaluation
+                          stockfish?: StockfishEvaluation
+                        })
+                      : {
+                          maia: undefined,
+                          stockfish: undefined,
+                        }
+                  }
+                  colorSanMapping={
+                    analysisEnabled ? controller.colorSanMapping : {}
+                  }
+                  boardDescription={
+                    analysisEnabled
+                      ? controller.boardDescription
+                      : {
+                          segments: [
+                            {
+                              type: 'text',
+                              content:
+                                'Analysis is disabled. Enable analysis to see detailed move evaluations and recommendations.',
+                            },
+                          ],
+                        }
+                  }
+                  currentNode={controller.currentNode ?? undefined}
+                />
+              </div>
+              <div className="flex h-full w-full">
+                <MovesByRating
+                  moves={analysisEnabled ? controller.movesByRating : undefined}
+                  colorSanMapping={
+                    analysisEnabled ? controller.colorSanMapping : {}
+                  }
+                />
+              </div>
             </div>
           </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-4 text-center shadow-lg">
-                <span className="material-symbols-outlined mb-2 text-3xl text-human-3">
+            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+              <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
+                <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
                 </span>
-                <p className="font-medium text-primary">Analysis Disabled</p>
-                <p className="text-sm text-secondary">
+                <p className="font-medium text-white">Analysis Disabled</p>
+                <p className="text-sm text-white/80">
                   Enable analysis to see move evaluations
                 </p>
               </div>
@@ -197,13 +200,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             }
           />
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-4 text-center shadow-lg">
-                <span className="material-symbols-outlined mb-2 text-3xl text-human-3">
+            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+              <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
+                <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
                 </span>
-                <p className="font-medium text-primary">Analysis Disabled</p>
-                <p className="text-sm text-secondary">
+                <p className="font-medium text-white">Analysis Disabled</p>
+                <p className="text-sm text-white/80">
                   Enable analysis to see position evaluation
                 </p>
               </div>
@@ -215,8 +218,32 @@ export const AnalysisSidebar: React.FC<Props> = ({
       {/* Smaller screens: 3-row layout */}
       <div className="flex h-full flex-col gap-2 xl:hidden">
         {/* Row 1: Combined Highlight + BlunderMeter container */}
-        <div className="desktop-analysis-small-row-1-container relative flex overflow-hidden rounded border-[0.5px] border-white/40 bg-background-1">
-          <div className="flex h-full w-full border-r-[0.5px] border-white/40">
+        <div className="desktop-analysis-small-row-1-container border-glassBorder bg-glass-strong relative flex overflow-hidden rounded-md border backdrop-blur-md">
+          {/* Merged header with toggle (mobile/smaller screens) */}
+          <div className="border-glassBorder absolute left-0 top-0 z-10 flex h-10 w-full items-center justify-between border-b bg-transparent px-3 text-white/90 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-xl text-white/80">
+                analytics
+              </span>
+              <h3 className="text-sm font-semibold text-white">Analysis</h3>
+            </div>
+            <button
+              onClick={handleToggleAnalysis}
+              className={`flex items-center gap-1 rounded-md border bg-[rgb(var(--color-surface-2))] px-2 py-1 text-xs transition-colors ${
+                analysisEnabled
+                  ? 'border-white/10 text-white'
+                  : 'border-white/10 text-white/80'
+              }`}
+            >
+              <span className="material-symbols-outlined !text-xs text-white/80">
+                {analysisEnabled ? 'visibility' : 'visibility_off'}
+              </span>
+              <span className="text-white/90">
+                {analysisEnabled ? 'Visible' : 'Hidden'}
+              </span>
+            </button>
+          </div>
+          <div className="mt-10 flex h-full w-full border-r border-white/10">
             <Highlight
               hover={analysisEnabled ? hover : mockHover}
               makeMove={analysisEnabled ? makeMove : mockMakeMove}
@@ -257,7 +284,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
               currentNode={controller.currentNode ?? undefined}
             />
           </div>
-          <div className="flex h-full w-auto min-w-[40%] max-w-[40%] bg-background-1 p-3">
+          <div className="flex h-full w-auto min-w-[40%] max-w-[40%] p-3">
             <div className="h-full w-full">
               <BlunderMeter
                 hover={analysisEnabled ? hover : mockHover}
@@ -278,13 +305,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             </div>
           </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-4 text-center shadow-lg">
-                <span className="material-symbols-outlined mb-2 text-3xl text-human-3">
+            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+              <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
+                <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
                 </span>
-                <p className="font-medium text-primary">Analysis Disabled</p>
-                <p className="text-sm text-secondary">
+                <p className="font-medium text-white">Analysis Disabled</p>
+                <p className="text-sm text-white/80">
                   Enable analysis to see move evaluations
                 </p>
               </div>
@@ -307,13 +334,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             />
           </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-4 text-center shadow-lg">
-                <span className="material-symbols-outlined mb-2 text-3xl text-human-3">
+            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+              <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
+                <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
                 </span>
-                <p className="font-medium text-primary">Analysis Disabled</p>
-                <p className="text-sm text-secondary">
+                <p className="font-medium text-white">Analysis Disabled</p>
+                <p className="text-sm text-white/80">
                   Enable analysis to see position evaluation
                 </p>
               </div>
@@ -332,13 +359,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             />
           </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-4 text-center shadow-lg">
-                <span className="material-symbols-outlined mb-2 text-3xl text-human-3">
+            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+              <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
+                <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
                 </span>
-                <p className="font-medium text-primary">Analysis Disabled</p>
-                <p className="text-sm text-secondary">
+                <p className="font-medium text-white">Analysis Disabled</p>
+                <p className="text-sm text-white/80">
                   Enable analysis to see move evaluations
                 </p>
               </div>

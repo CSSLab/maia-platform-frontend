@@ -41,7 +41,7 @@ export const MovesByRating: React.FC<Props> = ({
   return (
     <div
       id="analysis-moves-by-rating"
-      className="flex h-64 w-full flex-col bg-background-1/60 md:h-full md:rounded"
+      className="flex h-64 w-full flex-col bg-transparent md:h-full md:rounded"
     >
       <h2 className="p-3 text-base text-primary md:text-sm xl:text-base">
         Moves by Rating
@@ -242,7 +242,7 @@ export const MovesByRating: React.FC<Props> = ({
           <Tooltip
             content={({ payload }) => {
               return (
-                <div className="flex w-32 flex-col rounded border border-white/10 bg-background-1 pb-2">
+                <div className="flex w-32 flex-col rounded-md border border-glassBorder bg-glass pb-2 backdrop-blur-md">
                   <div className="flex px-3 py-2">
                     {payload ? (
                       <p className="text-sm">{payload[0]?.payload.rating}</p>
