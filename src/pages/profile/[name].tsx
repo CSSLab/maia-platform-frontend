@@ -90,6 +90,13 @@ const ProfilePage: NextPage = () => {
           }
         />
       </Head>
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+        }}
+      />
       <DelayedLoading isLoading={loading}>
         <Profile name={name} stats={stats} />
       </DelayedLoading>
@@ -152,18 +159,20 @@ const Profile: React.FC<Props> = (props: Props) => {
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
-      className="mx-auto flex h-full w-[90%] flex-col items-start justify-center gap-6 md:py-[2%]"
+      className="relative mx-auto flex h-full w-[90%] flex-col items-start justify-center gap-6 md:py-[2%]"
     >
       <motion.div
         variants={itemVariants}
         className="flex flex-row items-center gap-2"
       >
-        <span className="material-symbols-outlined !text-6xl">
+        <span className="material-symbols-outlined !text-5xl text-white/80">
           account_circle
         </span>
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-semibold">{props.name}</h1>
+            <h1 className="text-2xl font-semibold text-white/95">
+              {props.name}
+            </h1>
             <ProfileLeaderboardBadges
               status={leaderboardStatus}
               loading={leaderboardLoading}
@@ -172,15 +181,20 @@ const Profile: React.FC<Props> = (props: Props) => {
           <a
             target="_blank"
             href={`https://lichess.org/@/${props.name}`}
-            className="text-sm text-primary"
+            className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
           >
-            View on Lichess
+            <img
+              src="/assets/icons/lichess.svg"
+              className="h-3 w-3"
+              alt="Lichess"
+            />
+            <span className="text-xs text-white/70">{props.name}</span>
           </a>
         </div>
       </motion.div>
       <motion.div
         variants={itemVariants}
-        className="flex w-full flex-col items-start gap-6 md:flex-row"
+        className="flex w-full flex-col items-start gap-4 md:flex-row"
       >
         <GameList
           lichessId={props.name}
@@ -200,26 +214,42 @@ const Profile: React.FC<Props> = (props: Props) => {
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
-      className="mx-auto mt-6 flex w-[90%] flex-col gap-3"
+      className="relative mx-auto mt-6 flex w-[90%] flex-col gap-3"
     >
       <motion.div
         variants={itemVariants}
         className="flex flex-row items-center gap-2 md:gap-3"
       >
-        <span className="material-symbols-outlined text-4xl">
+        <span className="material-symbols-outlined text-3xl text-white/80">
           account_circle
         </span>
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-semibold">{props.name}</h1>
-          <ProfileLeaderboardBadges
-            status={leaderboardStatus}
-            loading={leaderboardLoading}
-          />
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-white/95">
+              {props.name}
+            </h1>
+            <ProfileLeaderboardBadges
+              status={leaderboardStatus}
+              loading={leaderboardLoading}
+            />
+          </div>
+          <a
+            target="_blank"
+            href={`https://lichess.org/@/${props.name}`}
+            className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
+          >
+            <img
+              src="/assets/icons/lichess.svg"
+              className="h-3 w-3"
+              alt="Lichess"
+            />
+            <span className="text-xs text-white/70">{props.name}</span>
+          </a>
         </div>
       </motion.div>
       <motion.div
         variants={itemVariants}
-        className="flex w-full flex-col gap-6"
+        className="flex w-full flex-col gap-3"
       >
         <GameList
           lichessId={props.name}

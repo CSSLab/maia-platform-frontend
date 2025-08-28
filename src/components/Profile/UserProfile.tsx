@@ -1,12 +1,5 @@
 import React from 'react'
 
-import {
-  HandIcon,
-  BrainIcon,
-  TrainIcon,
-  BotOrNotIcon,
-  RegularPlayIcon,
-} from '../Common/Icons'
 import { ProfileColumn } from 'src/components'
 import { PlayerStats } from 'src/types'
 
@@ -16,9 +9,9 @@ interface Props {
 
 export const UserProfile = ({ stats }: Props) => {
   return (
-    <div className="grid h-full w-full grid-cols-1 gap-3 md:gap-6 lg:grid-cols-2 2xl:grid-cols-3">
+    <div className="grid h-full w-full grid-cols-1 gap-2 md:gap-4 lg:grid-cols-2 2xl:grid-cols-3">
       <ProfileColumn
-        icon={<RegularPlayIcon />}
+        icon="chess_knight"
         name="Regular"
         data={{
           rating: stats.regularRating,
@@ -30,7 +23,7 @@ export const UserProfile = ({ stats }: Props) => {
         }}
       />
       <ProfileColumn
-        icon={<HandIcon />}
+        icon="network_intel_node"
         name="Hand"
         data={{
           rating: stats.handRating,
@@ -42,7 +35,7 @@ export const UserProfile = ({ stats }: Props) => {
         }}
       />
       <ProfileColumn
-        icon={<BrainIcon />}
+        icon="network_intelligence"
         name="Brain"
         data={{
           rating: stats.brainRating,
@@ -54,7 +47,7 @@ export const UserProfile = ({ stats }: Props) => {
         }}
       />
       <ProfileColumn
-        icon={<TrainIcon />}
+        icon="toys_and_games"
         name="Train"
         data={{
           rating: stats.trainRating,
@@ -65,7 +58,7 @@ export const UserProfile = ({ stats }: Props) => {
         }}
       />
       <ProfileColumn
-        icon={<BotOrNotIcon />}
+        icon="mystery"
         name="Bot / Not"
         data={{
           rating: stats.botNotRating,

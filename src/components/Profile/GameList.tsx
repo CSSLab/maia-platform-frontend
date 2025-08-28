@@ -431,13 +431,16 @@ export const GameList = ({
   }
 
   return (
-    <div className="flex w-full flex-col overflow-hidden rounded border border-white border-opacity-10 md:w-[600px]">
-      <div className="flex flex-row items-center justify-start gap-4 border-b border-white border-opacity-10 bg-background-1 px-2 py-3 md:px-4">
-        <p className="text-xl font-bold md:text-xl">
+    <div className="from-white/8 to-white/4 flex w-full flex-col overflow-hidden rounded-lg border border-white/20 bg-gradient-to-br backdrop-blur-md md:w-[600px]">
+      <div className="flex flex-row items-center justify-start gap-4 border-b border-white/10 bg-white/5 px-2 py-2 md:px-4">
+        <span className="material-symbols-outlined !text-2xl text-red-500">
+          sports_esports
+        </span>
+        <p className="text-xl font-bold text-white/95 md:text-xl">
           {userName ? `${userName}'s Games` : 'Your Games'}
         </p>
       </div>
-      <div className="flex select-none items-center border-b-2 border-white border-opacity-10">
+      <div className="flex select-none items-center border-b border-white/10">
         {showCustom && (
           <Header
             label="★"
@@ -490,33 +493,33 @@ export const GameList = ({
 
       {/* H&B Subsections */}
       {selected === 'hb' && (
-        <div className="flex border-b border-white border-opacity-10">
+        <div className="flex h-6 items-center overflow-hidden border-b border-white/10">
           <button
             onClick={() => setHbSubsection('hand')}
-            className={`flex-1 px-3 text-sm ${
+            className={`flex-1 px-3 text-sm transition-all duration-200 ${
               hbSubsection === 'hand'
-                ? 'bg-background-2 text-primary'
-                : 'bg-background-1/50 text-secondary hover:bg-background-2'
+                ? 'bg-white/10 text-white/95'
+                : 'hover:bg-white/8 bg-white/5 text-white/70 hover:text-white/90'
             }`}
           >
             <div className="flex items-center justify-center gap-1">
-              <span className="material-symbols-outlined !text-lg">
-                hand_gesture
+              <span className="material-symbols-outlined material-symbols-filled !text-base">
+                back_hand
               </span>
               <span className="text-xs">Hand</span>
             </div>
           </button>
           <button
             onClick={() => setHbSubsection('brain')}
-            className={`flex-1 px-3 text-sm ${
+            className={`flex-1 px-3 py-1 text-sm transition-all duration-200 ${
               hbSubsection === 'brain'
-                ? 'bg-background-2 text-primary'
-                : 'bg-background-1/50 text-secondary hover:bg-background-2'
+                ? 'bg-white/10 text-white/95'
+                : 'hover:bg-white/8 bg-white/5 text-white/70 hover:text-white/90'
             }`}
           >
             <div className="flex items-center justify-center gap-1">
-              <span className="material-symbols-outlined !text-lg">
-                neurology
+              <span className="material-symbols-outlined !text-base">
+                network_intelligence
               </span>
               <span className="text-xs">Brain</span>
             </div>
@@ -527,7 +530,7 @@ export const GameList = ({
       <div className="red-scrollbar flex max-h-64 flex-col overflow-y-scroll md:max-h-96">
         {loading ? (
           <div className="flex h-full items-center justify-center py-8">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-white/80"></div>
           </div>
         ) : (
           <>
@@ -537,14 +540,14 @@ export const GameList = ({
               return (
                 <div
                   key={index}
-                  className={`group flex w-full items-center gap-2 ${
+                  className={`group flex w-full items-center gap-2 transition-colors duration-200 ${
                     index % 2 === 0
-                      ? 'bg-background-1/30 hover:bg-background-2'
-                      : 'bg-background-1/10 hover:bg-background-2'
+                      ? 'bg-white/2 hover:bg-white/5'
+                      : 'bg-transparent hover:bg-white/5'
                   }`}
                 >
-                  <div className="flex h-full w-10 items-center justify-center bg-background-2 py-1 group-hover:bg-white/5">
-                    <p className="text-sm text-secondary">
+                  <div className="flex h-full w-8 items-center justify-center py-1.5">
+                    <p className="text-xs font-medium text-white/50">
                       {selected === 'play' ||
                       selected === 'hb' ||
                       selected === 'favorites'
@@ -554,15 +557,15 @@ export const GameList = ({
                   </div>
                   <a
                     href={`/analysis/${game.id}/${game.type}`}
-                    className="flex flex-1 cursor-pointer items-center justify-between overflow-hidden py-1"
+                    className="flex flex-1 cursor-pointer items-center justify-between overflow-hidden py-1.5"
                   >
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <p className="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-primary">
+                      <p className="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-white/90">
                         {displayName}
                       </p>
                       {selected === 'favorites' &&
                         (game.type === 'hand' || game.type === 'brain') && (
-                          <span className="material-symbols-outlined flex-shrink-0 !text-sm text-secondary">
+                          <span className="material-symbols-outlined flex-shrink-0 !text-sm text-white/60">
                             {game.type === 'hand'
                               ? 'hand_gesture'
                               : 'neurology'}
@@ -576,7 +579,7 @@ export const GameList = ({
                             e.stopPropagation()
                             handleFavoriteGame(game)
                           }}
-                          className="flex items-center justify-center text-secondary transition hover:text-primary"
+                          className="flex items-center justify-center text-white/60 transition-colors duration-200 hover:text-white/90"
                           title="Edit favourite"
                         >
                           <span className="material-symbols-outlined !text-xs">
@@ -590,10 +593,10 @@ export const GameList = ({
                             e.stopPropagation()
                             handleFavoriteGame(game)
                           }}
-                          className={`flex items-center justify-center transition ${
+                          className={`flex items-center justify-center transition-colors duration-200 ${
                             isFavorited
                               ? 'text-yellow-400 hover:text-yellow-300'
-                              : 'text-secondary hover:text-primary'
+                              : 'text-white/60 hover:text-white/90'
                           }`}
                           title={
                             isFavorited ? 'Edit favourite' : 'Add to favourites'
@@ -606,7 +609,7 @@ export const GameList = ({
                           </span>
                         </button>
                       )}
-                      <p className="whitespace-nowrap text-sm text-secondary">
+                      <p className="whitespace-nowrap text-sm text-white/70">
                         {game.result.replace('1/2', '½').replace('1/2', '½')}
                       </p>
                     </div>
@@ -619,44 +622,51 @@ export const GameList = ({
       </div>
 
       {/* Pagination */}
-      {(selected === 'play' || selected === 'hb' || selected === 'favorites') &&
-        totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 border-t border-white border-opacity-10 bg-background-1 py-2">
-            <button
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-              className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined">first_page</span>
-            </button>
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined">arrow_back_ios</span>
-            </button>
-            <span className="text-sm text-secondary">
-              Page {currentPage} of {totalPages}
+      {(selected === 'play' ||
+        selected === 'hb' ||
+        selected === 'favorites') && (
+        <div className="flex items-center justify-center gap-2 border-t border-white/10 bg-white/5 py-1">
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+            className="flex items-center justify-center text-white/60 transition-colors duration-200 hover:text-white/90 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined !text-lg">
+              first_page
             </span>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined">
-                arrow_forward_ios
-              </span>
-            </button>
-            <button
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-              className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined">last_page</span>
-            </button>
-          </div>
-        )}
+          </button>
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="flex items-center justify-center text-white/60 transition-colors duration-200 hover:text-white/90 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined !text-xs">
+              arrow_back_ios
+            </span>
+          </button>
+          <span className="text-xs text-white/70">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="flex items-center justify-center text-white/60 transition-colors duration-200 hover:text-white/90 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined !text-xs">
+              arrow_forward_ios
+            </span>
+          </button>
+          <button
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="flex items-center justify-center text-white/60 transition-colors duration-200 hover:text-white/90 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined !text-lg">
+              last_page
+            </span>
+          </button>
+        </div>
+      )}
       <FavoriteModal
         isOpen={favoriteModal.isOpen}
         currentName={getModalCurrentName()}
@@ -688,16 +698,14 @@ function Header({
   return (
     <button
       onClick={() => setSelected(name)}
-      className={`relative flex items-center justify-center py-1 transition duration-200 ${
-        selected === name
-          ? 'bg-human-4/30'
-          : 'bg-background-1/80 hover:bg-background-2'
+      className={`relative flex items-center justify-center py-1 transition-all duration-200 ${
+        selected === name ? 'bg-white/10' : 'hover:bg-white/8 bg-white/5'
       } ${name === 'favorites' ? 'px-3' : ''}`}
     >
       <div className="flex items-center justify-start gap-1">
         <p
-          className={`text-xs transition duration-200 ${
-            selected === name ? 'text-human-2' : 'text-primary'
+          className={`text-xs transition-colors duration-200 ${
+            selected === name ? 'text-white/95' : 'text-white/70'
           }`}
         >
           {label}
@@ -706,7 +714,7 @@ function Header({
       {selected === name && (
         <motion.div
           layoutId="underline"
-          className="absolute -bottom-0.5 h-0.5 w-full bg-human-2/80"
+          className="absolute -bottom-0.5 h-0.5 w-full bg-primary/40"
         ></motion.div>
       )}
     </button>

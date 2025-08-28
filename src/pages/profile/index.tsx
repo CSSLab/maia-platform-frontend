@@ -80,6 +80,13 @@ const ProfilePage: NextPage = () => {
         <title>Profile – Maia Chess</title>
         <meta name="description" content="User profile and statistics" />
       </Head>
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+        }}
+      />
       <DelayedLoading isLoading={loading}>
         <Profile stats={stats} />
       </DelayedLoading>
@@ -142,26 +149,44 @@ const Profile: React.FC<Props> = (props: Props) => {
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
-      className="mx-auto flex h-full w-[90%] flex-col items-start justify-center gap-6 md:py-[2%]"
+      className="relative mx-auto flex h-full w-[90%] flex-col items-start justify-center gap-6 md:py-[2%]"
     >
       <motion.div
         variants={itemVariants}
         className="flex flex-row items-center gap-2"
       >
-        <span className="material-symbols-outlined text-6xl">
+        <span className="material-symbols-outlined text-5xl text-white/80">
           account_circle
         </span>
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-semibold">{user?.displayName}</h1>
-          <ProfileLeaderboardBadges
-            status={leaderboardStatus}
-            loading={leaderboardLoading}
-          />
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-white/95">
+              {user?.displayName}
+            </h1>
+            <ProfileLeaderboardBadges
+              status={leaderboardStatus}
+              loading={leaderboardLoading}
+            />
+          </div>
+          {user?.lichessId && (
+            <a
+              target="_blank"
+              href={`https://lichess.org/@/${user.lichessId}`}
+              className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
+            >
+              <img
+                src="/assets/icons/lichess.svg"
+                className="h-3 w-3"
+                alt="Lichess"
+              />
+              <span className="text-xs text-white/70">{user.lichessId}</span>
+            </a>
+          )}
         </div>
       </motion.div>
       <motion.div
         variants={itemVariants}
-        className="flex flex-col items-start gap-6 md:flex-row"
+        className="flex flex-col items-start gap-4 md:flex-row"
       >
         <GameList />
         <UserProfile stats={props.stats} />
@@ -176,26 +201,44 @@ const Profile: React.FC<Props> = (props: Props) => {
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
-      className="mx-auto mt-6 flex w-[90%] flex-col gap-3"
+      className="relative mx-auto mt-6 flex w-[90%] flex-col gap-3"
     >
       <motion.div
         variants={itemVariants}
         className="flex flex-row items-center gap-2 md:gap-3"
       >
-        <span className="material-symbols-outlined text-4xl">
+        <span className="material-symbols-outlined text-3xl text-white/80">
           account_circle
         </span>
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-semibold">{user?.displayName}</h1>
-          <ProfileLeaderboardBadges
-            status={leaderboardStatus}
-            loading={leaderboardLoading}
-          />
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-white/95">
+              {user?.displayName}
+            </h1>
+            <ProfileLeaderboardBadges
+              status={leaderboardStatus}
+              loading={leaderboardLoading}
+            />
+          </div>
+          {user?.lichessId && (
+            <a
+              target="_blank"
+              href={`https://lichess.org/@/${user.lichessId}`}
+              className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
+            >
+              <img
+                src="/assets/icons/lichess.svg"
+                className="h-3 w-3"
+                alt="Lichess"
+              />
+              <span className="text-xs text-white/70">{user.lichessId}</span>
+            </a>
+          )}
         </div>
       </motion.div>
       <motion.div
         variants={itemVariants}
-        className="flex w-full flex-col gap-4"
+        className="flex w-full flex-col gap-3"
       >
         <GameList />
         <UserProfile stats={props.stats} />
