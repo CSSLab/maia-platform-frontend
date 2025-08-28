@@ -23,7 +23,7 @@ export const UserProfile = ({ stats }: Props) => {
         }}
       />
       <ProfileColumn
-        icon="network_intel_node"
+        icon="back_hand"
         name="Hand"
         data={{
           rating: stats.handRating,
@@ -48,7 +48,7 @@ export const UserProfile = ({ stats }: Props) => {
       />
       <ProfileColumn
         icon="toys_and_games"
-        name="Train"
+        name="Puzzles"
         data={{
           rating: stats.trainRating,
           highest: stats.trainMax,

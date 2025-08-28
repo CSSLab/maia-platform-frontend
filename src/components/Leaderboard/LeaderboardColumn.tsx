@@ -4,26 +4,43 @@ import { LeaderboardEntry } from 'src/components'
 interface Props {
   id: 'regular' | 'puzzles' | 'turing' | 'hand' | 'brain'
   name: 'Regular' | 'Puzzles' | 'Bot/Not' | 'Hand' | 'Brain'
-  icon: React.JSX.Element
   ranking: {
     display_name: string
     elo: number
   }[]
 }
 
+const getIconForType = (id: Props['id']): string => {
+  switch (id) {
+    case 'regular':
+      return 'chess_knight'
+    case 'puzzles':
+      return 'toys_and_games'
+    case 'turing':
+      return 'mystery'
+    case 'hand':
+      return 'back_hand'
+    case 'brain':
+      return 'network_intelligence'
+    default:
+      return 'chess_knight'
+  }
+}
+
 export const LeaderboardColumn: React.FC<Props> = ({
   id,
-  icon,
   name,
   ranking,
 }: Props) => {
   return (
-    <div className="flex flex-col rounded border border-white/10 bg-background-1/60">
-      <div className="flex flex-row items-center justify-start gap-2 rounded-t bg-background-2 px-3 py-1.5">
-        <i className="*:h-4 *:w-4">{icon}</i>
-        <h2 className="text-lg font-bold uppercase">{name}</h2>
+    <div className="from-white/8 to-white/4 group relative flex flex-col rounded-md border border-white/10 bg-gradient-to-br backdrop-blur-md">
+      <div className="flex h-12 flex-row items-center justify-start gap-2 border-b border-white/10 bg-white/5 px-3">
+        <span className="material-symbols-outlined material-symbols-filled text-2xl text-white/70">
+          {getIconForType(id)}
+        </span>
+        <h2 className="text-base font-bold uppercase text-white/95">{name}</h2>
       </div>
-      <div className="flex w-full flex-col rounded-b">
+      <div className="flex w-full flex-col">
         {ranking.map((player, index) => (
           <LeaderboardEntry
             key={index}
