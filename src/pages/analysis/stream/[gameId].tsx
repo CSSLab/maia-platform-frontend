@@ -188,8 +188,19 @@ const StreamAnalysisPage: NextPage = () => {
         streamController.game &&
         !streamController.streamState.gameEnded ? (
           <div className="absolute left-0 top-0 z-50">
-            <DelayedLoading transparent isLoading={true}>
-              <p>Loading...</p>
+            <DelayedLoading
+              transparent
+              isLoading={true}
+              message={
+                <>
+                  Connecting to Lichess game {gameId}...
+                  <br />
+                  Lichess intentionally adds a short delay to live move data to
+                  reduce engine-assisted cheating. The stream will start soon.
+                </>
+              }
+            >
+              <></>
             </DelayedLoading>
           </div>
         ) : null}

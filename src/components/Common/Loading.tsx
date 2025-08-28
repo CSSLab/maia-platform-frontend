@@ -14,9 +14,13 @@ const states = [
 
 interface LoadingProps {
   transparent?: boolean
+  message?: React.ReactNode
 }
 
-export const Loading: React.FC<LoadingProps> = ({ transparent = false }) => {
+export const Loading: React.FC<LoadingProps> = ({
+  transparent = false,
+  message,
+}) => {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [renderKey, setRenderKey] = useState(0)
 
@@ -65,6 +69,11 @@ export const Loading: React.FC<LoadingProps> = ({ transparent = false }) => {
           </div>
         </div>
         <h2 className="text-2xl font-semibold">Loading...</h2>
+        {message ? (
+          <p className="max-w-prose px-4 text-center text-secondary">
+            {message}
+          </p>
+        ) : null}
       </div>
     </div>
   )
