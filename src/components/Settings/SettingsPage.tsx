@@ -49,7 +49,7 @@ export const SettingsPage: React.FC = () => {
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
-      className="container relative mx-auto flex flex-col gap-6 px-6 py-8 md:gap-8"
+      className="relative mx-auto flex w-full flex-col gap-6 px-4 py-8 md:w-[90%] md:gap-8 md:px-0"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col gap-2">

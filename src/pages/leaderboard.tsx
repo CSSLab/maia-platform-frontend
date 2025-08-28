@@ -130,7 +130,7 @@ const Leaderboard: React.FC = () => {
               animate="visible"
               exit="exit"
               style={{ willChange: 'transform, opacity' }}
-              className="container relative mx-auto px-6 py-8"
+              className="relative mx-auto w-full px-4 py-8 md:w-[90%] md:px-0"
             >
               <Head>
                 <title>Leaderboard – Maia Chess</title>
