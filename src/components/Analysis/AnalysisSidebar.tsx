@@ -77,13 +77,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
     <motion.div
       id="analysis"
       variants={itemVariants ?? {}}
-      className="desktop-right-column-container flex flex-col gap-2"
+      className="desktop-right-column-container flex flex-col gap-3"
       style={{ willChange: 'transform, opacity' }}
     >
       {/* Large screens : 2-row layout */}
-      <div className="hidden xl:flex xl:h-full xl:flex-col xl:gap-2">
+      <div className="hidden xl:flex xl:h-full xl:flex-col xl:gap-3">
         {/* Combined Highlight + MovesByRating container */}
-        <div className="desktop-analysis-big-row-1-container relative flex gap-2">
+        <div className="desktop-analysis-big-row-1-container relative flex gap-3">
           <div className="border-glassBorder bg-glass-strong flex h-full w-full flex-col overflow-hidden rounded-md border backdrop-blur-md">
             {/* Merged header with toggle */}
             <div className="border-glassBorder flex h-10 min-h-10 items-center justify-between border-b bg-transparent px-4 text-white/90">
@@ -160,7 +160,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             </div>
           </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+            <div
+              className="absolute left-0 right-0 bottom-0 top-10 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              style={{
+                background:
+                  'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
+              }}
+            >
               <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
                 <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
@@ -175,7 +181,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
         </div>
 
         {/* MoveMap + BlunderMeter container */}
-        <div className="desktop-analysis-big-row-2-container relative flex flex-row gap-2">
+        <div className="desktop-analysis-big-row-2-container relative flex flex-row gap-3">
           <div className="flex h-full w-full flex-col">
             <MoveMap
               moveMap={analysisEnabled ? controller.moveMap : undefined}
@@ -200,7 +206,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             }
           />
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              style={{
+                background:
+                  'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
+              }}
+            >
               <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
                 <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
@@ -216,7 +228,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
       </div>
 
       {/* Smaller screens: 3-row layout */}
-      <div className="flex h-full flex-col gap-2 xl:hidden">
+      <div className="flex h-full flex-col gap-3 xl:hidden">
         {/* Row 1: Combined Highlight + BlunderMeter container */}
         <div className="desktop-analysis-small-row-1-container border-glassBorder bg-glass-strong relative flex overflow-hidden rounded-md border backdrop-blur-md">
           {/* Merged header with toggle (mobile/smaller screens) */}
@@ -305,7 +317,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             </div>
           </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+            <div
+              className="absolute left-0 right-0 bottom-0 top-10 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              style={{
+                background:
+                  'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
+              }}
+            >
               <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
                 <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
@@ -334,7 +352,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             />
           </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              style={{
+                background:
+                  'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
+              }}
+            >
               <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
                 <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock
@@ -359,7 +383,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
             />
           </div>
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-lg bg-black/40 backdrop-blur-sm">
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              style={{
+                background:
+                  'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
+              }}
+            >
               <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
                 <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
                   lock

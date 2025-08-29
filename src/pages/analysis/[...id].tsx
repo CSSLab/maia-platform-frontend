@@ -627,7 +627,7 @@ const Analysis: React.FC<Props> = ({
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full w-[90%] flex-row gap-2">
+      <div className="flex h-full w-[90%] flex-row gap-3">
         <motion.div
           id="navigation"
           className="desktop-left-column-container flex flex-col overflow-hidden"
@@ -646,7 +646,7 @@ const Analysis: React.FC<Props> = ({
             </GameInfo>
             {/* Game list */}
             <div className="flex flex-col overflow-hidden">
-              <div className="h-4" />
+              <div className="h-3" />
               <div className="max-h-[32vh] min-h-[32vh]">
                 <AnalysisGameList
                   currentId={currentId}
@@ -667,7 +667,7 @@ const Analysis: React.FC<Props> = ({
             </div>
             {/* Moves + controller */}
             <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
-              <div className="h-4 border-b border-glassBorder" />
+              <div className="h-3 border-b border-glassBorder" />
               <MovesContainer
                 game={analyzedGame}
                 termination={analyzedGame.termination}
@@ -704,12 +704,13 @@ const Analysis: React.FC<Props> = ({
           </div>
         </motion.div>
         <motion.div
-          className="desktop-middle-column-container flex flex-col gap-2"
+          className="desktop-middle-column-container flex flex-col gap-3"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="flex w-full flex-col overflow-hidden rounded">
+          <div className="flex w-full flex-col overflow-hidden">
             <PlayerInfo
+              rounded="top"
               name={
                 controller.orientation === 'white'
                   ? analyzedGame.blackPlayer.name
@@ -780,6 +781,7 @@ const Analysis: React.FC<Props> = ({
               ) : null}
             </div>
             <PlayerInfo
+              rounded="bottom"
               name={
                 controller.orientation === 'white'
                   ? analyzedGame.whitePlayer.name

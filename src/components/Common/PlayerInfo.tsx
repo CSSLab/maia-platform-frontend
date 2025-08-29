@@ -9,6 +9,7 @@ interface PlayerInfoProps {
     isActive: boolean
     lastUpdateTime: number
   }
+  rounded?: 'all' | 'top' | 'bottom' | 'none'
 }
 
 import { useState, useEffect } from 'react'
@@ -20,6 +21,7 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
   termination,
   showArrowLegend = false,
   clock,
+  rounded = 'all',
 }) => {
   const [currentTime, setCurrentTime] = useState<number>(
     clock?.timeInSeconds || 0,
@@ -53,8 +55,17 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  const roundedClass =
+    rounded === 'top'
+      ? 'rounded-t-md'
+      : rounded === 'bottom'
+        ? 'rounded-b-md'
+        : rounded === 'none'
+          ? ''
+          : 'rounded-md'
+
   return (
-    <div className="flex h-10 w-full items-center justify-between rounded-md border border-glassBorder bg-glass px-4 backdrop-blur-md">
+    <div className={`flex h-10 w-full items-center justify-between ${roundedClass} border border-glassBorder bg-glass px-4 backdrop-blur-md`}>
       <div className="flex items-center gap-1.5">
         <div
           className={`h-2.5 w-2.5 rounded-full ${color === 'white' ? 'bg-white' : 'border bg-black'}`}

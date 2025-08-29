@@ -146,14 +146,17 @@ svg {
 }
 
 .desktop-analysis-big-row-1-container {
-  height: calc((85vh - 2.5rem - 1rem) / 2);
+  /* 2.5rem header + 0.75rem gap between two rows */
+  height: calc((85vh - 2.5rem - 0.75rem) / 2);
 }
 
 .desktop-analysis-big-row-2-container {
-  height: calc((85vh - 2.5rem - 1rem) / 2);
+  /* 2.5rem header + 0.75rem gap between two rows */
+  height: calc((85vh - 2.5rem - 0.75rem) / 2);
 }
 
 .desktop-analysis-small-row-1-container {
+  /* 2.5rem header + 1.5rem total gaps between three rows (two gaps @ 0.75rem) */
   height: calc((85vh - 2.5rem - 1.5rem) * 0.4);
 }
 
