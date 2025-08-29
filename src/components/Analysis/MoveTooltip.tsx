@@ -39,12 +39,14 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
 
   const tooltipContent = (
     <div
-      className={`fixed z-50 flex w-auto min-w-[12rem] flex-col overflow-hidden rounded-md border border-glassBorder bg-glass text-primary backdrop-blur-md ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
+      className={`fixed z-50 flex w-auto min-w-[12rem] flex-col overflow-hidden rounded-md border border-white/10 text-white/90 ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
       style={{
         left: position.x + 15,
         top: position.y - 10,
         transform:
           position.x > window.innerWidth - 250 ? 'translateX(-100%)' : 'none',
+        background:
+          'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), #171214',
       }}
       onClick={onClickMove ? () => onClickMove(move) : undefined}
       onKeyDown={onClickMove ? handleKeyDown : undefined}
@@ -53,7 +55,7 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
       aria-label={onClickMove ? `Make move ${san}` : undefined}
     >
       {/* Header */}
-      <div className="flex w-full justify-between border-b border-glassBorder bg-glass px-3 py-1.5">
+      <div className="flex w-full justify-between border-b border-white/10 bg-transparent px-3 py-1.5">
         <span style={{ color }} className="font-medium">
           {san}
         </span>
