@@ -634,7 +634,7 @@ const Analysis: React.FC<Props> = ({
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="border-glassBorder bg-glass flex h-full w-full flex-col overflow-hidden rounded-md border backdrop-blur-md">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
             {/* Game info header */}
             <GameInfo
               title="Analysis"
@@ -667,7 +667,7 @@ const Analysis: React.FC<Props> = ({
             </div>
             {/* Moves + controller */}
             <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
-              <div className="h-4" />
+              <div className="h-4 border-b border-glassBorder" />
               <MovesContainer
                 game={analyzedGame}
                 termination={analyzedGame.termination}
@@ -1282,13 +1282,13 @@ const Analysis: React.FC<Props> = ({
         />
       </Head>
       {/* Radial gradient backdrop to match new design language */}
-      {/* <div
+      <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
             'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
         }}
-      /> */}
+      />
       <AnimatePresence>
         {controller.maia.status === 'no-cache' ||
         controller.maia.status === 'downloading' ? (

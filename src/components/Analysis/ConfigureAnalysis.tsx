@@ -35,13 +35,13 @@ export const ConfigureAnalysis: React.FC<Props> = ({
   autoSave,
 }: Props) => {
   return (
-    <div className="flex w-full flex-col items-start justify-start gap-2 rounded-md p-3 text-white/90">
+    <div className="flex w-full flex-col items-start justify-start gap-1.5 rounded-md p-3 text-white/90">
       <div className="flex w-full flex-col gap-0.5">
         <p className="text-xs text-white/70">Analyze using:</p>
         <div className="relative inline-flex w-full items-center">
           <select
             value={currentMaiaModel}
-            className="border-glassBorder bg-glass hover:bg-glass-hover w-full cursor-pointer appearance-none rounded-md border p-1 pr-6 text-xs text-white/90 outline-none transition duration-200"
+            className="w-full cursor-pointer appearance-none rounded border border-glassBorder bg-glass py-[5px] pl-2.5 pr-6 text-xs text-white/90 outline-none transition duration-200 hover:bg-glass-hover"
             onChange={(e) => setCurrentMaiaModel(e.target.value)}
           >
             {MAIA_MODELS.map((model) => (
@@ -61,13 +61,13 @@ export const ConfigureAnalysis: React.FC<Props> = ({
       </div>
       <ContinueAgainstMaia
         launchContinue={launchContinue}
-        background="!rounded-md border border-glassBorder bg-glass text-white/90 hover:bg-glass-hover !px-2 !py-1 !text-xs"
+        background="!rounded border border-glassBorder bg-glass text-white/90 hover:bg-glass-hover !px-2.5 !py-[5px] !text-xs"
       />
       {onAnalyzeEntireGame && (
         <button
           onClick={onAnalyzeEntireGame}
           disabled={isAnalysisInProgress || isLearnFromMistakesActive}
-          className="border-glassBorder bg-glass hover:bg-glass-hover flex w-full items-center gap-1.5 rounded-md border !px-2 !py-1 !text-sm text-white/90 transition duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center gap-1.5 rounded border border-glassBorder bg-glass !px-2.5 !py-[5px] !text-sm text-white/90 transition duration-200 hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <div className="flex items-center justify-center gap-1.5">
             <span className="material-symbols-outlined !text-sm text-white/80">
@@ -85,7 +85,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
         <button
           onClick={onLearnFromMistakes}
           disabled={isAnalysisInProgress || isLearnFromMistakesActive}
-          className="border-glassBorder bg-glass hover:bg-glass-hover flex w-full items-center gap-1.5 rounded-md border !px-2 !py-1 !text-sm text-white/90 transition duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center gap-1.5 rounded border border-glassBorder bg-glass !px-2.5 !py-[5px] !text-sm text-white/90 transition duration-200 hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           <div className="flex items-center justify-center gap-1.5">
             <span className="material-symbols-outlined !text-sm text-white/80">
