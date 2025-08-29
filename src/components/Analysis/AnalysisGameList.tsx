@@ -662,8 +662,8 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
               }`}
             >
               <div className="flex items-center justify-center gap-1">
-                <span className="material-symbols-outlined !text-lg text-white/80">
-                  hand_gesture
+                <span className="material-symbols-outlined material-symbols-filled !text-base text-white/80">
+                  back_hand
                 </span>
                 <span className="text-xs text-white/90">Hand</span>
               </div>
@@ -840,7 +840,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           disabled={currentPage === 1}
                           className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined">
+                          <span className="material-symbols-outlined !text-lg">
                             first_page
                           </span>
                         </button>
@@ -849,11 +849,11 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           disabled={currentPage === 1}
                           className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined">
+                          <span className="material-symbols-outlined !text-xs">
                             arrow_back_ios
                           </span>
                         </button>
-                        <span className="text-sm text-secondary">
+                        <span className="text-xs text-secondary">
                           Page {currentPage} of {totalPages}
                         </span>
                         <button
@@ -861,7 +861,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           disabled={currentPage === totalPages}
                           className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined">
+                          <span className="material-symbols-outlined !text-xs">
                             arrow_forward_ios
                           </span>
                         </button>
@@ -870,7 +870,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           disabled={currentPage === totalPages}
                           className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined">
+                          <span className="material-symbols-outlined !text-lg">
                             last_page
                           </span>
                         </button>
