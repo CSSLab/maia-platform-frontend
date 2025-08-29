@@ -349,7 +349,7 @@ export const MovesContainer: React.FC<
           ))}
           {termination && (
             <div
-              className="min-w-fit cursor-pointer rounded-md border border-white/10 bg-[rgb(var(--color-surface-2))] px-4 py-1 text-sm text-white/90"
+              className="min-w-fit cursor-pointer border-b border-t border-white/10 bg-[rgb(var(--color-surface-2))] px-4 py-1 text-sm text-white/90"
               onClick={() => {
                 if (!disableMoveClicking) {
                   controller.goToNode(mainLineNodes[mainLineNodes.length - 1])
@@ -371,16 +371,16 @@ export const MovesContainer: React.FC<
   return (
     <div
       ref={containerRef}
-      className={`red-scrollbar grid ${heightClass} auto-rows-min grid-cols-5 overflow-y-auto overflow-x-hidden whitespace-nowrap text-white/90 md:h-full md:w-full ${
+      className={`red-scrollbar grid ${heightClass} auto-rows-min grid-cols-[2.5rem_1fr_1fr_1fr_1fr] overflow-y-auto overflow-x-hidden whitespace-nowrap text-white/90 md:h-full md:w-full ${
         embedded
-          ? 'border-glassBorder border-b bg-transparent'
-          : 'border-glassBorder bg-glass rounded-md border backdrop-blur-md'
+          ? 'border-b border-glassBorder bg-transparent'
+          : 'rounded-md border border-glassBorder bg-glass backdrop-blur-md'
       }`}
     >
       {moves.map(([whiteNode, blackNode], index) => {
         return (
           <>
-            <span className="bg-glass-strong flex h-7 items-center justify-center text-sm text-white/70">
+            <span className="flex h-7 items-center justify-center bg-glass-strong text-sm text-white/70">
               {(whiteNode || blackNode)?.moveNumber}
             </span>
             <div
@@ -391,7 +391,7 @@ export const MovesContainer: React.FC<
                 }
               }}
               data-index={index * 2 + 1}
-              className={`hover:bg-glass-hover col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
+              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -432,7 +432,7 @@ export const MovesContainer: React.FC<
                 }
               }}
               data-index={index * 2 + 2}
-              className={`hover:bg-glass-hover col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
+              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -470,7 +470,7 @@ export const MovesContainer: React.FC<
       })}
       {termination && !isMobile && (
         <div
-          className="border-glassBorder bg-glass col-span-5 cursor-pointer rounded-md border p-5 text-center text-white/90 backdrop-blur-md"
+          className="col-span-5 cursor-pointer border-b border-t border-glassBorder bg-glass p-5 text-center text-white/90 backdrop-blur-md"
           onClick={() => {
             if (!disableMoveClicking) {
               controller.goToNode(mainLineNodes[mainLineNodes.length - 1])

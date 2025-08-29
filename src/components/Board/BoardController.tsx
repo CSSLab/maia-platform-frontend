@@ -18,6 +18,7 @@ interface Props {
   disablePrevious?: boolean
   disableKeyboardNavigation?: boolean
   disableNavigation?: boolean
+  embedded?: boolean
 }
 
 export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
@@ -134,35 +135,35 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
       <button
         onClick={disableFlip ? undefined : toggleBoardOrientation}
         disabled={disableFlip}
-        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:opacity-40"
+        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:bg-black/5"
       >
         {FlipIcon}
       </button>
       <button
         onClick={disableNavigation ? undefined : getFirst}
         disabled={!hasPrevious || disablePrevious || disableNavigation}
-        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:opacity-40"
+        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:bg-black/5"
       >
         &#8249;&#8249;&#8249;
       </button>
       <button
         onClick={disableNavigation ? undefined : getPrevious}
         disabled={!hasPrevious || disablePrevious || disableNavigation}
-        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:opacity-40"
+        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:bg-black/5"
       >
         &#8249;
       </button>
       <button
         onClick={disableNavigation ? undefined : getNext}
         disabled={!hasNext || disableNavigation}
-        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:opacity-40"
+        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:bg-black/5"
       >
         &#8250;
       </button>
       <button
         onClick={disableNavigation ? undefined : getLast}
         disabled={!hasNext || disableNavigation}
-        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-[rgb(var(--color-surface-2))] transition duration-200 hover:opacity-90 disabled:opacity-40"
+        className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-hover disabled:bg-black/5"
       >
         &#8250;&#8250;&#8250;
       </button>

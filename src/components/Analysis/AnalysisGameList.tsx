@@ -588,7 +588,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
       id="analysis-game-list"
       className={
         embedded
-          ? 'flex h-full flex-col items-start justify-start overflow-hidden border-t border-b border-glassBorder bg-transparent'
+          ? 'flex h-full flex-col items-start justify-start overflow-hidden border-b border-t border-glassBorder bg-transparent'
           : 'flex h-full flex-col items-start justify-start overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md'
       }
     >
@@ -633,6 +633,22 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
             />
           </div>
         </div>
+
+        {selected === 'custom' && onCustomAnalysis && (
+          <div className="flex border-b border-white/10">
+            <button
+              onClick={onCustomAnalysis}
+              className="flex w-full items-center gap-2 bg-white/5 px-3 py-1.5 text-white/80 transition duration-200 hover:bg-white/10"
+            >
+              <span className="material-symbols-outlined text-xs text-white/70">
+                add
+              </span>
+              <span className="text-xs text-white/80">
+                Analyze Custom PGN/FEN
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* H&B Subsections */}
         {selected === 'hb' && (
@@ -712,7 +728,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                         className={`group flex w-full items-center gap-2 ${selectedGame ? 'bg-glass-strong' : 'hover:bg-glass-hover'}`}
                       >
                         <div
-                          className={`flex h-full w-9 items-center justify-center ${selectedGame ? 'bg-glass-strong' : 'group-hover:bg-glass-hover'}`}
+                          className={`flex h-full w-10 items-center justify-center ${selectedGame ? 'bg-glass-strong' : 'group-hover:bg-glass-hover'}`}
                         >
                           <p className="text-sm text-white/70">
                             {selected === 'play' ||
@@ -876,19 +892,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
               </div>
             )}
         </div>
-        {onCustomAnalysis && (
-          <button
-            onClick={onCustomAnalysis}
-            className="flex w-full items-center gap-2 border-t border-white/10 bg-white/5 px-3 py-1.5 text-white/80 transition duration-200 hover:bg-white/10"
-          >
-            <span className="material-symbols-outlined text-xs text-white/70">
-              add
-            </span>
-            <span className="text-xs text-white/80">
-              Analyze Custom PGN/FEN
-            </span>
-          </button>
-        )}
+        {/* Removed bottom "Analyze Custom" button; now shown only under Custom tab */}
       </div>
       <FavoriteModal
         isOpen={favoriteModal.isOpen}
