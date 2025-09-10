@@ -10,7 +10,7 @@ import {
   useTour,
 } from 'src/contexts'
 import {
-  DelayedLoading,
+  Loading,
   GameInfo,
   GameBoard,
   TuringLog,
@@ -47,9 +47,9 @@ const TuringPage: NextPage = () => {
 
   if (controller.loading || !controller.game) {
     return (
-      <DelayedLoading isLoading={true}>
+      <Loading isLoading={true}>
         <div></div>
-      </DelayedLoading>
+      </Loading>
     )
   }
 
@@ -166,10 +166,10 @@ const Turing: React.FC<Props> = (props: Props) => {
       style={{ willChange: 'transform, opacity' }}
     >
       <div className="flex h-full flex-1 flex-col justify-center gap-1 py-10">
-        <div className="mx-auto mt-2 flex w-[90%] flex-row items-center justify-between gap-4">
+        <div className="mx-auto mt-2 flex w-[90%] flex-row items-start justify-between gap-3">
           <motion.div
             variants={itemVariants}
-            className="flex h-[75vh] min-w-64 flex-grow flex-col justify-between"
+            className="desktop-left-column-container flex flex-col justify-between"
           >
             <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
               <GameInfo
