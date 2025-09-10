@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { AnimatePresence } from 'framer-motion'
 
-import { DelayedLoading } from 'src/components'
+import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
 import { useBroadcastController } from 'src/hooks/useBroadcastController'
@@ -196,14 +196,14 @@ const BroadcastAnalysisPage: NextPage = () => {
         <Head>
           <title>Loading Broadcast – Maia Chess</title>
         </Head>
-        <DelayedLoading isLoading={true}>
+        <Loading isLoading={true}>
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="text-center">
               <h2 className="mb-2 text-xl font-semibold">Loading Broadcast</h2>
               <p className="text-secondary">Connecting to live tournament...</p>
             </div>
           </div>
-        </DelayedLoading>
+        </Loading>
       </>
     )
   }
@@ -271,9 +271,9 @@ const BroadcastAnalysisPage: NextPage = () => {
         broadcastController.currentGame &&
         !broadcastController.broadcastState.roundEnded ? (
           <div className="absolute left-0 top-0 z-50">
-            <DelayedLoading transparent isLoading={true}>
+            <Loading transparent isLoading={true}>
               <p>Loading game...</p>
-            </DelayedLoading>
+            </Loading>
           </div>
         ) : null}
         {analysisController && (

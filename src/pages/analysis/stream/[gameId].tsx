@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { AnimatePresence } from 'framer-motion'
 
-import { DelayedLoading } from 'src/components'
+import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
 import { useLichessStreamController } from 'src/hooks/useLichessStreamController'
@@ -197,7 +197,7 @@ const StreamAnalysisPage: NextPage = () => {
         streamController.game &&
         !streamController.streamState.gameEnded ? (
           <div className="absolute left-0 top-0 z-50">
-            <DelayedLoading
+            <Loading
               transparent
               isLoading={true}
               message={
@@ -210,7 +210,7 @@ const StreamAnalysisPage: NextPage = () => {
               }
             >
               <></>
-            </DelayedLoading>
+            </Loading>
           </div>
         ) : null}
         {analysisController && (

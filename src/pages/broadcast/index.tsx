@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { motion } from 'framer-motion'
 
-import { DelayedLoading } from 'src/components'
+import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { useBroadcastController } from 'src/hooks/useBroadcastController'
 import { Broadcast } from 'src/types'
@@ -71,7 +71,7 @@ const BroadcastsPage: NextPage = () => {
             content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
           />
         </Head>
-        <DelayedLoading isLoading={true}>
+        <Loading isLoading={true}>
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="text-center">
               <h2 className="mb-2 text-xl font-semibold">
@@ -80,7 +80,7 @@ const BroadcastsPage: NextPage = () => {
               <p className="text-secondary">Fetching ongoing tournaments...</p>
             </div>
           </div>
-        </DelayedLoading>
+        </Loading>
       </>
     )
   }

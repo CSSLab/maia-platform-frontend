@@ -371,7 +371,7 @@ export const MovesContainer: React.FC<
   return (
     <div
       ref={containerRef}
-      className={`red-scrollbar grid ${heightClass} auto-rows-min grid-cols-[2.5rem_1fr_1fr_1fr_1fr] overflow-y-auto overflow-x-hidden whitespace-nowrap text-white/90 md:h-full md:w-full ${
+      className={`red-scrollbar grid ${heightClass} w-full max-w-full auto-rows-min grid-cols-[2.5rem_1fr_1fr_1fr_1fr] overflow-y-auto overflow-x-hidden whitespace-nowrap text-white/90 md:h-full ${
         embedded
           ? 'border-b border-glassBorder bg-transparent'
           : 'rounded-md border border-glassBorder bg-glass backdrop-blur-md'
@@ -391,7 +391,7 @@ export const MovesContainer: React.FC<
                 }
               }}
               data-index={index * 2 + 1}
-              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
+              className={`col-span-2 flex h-7 min-w-0 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -399,6 +399,7 @@ export const MovesContainer: React.FC<
                     ? whiteNode?.color || 'inherit'
                     : 'inherit',
                 }}
+                className="truncate"
               >
                 {whiteNode?.san ?? whiteNode?.move}
               </span>
@@ -432,7 +433,7 @@ export const MovesContainer: React.FC<
                 }
               }}
               data-index={index * 2 + 2}
-              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
+              className={`col-span-2 flex h-7 min-w-0 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -440,6 +441,7 @@ export const MovesContainer: React.FC<
                     ? blackNode?.color || 'inherit'
                     : 'inherit',
                 }}
+                className="truncate"
               >
                 {blackNode?.san ?? blackNode?.move}
               </span>

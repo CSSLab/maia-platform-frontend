@@ -28,7 +28,7 @@ import {
   trackPuzzleCompleted,
 } from 'src/lib/analytics'
 import {
-  DelayedLoading,
+  Loading,
   GameInfo,
   Feedback,
   PuzzleLog,
@@ -225,9 +225,9 @@ const TrainPage: NextPage = () => {
 
   if (loadingGame || trainingGames.length === 0) {
     return (
-      <DelayedLoading isLoading={true}>
+      <Loading isLoading={true}>
         <div></div>
-      </DelayedLoading>
+      </Loading>
     )
   }
 
@@ -267,9 +267,9 @@ const TrainPage: NextPage = () => {
     )
 
   return (
-    <DelayedLoading isLoading={true}>
+    <Loading isLoading={true}>
       <div></div>
-    </DelayedLoading>
+    </Loading>
   )
 }
 

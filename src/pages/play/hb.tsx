@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 import { startGame } from 'src/api'
-import { DelayedLoading } from 'src/components/Common'
+import { Loading } from 'src/components/Common'
 import { GameplayInterface } from 'src/components/Board'
 import { HandBrainPlayControls } from 'src/components/Play'
 import { ModalContext, useTour } from 'src/contexts'
@@ -179,7 +179,7 @@ const PlayHandBrainPage: NextPage = () => {
           content="Team up with Maia in this collaborative chess variant. You can be the 'Hand' making moves while Maia is the 'Brain' selecting pieces, or vice versa."
         />
       </Head>
-      <DelayedLoading isLoading={!router.isReady || !id}>
+      <Loading isLoading={!router.isReady || !id}>
         {router.isReady && id && (
           <PlayHandBrain
             id={id as string}
@@ -189,7 +189,7 @@ const PlayHandBrainPage: NextPage = () => {
             setSimulateMaiaTime={setSimulateMaiaTime}
           />
         )}
-      </DelayedLoading>
+      </Loading>
     </>
   )
 }

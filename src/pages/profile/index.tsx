@@ -11,7 +11,7 @@ import {
   AuthenticatedWrapper,
   UserProfile,
   GameList,
-  DelayedLoading,
+  Loading,
   ProfileLeaderboardBadges,
 } from 'src/components'
 import { useLeaderboardStatus } from 'src/hooks/useLeaderboardStatus'
@@ -87,9 +87,9 @@ const ProfilePage: NextPage = () => {
             'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
         }}
       />
-      <DelayedLoading isLoading={loading}>
+      <Loading isLoading={loading}>
         <Profile stats={stats} />
-      </DelayedLoading>
+      </Loading>
     </AuthenticatedWrapper>
   )
 }

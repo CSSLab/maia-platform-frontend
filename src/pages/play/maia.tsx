@@ -4,7 +4,7 @@ import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { tourConfigs } from 'src/constants/tours'
 import { ModalContext, useTour } from 'src/contexts'
-import { DelayedLoading, PlayControls } from 'src/components'
+import { Loading, PlayControls } from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
 import { useContext, useEffect, useMemo, useState } from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
@@ -195,7 +195,7 @@ const PlayMaiaPage: NextPage = () => {
           content="Challenge the most human-like chess AI. Unlike traditional engines that play robotically, Maia naturally plays moves a person would make, trained on millions of human games with real chess intuition."
         />
       </Head>
-      <DelayedLoading isLoading={!router.isReady || !id}>
+      <Loading isLoading={!router.isReady || !id}>
         {router.isReady && id && (
           <PlayMaia
             id={id as string}
@@ -205,7 +205,7 @@ const PlayMaiaPage: NextPage = () => {
             setSimulateMaiaTime={setSimulateMaiaTime}
           />
         )}
-      </DelayedLoading>
+      </Loading>
     </>
   )
 }

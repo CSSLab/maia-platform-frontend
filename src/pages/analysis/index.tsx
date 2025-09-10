@@ -1,6 +1,6 @@
 import { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import { DelayedLoading } from 'src/components'
+import { Loading } from 'src/components'
 import { fetchMaiaGameList } from 'src/api'
 import { AnalysisListContext } from 'src/contexts'
 import { useContext, useEffect, useState } from 'react'
@@ -51,9 +51,9 @@ const AnalysisPage: NextPage = () => {
   }, [analysisTournamentList, analysisPlayList, push])
 
   return (
-    <DelayedLoading isLoading={loading}>
+    <Loading isLoading={loading}>
       <div></div>
-    </DelayedLoading>
+    </Loading>
   )
 }
 

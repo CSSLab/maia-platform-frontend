@@ -1,6 +1,9 @@
-import React from 'react'
+import React, { useContext } from 'react'
 import Image from 'next/image'
 import { CompletedDrill, OpeningSelection } from 'src/types/openings'
+import { BoardController, MovesContainer } from 'src/components'
+import { TreeControllerContext } from 'src/contexts'
+import { GameNode } from 'src/types'
 
 interface Props {
   currentDrill: OpeningSelection | null
@@ -14,6 +17,10 @@ interface Props {
   onLoadCompletedDrill?: (drill: CompletedDrill) => void
   onNavigateToDrill?: (drillIndex: number) => void
   embedded?: boolean
+  // New optional props to render moves + controller
+  openingEndNode?: GameNode | null
+  analysisEnabled?: boolean
+  continueAnalyzingMode?: boolean
 }
 
 export const OpeningDrillSidebar: React.FC<Props> = ({
@@ -28,6 +35,9 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
   onLoadCompletedDrill,
   onNavigateToDrill,
   embedded = false,
+  openingEndNode,
+  analysisEnabled,
+  continueAnalyzingMode,
 }) => {
   const containerClass = embedded
     ? 'flex h-full w-full flex-col 2xl:min-w-72'
@@ -40,6 +50,23 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
   const listHeaderClass = embedded
     ? 'px-4 pb-2'
     : 'border-b border-white/10 px-3 py-2'
+
+  const tree = useContext(TreeControllerContext)
+
+  // Navigation guards to respect opening start
+  const customGoToPreviousNode = () => {
+    if (!openingEndNode || !tree?.currentNode) return tree?.goToPreviousNode()
+    if (tree.currentNode !== openingEndNode) {
+      tree.goToPreviousNode()
+    }
+  }
+
+  const customGoToRootNode = () => {
+    if (!openingEndNode) return tree?.goToRootNode()
+    if (tree) {
+      tree.goToNode(openingEndNode)
+    }
+  }
 
   return (
     <div className={containerClass}>
@@ -227,6 +254,40 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
           )}
         </div>
       </div>
+
+      {/* Bottom: Moves + Controller (embedded) */}
+      {tree?.gameTree && currentDrill && (
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="h-3 border-t border-glassBorder" />
+          <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+            <MovesContainer
+              game={{ id: currentDrill.id, tree: tree.gameTree }}
+              startFromNode={openingEndNode || undefined}
+              restrictNavigationBefore={openingEndNode || undefined}
+              showAnnotations={!!(analysisEnabled || continueAnalyzingMode)}
+              showVariations={!!continueAnalyzingMode}
+              embedded
+              heightClass="h-40"
+            />
+            <BoardController
+              gameTree={tree.gameTree}
+              orientation={tree.orientation}
+              setOrientation={() => {}}
+              currentNode={tree.currentNode}
+              plyCount={tree.plyCount}
+              goToNode={tree.goToNode}
+              goToNextNode={tree.goToNextNode}
+              goToPreviousNode={customGoToPreviousNode}
+              goToRootNode={customGoToRootNode}
+              disableFlip={true}
+              disablePrevious={
+                openingEndNode ? tree.currentNode === openingEndNode : false
+              }
+              embedded
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

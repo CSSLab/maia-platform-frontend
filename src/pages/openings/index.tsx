@@ -21,8 +21,6 @@ import {
   OpeningDrillSidebar,
   DrillPerformanceModal,
   GameBoard,
-  BoardController,
-  MovesContainer,
   PromotionOverlay,
   PlayerInfo,
   DownloadModelModal,
@@ -497,51 +495,11 @@ const OpeningsPage: NextPage = () => {
               onResetCurrentDrill={controller.resetCurrentDrill}
               onChangeSelections={handleChangeSelections}
               onLoadCompletedDrill={() => console.log('Load completed drill')}
+              openingEndNode={controller.currentDrillGame?.openingEndNode}
+              analysisEnabled={controller.analysisEnabled}
+              continueAnalyzingMode={controller.continueAnalyzingMode}
               embedded
             />
-            {/* Spacer + separator before moves/controller */}
-            <div className="h-3 border-b border-glassBorder" />
-            {/* Moves + Board controller embedded */}
-            {controller.currentDrillGame && (
-              <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
-                <MovesContainer
-                  game={
-                    gameForContainer || {
-                      id: controller.currentDrillGame.id,
-                      tree: controller.gameTree,
-                      moves: [],
-                    }
-                  }
-                  startFromNode={
-                    controller.currentDrillGame?.openingEndNode || undefined
-                  }
-                  restrictNavigationBefore={
-                    controller.currentDrillGame?.openingEndNode || undefined
-                  }
-                  showAnnotations={
-                    controller.analysisEnabled ||
-                    controller.continueAnalyzingMode
-                  }
-                  showVariations={controller.continueAnalyzingMode}
-                  embedded
-                  heightClass="h-40"
-                />
-                <BoardController
-                  gameTree={controller.gameTree}
-                  orientation={controller.orientation}
-                  setOrientation={noOpSetOrientation}
-                  currentNode={controller.currentNode}
-                  plyCount={controller.plyCount}
-                  goToNode={controller.goToNode}
-                  goToNextNode={controller.goToNextNode}
-                  goToPreviousNode={customGoToPreviousNode}
-                  goToRootNode={customGoToRootNode}
-                  disableFlip={true}
-                  disablePrevious={controller.isAtOpeningEnd}
-                  embedded
-                />
-              </div>
-            )}
           </div>
         </div>
 

@@ -22,7 +22,7 @@ import {
   GameNode,
 } from 'src/types'
 import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
-import { DelayedLoading } from 'src/components/Common/DelayedLoading'
+import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { PlayerInfo } from 'src/components/Common/PlayerInfo'
 import { MoveMap } from 'src/components/Analysis/MoveMap'
@@ -215,9 +215,9 @@ const AnalysisPage: NextPage = () => {
           router={router}
         />
       ) : (
-        <DelayedLoading isLoading={true}>
+        <Loading isLoading={true}>
           <div></div>
-        </DelayedLoading>
+        </Loading>
       )}
     </>
   )

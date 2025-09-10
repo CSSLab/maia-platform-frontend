@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { fetchLeaderboard } from 'src/api'
-import { LeaderboardColumn, DelayedLoading } from 'src/components'
+import { LeaderboardColumn, Loading } from 'src/components'
 import { LeaderboardProvider } from 'src/components/Leaderboard/LeaderboardContext'
 
 const Leaderboard: React.FC = () => {
@@ -113,7 +113,7 @@ const Leaderboard: React.FC = () => {
 
   return (
     <LeaderboardProvider>
-      <DelayedLoading isLoading={loading}>
+      <Loading isLoading={loading}>
         <AnimatePresence mode="wait">
           <>
             <div
@@ -170,7 +170,7 @@ const Leaderboard: React.FC = () => {
             </motion.div>
           </>
         </AnimatePresence>
-      </DelayedLoading>
+      </Loading>
     </LeaderboardProvider>
   )
 }
