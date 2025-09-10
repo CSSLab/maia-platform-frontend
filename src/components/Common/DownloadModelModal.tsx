@@ -67,7 +67,7 @@ export const DownloadModelModal: React.FC<Props> = ({
   }
   return (
     <motion.div
-      className="absolute left-0 top-0 z-20 flex h-screen w-screen flex-col items-center justify-center bg-black/90 px-4 md:px-0"
+      className="fixed inset-0 z-50 flex items-center justify-center px-4 md:px-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -75,90 +75,109 @@ export const DownloadModelModal: React.FC<Props> = ({
       data-testid="download-modal"
       onTouchMove={(e) => e.preventDefault()}
     >
+      <div className="pointer-events-auto absolute inset-0 bg-black/80 backdrop-blur-sm" />
+
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+        }}
+      />
       <motion.div
-        className="flex w-full flex-col gap-5 rounded-md border border-background-1 bg-backdrop p-5 md:w-[min(750px,50vw)] md:p-8"
+        className="relative z-10 w-full max-w-[min(750px,50vw)]"
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 10, opacity: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.2 }}
       >
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-2xl md:text-3xl">
-            auto_awesome
-          </span>
-          <h1 className="text-2xl font-bold md:text-3xl">
-            Download Our New Model
-          </h1>
-        </div>
-        <div className="flex flex-col gap-3 text-sm md:text-base">
-          <p className="text-primary/80">
-            Our newest model, Maia 2, provides richer and more in-depth
-            analysis, allowing for:
-          </p>
-          <ul className="flex list-inside flex-col gap-1.5 pl-2 text-primary/80">
-            <li>
-              ✨ Detailed move evaluations tailored to different rating levels
-            </li>
-            <li>
-              🧠 Insights into how players of various strengths approach the
-              game
-            </li>
-            <li>
-              ⚡ Faster, local analysis without needing to send data to a server
-            </li>
-          </ul>
-          <p className="text-primary/80">
-            Maia 2 will run entirely on your device but requires a one-time 90mb
-            download.
-          </p>
-        </div>
-        <div className="mt-6 flex w-full flex-col items-end justify-end gap-2 md:flex-row">
-          {progress ? (
-            <div className="relative order-2 flex h-8 w-full items-center justify-start overflow-hidden rounded bg-human-4/20 px-3 md:order-1 md:h-10 md:w-auto md:flex-1">
-              <p className="z-10 text-xs text-primary md:text-base">
-                {Math.round(progress)}%
-              </p>
+        <div className="group relative flex w-full flex-col gap-5 overflow-hidden rounded-lg border border-glassBorder bg-glass p-5 text-left text-white backdrop-blur-xl transition-all duration-300 md:p-8">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined material-symbols-filled text-3xl text-white/90">
+              auto_awesome
+            </span>
+            <h1 className="text-2xl font-bold text-white md:text-3xl">
+              Download Our New Model
+            </h1>
+          </div>
+
+          <div className="flex flex-col gap-3 text-sm md:text-base">
+            <p className="text-white/80">
+              Our newest model, Maia 2, provides richer and more in-depth
+              analysis, allowing for:
+            </p>
+            <ul className="flex list-inside flex-col gap-1.5 pl-2 text-white/80">
+              <li>
+                ✨ Detailed move evaluations tailored to different rating levels
+              </li>
+              <li>
+                🧠 Insights into how players of various strengths approach the
+                game
+              </li>
+              <li>
+                ⚡ Faster, local analysis without needing to send data to a
+                server
+              </li>
+            </ul>
+            <p className="text-white/80">
+              Maia 2 runs entirely on your device and requires a one-time 90mb
+              download.
+            </p>
+          </div>
+
+          <div className="mt-4 flex w-full flex-col items-end justify-end gap-2 md:mt-6 md:flex-row">
+            {progress ? (
+              <div className="relative order-2 flex h-8 w-full items-center overflow-hidden rounded-md border border-glassBorder bg-[rgb(var(--color-surface-2))] px-3 md:order-1 md:h-10 md:flex-1">
+                <p className="z-10 text-xs text-white/90 md:text-sm">
+                  {Math.round(progress)}%
+                </p>
+                <div
+                  className="absolute left-0 top-0 z-0 h-full rounded-l-md bg-human-4 transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            ) : null}
+
+            <div className="order-1 flex flex-row gap-2 md:order-2">
+              <Link
+                href="/"
+                className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded-md border border-glassBorder bg-[rgb(var(--color-surface-2))] px-3 text-sm text-white/90 transition-all duration-200 hover:bg-[rgb(var(--color-surface))] md:h-10 md:px-4"
+              >
+                <span className="material-symbols-outlined text-base text-white/70 group-hover:text-white/90 md:text-lg">
+                  home
+                </span>
+                <p>Return Home</p>
+              </Link>
+
               <div
-                className="absolute left-0 top-0 z-0 h-10 rounded-l bg-human-4/80 transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          ) : null}
-          <div className="order-1 flex flex-row gap-2 md:order-2">
-            <Link
-              href="/"
-              className="order-2 flex h-8 cursor-pointer select-none items-center gap-1 self-end rounded bg-background-2 px-3 text-sm transition duration-200 hover:bg-background-3 md:order-3 md:h-10 md:px-4 md:text-base"
-            >
-              <p>Return Home</p>
-            </Link>
-            <div
-              tabIndex={0}
-              role="button"
-              className={`order-2 flex h-8 select-none items-center gap-1 self-end rounded px-3 text-sm transition duration-200 md:order-3 md:h-10 md:px-4 md:text-base ${
-                isDownloading || progress >= 100
-                  ? 'cursor-not-allowed bg-human-4/50'
-                  : 'cursor-pointer bg-human-4 hover:bg-human-4/90'
-              }`}
-              onClick={handleDownload}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  handleDownload()
-                }
-              }}
-            >
-              {isDownloading ? (
-                <span className="material-symbols-outlined animate-spin text-lg md:text-xl">
-                  progress_activity
-                </span>
-              ) : (
-                <span className="material-symbols-outlined text-lg md:text-xl">
-                  download
-                </span>
-              )}
-              <p>
-                {isDownloading ? 'Downloading...' : 'Download Maia 2'}{' '}
-                <span className="text-xs text-primary/60">(90mb)</span>
-              </p>
+                tabIndex={0}
+                role="button"
+                className={`flex h-8 select-none items-center gap-2 rounded-md px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
+                  isDownloading || progress >= 100
+                    ? 'cursor-not-allowed border border-human-4/30 bg-human-4/50'
+                    : 'cursor-pointer border border-human-4/30 bg-human-4 hover:border-human-4/50 hover:bg-human-4/90'
+                }`}
+                onClick={handleDownload}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    handleDownload()
+                  }
+                }}
+              >
+                {isDownloading ? (
+                  <span className="material-symbols-outlined animate-spin text-lg md:text-xl">
+                    progress_activity
+                  </span>
+                ) : (
+                  <span className="material-symbols-outlined text-lg md:text-xl">
+                    download
+                  </span>
+                )}
+                <p className="font-medium">
+                  {isDownloading ? 'Downloading...' : 'Download Maia 2'}{' '}
+                  <span className="text-xs text-white/70">(90mb)</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
