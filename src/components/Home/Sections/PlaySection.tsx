@@ -47,7 +47,7 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
   return (
     <section
       id={id}
-      className="relative flex min-h-[80vh] w-full flex-col items-center justify-center overflow-hidden bg-background-1 py-10 md:py-16"
+      className="relative flex min-h-[80vh] w-full flex-col items-center justify-center overflow-hidden bg-transparent py-10 md:py-16"
       ref={ref}
     >
       <div className="mx-auto flex w-full max-w-[95%] flex-col items-center px-2 md:max-w-[90%] md:flex-row md:gap-12 md:px-4 lg:gap-16">
@@ -84,11 +84,11 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
           <div className="relative flex aspect-square w-full items-center justify-center">
-            <div className="absolute left-0 top-0 grid h-3/4 w-3/4 grid-cols-6 grid-rows-6 gap-0.5 bg-background-2">
+            <div className="absolute left-0 top-0 grid h-3/4 w-3/4 grid-cols-6 grid-rows-6 gap-0.5 bg-transparent">
               <AnimatedTrainingBoards inView={inView} />
             </div>
             <motion.div
-              className="absolute bottom-0 right-0 z-10 h-3/4 w-3/4 overflow-hidden border border-background-3/20 bg-background-1 shadow-lg"
+              className="absolute bottom-0 right-0 z-10 h-3/4 w-3/4 overflow-hidden border border-white/10 bg-gradient-to-br from-white/8 to-white/4 backdrop-blur-md"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.5 }}

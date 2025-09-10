@@ -46,7 +46,7 @@ const teamMembers = [
     image: '/assets/team/kevin.jpg',
     name: 'Kevin Thomas',
     website: 'https://kevinjosethomas.com/',
-    institution: 'Burnaby South Secondary',
+    institution: 'University of Waterloo',
     role: 'Web Developer',
     github: 'kevinjosethomas',
   },
