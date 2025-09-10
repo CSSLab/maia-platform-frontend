@@ -32,7 +32,7 @@ export const TuringSubmission = ({
         className={
           embedded
             ? 'flex flex-col gap-5 border-t border-glassBorder bg-transparent p-3'
-            : 'flex flex-col gap-5 bg-background-1 p-4 rounded'
+            : 'flex flex-col gap-5 rounded bg-background-1 p-4'
         }
       >
         <h2 className="text-2xl">
@@ -72,8 +72,18 @@ export const TuringSubmission = ({
     )
 
   return (
-    <div className={embedded ? 'flex flex-col gap-1 border-t border-glassBorder' : 'flex flex-col gap-1'}>
-      <div className={embedded ? 'flex flex-col gap-3 p-3' : 'flex flex-col gap-3 p-4'}>
+    <div
+      className={
+        embedded
+          ? 'flex flex-col gap-1 border-t border-glassBorder'
+          : 'flex flex-col gap-1'
+      }
+    >
+      <div
+        className={
+          embedded ? 'flex flex-col gap-3 p-3' : 'flex flex-col gap-3 p-4'
+        }
+      >
         <h2 className="text-2xl font-semibold">Who is the bot?</h2>
         <div className="flex flex-1 flex-row items-center justify-between">
           <button
@@ -119,7 +129,7 @@ export const TuringSubmission = ({
       <textarea
         className={`${
           embedded
-            ? 'border-glassBorder bg-transparent p-2 text-sm text-secondary outline-none placeholder:text-secondary border rounded-md'
+            ? 'rounded-md border border-glassBorder bg-transparent p-2 text-sm text-secondary outline-none placeholder:text-secondary'
             : 'rounded bg-background-2 p-2 text-sm text-secondary outline-none placeholder:text-secondary'
         }`}
         placeholder="Optional justification"

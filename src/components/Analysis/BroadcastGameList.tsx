@@ -85,7 +85,8 @@ export const BroadcastGameList: React.FC<BroadcastGameListProps> = ({
                 : 'truncate text-sm font-semibold text-white/95'
             }
           >
-            {broadcastController.currentBroadcast?.tour.name || 'Live Broadcast'}
+            {broadcastController.currentBroadcast?.tour.name ||
+              'Live Broadcast'}
           </h3>
         </div>
 
@@ -163,7 +164,9 @@ export const BroadcastGameList: React.FC<BroadcastGameListProps> = ({
                 >
                   <div
                     className={`flex h-full w-9 items-center justify-center ${
-                      isSelected ? 'bg-white/10' : 'bg-transparent group-hover:bg-white/5'
+                      isSelected
+                        ? 'bg-white/10'
+                        : 'bg-transparent group-hover:bg-white/5'
                     }`}
                   >
                     <p className="text-sm text-white/70">{index + 1}</p>

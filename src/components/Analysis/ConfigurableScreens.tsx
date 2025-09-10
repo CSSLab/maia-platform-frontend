@@ -120,7 +120,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
 
   // Normal state with configure/export tabs
   return (
-    <div className="bg-glass flex w-full flex-1 flex-col overflow-hidden md:w-auto md:rounded">
+    <div className="flex w-full flex-1 flex-col overflow-hidden bg-glass md:w-auto md:rounded">
       <div className="flex flex-row border-b border-white/10">
         {screens.map((s) => {
           const selected = s.id === screen.id

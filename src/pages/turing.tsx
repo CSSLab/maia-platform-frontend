@@ -171,8 +171,13 @@ const Turing: React.FC<Props> = (props: Props) => {
             variants={itemVariants}
             className="flex h-[75vh] min-w-64 flex-grow flex-col justify-between"
           >
-            <div className="border-glassBorder bg-glass flex h-full w-full flex-col overflow-hidden rounded-md border backdrop-blur-md">
-              <GameInfo title="Bot or Not" icon="smart_toy" type="turing" embedded>
+            <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+              <GameInfo
+                title="Bot or Not"
+                icon="smart_toy"
+                type="turing"
+                embedded
+              >
                 {Info}
               </GameInfo>
               <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-end overflow-hidden">
@@ -205,7 +210,10 @@ const Turing: React.FC<Props> = (props: Props) => {
                   heightClass="h-full"
                 />
               </div>
-              <div id="turing-submission" className="border-t border-glassBorder">
+              <div
+                id="turing-submission"
+                className="border-t border-glassBorder"
+              >
                 <TuringSubmission rating={stats.rating ?? 0} embedded />
               </div>
               <div className="flex-none border-t border-glassBorder">
@@ -259,7 +267,7 @@ const Turing: React.FC<Props> = (props: Props) => {
               orientation={controller.orientation}
             />
           </div>
-            <div className="flex h-auto w-full flex-col gap-2">
+          <div className="flex h-auto w-full flex-col gap-2">
             <div className="flex w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
               <div className="relative bottom-0 flex-1 overflow-hidden">
                 <MovesContainer
@@ -283,7 +291,10 @@ const Turing: React.FC<Props> = (props: Props) => {
                   embedded
                 />
               </div>
-              <div id="turing-submission" className="border-t border-glassBorder w-full">
+              <div
+                id="turing-submission"
+                className="w-full border-t border-glassBorder"
+              >
                 <TuringSubmission rating={stats.rating ?? 0} embedded />
               </div>
             </div>

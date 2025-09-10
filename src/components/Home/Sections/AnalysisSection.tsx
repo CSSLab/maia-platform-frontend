@@ -226,11 +226,11 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
-          <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-white/8 to-white/4 backdrop-blur-md">
+          <div className="from-white/8 to-white/4 relative w-full overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md">
             <div className="flex flex-col gap-3 p-3">
               <div className="flex flex-col gap-3 md:flex-row">
                 <div className="flex flex-col md:w-1/2">
-                  <div className="flex flex-col overflow-hidden rounded border border-white/10 bg-gradient-to-br from-white/8 to-white/4 backdrop-blur-md">
+                  <div className="from-white/8 to-white/4 flex flex-col overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md">
                     <div className="w-full rounded-t-sm bg-white/5 p-2 text-left text-sm font-medium text-primary/80">
                       Spassky, Boris V.
                     </div>
@@ -246,7 +246,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                 </div>
                 <div className="flex flex-col gap-3 md:w-1/2">
                   <motion.div
-                    className="min-h-0 flex-1 overflow-hidden rounded border border-white/10 bg-gradient-to-br from-white/8 to-white/4 backdrop-blur-md"
+                    className="from-white/8 to-white/4 min-h-0 flex-1 overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md"
                     initial={{ opacity: 0, y: 20 }}
                     animate={
                       inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
@@ -274,7 +274,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                     />
                   </motion.div>
                   <motion.div
-                    className="flex-shrink-0 overflow-hidden rounded border border-white/10 bg-gradient-to-br from-white/8 to-white/4 backdrop-blur-md"
+                    className="from-white/8 to-white/4 flex-shrink-0 overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md"
                     initial={{ opacity: 0, y: 20 }}
                     animate={
                       inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
@@ -294,7 +294,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                   }
                   transition={{ duration: 0.3, delay: 0.6 }}
                 >
-                  <div className="h-full w-full overflow-hidden rounded border border-white/10 bg-gradient-to-br from-white/8 to-white/4 backdrop-blur-md">
+                  <div className="from-white/8 to-white/4 h-full w-full overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md">
                     <MovesByRating
                       moves={analysisMockData.movesByRating}
                       colorSanMapping={analysisMockData.colorSanMapping}
@@ -303,7 +303,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                   </div>
                 </motion.div>
                 <motion.div
-                  className="h-64 overflow-hidden rounded border border-white/10 bg-gradient-to-br from-white/8 to-white/4 backdrop-blur-md md:w-1/2"
+                  className="from-white/8 to-white/4 h-64 overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md md:w-1/2"
                   initial={{ opacity: 0, y: 20 }}
                   animate={
                     inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }

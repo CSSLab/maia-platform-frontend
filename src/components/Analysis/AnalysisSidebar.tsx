@@ -84,9 +84,9 @@ export const AnalysisSidebar: React.FC<Props> = ({
       <div className="hidden xl:flex xl:h-full xl:flex-col xl:gap-3">
         {/* Combined Highlight + MovesByRating container */}
         <div className="desktop-analysis-big-row-1-container relative flex gap-3">
-          <div className="border-glassBorder bg-glass-strong flex h-full w-full flex-col overflow-hidden rounded-md border backdrop-blur-md">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass-strong backdrop-blur-md">
             {/* Merged header with toggle */}
-            <div className="border-glassBorder flex h-10 min-h-10 items-center justify-between border-b bg-transparent px-4 text-white/90">
+            <div className="flex h-10 min-h-10 items-center justify-between border-b border-glassBorder bg-transparent px-4 text-white/90">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-xl text-white/80">
                   analytics
@@ -95,7 +95,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
               </div>
               <button
                 onClick={handleToggleAnalysis}
-                className={`border-glassBorder bg-glass flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+                className={`flex items-center gap-1 rounded-md border border-glassBorder bg-glass px-2 py-1 text-xs transition-colors ${
                   analysisEnabled ? 'text-white' : 'text-white/80'
                 } hover:bg-glass-hover`}
               >
@@ -161,7 +161,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
           </div>
           {!analysisEnabled && (
             <div
-              className="absolute left-0 right-0 bottom-0 top-10 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              className="pointer-events-none absolute bottom-0 left-0 right-0 top-10 z-10 flex items-center justify-center overflow-hidden"
               style={{
                 background:
                   'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
@@ -207,7 +207,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
           />
           {!analysisEnabled && (
             <div
-              className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden"
               style={{
                 background:
                   'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
@@ -230,9 +230,9 @@ export const AnalysisSidebar: React.FC<Props> = ({
       {/* Smaller screens: 3-row layout */}
       <div className="flex h-full flex-col gap-3 xl:hidden">
         {/* Row 1: Combined Highlight + BlunderMeter container */}
-        <div className="desktop-analysis-small-row-1-container border-glassBorder bg-glass-strong relative flex overflow-hidden rounded-md border backdrop-blur-md">
+        <div className="desktop-analysis-small-row-1-container relative flex overflow-hidden rounded-md border border-glassBorder bg-glass-strong backdrop-blur-md">
           {/* Merged header with toggle (mobile/smaller screens) */}
-          <div className="border-glassBorder absolute left-0 top-0 z-10 flex h-10 w-full items-center justify-between border-b bg-transparent px-3 text-white/90 backdrop-blur-md">
+          <div className="absolute left-0 top-0 z-10 flex h-10 w-full items-center justify-between border-b border-glassBorder bg-transparent px-3 text-white/90 backdrop-blur-md">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-xl text-white/80">
                 analytics
@@ -318,7 +318,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
           </div>
           {!analysisEnabled && (
             <div
-              className="absolute left-0 right-0 bottom-0 top-10 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              className="pointer-events-none absolute bottom-0 left-0 right-0 top-10 z-10 flex items-center justify-center overflow-hidden"
               style={{
                 background:
                   'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
@@ -353,7 +353,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
           </div>
           {!analysisEnabled && (
             <div
-              className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden"
               style={{
                 background:
                   'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
@@ -384,7 +384,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
           </div>
           {!analysisEnabled && (
             <div
-              className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden pointer-events-none"
+              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden"
               style={{
                 background:
                   'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',

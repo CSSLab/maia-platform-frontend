@@ -65,7 +65,9 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
           : 'rounded-md'
 
   return (
-    <div className={`flex h-10 w-full items-center justify-between ${roundedClass} border border-glassBorder bg-glass px-4 backdrop-blur-md`}>
+    <div
+      className={`flex h-10 w-full items-center justify-between ${roundedClass} border border-glassBorder bg-glass px-4 backdrop-blur-md`}
+    >
       <div className="flex items-center gap-1.5">
         <div
           className={`h-2.5 w-2.5 rounded-full ${color === 'white' ? 'bg-white' : 'border bg-black'}`}

@@ -45,7 +45,9 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
     <div className={containerClass}>
       {/* Current Drill Info */}
       <div className={sectionHeaderClass}>
-        <h2 className="mb-2 text-base font-semibold text-white/95">Current Drill</h2>
+        <h2 className="mb-2 text-base font-semibold text-white/95">
+          Current Drill
+        </h2>
         {currentDrill ? (
           <div className="space-y-2">
             <div>

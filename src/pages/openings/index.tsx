@@ -519,7 +519,8 @@ const OpeningsPage: NextPage = () => {
                     controller.currentDrillGame?.openingEndNode || undefined
                   }
                   showAnnotations={
-                    controller.analysisEnabled || controller.continueAnalyzingMode
+                    controller.analysisEnabled ||
+                    controller.continueAnalyzingMode
                   }
                   showVariations={controller.continueAnalyzingMode}
                   embedded
