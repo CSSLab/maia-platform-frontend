@@ -1,14 +1,20 @@
 import { useContext } from 'react'
 import { TuringControllerContext } from 'src/contexts'
 
-export const TuringLog: React.FC = () => {
+export const TuringLog: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { games, gameIds, setCurrentIndex, currentIndex } = useContext(
     TuringControllerContext,
   )
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded bg-background-1">
-      <div className="border-b border-white border-opacity-10 px-3 py-2">
+    <div
+      className={
+        embedded
+          ? 'flex h-full flex-col overflow-hidden border-t border-glassBorder bg-transparent'
+          : 'flex h-full flex-col overflow-hidden rounded bg-background-1'
+      }
+    >
+      <div className={embedded ? 'border-b border-glassBorder px-3 py-2' : 'border-b border-white border-opacity-10 px-3 py-2'}>
         <h3 className="text-sm font-medium text-primary">Game History</h3>
       </div>
       <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto">
