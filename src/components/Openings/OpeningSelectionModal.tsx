@@ -61,7 +61,7 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-sm rounded-lg bg-background-1 p-4">
+      <div className="from-white/8 to-white/4 mx-4 w-full max-w-sm rounded-lg border border-white/10 bg-gradient-to-br p-4 backdrop-blur-md">
         <div className="mb-4">
           <h3 className="text-lg font-bold">{opening.name}</h3>
           {variation && (
@@ -90,10 +90,10 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={() => setSelectedColor('white')}
-                className={`flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors ${
+                className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
                   selectedColor === 'white'
-                    ? 'bg-human-4 text-white'
-                    : 'bg-background-2 hover:bg-background-3'
+                    ? 'border-white/20 bg-white/10 text-white'
+                    : 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
                 }`}
               >
                 <div className="relative h-4 w-4">
@@ -107,10 +107,10 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
               </button>
               <button
                 onClick={() => setSelectedColor('black')}
-                className={`flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors ${
+                className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
                   selectedColor === 'black'
-                    ? 'bg-human-4 text-white'
-                    : 'bg-background-2 hover:bg-background-3'
+                    ? 'border-white/20 bg-white/10 text-white'
+                    : 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
                 }`}
               >
                 <div className="relative h-4 w-4">
@@ -129,21 +129,21 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 rounded bg-background-2 py-2 text-sm font-medium transition-colors hover:bg-background-3"
+            className="flex-1 rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white/90 backdrop-blur-sm transition-colors hover:bg-white/10"
           >
             Cancel
           </button>
           {isSelected ? (
             <button
               onClick={onRemove}
-              className="flex-1 rounded bg-human-4 py-2 text-sm font-medium transition-colors"
+              className="flex-1 rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10"
             >
               Remove
             </button>
           ) : (
             <button
               onClick={() => onAdd(selectedColor)}
-              className="flex-1 rounded bg-human-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80"
+              className="flex-1 rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10"
             >
               Add Drill
             </button>
@@ -273,7 +273,7 @@ const BrowsePanel: React.FC<{
             placeholder="Search openings..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded bg-background-2 py-2 pl-10 pr-4 text-sm text-primary placeholder-secondary focus:outline-none focus:ring-1 focus:ring-human-4"
+            className="w-full rounded border border-white/10 bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
           />
         </div>
       </div>
@@ -296,13 +296,13 @@ const BrowsePanel: React.FC<{
                 className={`group transition-colors ${
                   isMobile
                     ? openingIsSelected
-                      ? 'bg-human-2/20'
+                      ? 'bg-white/5'
                       : ''
                     : openingIsSelected
-                      ? 'bg-human-2/20'
+                      ? 'bg-white/5'
                       : openingIsBeingPreviewed
-                        ? 'bg-human-2/10'
-                        : 'hover:bg-human-2/10'
+                        ? 'bg-white/5'
+                        : 'hover:bg-white/5'
                 }`}
               >
                 <div className="flex items-center">
@@ -352,7 +352,7 @@ const BrowsePanel: React.FC<{
                         e.stopPropagation()
                         removeOpeningSelection(opening, null)
                       }}
-                      className="mr-3 rounded p-1 text-human-3 transition-colors hover:text-human-4"
+                      className="mr-3 rounded p-1 text-white/70 transition-colors hover:text-white"
                       title="Remove opening from selection"
                     >
                       <span className="material-symbols-outlined !text-base">
@@ -391,13 +391,13 @@ const BrowsePanel: React.FC<{
                     className={`group transition-colors ${
                       isMobile
                         ? variationIsSelected
-                          ? 'bg-human-2/20'
+                          ? 'bg-white/5'
                           : ''
                         : variationIsSelected
-                          ? 'bg-human-2/20'
+                          ? 'bg-white/5'
                           : variationIsBeingPreviewed
-                            ? 'bg-human-2/10'
-                            : 'hover:bg-human-2/10'
+                            ? 'bg-white/5'
+                            : 'hover:bg-white/5'
                     }`}
                   >
                     <div className="flex items-center">
@@ -446,7 +446,7 @@ const BrowsePanel: React.FC<{
                             e.stopPropagation()
                             removeOpeningSelection(opening, variation)
                           }}
-                          className="mr-3 rounded p-1 text-human-3 transition-colors hover:text-human-4"
+                          className="mr-3 rounded p-1 text-white/70 transition-colors hover:text-white"
                           title="Remove variation from selection"
                         >
                           <span className="material-symbols-outlined !text-base">
@@ -533,10 +533,10 @@ const PreviewPanel: React.FC<{
           <div className="flex gap-2">
             <button
               onClick={() => setSelectedColor('white')}
-              className={`flex items-center gap-2 rounded px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
+              className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
                 selectedColor === 'white'
-                  ? 'bg-human-4 text-white'
-                  : 'bg-background-2 hover:bg-background-3'
+                  ? 'border-white/20 bg-white/10 text-white'
+                  : 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
               }`}
             >
               <div className="relative h-4 w-4 md:h-5 md:w-5">
@@ -550,10 +550,10 @@ const PreviewPanel: React.FC<{
             </button>
             <button
               onClick={() => setSelectedColor('black')}
-              className={`flex items-center gap-2 rounded px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
+              className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
                 selectedColor === 'black'
-                  ? 'bg-human-4 text-white'
-                  : 'bg-background-2 hover:bg-background-3'
+                  ? 'border-white/20 bg-white/10 text-white'
+                  : 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
               }`}
             >
               <div className="relative h-4 w-4 md:h-5 md:w-5">
@@ -585,11 +585,11 @@ const PreviewPanel: React.FC<{
         </div>
       </div>
 
-      <div className="flex-shrink-0 border-t border-white/10 bg-background-1 p-3 md:p-4">
+      <div className="flex-shrink-0 border-t border-white/10 p-3 md:p-4">
         <button
           onClick={addSelection}
           disabled={isDuplicateSelection(previewOpening, previewVariation)}
-          className="w-full rounded bg-human-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
           title={
             isDuplicateSelection(previewOpening, previewVariation)
               ? 'Already added with same settings'
@@ -690,7 +690,7 @@ const SelectedPanel: React.FC<{
                     }
                   }}
                   onClick={() => removeSelection(selection.id)}
-                  className="ml-2 text-secondary transition-colors hover:text-human-4"
+                  className="ml-2 text-secondary transition-colors hover:text-white"
                 >
                   <span className="material-symbols-outlined !text-lg">
                     close
@@ -704,7 +704,7 @@ const SelectedPanel: React.FC<{
     </div>
 
     {/* Fixed button section - always visible */}
-    <div className="flex-shrink-0 border-t border-white/10 bg-background-1 p-3 md:p-4">
+    <div className="flex-shrink-0 border-t border-white/10 p-3 md:p-4">
       {/* Opponent Selection */}
       <div className="mb-3 md:mb-4">
         <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">Opponent:</p>
@@ -718,7 +718,7 @@ const SelectedPanel: React.FC<{
               setSelectedMaiaVersion(version)
             }
           }}
-          className="w-full rounded bg-background-2 p-2 text-xs focus:outline-none md:text-sm"
+          className="w-full rounded border border-white/10 bg-white/5 p-2 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20 md:text-sm"
         >
           {MAIA_MODELS_WITH_NAMES.map((version) => (
             <option key={version.id} value={version.id}>
@@ -750,7 +750,7 @@ const SelectedPanel: React.FC<{
       <button
         onClick={handleStartDrilling}
         disabled={selections.length === 0}
-        className="w-full rounded bg-human-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Start Drilling ({selections.length} opening
         {selections.length !== 1 ? 's' : ''})
@@ -1058,8 +1058,17 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1400px] flex-col items-start justify-start overflow-hidden rounded-lg bg-background-1 shadow-2xl md:h-[90vh]"
+        className="from-white/8 to-white/4 relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1400px] flex-col items-start justify-start overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md md:h-[90vh]"
       >
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background: [
+              'radial-gradient(ellipse 90% 80% at 0% 100%, rgba(239, 68, 68, 0.10) 0%, transparent 72%)',
+              'radial-gradient(ellipse 90% 80% at 100% 0%, rgba(239, 68, 68, 0.08) 0%, transparent 72%)',
+            ].join(', '),
+          }}
+        />
         {/* Close Button - Top Right of Modal */}
         <button
           onClick={onClose}
@@ -1081,7 +1090,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
                 </h1>
                 <button
                   type="button"
-                  className="material-symbols-outlined text-lg text-secondary duration-200 hover:text-human-3 focus:outline-none"
+                  className="material-symbols-outlined text-lg text-secondary duration-200 hover:text-white focus:outline-none"
                   onClick={handleStartTour}
                   title="Start tour"
                 >

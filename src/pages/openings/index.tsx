@@ -482,10 +482,11 @@ const OpeningsPage: NextPage = () => {
 
   const desktopLayout = () => (
     <div className="flex h-full w-full flex-col items-center py-4">
-      <div className="flex h-full w-[90%] flex-row gap-2">
-        {/* Left Sidebar */}
-        <div className="desktop-left-column-container flex flex-col gap-2 overflow-hidden rounded">
-          <div className="flex w-full flex-col">
+      <div className="flex h-full w-[90%] flex-row gap-3">
+        {/* Left Sidebar - unified glass container */}
+        <div className="desktop-left-column-container flex flex-col overflow-hidden">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+            {/* Opening drill info and drill list */}
             <OpeningDrillSidebar
               currentDrill={controller.currentDrill}
               completedDrills={[]}
@@ -496,50 +497,48 @@ const OpeningsPage: NextPage = () => {
               onResetCurrentDrill={controller.resetCurrentDrill}
               onChangeSelections={handleChangeSelections}
               onLoadCompletedDrill={() => console.log('Load completed drill')}
+              embedded
             />
-          </div>
-
-          {/* Moves Container with Board Controller */}
-          <div className="flex h-[30vh] flex-col overflow-hidden">
+            {/* Spacer + separator before moves/controller */}
+            <div className="h-3 border-b border-glassBorder" />
+            {/* Moves + Board controller embedded */}
             {controller.currentDrillGame && (
-              <div className="flex h-full flex-col">
-                <div className="flex-1 overflow-hidden">
-                  <MovesContainer
-                    game={
-                      gameForContainer || {
-                        id: controller.currentDrillGame.id,
-                        tree: controller.gameTree,
-                        moves: [],
-                      }
+              <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
+                <MovesContainer
+                  game={
+                    gameForContainer || {
+                      id: controller.currentDrillGame.id,
+                      tree: controller.gameTree,
+                      moves: [],
                     }
-                    startFromNode={
-                      controller.currentDrillGame?.openingEndNode || undefined
-                    }
-                    restrictNavigationBefore={
-                      controller.currentDrillGame?.openingEndNode || undefined
-                    }
-                    showAnnotations={
-                      controller.analysisEnabled ||
-                      controller.continueAnalyzingMode
-                    }
-                    showVariations={controller.continueAnalyzingMode}
-                  />
-                </div>
-                <div className="border-t border-white/10">
-                  <BoardController
-                    gameTree={controller.gameTree}
-                    orientation={controller.orientation}
-                    setOrientation={noOpSetOrientation}
-                    currentNode={controller.currentNode}
-                    plyCount={controller.plyCount}
-                    goToNode={controller.goToNode}
-                    goToNextNode={controller.goToNextNode}
-                    goToPreviousNode={customGoToPreviousNode}
-                    goToRootNode={customGoToRootNode}
-                    disableFlip={true}
-                    disablePrevious={controller.isAtOpeningEnd}
-                  />
-                </div>
+                  }
+                  startFromNode={
+                    controller.currentDrillGame?.openingEndNode || undefined
+                  }
+                  restrictNavigationBefore={
+                    controller.currentDrillGame?.openingEndNode || undefined
+                  }
+                  showAnnotations={
+                    controller.analysisEnabled || controller.continueAnalyzingMode
+                  }
+                  showVariations={controller.continueAnalyzingMode}
+                  embedded
+                  heightClass="h-40"
+                />
+                <BoardController
+                  gameTree={controller.gameTree}
+                  orientation={controller.orientation}
+                  setOrientation={noOpSetOrientation}
+                  currentNode={controller.currentNode}
+                  plyCount={controller.plyCount}
+                  goToNode={controller.goToNode}
+                  goToNextNode={controller.goToNextNode}
+                  goToPreviousNode={customGoToPreviousNode}
+                  goToRootNode={customGoToRootNode}
+                  disableFlip={true}
+                  disablePrevious={controller.isAtOpeningEnd}
+                  embedded
+                />
               </div>
             )}
           </div>
@@ -583,16 +582,16 @@ const OpeningsPage: NextPage = () => {
 
           {/* Drill progress with next drill button */}
           {controller.currentDrillGame && controller.currentDrill && (
-            <div className="flex w-full items-center gap-3 rounded bg-background-1 p-3">
+            <div className="flex w-full items-center gap-3 rounded-md border border-glassBorder bg-glass p-3 backdrop-blur-md">
               <div className="flex-1">
                 <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-secondary">Move Progress</span>
-                  <span className="font-medium text-primary">
+                  <span className="text-white/70">Move Progress</span>
+                  <span className="font-medium text-white/90">
                     {controller.currentDrillGame.playerMoveCount}/
                     {controller.currentDrill.targetMoveNumber}
                   </span>
                 </div>
-                <div className="h-2 w-full rounded bg-background-3">
+                <div className="h-2 w-full rounded bg-white/10">
                   <div
                     className="h-full rounded bg-human-3 transition-all duration-300"
                     style={{
@@ -612,7 +611,7 @@ const OpeningsPage: NextPage = () => {
                 !controller.showPerformanceModal && (
                   <button
                     onClick={controller.showCurrentPerformance}
-                    className="rounded bg-background-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-background-3"
+                    className="rounded-md border border-glassBorder bg-glass px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-glass-hover"
                   >
                     View Performance
                   </button>
@@ -740,6 +739,7 @@ const OpeningsPage: NextPage = () => {
               gameTree={controller.gameTree}
               disableFlip={true}
               disablePrevious={controller.isAtOpeningEnd}
+              embedded
             />
           </div>
 
@@ -770,16 +770,16 @@ const OpeningsPage: NextPage = () => {
 
           {/* Drill Progress */}
           {controller.currentDrillGame && controller.currentDrill && (
-            <div className="flex w-full items-center gap-3 rounded bg-background-1 p-3">
+            <div className="flex w-full items-center gap-3 rounded-md border border-glassBorder bg-glass p-3 backdrop-blur-md">
               <div className="flex-1">
                 <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-secondary">Move Progress</span>
-                  <span className="font-medium text-primary">
+                  <span className="text-white/70">Move Progress</span>
+                  <span className="font-medium text-white/90">
                     {controller.currentDrillGame.playerMoveCount}/
                     {controller.currentDrill.targetMoveNumber}
                   </span>
                 </div>
-                <div className="h-2 w-full rounded bg-background-3">
+                <div className="h-2 w-full rounded bg-white/10">
                   <div
                     className="h-full rounded bg-human-3 transition-all duration-300"
                     style={{
@@ -804,7 +804,7 @@ const OpeningsPage: NextPage = () => {
               !controller.showPerformanceModal && (
                 <button
                   onClick={controller.showCurrentPerformance}
-                  className="w-full rounded bg-background-2 px-6 py-2 text-sm font-medium"
+                  className="w-full rounded-md border border-glassBorder bg-glass px-6 py-2 text-sm font-medium text-white/90 hover:bg-glass-hover"
                 >
                   View Performance
                 </button>
@@ -852,6 +852,13 @@ const OpeningsPage: NextPage = () => {
           content="Master chess openings with interactive drills against Maia AI. Practice popular openings, learn key variations, and get performance analysis to improve your opening repertoire."
         />
       </Head>
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+        }}
+      />
       <TreeControllerContext.Provider
         value={{
           gameTree: controller.gameTree,
