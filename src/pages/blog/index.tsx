@@ -5,7 +5,7 @@ import { getSortedPostsData } from 'src/lib/blog/posts'
 
 export default function Blog({ posts }: { posts: Post[] }) {
   return (
-    <div className="mx-auto flex h-full w-[90%] flex-col items-start justify-center gap-5 py-[10%] md:py-[2%]">
+    <>
       <Head>
         <title>Blog – Maia Chess</title>
         <meta
@@ -44,8 +44,16 @@ export default function Blog({ posts }: { posts: Post[] }) {
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://maiachess.com/blog" />
       </Head>
-      <h1 className="text-4xl font-bold">Blog</h1>
-      <div className="flex w-full flex-col gap-6 overflow-x-hidden">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+        }}
+      />
+      <div className="relative mx-auto flex h-full w-[90%] flex-col items-start justify-center gap-5 py-[10%] md:py-[2%]">
+        <h1 className="text-4xl font-bold">Blog</h1>
+        <div className="flex w-full flex-col gap-6 overflow-x-hidden">
         {posts.map((post, index) => (
           <Link href={`/blog/${post.id}`} key={index}>
             <div className="flex w-full cursor-pointer flex-col gap-2 overflow-hidden hover:opacity-80 md:w-auto md:max-w-2xl">
@@ -76,8 +84,9 @@ export default function Blog({ posts }: { posts: Post[] }) {
             </div>
           </Link>
         ))}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
