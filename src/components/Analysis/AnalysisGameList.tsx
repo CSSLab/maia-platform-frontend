@@ -48,6 +48,7 @@ interface AnalysisGameListProps {
   onCustomAnalysis?: () => void
   onGameSelected?: () => void // Called when a game is selected (for mobile popup closing)
   refreshTrigger?: number // Used to trigger refresh when custom analysis is added
+  embedded?: boolean // Render without outer card container
 }
 
 export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
@@ -56,6 +57,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   onGameSelected,
   refreshTrigger,
   loadNewWorldChampionshipGame,
+  embedded = false,
 }) => {
   const router = useRouter()
   const { analysisLichessList, analysisTournamentList } =
@@ -584,10 +586,14 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   return analysisTournamentList ? (
     <div
       id="analysis-game-list"
-      className="flex h-full flex-col items-start justify-start overflow-hidden bg-background-1 md:rounded"
+      className={
+        embedded
+          ? 'flex h-full flex-col items-start justify-start overflow-hidden border-b border-t border-glassBorder bg-transparent'
+          : 'flex h-full flex-col items-start justify-start overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md'
+      }
     >
       <div className="flex h-full w-full flex-col">
-        <div className="flex select-none items-center border-b-2 border-white border-opacity-10">
+        <div className="flex select-none items-center border-b border-white/10">
           <Header
             label="★"
             name="favorites"
@@ -628,37 +634,53 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
           </div>
         </div>
 
+        {selected === 'custom' && onCustomAnalysis && (
+          <div className="flex border-b border-white/10">
+            <button
+              onClick={onCustomAnalysis}
+              className="flex w-full items-center gap-2 bg-white/5 px-3 py-1.5 text-white/80 transition duration-200 hover:bg-white/10"
+            >
+              <span className="material-symbols-outlined text-xs text-white/70">
+                add
+              </span>
+              <span className="text-xs text-white/80">
+                Analyze Custom PGN/FEN
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* H&B Subsections */}
         {selected === 'hb' && (
-          <div className="flex border-b border-white border-opacity-10">
+          <div className="flex border-b border-white/10">
             <button
               onClick={() => setHbSubsection('hand')}
-              className={`flex-1 px-3 text-sm ${
+              className={`flex-1 px-3 text-sm transition-colors ${
                 hbSubsection === 'hand'
-                  ? 'bg-background-2 text-primary'
-                  : 'bg-background-1/50 text-secondary hover:bg-background-2'
+                  ? 'bg-white/10 text-white'
+                  : 'bg-white/5 text-white/80 hover:bg-white/10'
               }`}
             >
               <div className="flex items-center justify-center gap-1">
-                <span className="material-symbols-outlined !text-lg">
-                  hand_gesture
+                <span className="material-symbols-outlined material-symbols-filled !text-base text-white/80">
+                  back_hand
                 </span>
-                <span className="text-xs">Hand</span>
+                <span className="text-xs text-white/90">Hand</span>
               </div>
             </button>
             <button
               onClick={() => setHbSubsection('brain')}
-              className={`flex-1 px-3 text-sm ${
+              className={`flex-1 px-3 text-sm transition-colors ${
                 hbSubsection === 'brain'
-                  ? 'bg-background-2 text-primary'
-                  : 'bg-background-1/50 text-secondary hover:bg-background-2'
+                  ? 'bg-white/10 text-white'
+                  : 'bg-white/5 text-white/80 hover:bg-white/10'
               }`}
             >
               <div className="flex items-center justify-center gap-1">
-                <span className="material-symbols-outlined !text-lg">
+                <span className="material-symbols-outlined !text-lg text-white/80">
                   neurology
                 </span>
-                <span className="text-xs">Brain</span>
+                <span className="text-xs text-white/90">Brain</span>
               </div>
             </button>
           </div>
@@ -703,12 +725,12 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                     return (
                       <div
                         key={index}
-                        className={`group flex w-full items-center gap-2 ${selectedGame ? 'bg-background-2 font-bold' : index % 2 === 0 ? 'bg-background-1/30 hover:bg-background-2' : 'bg-background-1/10 hover:bg-background-2'}`}
+                        className={`group flex w-full items-center gap-2 ${selectedGame ? 'bg-glass-strong' : 'hover:bg-glass-hover'}`}
                       >
                         <div
-                          className={`flex h-full w-9 items-center justify-center ${selectedGame ? 'bg-background-3' : 'bg-background-2 group-hover:bg-white/5'}`}
+                          className={`flex h-full w-10 items-center justify-center ${selectedGame ? 'bg-glass-strong' : 'group-hover:bg-glass-hover'}`}
                         >
-                          <p className="text-sm text-secondary">
+                          <p className="text-sm text-white/70">
                             {selected === 'play' ||
                             selected === 'hb' ||
                             selected === 'favorites'
@@ -732,13 +754,13 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           className="flex flex-1 cursor-pointer items-center justify-between overflow-hidden py-1"
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
-                            <p className="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-primary">
+                            <p className="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-white/90">
                               {displayName}
                             </p>
                             {selected === 'favorites' &&
                               (game.type === 'hand' ||
                                 game.type === 'brain') && (
-                                <span className="material-symbols-outlined flex-shrink-0 !text-sm text-secondary">
+                                <span className="material-symbols-outlined flex-shrink-0 !text-sm text-white/70">
                                   {game.type === 'hand'
                                     ? 'hand_gesture'
                                     : 'neurology'}
@@ -753,7 +775,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                                     e.stopPropagation()
                                     handleFavoriteGame(game)
                                   }}
-                                  className="flex items-center justify-center text-secondary transition hover:text-primary"
+                                  className="flex items-center justify-center text-white/70 transition hover:text-white"
                                   title="Edit favourite"
                                 >
                                   <span className="material-symbols-outlined !text-xs">
@@ -798,7 +820,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                                 </span>
                               </button>
                             )}
-                            <p className="whitespace-nowrap text-sm font-light text-secondary">
+                            <p className="whitespace-nowrap text-sm font-light text-white/70">
                               {game.result
                                 .replace('1/2', '½')
                                 .replace('1/2', '½')}
@@ -818,7 +840,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           disabled={currentPage === 1}
                           className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined">
+                          <span className="material-symbols-outlined !text-lg">
                             first_page
                           </span>
                         </button>
@@ -827,11 +849,11 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           disabled={currentPage === 1}
                           className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined">
+                          <span className="material-symbols-outlined !text-xs">
                             arrow_back_ios
                           </span>
                         </button>
-                        <span className="text-sm text-secondary">
+                        <span className="text-xs text-secondary">
                           Page {currentPage} of {totalPages}
                         </span>
                         <button
@@ -839,7 +861,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           disabled={currentPage === totalPages}
                           className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined">
+                          <span className="material-symbols-outlined !text-xs">
                             arrow_forward_ios
                           </span>
                         </button>
@@ -848,7 +870,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                           disabled={currentPage === totalPages}
                           className="flex items-center justify-center text-secondary hover:text-primary disabled:opacity-50"
                         >
-                          <span className="material-symbols-outlined">
+                          <span className="material-symbols-outlined !text-lg">
                             last_page
                           </span>
                         </button>
@@ -862,7 +884,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
             getCurrentGames().length === 0 &&
             !loading && (
               <div className="flex flex-1 items-start justify-center gap-1 py-2 md:items-center">
-                <p className="text-center text-xs text-secondary">
+                <p className="text-center text-xs text-white/70">
                   {selected === 'favorites'
                     ? ' ⭐ Hit the star to favourite games...'
                     : 'Play more games... ^. .^₎⟆'}
@@ -870,19 +892,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
               </div>
             )}
         </div>
-        {onCustomAnalysis && (
-          <button
-            onClick={onCustomAnalysis}
-            className="flex w-full items-center gap-2 bg-background-4/40 px-3 py-1.5 transition duration-200 hover:bg-background-4/80"
-          >
-            <span className="material-symbols-outlined text-xs text-secondary">
-              add
-            </span>
-            <span className="text-xs text-secondary">
-              Analyze Custom PGN/FEN
-            </span>
-          </button>
-        )}
+        {/* Removed bottom "Analyze Custom" button; now shown only under Custom tab */}
       </div>
       <FavoriteModal
         isOpen={favoriteModal.isOpen}
@@ -915,11 +925,11 @@ function Header({
   return (
     <button
       onClick={() => setSelected(name)}
-      className={`relative flex items-center justify-center md:py-1 ${selected === name ? 'bg-human-4/30' : 'bg-background-1/80 hover:bg-background-2'} ${name === 'favorites' ? 'px-3' : ''}`}
+      className={`relative flex items-center justify-center md:py-1 ${selected === name ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'} ${name === 'favorites' ? 'px-3' : ''}`}
     >
       <div className="flex items-center justify-start">
         <p
-          className={`text-xs transition duration-200 ${selected === name ? 'text-human-2' : 'text-primary'}`}
+          className={`text-xs transition duration-200 ${selected === name ? 'text-white' : 'text-white/90'}`}
         >
           {label}
         </p>
@@ -927,7 +937,7 @@ function Header({
       {selected === name && (
         <motion.div
           layoutId="underline"
-          className="absolute -bottom-0.5 h-0.5 w-full bg-human-2/80"
+          className="absolute -bottom-0.5 h-0.5 w-full bg-white/70"
         ></motion.div>
       )}
     </button>

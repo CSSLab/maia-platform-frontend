@@ -35,7 +35,9 @@ const getMoveClassification = (node: GameNode | null) => {
   }
 }
 
-export const MovesContainer: React.FC<Props> = (props) => {
+export const MovesContainer: React.FC<
+  Props & { embedded?: boolean; heightClass?: string }
+> = (props) => {
   const {
     game,
     termination,
@@ -46,7 +48,9 @@ export const MovesContainer: React.FC<Props> = (props) => {
     disableMoveClicking = false,
     startFromNode,
     restrictNavigationBefore,
-  } = props
+    embedded = false,
+    heightClass = 'h-48',
+  } = props as Props & { embedded?: boolean; heightClass?: string }
   const { isMobile } = useContext(WindowSizeContext)
   const containerRef = useRef<HTMLDivElement>(null)
   const currentMoveRef = useRef<HTMLDivElement>(null)
@@ -258,7 +262,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
         <div className="flex flex-row items-center gap-1">
           {mobileMovePairs.map((pair, pairIndex) => (
             <React.Fragment key={pairIndex}>
-              <div className="flex min-w-fit items-center rounded px-1 py-1 text-xs text-secondary">
+              <div className="flex min-w-fit items-center rounded px-1 py-1 text-xs text-white/70">
                 {pair.moveNumber}.{!pair.whiteMove ? '..' : ''}
               </div>
               {pair.whiteMove && (
@@ -273,11 +277,11 @@ export const MovesContainer: React.FC<Props> = (props) => {
                       controller.goToNode(pair.whiteMove as GameNode)
                     }
                   }}
-                  className={`flex min-w-fit cursor-pointer flex-row items-center rounded px-2 py-1 text-sm ${
+                  className={`flex min-w-fit cursor-pointer flex-row items-center rounded-md px-2 py-1 text-sm ${
                     controller.currentNode === pair.whiteMove
-                      ? 'bg-human-4/20'
-                      : 'hover:bg-background-2'
-                  } ${highlightSet.has(pairIndex * 2 + 1) ? 'bg-human-3/80' : ''}`}
+                      ? 'bg-white/10'
+                      : 'hover:bg-white/10'
+                  } ${highlightSet.has(pairIndex * 2 + 1) ? 'bg-white/15' : ''}`}
                 >
                   <span
                     style={{
@@ -313,11 +317,11 @@ export const MovesContainer: React.FC<Props> = (props) => {
                       controller.goToNode(pair.blackMove as GameNode)
                     }
                   }}
-                  className={`flex min-w-fit cursor-pointer flex-row items-center rounded px-2 py-1 text-sm ${
+                  className={`flex min-w-fit cursor-pointer flex-row items-center rounded-md px-2 py-1 text-sm ${
                     controller.currentNode === pair.blackMove
-                      ? 'bg-human-4/20'
-                      : 'hover:bg-background-2'
-                  } ${highlightSet.has(pairIndex * 2 + 2) ? 'bg-human-3/80' : ''}`}
+                      ? 'bg-white/10'
+                      : 'hover:bg-white/10'
+                  } ${highlightSet.has(pairIndex * 2 + 2) ? 'bg-white/15' : ''}`}
                 >
                   <span
                     style={{
@@ -345,7 +349,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
           ))}
           {termination && (
             <div
-              className="min-w-fit cursor-pointer border border-primary/10 bg-background-1/90 px-4 py-1 text-sm opacity-90"
+              className="min-w-fit cursor-pointer border-b border-t border-white/10 bg-[rgb(var(--color-surface-2))] px-4 py-1 text-sm text-white/90"
               onClick={() => {
                 if (!disableMoveClicking) {
                   controller.goToNode(mainLineNodes[mainLineNodes.length - 1])
@@ -367,12 +371,16 @@ export const MovesContainer: React.FC<Props> = (props) => {
   return (
     <div
       ref={containerRef}
-      className="red-scrollbar grid h-48 auto-rows-min grid-cols-5 overflow-y-auto overflow-x-hidden whitespace-nowrap rounded-sm bg-background-1/60 md:h-full md:w-full"
+      className={`red-scrollbar grid ${heightClass} auto-rows-min grid-cols-[2.5rem_1fr_1fr_1fr_1fr] overflow-y-auto overflow-x-hidden whitespace-nowrap text-white/90 md:h-full md:w-full ${
+        embedded
+          ? 'border-b border-glassBorder bg-transparent'
+          : 'rounded-md border border-glassBorder bg-glass backdrop-blur-md'
+      }`}
     >
       {moves.map(([whiteNode, blackNode], index) => {
         return (
           <>
-            <span className="flex h-7 items-center justify-center bg-background-2 text-sm text-secondary">
+            <span className="flex h-7 items-center justify-center bg-glass-strong text-sm text-white/70">
               {(whiteNode || blackNode)?.moveNumber}
             </span>
             <div
@@ -383,7 +391,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
                 }
               }}
               data-index={index * 2 + 1}
-              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-background-2 ${controller.currentNode === whiteNode && 'bg-human-4/10'} ${highlightSet.has(index * 2 + 1) && 'bg-human-3/80'}`}
+              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -424,7 +432,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
                 }
               }}
               data-index={index * 2 + 2}
-              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-background-2 ${controller.currentNode === blackNode && 'bg-human-4/10'} ${highlightSet.has(index * 2 + 2) && 'bg-human-3/80'}`}
+              className={`col-span-2 flex h-7 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -462,7 +470,7 @@ export const MovesContainer: React.FC<Props> = (props) => {
       })}
       {termination && !isMobile && (
         <div
-          className="col-span-5 cursor-pointer rounded-sm border border-primary/10 bg-background-1/90 p-5 text-center opacity-90"
+          className="col-span-5 cursor-pointer border-b border-t border-glassBorder bg-glass p-5 text-center text-white/90 backdrop-blur-md"
           onClick={() => {
             if (!disableMoveClicking) {
               controller.goToNode(mainLineNodes[mainLineNodes.length - 1])

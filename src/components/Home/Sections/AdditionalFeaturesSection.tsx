@@ -69,7 +69,7 @@ const FeatureCard = ({
 
   return (
     <motion.div
-      className="flex flex-col overflow-hidden rounded-lg bg-background-2 shadow-lg transition-transform duration-200"
+      className="from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md transition-all duration-200 hover:border-white/20"
       variants={variants}
     >
       <div className="flex flex-col p-5">
@@ -169,7 +169,7 @@ export const AdditionalFeaturesSection = ({
   return (
     <section
       id={id}
-      className="relative w-full flex-col items-center overflow-hidden bg-background-1 py-10 md:py-16"
+      className="relative w-full flex-col items-center overflow-hidden bg-transparent py-10 md:py-16"
       ref={ref}
     >
       <div className="mx-auto flex w-full max-w-[95%] flex-col px-2 md:max-w-[90%] md:px-4">

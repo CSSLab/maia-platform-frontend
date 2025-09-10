@@ -19,7 +19,7 @@ const BlogPost = ({ post }: BlogPostProps) => {
   }
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-5 py-[10%] md:py-[2%]">
+    <>
       <Head>
         <title>{post.title} – Maia Chess</title>
         <meta name="description" content={post.excerpt} />
@@ -59,61 +59,70 @@ const BlogPost = ({ post }: BlogPostProps) => {
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href={`https://maiachess.com/blog/${post.id}`} />
       </Head>
-      <div className="flex max-w-[90%] flex-col items-center justify-center overflow-x-hidden md:max-w-[80ch]">
-        <div className="mb-8 flex w-full flex-col gap-2">
-          <Link href="/blog">
-            <p className="hover:opacity-75">← Go back</p>
-          </Link>
-          <h1 className="text-2xl font-bold md:text-4xl">{post.title}</h1>
-          <div className="flex flex-wrap items-center gap-2 md:gap-4">
-            <p>
-              {new Date(post.date).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </p>
-            {post.github && (
-              <a
-                href={post.github}
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
-              >
-                GitHub
-              </a>
-            )}
-            {post.arxiv && (
-              <a
-                href={post.arxiv}
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
-              >
-                arXiv
-              </a>
-            )}
-            {post.journal && <p>{post.journal}</p>}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+        }}
+      />
+      <div className="relative flex h-full flex-col items-center justify-center gap-5 py-[10%] md:py-[2%]">
+        <div className="flex max-w-[90%] flex-col items-center justify-center overflow-x-hidden md:max-w-[80ch]">
+          <div className="mb-8 flex w-full flex-col gap-2">
+            <Link href="/blog">
+              <p className="hover:opacity-75">← Go back</p>
+            </Link>
+            <h1 className="text-2xl font-bold md:text-4xl">{post.title}</h1>
+            <div className="flex flex-wrap items-center gap-2 md:gap-4">
+              <p>
+                {new Date(post.date).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </p>
+              {post.github && (
+                <a
+                  href={post.github}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  GitHub
+                </a>
+              )}
+              {post.arxiv && (
+                <a
+                  href={post.arxiv}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  arXiv
+                </a>
+              )}
+              {post.journal && <p>{post.journal}</p>}
+            </div>
+            <div className="no-scrollbar mt-1 flex items-center gap-2 overflow-x-scroll">
+              {post.tags.map((tag, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-center gap-2 rounded-sm bg-background-1 px-3 py-1"
+                >
+                  <div className="h-2 w-2 rounded-full bg-human-3" />
+                  <p className="whitespace-nowrap text-sm text-secondary">
+                    {tag}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="no-scrollbar mt-1 flex items-center gap-2 overflow-x-scroll">
-            {post.tags.map((tag, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-center gap-2 rounded-sm bg-background-1 px-3 py-1"
-              >
-                <div className="h-2 w-2 rounded-full bg-human-3" />
-                <p className="whitespace-nowrap text-sm text-secondary">
-                  {tag}
-                </p>
-              </div>
-            ))}
+          <div className="prose prose-sm prose-invert w-full max-w-none leading-relaxed md:prose-lg lg:prose-xl prose-headings:mb-2 prose-a:text-human-2 hover:prose-a:underline prose-ul:list-inside prose-ul:list-disc prose-li:text-sm prose-img:mb-2 prose-hr:my-8 prose-hr:opacity-20 lg:max-w-[80ch]">
+            <Markdown>{post.content}</Markdown>
           </div>
-        </div>
-        <div className="prose prose-sm prose-invert w-full max-w-none leading-relaxed md:prose-lg lg:prose-xl prose-headings:mb-2 prose-a:text-human-2 hover:prose-a:underline prose-ul:list-inside prose-ul:list-disc prose-li:text-sm prose-img:mb-2 prose-hr:my-8 prose-hr:opacity-20 lg:max-w-[80ch]">
-          <Markdown>{post.content}</Markdown>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 

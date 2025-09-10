@@ -120,7 +120,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
 
   // Normal state with configure/export tabs
   return (
-    <div className="flex w-full flex-1 flex-col overflow-hidden bg-background-1/60 md:w-auto md:rounded">
+    <div className="flex w-full flex-1 flex-col overflow-hidden bg-glass md:w-auto md:rounded">
       <div className="flex flex-row border-b border-white/10">
         {screens.map((s) => {
           const selected = s.id === screen.id
@@ -150,7 +150,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
           )
         })}
       </div>
-      <div className="red-scrollbar flex flex-1 flex-col items-start justify-start overflow-y-scroll bg-backdrop/30">
+      <div className="red-scrollbar flex flex-1 flex-col items-start justify-start overflow-y-scroll">
         {screen.id === 'configure' ? (
           <ConfigureAnalysis
             currentMaiaModel={currentMaiaModel}

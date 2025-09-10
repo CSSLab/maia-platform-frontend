@@ -213,7 +213,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
   return (
     <section
       id={id}
-      className="relative w-full flex-col items-center overflow-hidden py-10 md:py-16"
+      className="relative w-full flex-col items-center overflow-hidden bg-transparent py-10 md:py-16"
       ref={ref}
     >
       <div className="z-10 mx-auto flex w-full max-w-[95%] flex-col items-center px-2 md:max-w-[90%] md:flex-row md:gap-12 md:px-4 lg:gap-16">
@@ -253,15 +253,15 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
-          <div className="flex flex-col overflow-hidden rounded-lg bg-background-2 shadow-xl">
-            <div className="border-b border-background-3/20 px-4 pt-4">
+          <div className="from-white/8 to-white/4 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md">
+            <div className="border-b border-white/10 px-4 pt-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div className="mr-2 h-2 w-2 rounded-full bg-human-3" />
                   <p className="font-medium text-primary">Tactical Puzzle</p>
                 </div>
                 <div className="flex gap-2">
-                  <span className="rounded bg-background-3/80 px-2 py-1 text-xs text-primary/60">
+                  <span className="rounded bg-white/10 px-2 py-1 text-xs text-primary/70">
                     Intermediate
                   </span>
                 </div>
@@ -280,7 +280,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                     transform: 'translateZ(0)',
                   }}
                 >
-                  <div className="flex flex-col overflow-hidden rounded border border-white/10">
+                  <div className="from-white/8 to-white/4 flex flex-col overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md">
                     <div
                       className="relative w-full"
                       style={{
@@ -312,7 +312,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                   }
                   transition={{ duration: 0.3, delay: 0.5 }}
                 >
-                  <div className="h-full w-full rounded border border-white/10 bg-background-1/60">
+                  <div className="from-white/8 to-white/4 h-full w-full rounded border border-white/10 bg-gradient-to-br backdrop-blur-md">
                     <MovesByRating
                       moves={puzzleMockData.movesByRating}
                       colorSanMapping={puzzleMockData.colorSanMapping}
@@ -323,7 +323,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
 
                 {/* Position Analysis */}
                 <motion.div
-                  className="mt-3 overflow-hidden rounded border border-white/10 bg-background-1/60 p-3"
+                  className="from-white/8 to-white/4 mt-3 overflow-hidden rounded border border-white/10 bg-gradient-to-br p-3 backdrop-blur-md"
                   initial={{ opacity: 0, y: 20 }}
                   animate={
                     inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }

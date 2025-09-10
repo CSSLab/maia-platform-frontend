@@ -18,7 +18,6 @@ import {
   MovesContainer,
   BoardController,
   TuringSubmission,
-  ContinueAgainstMaia,
 } from 'src/components'
 import { AllStats } from 'src/hooks/useStats'
 import { TuringGame } from 'src/types/turing'
@@ -172,20 +171,20 @@ const Turing: React.FC<Props> = (props: Props) => {
             variants={itemVariants}
             className="flex h-[75vh] min-w-64 flex-grow flex-col justify-between"
           >
-            <div className="flex w-full flex-col gap-2">
-              <GameInfo title="Bot or Not" icon="smart_toy" type="turing">
+            <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+              <GameInfo
+                title="Bot or Not"
+                icon="smart_toy"
+                type="turing"
+                embedded
+              >
                 {Info}
               </GameInfo>
-              <ContinueAgainstMaia
-                launchContinue={launchContinue}
-                sourcePage="openings"
-                currentFen={controller.currentNode?.fen || ''}
-              />
-              <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-end overflow-auto">
-                <TuringLog />
+              <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-end overflow-hidden">
+                <TuringLog embedded />
               </div>
+              <StatsDisplay stats={stats} embedded />
             </div>
-            <StatsDisplay stats={stats} />
           </motion.div>
           <motion.div
             variants={itemVariants}
@@ -200,26 +199,37 @@ const Turing: React.FC<Props> = (props: Props) => {
           </motion.div>
           <motion.div
             variants={itemVariants}
-            className="flex h-[75vh] min-w-64 flex-grow flex-col gap-1"
+            className="flex h-[75vh] min-w-64 flex-grow flex-col"
           >
-            <div className="relative bottom-0 h-full min-h-[38px] flex-1">
-              <MovesContainer game={game} termination={game.termination} />
-            </div>
-            <div id="turing-submission">
-              <TuringSubmission rating={stats.rating ?? 0} />
-            </div>
-            <div className="flex-none">
-              <BoardController
-                orientation={controller.orientation}
-                setOrientation={controller.setOrientation}
-                currentNode={controller.currentNode}
-                plyCount={controller.plyCount}
-                goToNode={controller.goToNode}
-                goToNextNode={controller.goToNextNode}
-                goToPreviousNode={controller.goToPreviousNode}
-                goToRootNode={controller.goToRootNode}
-                gameTree={controller.gameTree}
-              />
+            <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+              <div className="relative bottom-0 min-h-[38px] flex-1 overflow-hidden">
+                <MovesContainer
+                  game={game}
+                  termination={game.termination}
+                  embedded
+                  heightClass="h-full"
+                />
+              </div>
+              <div
+                id="turing-submission"
+                className="border-t border-glassBorder"
+              >
+                <TuringSubmission rating={stats.rating ?? 0} embedded />
+              </div>
+              <div className="flex-none border-t border-glassBorder">
+                <BoardController
+                  orientation={controller.orientation}
+                  setOrientation={controller.setOrientation}
+                  currentNode={controller.currentNode}
+                  plyCount={controller.plyCount}
+                  goToNode={controller.goToNode}
+                  goToNextNode={controller.goToNextNode}
+                  goToPreviousNode={controller.goToPreviousNode}
+                  goToRootNode={controller.goToRootNode}
+                  gameTree={controller.gameTree}
+                  embedded
+                />
+              </div>
             </div>
           </motion.div>
         </div>
@@ -257,32 +267,36 @@ const Turing: React.FC<Props> = (props: Props) => {
               orientation={controller.orientation}
             />
           </div>
-          <div className="flex h-auto w-full flex-col gap-1">
-            <div className="relative bottom-0 h-full flex-1 overflow-auto">
-              <MovesContainer game={game} termination={game.termination} />
-            </div>
-            <div className="flex-none">
-              <BoardController
-                orientation={controller.orientation}
-                setOrientation={controller.setOrientation}
-                currentNode={controller.currentNode}
-                plyCount={controller.plyCount}
-                goToNode={controller.goToNode}
-                goToNextNode={controller.goToNextNode}
-                goToPreviousNode={controller.goToPreviousNode}
-                goToRootNode={controller.goToRootNode}
-                gameTree={controller.gameTree}
-              />
-            </div>
-            <div id="turing-submission" className="w-screen">
-              <TuringSubmission rating={stats.rating ?? 0} />
-            </div>
-            <div className="flex w-full">
-              <ContinueAgainstMaia
-                launchContinue={launchContinue}
-                sourcePage="openings"
-                currentFen={controller.currentNode?.fen || ''}
-              />
+          <div className="flex h-auto w-full flex-col gap-2">
+            <div className="flex w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+              <div className="relative bottom-0 flex-1 overflow-hidden">
+                <MovesContainer
+                  game={game}
+                  termination={game.termination}
+                  embedded
+                  heightClass="h-full"
+                />
+              </div>
+              <div className="border-t border-glassBorder">
+                <BoardController
+                  orientation={controller.orientation}
+                  setOrientation={controller.setOrientation}
+                  currentNode={controller.currentNode}
+                  plyCount={controller.plyCount}
+                  goToNode={controller.goToNode}
+                  goToNextNode={controller.goToNextNode}
+                  goToPreviousNode={controller.goToPreviousNode}
+                  goToRootNode={controller.goToRootNode}
+                  gameTree={controller.gameTree}
+                  embedded
+                />
+              </div>
+              <div
+                id="turing-submission"
+                className="w-full border-t border-glassBorder"
+              >
+                <TuringSubmission rating={stats.rating ?? 0} embedded />
+              </div>
             </div>
           </div>
         </motion.div>
@@ -308,6 +322,13 @@ const Turing: React.FC<Props> = (props: Props) => {
           content="Test your ability to distinguish between human and AI chess play. This Turing Test for chess is a fun way to see if you understand the differences between human and engine moves."
         />
       </Head>
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+        }}
+      />
       <TuringControllerContext.Provider value={controller}>
         <TreeControllerContext.Provider value={controller}>
           <AnimatePresence mode="wait">

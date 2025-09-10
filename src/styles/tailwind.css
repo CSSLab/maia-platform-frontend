@@ -93,7 +93,22 @@ h5 {
   --color-engine-accent2: 90 157 215;
   --color-engine-accent3: 63 140 208;
   --color-engine-accent4: 35 124 201;
+
+  /* New solid surfaces for glass-style data cards (non-transparent) */
+  /* Opaque, neutral (no tint) surfaces */
+  --color-surface: 32 32 32; /* bright primary surface ~#202020 */
+  --color-surface-2: 24 24 24; /* dim secondary surface ~#181818 */
+
+  /* Glass variables (white, semi-transparent look) */
+  --glass-bg: 255 255 255;
+  --glass-bg-opacity: 0.03; /* base backdrop */
+  --glass-bg-hover-opacity: 0.05; /* hover / selected */
+  --glass-bg-strong-opacity: 0.07; /* stronger emphasis */
+  --glass-border: 255 255 255;
+  --glass-border-opacity: 0.09;
 }
+
+/* Removed gradient surface helpers per design direction */
 
 svg {
   fill: rgb(var(--color-text-primary));
@@ -131,14 +146,17 @@ svg {
 }
 
 .desktop-analysis-big-row-1-container {
-  height: calc((85vh - 2.5rem - 1rem) / 2);
+  /* 2.5rem header + 0.75rem gap between two rows */
+  height: calc((85vh - 2.5rem - 0.75rem) / 2);
 }
 
 .desktop-analysis-big-row-2-container {
-  height: calc((85vh - 2.5rem - 1rem) / 2);
+  /* 2.5rem header + 0.75rem gap between two rows */
+  height: calc((85vh - 2.5rem - 0.75rem) / 2);
 }
 
 .desktop-analysis-small-row-1-container {
+  /* 2.5rem header + 1.5rem total gaps between three rows (two gaps @ 0.75rem) */
   height: calc((85vh - 2.5rem - 1.5rem) * 0.4);
 }
 

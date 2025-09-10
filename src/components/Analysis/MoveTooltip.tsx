@@ -39,12 +39,14 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
 
   const tooltipContent = (
     <div
-      className={`fixed z-50 flex w-auto min-w-[12rem] flex-col overflow-hidden rounded-lg border border-white/30 bg-background-1 text-primary backdrop-blur-sm ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
+      className={`fixed z-50 flex w-auto min-w-[12rem] flex-col overflow-hidden rounded-md border border-white/10 text-white/90 ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
       style={{
         left: position.x + 15,
         top: position.y - 10,
         transform:
           position.x > window.innerWidth - 250 ? 'translateX(-100%)' : 'none',
+        background:
+          'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), #171214',
       }}
       onClick={onClickMove ? () => onClickMove(move) : undefined}
       onKeyDown={onClickMove ? handleKeyDown : undefined}
@@ -53,14 +55,14 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
       aria-label={onClickMove ? `Make move ${san}` : undefined}
     >
       {/* Header */}
-      <div className="flex w-full justify-between border-b border-white/20 bg-gradient-to-r from-background-2/90 to-background-2/70 px-3 py-1.5">
+      <div className="flex w-full justify-between border-b border-white/10 bg-transparent px-3 py-1.5">
         <span style={{ color }} className="font-medium">
           {san}
         </span>
       </div>
 
       {/* Content */}
-      <div className="flex flex-col items-start justify-start gap-1 bg-gradient-to-b from-background-1 to-background-1/90 px-3 py-1.5 text-sm">
+      <div className="flex flex-col items-start justify-start gap-1 bg-transparent px-3 py-1.5 text-sm">
         {/* Maia Probability */}
         {maiaProb !== undefined && (
           <div className="flex w-full items-center justify-between gap-2 font-mono">

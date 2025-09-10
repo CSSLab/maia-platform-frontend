@@ -216,7 +216,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
   return (
     <section
       id={id}
-      className="relative flex w-full flex-col items-center justify-center overflow-hidden bg-background-1 py-6 md:py-8"
+      className="relative flex w-full flex-col items-center justify-center overflow-hidden bg-transparent py-6 md:py-8"
       ref={ref}
     >
       <div className="mx-auto flex w-full max-w-[95%] flex-col-reverse items-center px-2 md:max-w-[90%] md:flex-row md:gap-8 md:px-4 lg:gap-12">
@@ -226,12 +226,12 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
-          <div className="relative w-full overflow-hidden rounded-lg border border-background-3/20 bg-background-2 shadow-xl">
+          <div className="from-white/8 to-white/4 relative w-full overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md">
             <div className="flex flex-col gap-3 p-3">
               <div className="flex flex-col gap-3 md:flex-row">
                 <div className="flex flex-col md:w-1/2">
-                  <div className="flex flex-col overflow-hidden rounded border border-white/10">
-                    <div className="w-full rounded-t-sm bg-background-1/60 p-2 text-left text-sm font-medium text-primary/80">
+                  <div className="from-white/8 to-white/4 flex flex-col overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md">
+                    <div className="w-full rounded-t-sm bg-white/5 p-2 text-left text-sm font-medium text-primary/80">
                       Spassky, Boris V.
                     </div>
                     <div className="relative aspect-square w-full">
@@ -239,14 +239,14 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                         <AnalysisChessboard forceKey={renderKey} />
                       </div>
                     </div>
-                    <div className="rounded-b-sm bg-background-1/60 p-2 text-left text-sm font-medium text-primary/80">
+                    <div className="rounded-b-sm bg-white/5 p-2 text-left text-sm font-medium text-primary/80">
                       Petrosian, Tigran V
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col gap-3 md:w-1/2">
                   <motion.div
-                    className="min-h-0 flex-1 overflow-hidden rounded border border-white/10"
+                    className="from-white/8 to-white/4 min-h-0 flex-1 overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md"
                     initial={{ opacity: 0, y: 20 }}
                     animate={
                       inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
@@ -274,7 +274,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                     />
                   </motion.div>
                   <motion.div
-                    className="flex-shrink-0 overflow-hidden rounded border border-white/10"
+                    className="from-white/8 to-white/4 flex-shrink-0 overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md"
                     initial={{ opacity: 0, y: 20 }}
                     animate={
                       inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
@@ -294,7 +294,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                   }
                   transition={{ duration: 0.3, delay: 0.6 }}
                 >
-                  <div className="h-full w-full overflow-hidden rounded border border-white/10 bg-background-1/60">
+                  <div className="from-white/8 to-white/4 h-full w-full overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md">
                     <MovesByRating
                       moves={analysisMockData.movesByRating}
                       colorSanMapping={analysisMockData.colorSanMapping}
@@ -303,7 +303,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                   </div>
                 </motion.div>
                 <motion.div
-                  className="h-64 overflow-hidden rounded border border-white/10 md:w-1/2"
+                  className="from-white/8 to-white/4 h-64 overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md md:w-1/2"
                   initial={{ opacity: 0, y: 20 }}
                   animate={
                     inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }

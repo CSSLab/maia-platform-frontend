@@ -49,10 +49,14 @@ export const LeaderboardNavBadge: React.FC<LeaderboardNavBadgeProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="absolute right-0 top-full z-50 w-64 overflow-hidden rounded border border-white/10 bg-background-1 shadow-lg"
+            className="absolute right-0 top-full z-50 w-64 overflow-hidden rounded-md border border-white/10 text-white/90 shadow-lg"
+            style={{
+              background:
+                'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), #171214',
+            }}
           >
-            <div className="border-b border-background-3 px-3 py-2">
-              <h3 className="text-sm font-medium text-primary">
+            <div className="border-b border-white/10 px-3 py-2">
+              <h3 className="text-sm font-medium text-white/90">
                 You&apos;re on the leaderboard!
               </h3>
             </div>
@@ -61,10 +65,10 @@ export const LeaderboardNavBadge: React.FC<LeaderboardNavBadgeProps> = ({
                 <Link
                   key={position.gameType}
                   href="/leaderboard"
-                  className="flex items-center justify-between px-3 py-2 hover:bg-background-2/60"
+                  className="flex items-center justify-between px-3 py-2 text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
                 >
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-medium text-white/90">
                       {position.gameName}
                     </span>
                     <span className="text-xs text-secondary">
@@ -84,7 +88,7 @@ export const LeaderboardNavBadge: React.FC<LeaderboardNavBadgeProps> = ({
                 </Link>
               ))}
             </div>
-            <div className="border-t border-background-3 px-3 py-2">
+            <div className="border-t border-white/10 px-3 py-2">
               <Link
                 href="/leaderboard"
                 className="text-xs text-secondary hover:text-primary"

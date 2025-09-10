@@ -13,6 +13,7 @@ interface Props {
   onChangeSelections?: () => void
   onLoadCompletedDrill?: (drill: CompletedDrill) => void
   onNavigateToDrill?: (drillIndex: number) => void
+  embedded?: boolean
 }
 
 export const OpeningDrillSidebar: React.FC<Props> = ({
@@ -26,25 +27,40 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
   onChangeSelections,
   onLoadCompletedDrill,
   onNavigateToDrill,
+  embedded = false,
 }) => {
+  const containerClass = embedded
+    ? 'flex h-full w-full flex-col 2xl:min-w-72'
+    : 'flex h-full w-full flex-col border-r border-white/10 bg-background-1 2xl:min-w-72'
+
+  const sectionHeaderClass = embedded
+    ? 'px-4 pt-4'
+    : 'border-b border-white/10 p-4'
+
+  const listHeaderClass = embedded
+    ? 'px-4 pb-2'
+    : 'border-b border-white/10 px-3 py-2'
+
   return (
-    <div className="flex h-full w-full flex-col border-r border-white/10 bg-background-1 2xl:min-w-72">
+    <div className={containerClass}>
       {/* Current Drill Info */}
-      <div className="border-b border-white/10 p-4">
-        <h2 className="mb-2 text-lg font-bold text-primary">Current Drill</h2>
+      <div className={sectionHeaderClass}>
+        <h2 className="mb-2 text-base font-semibold text-white/95">
+          Current Drill
+        </h2>
         {currentDrill ? (
           <div className="space-y-2">
             <div>
-              <p className="text-sm font-medium text-primary">
+              <p className="text-sm font-medium text-white/95">
                 {currentDrill.opening.name}
               </p>
               {currentDrill.variation && (
-                <p className="text-xs text-secondary">
+                <p className="text-xs text-white/70">
                   {currentDrill.variation.name}
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-secondary">
+            <div className="flex items-center gap-2 text-xs text-white/70">
               <div className="relative h-4 w-4">
                 <Image
                   src={
@@ -80,21 +96,21 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
             </div> */}
           </div>
         ) : (
-          <p className="text-sm text-secondary">No drill selected</p>
+          <p className="text-sm text-white/70">No drill selected</p>
         )}
       </div>
 
       {/* All Drills List */}
       <div className="flex h-96 flex-col overflow-hidden">
-        <div className="border-b border-white/10 px-3 py-2">
-          <h3 className="text-sm font-medium text-primary">
+        <div className={listHeaderClass}>
+          <h3 className="text-sm font-medium text-white/90">
             Drill Progress ({currentDrillIndex + 1} of {totalDrills})
           </h3>
         </div>
         <div className="red-scrollbar flex h-full flex-col overflow-y-auto">
           {drillSequence.length === 0 ? (
             <div className="flex h-full items-center justify-center">
-              <p className="max-w-[12rem] text-center text-xs text-secondary">
+              <p className="max-w-[12rem] text-center text-xs text-white/70">
                 No drills selected
               </p>
             </div>
@@ -159,7 +175,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                     <div className="flex items-start justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium text-primary">
+                          <p className="text-xs font-medium text-white/90">
                             Drill #{drillNumber}
                           </p>
                           <span
@@ -170,11 +186,11 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                         </div>
                         {!shouldHide && (
                           <>
-                            <p className="text-xs text-primary">
+                            <p className="text-xs text-white/90">
                               {drill.opening.name}
                             </p>
                             {drill.variation && (
-                              <p className="text-xs text-secondary">
+                              <p className="text-xs text-white/70">
                                 {drill.variation.name}
                               </p>
                             )}
@@ -193,11 +209,11 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                                 alt={`${drill.playerColor} king`}
                               />
                             </div>
-                            <span className="text-secondary">
+                            <span className="text-white/70">
                               vs Maia{' '}
                               {drill.maiaVersion.replace('maia_kdd_', '')}
                             </span>
-                            <span className="text-secondary">
+                            <span className="text-white/70">
                               • {drill.targetMoveNumber} moves
                             </span>
                           </div>

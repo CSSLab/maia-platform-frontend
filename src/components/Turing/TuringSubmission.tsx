@@ -3,7 +3,13 @@ import { useCallback, useContext, useEffect, useState } from 'react'
 
 import { TuringControllerContext } from 'src/contexts'
 
-export const TuringSubmission = ({ rating }: { rating: number }) => {
+export const TuringSubmission = ({
+  rating,
+  embedded = false,
+}: {
+  rating: number
+  embedded?: boolean
+}) => {
   const { game, submitGuess, getNewGame, commentController } = useContext(
     TuringControllerContext,
   )
@@ -22,7 +28,13 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
 
   if (game?.result)
     return (
-      <div className="flex flex-col gap-5 bg-background-1 p-4">
+      <div
+        className={
+          embedded
+            ? 'flex flex-col gap-5 border-t border-glassBorder bg-transparent p-3'
+            : 'flex flex-col gap-5 rounded bg-background-1 p-4'
+        }
+      >
         <h2 className="text-2xl">
           Guess {game.result.correct ? 'correct' : 'incorrect'}, <br />
           {game.result.bot} was the bot
@@ -60,8 +72,18 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
     )
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex flex-col gap-3 p-4">
+    <div
+      className={
+        embedded
+          ? 'flex flex-col gap-1 border-t border-glassBorder'
+          : 'flex flex-col gap-1'
+      }
+    >
+      <div
+        className={
+          embedded ? 'flex flex-col gap-3 p-3' : 'flex flex-col gap-3 p-4'
+        }
+      >
         <h2 className="text-2xl font-semibold">Who is the bot?</h2>
         <div className="flex flex-1 flex-row items-center justify-between">
           <button
@@ -105,7 +127,11 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
         </div>
       </div>
       <textarea
-        className="rounded bg-background-2 p-2 text-sm text-secondary outline-none placeholder:text-secondary"
+        className={`${
+          embedded
+            ? 'rounded-md border border-glassBorder bg-transparent p-2 text-sm text-secondary outline-none placeholder:text-secondary'
+            : 'rounded bg-background-2 p-2 text-sm text-secondary outline-none placeholder:text-secondary'
+        }`}
         placeholder="Optional justification"
         value={comment}
         onChange={(e) => setComment(e.target.value)}

@@ -12,6 +12,12 @@ module.exports = {
         backdrop: 'rgb(var(--color-backdrop))',
         primary: 'rgb(var(--color-text-primary))',
         secondary: 'rgb(var(--color-text-secondary))',
+        glass: {
+          DEFAULT: 'rgb(var(--glass-bg) / var(--glass-bg-opacity))',
+          hover: 'rgb(var(--glass-bg) / var(--glass-bg-hover-opacity))',
+          strong: 'rgb(var(--glass-bg) / var(--glass-bg-strong-opacity))',
+        },
+        glassBorder: 'rgb(var(--glass-border) / var(--glass-border-opacity))',
         button: {
           primary: 'rgb(var(--color-button-primary))',
           secondary: 'rgb(var(--color-button-secondary))',

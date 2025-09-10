@@ -14,6 +14,7 @@ interface Props {
   controller: ReturnType<typeof useTrainingController>
   lastAttemptedMove: string | null
   setLastAttemptedMove: Dispatch<SetStateAction<string | null>>
+  embedded?: boolean
 }
 
 export const Feedback: React.FC<Props> = ({
@@ -25,6 +26,7 @@ export const Feedback: React.FC<Props> = ({
   controller: controller,
   lastAttemptedMove,
   setLastAttemptedMove,
+  embedded = false,
 }: Props) => {
   const { targetIndex } = game
 
@@ -71,7 +73,13 @@ export const Feedback: React.FC<Props> = ({
   }, [defaultContent, incorrectContent, correctContent, status, targetIndex])
 
   return (
-    <div className="flex w-screen flex-1 flex-col rounded-sm bg-background-1 p-3 md:w-auto md:p-5 lg:justify-between">
+    <div
+      className={
+        embedded
+          ? 'flex w-screen flex-1 flex-col border-t border-glassBorder bg-transparent p-3 md:w-auto md:p-5 lg:justify-between'
+          : 'flex w-screen flex-1 flex-col rounded-md border border-glassBorder bg-glass p-3 backdrop-blur-md md:w-auto md:p-5 lg:justify-between'
+      }
+    >
       <div>
         <Markdown>{content.trim()}</Markdown>
         {(status === 'forfeit' || status === 'correct') && (

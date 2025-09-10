@@ -34,7 +34,6 @@ import {
   PuzzleLog,
   StatsDisplay,
   BoardController,
-  ContinueAgainstMaia,
   AuthenticatedWrapper,
   GameBoard,
   PromotionOverlay,
@@ -247,11 +246,20 @@ const TrainPage: NextPage = () => {
         setLastAttemptedMove={setLastAttemptedMove}
         gamesController={
           <>
-            <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-end overflow-auto">
-              <PuzzleLog
-                previousGameResults={previousGameResults}
-                setCurrentIndex={setCurrentIndex}
-              />
+            <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-start overflow-auto">
+              <div className="hidden md:block">
+                <PuzzleLog
+                  previousGameResults={previousGameResults}
+                  setCurrentIndex={setCurrentIndex}
+                  embedded
+                />
+              </div>
+              <div className="md:hidden">
+                <PuzzleLog
+                  previousGameResults={previousGameResults}
+                  setCurrentIndex={setCurrentIndex}
+                />
+              </div>
             </div>
           </>
         }
@@ -583,14 +591,7 @@ const Train: React.FC<Props> = ({
     setStatus('forfeit')
   }, [trainingGame.id, logGuess, setStatus, stats.rating])
 
-  const launchContinue = useCallback(() => {
-    const currentNode =
-      analysisEnabled && showAnalysis
-        ? analysisController.currentNode
-        : controller.currentNode
-    const url = '/play' + '?fen=' + encodeURIComponent(currentNode.fen)
-    window.open(url)
-  }, [controller, analysisController, analysisEnabled, showAnalysis])
+  // Removed "Continue Against Maia" from puzzles page; no need for launcher
 
   const hover = useCallback(
     (move?: string) => {
@@ -708,37 +709,45 @@ const Train: React.FC<Props> = ({
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full w-[90%] flex-row gap-2">
+      <div className="flex h-full w-[90%] flex-row gap-3">
         <motion.div
-          className="desktop-left-column-container flex flex-col gap-2 overflow-hidden"
+          className="desktop-left-column-container flex flex-col overflow-hidden"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <GameInfo title="Puzzles" icon="target" type="train">
-            <div className="flex w-full flex-col justify-start text-sm text-secondary 2xl:text-base">
-              <span>
-                Puzzle{' '}
-                <span className="text-secondary/60">#{trainingGame.id}</span>
-              </span>
-              <span>
-                Rating:{' '}
-                {status !== 'correct' && status !== 'forfeit' ? (
-                  <span className="text-secondary/60">hidden</span>
-                ) : (
-                  <span className="text-human-2">
-                    {trainingGame.puzzle_elo}
-                  </span>
-                )}
-              </span>
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+            {/* Header */}
+            <GameInfo title="Puzzles" icon="target" type="train" embedded>
+              <div className="flex w-full flex-col justify-start text-sm text-secondary 2xl:text-base">
+                <span>
+                  Puzzle{' '}
+                  <span className="text-secondary/60">#{trainingGame.id}</span>
+                </span>
+                <span>
+                  Rating:{' '}
+                  {status !== 'correct' && status !== 'forfeit' ? (
+                    <span className="text-secondary/60">hidden</span>
+                  ) : (
+                    <span className="text-human-2">
+                      {trainingGame.puzzle_elo}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </GameInfo>
+
+            {/* Puzzle log */}
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="h-3" />
+              {gamesController}
             </div>
-          </GameInfo>
-          <ContinueAgainstMaia
-            launchContinue={launchContinue}
-            sourcePage="puzzles"
-            currentFen={controller.currentNode?.fen || ''}
-          />
-          {gamesController}
-          <StatsDisplay stats={stats} />
+
+            {/* Stats */}
+            <div className="flex flex-col">
+              <div className="h-3" />
+              <StatsDisplay stats={stats} embedded />
+            </div>
+          </div>
         </motion.div>
 
         <motion.div
@@ -841,6 +850,7 @@ const Train: React.FC<Props> = ({
                 ? analysisController.gameTree
                 : controller.gameTree
             }
+            embedded
           />
           <div className="flex w-full flex-1">
             <Feedback
@@ -999,6 +1009,7 @@ const Train: React.FC<Props> = ({
                     ? analysisController.gameTree
                     : controller.gameTree
                 }
+                embedded
               />
             </div>
             <div className="flex w-full">
@@ -1014,11 +1025,6 @@ const Train: React.FC<Props> = ({
               />
             </div>
             <StatsDisplay stats={stats} />
-            <ContinueAgainstMaia
-              launchContinue={launchContinue}
-              sourcePage="puzzles"
-              currentFen={controller.currentNode?.fen || ''}
-            />
             <div
               id="analysis"
               className="flex w-full flex-col gap-1 overflow-hidden"
@@ -1236,6 +1242,14 @@ const Train: React.FC<Props> = ({
           content="Train with Maia as your coach using human-centered puzzles. Curated based on how millions of players improve, with data showing how different ratings approach each position."
         />
       </Head>
+      {/* Radial gradient backdrop to match new design language */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
+        }}
+      />
       <AnimatePresence>
         {analysisController.maia.status === 'no-cache' ||
         analysisController.maia.status === 'downloading' ? (

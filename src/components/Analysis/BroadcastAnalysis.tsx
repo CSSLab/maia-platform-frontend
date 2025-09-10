@@ -267,35 +267,43 @@ export const BroadcastAnalysis: React.FC<Props> = ({
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full w-[90%] flex-row gap-2">
+      <div className="flex h-full w-[90%] flex-row gap-3">
         <motion.div
           id="navigation"
-          className="desktop-left-column-container flex flex-col gap-2 overflow-hidden"
+          className="desktop-left-column-container flex flex-col overflow-hidden"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <GameInfo
-            title="Broadcast"
-            icon="live_tv"
-            type="analysis"
-            streamState={broadcastController.broadcastState}
-          >
-            <NestedGameInfo />
-          </GameInfo>
-          <div className="flex h-1/2 w-full flex-1 flex-col gap-2">
-            <div className="flex h-full flex-col">
-              <div className="flex-1 overflow-hidden">
-                <BroadcastGameList broadcastController={broadcastController} />
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <MovesContainer
-                  game={game}
-                  termination={game.termination}
-                  showAnnotations={true}
-                  disableKeyboardNavigation={false}
-                  disableMoveClicking={false}
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+            <GameInfo
+              title="Broadcast"
+              icon="live_tv"
+              type="analysis"
+              streamState={broadcastController.broadcastState}
+              embedded
+            >
+              <NestedGameInfo />
+            </GameInfo>
+            <div className="flex flex-col overflow-hidden">
+              <div className="h-3" />
+              <div className="max-h-[32vh] min-h-[32vh]">
+                <BroadcastGameList
+                  broadcastController={broadcastController}
+                  embedded
                 />
               </div>
+            </div>
+            <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
+              <div className="h-3 border-b border-glassBorder" />
+              <MovesContainer
+                game={game}
+                termination={game.termination}
+                showAnnotations={true}
+                disableKeyboardNavigation={false}
+                disableMoveClicking={false}
+                embedded
+                heightClass="h-40"
+              />
               <BoardController
                 gameTree={analysisController.gameTree}
                 orientation={analysisController.orientation}
@@ -308,12 +316,13 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 goToRootNode={analysisController.goToRootNode}
                 disableKeyboardNavigation={false}
                 disableNavigation={false}
+                embedded
               />
             </div>
           </div>
         </motion.div>
         <motion.div
-          className="desktop-middle-column-container flex flex-col gap-2"
+          className="desktop-middle-column-container flex flex-col gap-3"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
@@ -493,6 +502,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 goToRootNode={analysisController.goToRootNode}
                 disableKeyboardNavigation={false}
                 disableNavigation={false}
+                embedded
               />
             </div>
             <div className="relative bottom-0 h-48 max-h-48 flex-1 overflow-auto overflow-y-hidden">
