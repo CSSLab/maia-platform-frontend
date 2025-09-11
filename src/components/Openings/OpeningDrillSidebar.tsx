@@ -40,12 +40,12 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
   continueAnalyzingMode,
 }) => {
   const containerClass = embedded
-    ? 'flex h-full w-full flex-col 2xl:min-w-72'
-    : 'flex h-full w-full flex-col border-r border-white/10 bg-background-1 2xl:min-w-72'
+    ? 'flex h-full w-full max-w-full flex-col'
+    : 'flex h-full w-full max-w-full flex-col border-r border-white/10 bg-background-1'
 
   const sectionHeaderClass = embedded
-    ? 'px-4 pt-4'
-    : 'border-b border-white/10 p-4'
+    ? 'px-4 pt-4 w-full'
+    : 'border-b border-white/10 p-4 w-full'
 
   const listHeaderClass = embedded
     ? 'px-4 pb-2'
@@ -55,10 +55,18 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
 
   // Navigation guards to respect opening start
   const customGoToPreviousNode = () => {
-    if (!openingEndNode || !tree?.currentNode) return tree?.goToPreviousNode()
-    if (tree.currentNode !== openingEndNode) {
+    if (!tree) return
+    if (!openingEndNode) {
       tree.goToPreviousNode()
+      return
     }
+    const atOpeningEnd = tree.currentNode === openingEndNode
+    const wouldLandOnOpeningEnd =
+      !!tree.currentNode?.parent &&
+      tree.currentNode.parent.fen === openingEndNode.fen
+
+    if (atOpeningEnd || wouldLandOnOpeningEnd) return
+    tree.goToPreviousNode()
   }
 
   const customGoToRootNode = () => {
@@ -127,8 +135,11 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
         )}
       </div>
 
+      {/* Separator between current drill and list */}
+      <div className="h-3 w-full border-y border-glassBorder" />
+
       {/* All Drills List */}
-      <div className="flex h-96 flex-col overflow-hidden">
+      <div className="flex h-96 w-full flex-col overflow-hidden">
         <div className={listHeaderClass}>
           <h3 className="text-sm font-medium text-white/90">
             Drill Progress ({currentDrillIndex + 1} of {totalDrills})
@@ -223,28 +234,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                             )}
                           </>
                         )}
-                        {!shouldHide && (
-                          <div className="mt-1 flex items-center gap-2 text-xs">
-                            <div className="relative h-3 w-3">
-                              <Image
-                                src={
-                                  drill.playerColor === 'white'
-                                    ? '/assets/pieces/white king.svg'
-                                    : '/assets/pieces/black king.svg'
-                                }
-                                fill={true}
-                                alt={`${drill.playerColor} king`}
-                              />
-                            </div>
-                            <span className="text-white/70">
-                              vs Maia{' '}
-                              {drill.maiaVersion.replace('maia_kdd_', '')}
-                            </span>
-                            <span className="text-white/70">
-                              • {drill.targetMoveNumber} moves
-                            </span>
-                          </div>
-                        )}
+                        {/* Details removed: icon, vs Maia, and move count */}
                       </div>
                     </div>
                   </button>
@@ -257,9 +247,9 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
 
       {/* Bottom: Moves + Controller (embedded) */}
       {tree?.gameTree && currentDrill && (
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="h-3 border-t border-glassBorder" />
-          <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+        <div className="flex w-full flex-1 flex-col overflow-hidden">
+          <div className="h-3 border-b border-t border-glassBorder" />
+          <div className="red-scrollbar flex w-full flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <MovesContainer
               game={{ id: currentDrill.id, tree: tree.gameTree }}
               startFromNode={openingEndNode || undefined}
@@ -281,7 +271,11 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
               goToRootNode={customGoToRootNode}
               disableFlip={true}
               disablePrevious={
-                openingEndNode ? tree.currentNode === openingEndNode : false
+                openingEndNode
+                  ? tree.currentNode === openingEndNode ||
+                    (!!tree.currentNode?.parent &&
+                      tree.currentNode.parent.fen === openingEndNode.fen)
+                  : false
               }
               embedded
             />

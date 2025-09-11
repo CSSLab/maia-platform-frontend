@@ -48,7 +48,7 @@ export const MovesContainer: React.FC<
     disableMoveClicking = false,
     startFromNode,
     restrictNavigationBefore,
-    embedded = false,
+    embedded = true,
     heightClass = 'h-48',
   } = props as Props & { embedded?: boolean; heightClass?: string }
   const { isMobile } = useContext(WindowSizeContext)
@@ -372,9 +372,7 @@ export const MovesContainer: React.FC<
     <div
       ref={containerRef}
       className={`red-scrollbar grid ${heightClass} w-full max-w-full auto-rows-min grid-cols-[2.5rem_1fr_1fr_1fr_1fr] overflow-y-auto overflow-x-hidden whitespace-nowrap text-white/90 md:h-full ${
-        embedded
-          ? 'border-b border-glassBorder bg-transparent'
-          : 'rounded-md border border-glassBorder bg-glass backdrop-blur-md'
+        embedded ? 'bg-transparent' : 'bg-transparent'
       }`}
     >
       {moves.map(([whiteNode, blackNode], index) => {
