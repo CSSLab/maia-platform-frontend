@@ -13,10 +13,9 @@ import {
   TreeControllerContext,
 } from 'src/contexts'
 import { DrillConfiguration, AnalyzedGame } from 'src/types'
-import openings from 'src/constants/openings.json'
-import { OpeningDrillAnalysis } from 'src/components/Openings/OpeningDrillAnalysis'
-
 import {
+  MovesContainer,
+  BoardController,
   OpeningSelectionModal,
   OpeningDrillSidebar,
   DrillPerformanceModal,
@@ -26,6 +25,9 @@ import {
   DownloadModelModal,
   AuthenticatedWrapper,
 } from 'src/components'
+import openings from 'src/constants/openings.json'
+import { OpeningDrillAnalysis } from 'src/components/Openings/OpeningDrillAnalysis'
+
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
 import {
   getCurrentPlayer,
@@ -488,13 +490,18 @@ const OpeningsPage: NextPage = () => {
             <OpeningDrillSidebar
               currentDrill={controller.currentDrill}
               completedDrills={[]}
-              remainingDrills={[]}
+              remainingDrills={
+                drillConfiguration?.selections?.filter(
+                  (_, i) => i > controller.currentDrillIndex,
+                ) || []
+              }
               currentDrillIndex={controller.currentDrillIndex}
               totalDrills={controller.totalDrills}
-              drillSequence={[]}
+              drillSequence={drillConfiguration?.selections || []}
               onResetCurrentDrill={controller.resetCurrentDrill}
               onChangeSelections={handleChangeSelections}
               onLoadCompletedDrill={() => console.log('Load completed drill')}
+              onNavigateToDrill={controller.navigateToDrill}
               openingEndNode={controller.currentDrillGame?.openingEndNode}
               analysisEnabled={controller.analysisEnabled}
               continueAnalyzingMode={controller.continueAnalyzingMode}

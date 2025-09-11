@@ -346,7 +346,7 @@ const CustomTooltip: React.FC<{
   }
 
   return (
-    <div className="rounded border border-white/20 bg-background-1/95 p-3 shadow-lg">
+    <div className="rounded border border-white/10 from-white/10 to-white/5 bg-gradient-to-br p-3 backdrop-blur-md">
       <p className="text-sm font-medium text-primary">
         {data.san ? `${moveNotation} ${data.san}` : `${moveNotation}`}
       </p>
@@ -405,7 +405,7 @@ const EvaluationChart: React.FC<{
 
   if (evaluationChart.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded bg-background-2 p-3 text-secondary">
+      <div className="flex h-64 items-center justify-center rounded border border-white/10 bg-white/5 p-3 text-secondary backdrop-blur-sm">
         <p>Evaluation chart unavailable</p>
       </div>
     )
@@ -753,7 +753,17 @@ const DesktopLayout: React.FC<{
   currentMoveIndex,
   getChartClassification,
 }) => (
-  <div className="relative flex h-[90vh] max-h-[800px] w-[95vw] max-w-[1200px] flex-col overflow-hidden rounded-lg bg-background-1 shadow-2xl">
+  <div className="from-white/8 to-white/4 relative flex h-[90vh] max-h-[800px] w-[95vw] max-w-[1200px] flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md">
+    <div
+      className="pointer-events-none absolute inset-0"
+      style={{
+        background: [
+          'radial-gradient(ellipse 130% 110% at 0% 0%, rgba(239, 68, 68, 0.14) 0%, transparent 75%)',
+          'radial-gradient(ellipse 130% 110% at 100% 100%, rgba(239, 68, 68, 0.12) 0%, transparent 75%)',
+        ].join(', '),
+        filter: 'blur(8px)',
+      }}
+    />
     {/* Header */}
     <div className="flex items-center justify-between border-b border-white/10 p-4">
       <div>
@@ -950,7 +960,7 @@ const DesktopLayout: React.FC<{
               return criticalMoves.map((move, index) => (
                 <button
                   key={index}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded bg-background-2/50 p-2 text-left transition-colors hover:bg-background-2"
+                  className="flex w-full cursor-pointer items-center gap-2 rounded border border-white/10 bg-white/5 p-2 text-left transition-colors hover:bg-white/10"
                   onClick={() => navigateToMove(move)}
                   type="button"
                 >
@@ -1011,7 +1021,7 @@ const DesktopLayout: React.FC<{
     <div className="flex gap-3 border-t border-white/10 p-4">
       <button
         onClick={onContinueAnalyzing}
-        className="flex-1 rounded bg-background-2 py-2 font-medium transition-colors hover:bg-background-3"
+        className="flex-1 rounded border border-white/10 bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
       >
         Analyze
       </button>
@@ -1064,7 +1074,17 @@ const MobileLayout: React.FC<{
   currentMoveIndex,
   getChartClassification,
 }) => (
-  <div className="relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-lg bg-background-1 shadow-2xl">
+  <div className="from-white/8 to-white/4 relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md">
+    <div
+      className="pointer-events-none absolute inset-0"
+      style={{
+        background: [
+          'radial-gradient(ellipse 130% 110% at 0% 0%, rgba(239, 68, 68, 0.14) 0%, transparent 75%)',
+          'radial-gradient(ellipse 130% 110% at 100% 100%, rgba(239, 68, 68, 0.12) 0%, transparent 75%)',
+        ].join(', '),
+        filter: 'blur(8px)',
+      }}
+    />
     {/* Header */}
     <div className="flex items-center justify-between border-b border-white/10 p-4">
       <div className="min-w-0 flex-1">
@@ -1090,12 +1110,12 @@ const MobileLayout: React.FC<{
     </div>
 
     {/* Mobile Tab Navigation */}
-    <div className="flex w-full border-b border-white/10 bg-background-1">
+    <div className="flex w-full border-b border-white/10">
       <button
         onClick={() => setActiveTab('replay')}
         className={`flex-1 py-3 text-sm font-medium transition-colors ${
           activeTab === 'replay'
-            ? 'border-b-2 border-human-4 bg-background-2 text-primary'
+            ? 'border-b-2 border-human-4 text-primary'
             : 'text-secondary hover:text-primary'
         }`}
       >
@@ -1105,7 +1125,7 @@ const MobileLayout: React.FC<{
         onClick={() => setActiveTab('analysis')}
         className={`flex-1 py-3 text-sm font-medium transition-colors ${
           activeTab === 'analysis'
-            ? 'border-b-2 border-human-4 bg-background-2 text-primary'
+            ? 'border-b-2 border-human-4 text-primary'
             : 'text-secondary hover:text-primary'
         }`}
       >
@@ -1115,7 +1135,7 @@ const MobileLayout: React.FC<{
         onClick={() => setActiveTab('insights')}
         className={`flex-1 py-3 text-sm font-medium transition-colors ${
           activeTab === 'insights'
-            ? 'border-b-2 border-human-4 bg-background-2 text-primary'
+            ? 'border-b-2 border-human-4 text-primary'
             : 'text-secondary hover:text-primary'
         }`}
       >
@@ -1210,7 +1230,7 @@ const MobileLayout: React.FC<{
     <div className="flex gap-3 border-t border-white/10 p-4">
       <button
         onClick={onContinueAnalyzing}
-        className="flex-1 rounded bg-background-2 py-2 font-medium transition-colors hover:bg-background-3"
+        className="flex-1 rounded border border-white/10 bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
       >
         Analyze
       </button>

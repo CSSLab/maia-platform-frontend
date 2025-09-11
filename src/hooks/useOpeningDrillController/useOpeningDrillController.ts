@@ -40,9 +40,13 @@ const parsePgnToTree = (pgn: string, gameTree: GameTree): GameNode | null => {
       if (existingChild) {
         currentNode = existingChild
       } else {
-        const newNode = gameTree
-          .getLastMainlineNode()
-          .addChild(chess.fen(), moveUci, moveObj.san)
+        // Add along the mainline so the opening becomes the tree's main line
+        const newNode = gameTree.addMainlineNode(
+          currentNode,
+          chess.fen(),
+          moveUci,
+          moveObj.san,
+        )
         if (newNode) {
           currentNode = newNode
         } else {
@@ -556,6 +560,25 @@ export const useOpeningDrillController = (
     currentDrillGame,
   ])
 
+  // Navigate to a specific drill by index
+  const navigateToDrill = useCallback(
+    (index: number) => {
+      if (
+        index < 0 ||
+        index >= (configuration.selections ? configuration.selections.length : 0)
+      )
+        return
+
+      setShowPerformanceModal(false)
+      setCurrentPerformanceData(null)
+      setContinueAnalyzingMode(false)
+      setAnalysisEnabled(false)
+      setWaitingForMaiaResponse(false)
+      setCurrentDrillIndex(index)
+    },
+    [configuration.selections],
+  )
+
   // Continue analyzing current drill
   const continueAnalyzing = useCallback(() => {
     setShowPerformanceModal(false)
@@ -707,15 +730,17 @@ export const useOpeningDrillController = (
   )
 
   const makeMaiaMove = useCallback(
-    async (fromNode: GameNode | null) => {
-      if (!currentDrillGame || !currentDrill || !fromNode) return
+    async (_fromNode: GameNode | null) => {
+      if (!currentDrillGame || !currentDrill) return
 
       try {
-        const path = fromNode.getPath()
+        // Always respond from the tip of the main line, regardless of current view
+        const tipNode = gameTree.getLastMainlineNode()
+        const path = tipNode.getPath()
         const response = await fetchGameMove(
           [],
           currentDrill.maiaVersion,
-          fromNode.fen,
+          tipNode.fen,
           null,
           0,
           0,
@@ -726,9 +751,9 @@ export const useOpeningDrillController = (
 
         if (maiaMove && maiaMove.length >= 4) {
           let newNode: GameNode | null = null
-          const chess = new Chess(fromNode.fen)
+          const chess = new Chess(tipNode.fen)
 
-          const existingChild = fromNode.children.find(
+          const existingChild = tipNode.children.find(
             (child: GameNode) => child.move === maiaMove,
           )
 
@@ -738,7 +763,7 @@ export const useOpeningDrillController = (
             const moveObj = chess.move(maiaMove, { sloppy: true })
 
             if (moveObj) {
-              newNode = fromNode.addChild(
+              newNode = tipNode.addChild(
                 chess.fen(),
                 maiaMove,
                 moveObj.san,
@@ -750,7 +775,7 @@ export const useOpeningDrillController = (
           if (newNode) {
             setCurrentNode(newNode)
 
-            const tempChess = new Chess(fromNode.fen)
+            const tempChess = new Chess(tipNode.fen)
             const tempMoveObj = tempChess.move(maiaMove, { sloppy: true })
             const isCapture = tempMoveObj?.captured !== undefined
             playMoveSound(isCapture)
@@ -806,31 +831,29 @@ export const useOpeningDrillController = (
       continueAnalyzingMode,
     })
 
-    if (
-      currentDrillGame &&
-      currentNode &&
-      !isPlayerTurn &&
-      waitingForMaiaResponse &&
-      !isDrillComplete &&
-      !continueAnalyzingMode
-    ) {
-      console.log('Scheduling Maia move in 1500ms')
-      const timeoutId = setTimeout(() => {
-        if (currentNode) {
-          console.log('Executing Maia move')
-          makeMaiaMoveRef.current(currentNode)
-        }
-      }, 1500)
+    if (currentDrillGame && waitingForMaiaResponse && !isDrillComplete && !continueAnalyzingMode) {
+      // Decide based on the tip of the main line, not the viewed node
+      const tip = gameTree.getLastMainlineNode()
+      const chess = new Chess(tip.fen)
+      const playerTurnsColor = currentDrill?.playerColor === 'white' ? 'w' : 'b'
+      const isMaiaTurnAtTip = chess.turn() !== playerTurnsColor
 
-      return () => clearTimeout(timeoutId)
+      if (isMaiaTurnAtTip) {
+        console.log('Scheduling Maia move at tip in 1500ms')
+        const timeoutId = setTimeout(() => {
+          console.log('Executing Maia move at tip')
+          makeMaiaMoveRef.current(tip)
+        }, 1500)
+        return () => clearTimeout(timeoutId)
+      }
     }
   }, [
     currentDrillGame,
-    currentNode,
-    isPlayerTurn,
     waitingForMaiaResponse,
     isDrillComplete,
     continueAnalyzingMode,
+    gameTree,
+    currentDrill,
   ])
 
   // Handle initial Maia move if needed
@@ -847,9 +870,8 @@ export const useOpeningDrillController = (
     ) {
       setWaitingForMaiaResponse(true)
       const timeoutId = setTimeout(() => {
-        if (currentNode) {
-          makeMaiaMoveRef.current(currentNode)
-        }
+        const tip = gameTree.getLastMainlineNode()
+        makeMaiaMoveRef.current(tip)
       }, 1000)
 
       return () => clearTimeout(timeoutId)
@@ -860,6 +882,7 @@ export const useOpeningDrillController = (
     isPlayerTurn,
     isDrillComplete,
     continueAnalyzingMode,
+    gameTree,
   ])
 
   // Reset current drill to starting position
@@ -927,6 +950,7 @@ export const useOpeningDrillController = (
     completeDrill,
     moveToNextDrill,
     continueAnalyzing,
+    navigateToDrill,
 
     // Analysis
     analysisEnabled,
