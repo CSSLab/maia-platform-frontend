@@ -119,8 +119,8 @@ const Turing: React.FC<Props> = (props: Props) => {
 
   const Info = (
     <>
-      <div className="flex w-full items-center justify-between text-secondary">
-        <div className="flex items-center gap-2">
+      <div className="flex w-full flex-col items-start justify-between text-secondary">
+        <div className="flex w-full items-center justify-between gap-2 text-sm">
           <span>● Unknown</span>
           <span>
             {game.termination.winner === 'white' ? (
@@ -132,7 +132,7 @@ const Turing: React.FC<Props> = (props: Props) => {
             )}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center justify-between gap-2 text-sm">
           <span>○ Unknown</span>
           <span>
             {game.termination.winner === 'black' ? (
@@ -146,8 +146,8 @@ const Turing: React.FC<Props> = (props: Props) => {
         </div>
       </div>
       {game.termination && (
-        <div className="text-center text-secondary">
-          <span className="capitalize">
+        <div className="mt-2 text-center text-xs text-secondary">
+          <span className="font-semibold uppercase tracking-wider">
             {game.termination.winner !== 'none'
               ? `${game.termination.winner} wins`
               : 'draw'}
@@ -165,7 +165,7 @@ const Turing: React.FC<Props> = (props: Props) => {
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full flex-1 flex-col justify-center gap-1 py-10">
+      <div className="flex h-full flex-1 flex-col justify-center gap-1 py-2">
         <div className="mx-auto mt-2 flex w-[90%] flex-row items-start justify-between gap-3">
           <motion.div
             variants={itemVariants}
@@ -189,7 +189,7 @@ const Turing: React.FC<Props> = (props: Props) => {
           <motion.div
             variants={itemVariants}
             id="turing-page"
-            className="relative flex aspect-square w-full max-w-[75vh] flex-shrink-0"
+            className="relative flex aspect-square w-full max-w-[85vh] flex-shrink-0"
           >
             <GameBoard
               game={game}
@@ -199,7 +199,7 @@ const Turing: React.FC<Props> = (props: Props) => {
           </motion.div>
           <motion.div
             variants={itemVariants}
-            className="flex h-[75vh] min-w-64 flex-grow flex-col"
+            className="flex h-[85vh] min-w-64 flex-grow flex-col"
           >
             <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
               <div className="relative bottom-0 min-h-[38px] flex-1 overflow-hidden">
@@ -214,7 +214,7 @@ const Turing: React.FC<Props> = (props: Props) => {
                 id="turing-submission"
                 className="border-t border-glassBorder"
               >
-                <TuringSubmission rating={stats.rating ?? 0} embedded />
+                <TuringSubmission rating={stats.rating ?? 0} />
               </div>
               <div className="flex-none border-t border-glassBorder">
                 <BoardController
@@ -295,7 +295,7 @@ const Turing: React.FC<Props> = (props: Props) => {
                 id="turing-submission"
                 className="w-full border-t border-glassBorder"
               >
-                <TuringSubmission rating={stats.rating ?? 0} embedded />
+                <TuringSubmission rating={stats.rating ?? 0} />
               </div>
             </div>
           </div>

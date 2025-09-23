@@ -12,7 +12,11 @@ import Head from 'next/head'
 import { useUnload } from 'src/hooks/useUnload'
 import type { DrawShape } from 'chessground/draw'
 import { useCallback, useContext, useMemo, useState } from 'react'
-import { AuthContext, WindowSizeContext } from 'src/contexts'
+import {
+  AuthContext,
+  WindowSizeContext,
+  TreeControllerContext,
+} from 'src/contexts'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 
 interface Props {
@@ -36,6 +40,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
     orientation,
     timeControl,
     currentNode,
+    setCurrentNode,
     maiaVersion,
     goToRootNode,
     goToNextNode,
@@ -156,30 +161,42 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
             style={{
               maxWidth: 'min(20vw, 100vw - 75vh)',
             }}
-            className="flex h-[75vh] w-[40vh] flex-col justify-between gap-1"
+            className="flex h-[75vh] w-[40vh] flex-col"
           >
-            <GameInfo
-              icon="swords"
-              type={playType}
-              title={
-                playType === 'againstMaia'
-                  ? 'Play vs. Maia'
-                  : 'Play Hand and Brain'
-              }
-            >
-              {Info}
-            </GameInfo>
-            <div className="flex w-full flex-col gap-2">
-              <ExportGame
-                game={game}
-                gameTree={gameTree}
-                currentNode={currentNode}
-                whitePlayer={whitePlayer ?? 'Unknown'}
-                blackPlayer={blackPlayer ?? 'Unknown'}
-                event={`Play vs. ${maiaTitle}`}
-                type="play"
-              />
-              <StatsDisplay stats={stats} hideSession={true} isGame={true} />
+            <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+              <GameInfo
+                icon="swords"
+                type={playType}
+                title={
+                  playType === 'againstMaia'
+                    ? 'Play vs. Maia'
+                    : 'Play Hand and Brain'
+                }
+                embedded
+              >
+                {Info}
+              </GameInfo>
+              <div className="mt-auto flex flex-col">
+                <div className="px-3 pb-4">
+                  <ExportGame
+                    game={game}
+                    gameTree={gameTree}
+                    currentNode={currentNode}
+                    whitePlayer={whitePlayer ?? 'Unknown'}
+                    blackPlayer={blackPlayer ?? 'Unknown'}
+                    event={`Play vs. ${maiaTitle}`}
+                    type="play"
+                  />
+                </div>
+                <div className="h-3 border-y border-glassBorder" />
+                <StatsDisplay
+                  stats={stats}
+                  hideSession={true}
+                  isGame={true}
+                  embedded
+                  hideEmbeddedBorder
+                />
+              </div>
             </div>
           </div>
           <div
@@ -206,7 +223,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
             style={{
               maxWidth: 'min(20vw, 100vw - 75vh)',
             }}
-            className="flex h-[75vh] w-[40vh] flex-col justify-center gap-1"
+            className="flex h-[75vh] w-[40vh] flex-col justify-center gap-2"
           >
             {timeControl != 'unlimited' ? (
               <GameClock
@@ -214,22 +231,30 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                 reversed={false}
               />
             ) : null}
-            <div className="relative bottom-0 h-full min-h-[38px] flex-1">
-              <MovesContainer game={game} termination={game.termination} />
-            </div>
-            <div>{props.children}</div>
-            <div className="flex-none">
-              <BoardController
-                orientation={orientation}
-                setOrientation={setOrientation}
-                currentNode={currentNode}
-                plyCount={plyCount}
-                goToNode={goToNode}
-                goToNextNode={goToNextNode}
-                goToPreviousNode={goToPreviousNode}
-                goToRootNode={goToRootNode}
-                gameTree={gameTree}
-              />
+            <div className="flex h-full flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass backdrop-blur-md">
+              <div className="flex-1 overflow-hidden border-b border-glassBorder">
+                <MovesContainer
+                  game={game}
+                  termination={game.termination}
+                  embedded
+                  heightClass="h-full"
+                />
+              </div>
+              <div className="border-b border-glassBorder">
+                <BoardController
+                  orientation={orientation}
+                  setOrientation={setOrientation}
+                  currentNode={currentNode}
+                  plyCount={plyCount}
+                  goToNode={goToNode}
+                  goToNextNode={goToNextNode}
+                  goToPreviousNode={goToPreviousNode}
+                  goToRootNode={goToRootNode}
+                  gameTree={gameTree}
+                  embedded
+                />
+              </div>
+              <div className="px-4 py-3">{props.children}</div>
             </div>
             {timeControl != 'unlimited' ? (
               <GameClock player={orientation} reversed={true} />
@@ -276,25 +301,32 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
             {timeControl != 'unlimited' ? (
               <GameClock player={orientation} reversed={true} />
             ) : null}
-            <div className="flex-none">
-              <BoardController
-                orientation={orientation}
-                setOrientation={setOrientation}
-                currentNode={currentNode}
-                plyCount={plyCount}
-                goToNode={goToNode}
-                goToNextNode={goToNextNode}
-                goToPreviousNode={goToPreviousNode}
-                goToRootNode={goToRootNode}
-                gameTree={gameTree}
-              />
-            </div>
-            <div className="w-full overflow-x-auto">
-              <div className="flex flex-row whitespace-nowrap py-2">
-                <MovesContainer game={game} termination={game.termination} />
+            <div className="w-full">
+              <div className="flex flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass backdrop-blur-md">
+                <div className="border-b border-glassBorder">
+                  <MovesContainer
+                    game={game}
+                    termination={game.termination}
+                    embedded
+                  />
+                </div>
+                <div className="border-b border-glassBorder">
+                  <BoardController
+                    orientation={orientation}
+                    setOrientation={setOrientation}
+                    currentNode={currentNode}
+                    plyCount={plyCount}
+                    goToNode={goToNode}
+                    goToNextNode={goToNextNode}
+                    goToPreviousNode={goToPreviousNode}
+                    goToRootNode={goToRootNode}
+                    gameTree={gameTree}
+                    embedded
+                  />
+                </div>
+                <div className="px-4 py-3">{props.children}</div>
               </div>
             </div>
-            <div className="w-screen">{props.children}</div>
             <StatsDisplay stats={stats} hideSession={true} isGame={true} />
             <div className="px-2">
               <ExportGame
@@ -321,7 +353,22 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
         <title>Maia Chess - Play</title>
         <meta name="description" content="Turing survey" />
       </Head>
-      {layouts}
+      <TreeControllerContext.Provider
+        value={{
+          gameTree,
+          currentNode,
+          setCurrentNode,
+          orientation,
+          setOrientation,
+          goToNode,
+          goToNextNode,
+          goToPreviousNode,
+          goToRootNode,
+          plyCount,
+        }}
+      >
+        {layouts}
+      </TreeControllerContext.Provider>
     </>
   )
 }

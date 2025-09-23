@@ -205,7 +205,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="relative flex h-[600px] w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass"
+          className="relative flex h-[600px] w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass backdrop-blur-md"
         >
           <div
             className="pointer-events-none absolute inset-0"

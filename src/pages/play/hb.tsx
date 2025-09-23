@@ -50,6 +50,7 @@ const PlayHandBrain: React.FC<Props> = ({
           playAgain={playAgain}
           simulateMaiaTime={simulateMaiaTime}
           setSimulateMaiaTime={setSimulateMaiaTime}
+          embedded
         />
       </GameplayInterface>
     </PlayControllerContext.Provider>
