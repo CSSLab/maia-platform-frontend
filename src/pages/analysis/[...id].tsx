@@ -901,7 +901,7 @@ const Analysis: React.FC<Props> = ({
           </div>
         ) : (
           <motion.div
-            className="flex w-full flex-col items-start justify-start gap-1"
+            className="flex w-full flex-col items-start justify-start"
             variants={itemVariants}
             style={{ willChange: 'transform, opacity' }}
           >
@@ -922,19 +922,17 @@ const Analysis: React.FC<Props> = ({
                 game={analyzedGame}
                 availableMoves={
                   controller.learnFromMistakes.state.isActive && analysisEnabled
-                    ? new Map() // Empty moves when puzzle is solved
+                    ? new Map()
                     : controller.availableMoves
                 }
                 setCurrentSquare={setCurrentSquare}
                 shapes={(() => {
                   const baseShapes = []
 
-                  // Add analysis arrows only when analysis is enabled
                   if (analysisEnabled) {
                     baseShapes.push(...controller.arrows)
                   }
 
-                  // Add mistake arrow during learn mode when analysis is disabled
                   if (
                     controller.learnFromMistakes.state.isActive &&
                     !analysisEnabled
@@ -952,7 +950,6 @@ const Analysis: React.FC<Props> = ({
                     }
                   }
 
-                  // Add hover arrow if present
                   if (hoverArrow) {
                     baseShapes.push(hoverArrow)
                   }
@@ -976,6 +973,7 @@ const Analysis: React.FC<Props> = ({
             <div className="flex w-full flex-col gap-0">
               <div className="w-full !flex-grow-0">
                 <BoardController
+                  embedded
                   gameTree={controller.gameTree}
                   orientation={controller.orientation}
                   setOrientation={controller.setOrientation}
@@ -1009,31 +1007,8 @@ const Analysis: React.FC<Props> = ({
                 />
               </div>
             </div>
-            <div className="flex w-full flex-col gap-1 overflow-hidden">
-              {/* Analysis Toggle Bar */}
-              <div className="flex items-center justify-between rounded bg-background-1 px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-xl">
-                    analytics
-                  </span>
-                  <h3 className="font-semibold">Analysis</h3>
-                </div>
-                <button
-                  onClick={handleToggleAnalysis}
-                  className={`flex items-center gap-2 rounded px-3 py-1 text-sm transition-colors ${
-                    analysisEnabled
-                      ? 'bg-human-4 text-white hover:bg-human-4/80'
-                      : 'bg-background-2 text-secondary hover:bg-background-3'
-                  }`}
-                >
-                  <span className="material-symbols-outlined !text-sm">
-                    {analysisEnabled ? 'visibility' : 'visibility_off'}
-                  </span>
-                  {analysisEnabled ? 'Visible' : 'Hidden'}
-                </button>
-              </div>
-
-              <div className="relative">
+            <div className="flex w-full flex-col overflow-hidden">
+              <div className="relative border-t border-glassBorder bg-glass backdrop-blur-md">
                 <Highlight
                   hover={
                     analysisEnabled &&

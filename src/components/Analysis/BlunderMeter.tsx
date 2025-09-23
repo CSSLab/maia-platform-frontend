@@ -119,7 +119,7 @@ const MobileBlunderMeter: React.FC<Props> = ({
   return (
     <div
       id="analysis-blunder-meter"
-      className={`flex w-full flex-col gap-2 overflow-hidden rounded-md ${showContainer ? 'border border-glassBorder bg-glass p-3 backdrop-blur-md' : ''}`}
+      className={`flex w-full flex-col gap-2 overflow-hidden ${showContainer ? 'border border-glassBorder p-3' : ''}`}
     >
       <p className="text-base text-primary">Blunder Meter</p>
       <div className="flex w-full flex-col gap-1">

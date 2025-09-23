@@ -302,7 +302,7 @@ export const Highlight: React.FC<Props> = ({
                 <select
                   value={currentMaiaModel}
                   onChange={(e) => setCurrentMaiaModel(e.target.value)}
-                  className="cursor-pointer appearance-none bg-transparent py-2 text-center text-base font-semibold text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80 md:text-xxs lg:text-xs"
+                  className="cursor-pointer appearance-none bg-transparent py-2 text-center text-sm font-semibold text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80 md:text-xxs lg:text-xs"
                 >
                   {MAIA_MODELS.map((model) => (
                     <option
@@ -322,16 +322,16 @@ export const Highlight: React.FC<Props> = ({
           </div>
 
           <div className="flex w-full flex-row items-center justify-between border-b border-white/5 px-2 py-1 md:flex-col md:items-center md:justify-start md:py-0.5 lg:py-1">
-            <p className="whitespace-nowrap text-base font-semibold text-human-2 md:text-xxs lg:text-xs">
+            <p className="whitespace-nowrap text-sm font-semibold text-human-2 md:text-xxs lg:text-xs">
               White Win %
             </p>
-            <p className="text-base font-bold text-human-1 md:text-sm lg:text-lg">
+            <p className="text-sm font-bold text-human-1 lg:text-lg">
               {getWhiteWinRate()}
             </p>
           </div>
 
           <div className="flex w-full flex-col items-start justify-center px-2 py-1.5 md:items-center xl:py-2">
-            <p className="mb-1 whitespace-nowrap text-base font-semibold text-human-2 md:text-xxs lg:text-xs">
+            <p className="mb-1 whitespace-nowrap text-sm font-semibold text-human-2 md:text-xxs lg:text-xs">
               Human Moves
             </p>
             <div className="flex w-full cursor-pointer items-center justify-between">
@@ -367,19 +367,19 @@ export const Highlight: React.FC<Props> = ({
         </div>
         <div className="flex flex-col items-center justify-start gap-0.5 xl:gap-1">
           <div className="flex w-full flex-col border-b border-white/5 py-2">
-            <p className="whitespace-nowrap text-center text-base font-semibold text-engine-1 md:text-xxs lg:text-xs">
+            <p className="whitespace-nowrap text-center text-sm font-semibold text-engine-1 md:text-xxs lg:text-xs">
               Stockfish 17
             </p>
           </div>
 
           <div className="flex w-full flex-row items-center justify-between border-b border-white/5 px-2 py-1 md:flex-col md:items-center md:justify-start md:py-0.5 lg:py-1">
-            <p className="whitespace-nowrap text-base font-semibold text-engine-2 md:text-xxs lg:text-xs">
+            <p className="whitespace-nowrap text-sm font-semibold text-engine-2 md:text-xxs lg:text-xs">
               SF Eval{' '}
               {moveEvaluation?.stockfish?.depth
                 ? ` (d${moveEvaluation.stockfish?.depth})`
                 : ''}
             </p>
-            <p className="text-base font-bold text-engine-1 md:text-sm lg:text-lg">
+            <p className="text-sm font-bold text-engine-1 md:text-sm lg:text-lg">
               {isCurrentPositionCheckmate
                 ? 'Checkmate'
                 : moveEvaluation?.stockfish
@@ -393,7 +393,7 @@ export const Highlight: React.FC<Props> = ({
           </div>
 
           <div className="flex w-full flex-col items-start justify-center px-2 py-1.5 md:items-center xl:py-2">
-            <p className="mb-1 whitespace-nowrap text-base font-semibold text-engine-2 md:text-xxs lg:text-xs">
+            <p className="mb-1 whitespace-nowrap text-sm font-semibold text-engine-2 md:text-xxs lg:text-xs">
               Engine Moves
             </p>
             <div className="flex w-full cursor-pointer items-center justify-between">

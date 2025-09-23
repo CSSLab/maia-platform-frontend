@@ -41,16 +41,16 @@ export const GameInfo: React.FC<Props> = ({
       id="analysis-game-list"
       className={
         embedded
-          ? 'flex w-full flex-col items-start justify-start gap-1 overflow-hidden border-b border-glassBorder bg-transparent p-3'
-          : 'flex w-full flex-col items-start justify-start gap-1 overflow-hidden rounded-md border border-glassBorder bg-glass p-3 backdrop-blur-md'
+          ? 'flex w-full flex-col items-start justify-start gap-1 overflow-hidden border-b border-t border-glassBorder bg-transparent px-4 py-2 md:border md:p-3'
+          : 'flex w-full flex-col items-start justify-start gap-1 overflow-hidden border border-b border-t border-glassBorder bg-glass px-4 py-2 backdrop-blur-md md:rounded-md md:border md:p-3'
       }
     >
       <div className="flex w-full items-center justify-between">
-        <div className="flex items-center justify-start gap-1.5">
-          <span className="material-symbols-outlined text-lg md:text-xl">
+        <div className="flex items-center justify-start gap-1 md:gap-1.5">
+          <span className="material-symbols-outlined text-base md:text-xl">
             {icon}
           </span>
-          <h2 className="text-lg font-semibold md:text-xl">{title}</h2>
+          <h2 className="text-sm font-semibold md:text-lg">{title}</h2>
           {streamState && (
             <div className="flex items-center gap-1.5">
               <div
@@ -76,7 +76,7 @@ export const GameInfo: React.FC<Props> = ({
             </div>
           )}
           {currentMaiaModel && setCurrentMaiaModel && (
-            <div className="flex items-center gap-1 text-sm md:hidden">
+            <div className="flex items-center gap-1 text-xs md:hidden md:text-sm">
               using
               <div className="relative inline-flex items-center gap-0.5">
                 <select
@@ -101,18 +101,20 @@ export const GameInfo: React.FC<Props> = ({
           {showGameListButton && (
             <button
               type="button"
-              className="flex items-center gap-1 rounded bg-human-4/30 px-2 py-1 text-sm text-human-2 duration-200 hover:bg-human-4/50 md:hidden"
+              className="flex items-center gap-1 rounded bg-human-4/30 px-2 py-1 text-xxs text-human-2 duration-200 hover:bg-human-4/50 md:hidden md:text-sm"
               onClick={onGameListClick}
             >
-              <span className="material-symbols-outlined text-sm">
+              <span className="material-symbols-outlined text-xxs md:text-sm">
                 format_list_bulleted
               </span>
-              <span>Switch Game</span>
+              <span>
+                Switch <span className="hidden md:inline">Game</span>
+              </span>
             </button>
           )}
           <button
             type="button"
-            className="material-symbols-outlined duration-200 hover:text-human-3 focus:outline-none"
+            className="material-symbols-outlined text-lg duration-200 hover:text-human-3 focus:outline-none"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
