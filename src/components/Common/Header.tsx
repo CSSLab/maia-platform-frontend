@@ -16,7 +16,7 @@ export const Header: React.FC = () => {
   const [showPlayDropdown, setShowPlayDropdown] = useState(false)
   const [showMoreDropdown, setShowMoreDropdown] = useState(false)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
-  const { isMobile } = useContext(WindowSizeContext)
+  const { isMobile, width } = useContext(WindowSizeContext)
 
   const { user, connectLichess, logout } = useContext(AuthContext)
 
@@ -27,6 +27,8 @@ export const Header: React.FC = () => {
   const router = useRouter()
 
   const { setPlaySetupModalProps } = useContext(ModalContext)
+
+  const isCompactDesktopNav = !isMobile && width > 0 && width < 1300
 
   const startGame = useCallback(
     (playType: PlayType) => {
@@ -218,18 +220,22 @@ export const Header: React.FC = () => {
           >
             BOT-OR-NOT
           </Link>
-          <Link
-            href="/broadcast"
-            className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/broadcast') ? '!text-primary' : '!text-primary/80'}`}
-          >
-            BROADCASTS
-          </Link>
-          <Link
-            href="/leaderboard"
-            className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/leaderboard') ? '!text-primary' : '!text-primary/80'}`}
-          >
-            LEADERBOARD
-          </Link>
+          {!isCompactDesktopNav && (
+            <Link
+              href="/broadcast"
+              className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/broadcast') ? '!text-primary' : '!text-primary/80'}`}
+            >
+              BROADCASTS
+            </Link>
+          )}
+          {!isCompactDesktopNav && (
+            <Link
+              href="/leaderboard"
+              className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/leaderboard') ? '!text-primary' : '!text-primary/80'}`}
+            >
+              LEADERBOARD
+            </Link>
+          )}
           <div
             className="relative"
             onMouseEnter={() => setShowMoreDropdown(true)}
@@ -255,6 +261,30 @@ export const Header: React.FC = () => {
                   className="absolute left-0 top-[100%] z-30 w-32 overflow-hidden rounded-md border border-white/10 bg-[#171214]"
                 >
                   <div className="divide-y divide-white/5">
+                    {isCompactDesktopNav && (
+                      <Link
+                        href="/broadcast"
+                        className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-[rgba(255,255,255,0.04)] ${
+                          router.pathname.startsWith('/broadcast')
+                            ? 'text-primary'
+                            : 'text-white/90'
+                        }`}
+                      >
+                        Broadcasts
+                      </Link>
+                    )}
+                    {isCompactDesktopNav && (
+                      <Link
+                        href="/leaderboard"
+                        className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-[rgba(255,255,255,0.04)] ${
+                          router.pathname.startsWith('/leaderboard')
+                            ? 'text-primary'
+                            : 'text-white/90'
+                        }`}
+                      >
+                        Leaderboard
+                      </Link>
+                    )}
                     <Link
                       href="/blog"
                       className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
