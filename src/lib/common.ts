@@ -9,9 +9,11 @@ export function buildGameTreeFromMoveList(moves: any[], initialFen: string) {
 
     if (move.lastMove) {
       const [from, to, promotion] = move.lastMove
+      const uci = from && to ? `${from}${to}${promotion ?? ''}` : ''
+
       currentNode = tree
         .getLastMainlineNode()
-        .addChild(move.board, from + to + promotion || '', move.san || '', true)
+        .addChild(move.board, uci, move.san || '', true)
     }
   }
 
