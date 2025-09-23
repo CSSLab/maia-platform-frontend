@@ -78,9 +78,7 @@ export const Loading: React.FC<LoadingProps> = ({
         >
           <div
             className={`my-40 flex w-screen items-center justify-center ${
-              transparent
-                ? 'absolute left-0 top-0 h-screen bg-backdrop/90'
-                : 'bg-backdrop'
+              transparent ? 'absolute left-0 top-0 h-screen' : ''
             } md:my-auto`}
           >
             <div className="flex flex-col items-center gap-4">
