@@ -147,25 +147,25 @@ svg {
 
 .desktop-analysis-big-row-1-container {
   /* 2.5rem header + 0.75rem gap between two rows */
-  height: calc((85vh - 2.5rem - 0.75rem) / 2);
+  height: calc((85vh - 0.75rem) / 2);
 }
 
 .desktop-analysis-big-row-2-container {
   /* 2.5rem header + 0.75rem gap between two rows */
-  height: calc((85vh - 2.5rem - 0.75rem) / 2);
+  height: calc((85vh - 0.75rem) / 2);
 }
 
 .desktop-analysis-small-row-1-container {
   /* 2.5rem header + 1.5rem total gaps between three rows (two gaps @ 0.75rem) */
-  height: calc((85vh - 2.5rem - 1.5rem) * 0.4);
+  height: calc((85vh - 1.5rem) * 0.4);
 }
 
 .desktop-analysis-small-row-2-container {
-  height: calc((85vh - 2.5rem - 1.5rem) * 0.3);
+  height: calc((85vh - 1.5rem) * 0.3);
 }
 
 .desktop-analysis-small-row-3-container {
-  height: calc((85vh - 2.5rem - 1.5rem) * 0.3);
+  height: calc((85vh - 1.5rem) * 0.3);
 }
 
 .no-scrollbar::-webkit-scrollbar {
