@@ -22,6 +22,7 @@ import {
   Tooltip,
 } from 'recharts'
 import { ModalContainer, MovesContainer } from 'src/components'
+import { BoardController } from 'src/components/Board/BoardController'
 import { DrillPerformanceData, MoveAnalysis } from 'src/types/openings'
 import { MaiaRatingInsights } from './MaiaRatingInsights'
 import { WindowSizeContext, TreeControllerContext } from 'src/contexts'
@@ -92,6 +93,7 @@ const AnimatedGameReplay: React.FC<{
 }> = ({ openingFen, playerColor, gameTree, openingEndNode }) => {
   const [currentFen, setCurrentFen] = useState(openingFen)
   const [currentNode, setCurrentNode] = useState<GameNode | null>(null)
+  const [orientation, setOrientation] = useState<'white' | 'black'>(playerColor)
 
   const treeController = useContext(TreeControllerContext)
 
@@ -108,6 +110,25 @@ const AnimatedGameReplay: React.FC<{
       setCurrentNode(treeController.currentNode)
     }
   }, [treeController.currentNode])
+
+  // Ensure we don't navigate before the opening end as the "root" for this view
+  const goToPreviousNode = useCallback(() => {
+    if (!treeController.currentNode) return
+    if (treeController.currentNode.fen === openingEndNode.fen) return
+    if (treeController.currentNode.parent) {
+      treeController.goToNode(treeController.currentNode.parent)
+    }
+  }, [treeController, openingEndNode.fen])
+
+  const goToNextNode = useCallback(() => {
+    if (!treeController.currentNode?.mainChild) return
+    treeController.goToNode(treeController.currentNode.mainChild)
+  }, [treeController])
+
+  const goToRootNode = useCallback(() => {
+    // Treat the opening end node as the root for this modal
+    treeController.goToNode(openingEndNode)
+  }, [treeController, openingEndNode])
 
   // Get arrows for optimal moves from the current position
   const getArrowsForCurrentMove = useCallback((): DrawShape[] => {
@@ -201,7 +222,7 @@ const AnimatedGameReplay: React.FC<{
             config={{
               viewOnly: true,
               fen: currentFen,
-              orientation: playerColor,
+              orientation,
               coordinates: true,
               animation: { enabled: true, duration: 200 },
               drawable: {
@@ -229,7 +250,6 @@ const AnimatedGameReplay: React.FC<{
         </div>
       </div>
 
-      {/* Move History - Use MovesContainer for consistency */}
       <div className="flex min-h-0 flex-1 flex-col border-t border-white/10">
         <MovesContainer
           game={{
@@ -237,8 +257,23 @@ const AnimatedGameReplay: React.FC<{
             tree: gameTree,
           }}
           startFromNode={openingEndNode}
+          restrictNavigationBefore={openingEndNode}
           showAnnotations={true}
           showVariations={false}
+        />
+        <BoardController
+          orientation={orientation}
+          setOrientation={setOrientation}
+          currentNode={currentNode}
+          plyCount={0}
+          goToNode={treeController.goToNode}
+          goToNextNode={goToNextNode}
+          goToPreviousNode={goToPreviousNode}
+          goToRootNode={goToRootNode}
+          gameTree={gameTree}
+          disablePrevious={currentNode?.fen === openingEndNode.fen}
+          disableKeyboardNavigation={true}
+          embedded
         />
       </div>
     </div>
@@ -346,7 +381,7 @@ const CustomTooltip: React.FC<{
   }
 
   return (
-    <div className="rounded border border-white/10 from-white/10 to-white/5 bg-gradient-to-br p-3 backdrop-blur-md">
+    <div className="rounded border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-3 backdrop-blur-md">
       <p className="text-sm font-medium text-primary">
         {data.san ? `${moveNotation} ${data.san}` : `${moveNotation}`}
       </p>

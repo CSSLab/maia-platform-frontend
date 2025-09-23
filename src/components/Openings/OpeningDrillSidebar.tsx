@@ -44,11 +44,11 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
     : 'flex h-full w-full max-w-full flex-col border-r border-white/10 bg-background-1'
 
   const sectionHeaderClass = embedded
-    ? 'px-4 pt-4 w-full'
+    ? 'px-4 py-4 w-full'
     : 'border-b border-white/10 p-4 w-full'
 
   const listHeaderClass = embedded
-    ? 'px-4 pb-2'
+    ? 'px-4 py-2'
     : 'border-b border-white/10 px-3 py-2'
 
   const tree = useContext(TreeControllerContext)
@@ -84,7 +84,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
           Current Drill
         </h2>
         {currentDrill ? (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-1">
             <div>
               <p className="text-sm font-medium text-white/95">
                 {currentDrill.opening.name}
