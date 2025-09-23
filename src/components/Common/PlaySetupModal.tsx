@@ -2,7 +2,7 @@ import Image from 'next/image'
 import { Chess } from 'chess.ts'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/router'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useContext, useState } from 'react'
 
 import {
@@ -48,8 +48,8 @@ function OptionSelect<T>({
             key={index}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               option === selected
-                ? 'bg-human-4 text-white'
-                : 'bg-background-2 text-primary hover:bg-background-3'
+                ? 'border border-glassBorder bg-glass-strong text-white'
+                : 'border border-glassBorder bg-glass text-white/90 hover:bg-glass-hover'
             } ${index === 0 ? 'rounded-l-lg' : ''} ${
               index === options.length - 1 ? 'rounded-r-lg' : ''
             }`}
@@ -201,7 +201,21 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
   return (
     <AnimatePresence>
       <ModalContainer dismiss={() => setPlaySetupModalProps(undefined)}>
-        <div className="relative flex h-[600px] w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg bg-background-1">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="relative flex h-[600px] w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass"
+        >
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background: [
+                'radial-gradient(ellipse 130% 110% at 0% 0%, rgba(239, 68, 68, 0.04) 0%, transparent 75%)',
+                'radial-gradient(ellipse 130% 110% at 100% 100%, rgba(239, 68, 68, 0.03) 0%, transparent 75%)',
+              ].join(', '),
+            }}
+          />
           <button
             className="absolute right-4 top-4 z-10 text-secondary transition-colors hover:text-primary"
             title="Close"
@@ -211,7 +225,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           </button>
 
           {/* Header */}
-          <div className="border-b border-white/10 p-4">
+          <div className="border-b border-glassBorder p-4">
             <h2 className="text-xl font-bold text-primary">
               {props.playType == 'againstMaia'
                 ? 'Play Against Maia'
@@ -255,7 +269,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                     <select
                       id="partner-select"
                       value={maiaPartnerVersion}
-                      className="w-full rounded bg-background-2 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-human-4"
+                      className="w-full rounded border border-glassBorder bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
                       onChange={(e) => setMaiaPartnerVersion(e.target.value)}
                     >
                       {maiaOptions.map((maia) => (
@@ -278,7 +292,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                 <select
                   id="opponent-select"
                   value={maiaVersion}
-                  className="w-full rounded bg-background-2 px-3 py-2 text-sm text-primary focus:outline-none focus:ring-1 focus:ring-human-4"
+                  className="w-full rounded border border-glassBorder bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
                   onChange={(e) => setMaiaVersion(e.target.value)}
                 >
                   {maiaOptions.map((maia) => (
@@ -299,10 +313,10 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                       <button
                         key={option}
                         onClick={() => handlePresetSelect(option)}
-                        className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
+                        className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${
                           timeControl === option
-                            ? 'bg-human-4 text-white'
-                            : 'bg-background-2 text-secondary hover:bg-background-3 hover:text-primary'
+                            ? 'border-glassBorder bg-glass-strong text-white'
+                            : 'border-glassBorder bg-glass text-white/90 hover:bg-glass-hover'
                         }`}
                       >
                         {TimeControlOptionNames[index]}
@@ -337,7 +351,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                           incrementSeconds,
                         )
                       }
-                      className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-background-2 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-human-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-human-4"
+                      className="w-full accent-human-4"
                     />
                   </div>
 
@@ -363,7 +377,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                       onChange={(e) =>
                         handleSliderChange(timeMinutes, Number(e.target.value))
                       }
-                      className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-background-2 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-human-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-human-4"
+                      className="w-full accent-human-4"
                     />
                   </div>
                 </div>
@@ -403,7 +417,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               </div>
 
               {fen !== undefined && (
-                <div className="rounded bg-background-2 p-3">
+                <div className="rounded border border-glassBorder bg-glass p-3">
                   <label
                     htmlFor="fen-input"
                     className="mb-1 block text-sm font-medium text-primary"
@@ -416,7 +430,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                     value={fen}
                     placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
                     onChange={(e) => setFen(e.target.value)}
-                    className="w-full rounded border border-background-3 bg-background-1 px-3 py-2 font-mono text-xs text-primary placeholder-secondary focus:border-human-4 focus:outline-none"
+                    className="w-full rounded border border-glassBorder bg-glass px-3 py-2 font-mono text-xs text-white/90 placeholder-white/60 focus:outline-none"
                   />
                   <p className="mt-1 text-xs text-secondary">
                     Enter a valid FEN string to start from a specific position
@@ -427,7 +441,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           </div>
 
           {/* Color Selection Section */}
-          <div className="border-t border-white/10 p-4">
+          <div className="border-t border-glassBorder p-4">
             <p className="mb-3 text-center text-sm font-medium text-primary">
               Choose your color:
             </p>
@@ -435,7 +449,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start('black')}
                 title="Play as black"
-                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded bg-background-2 transition-colors hover:bg-human-4"
+                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-hover"
               >
                 <div className="relative h-10 w-10">
                   <Image
@@ -448,7 +462,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start(undefined)}
                 title="Play as random color"
-                className="flex h-20 w-20 cursor-pointer items-center justify-center rounded bg-background-2 transition-colors hover:bg-human-4"
+                className="flex h-20 w-20 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-hover"
               >
                 <div className="relative h-12 w-12">
                   <Image
@@ -461,7 +475,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start('white')}
                 title="Play as white"
-                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded bg-background-2 transition-colors hover:bg-human-4"
+                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-hover"
               >
                 <div className="relative h-10 w-10">
                   <Image
@@ -473,7 +487,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               </button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </ModalContainer>
     </AnimatePresence>
   )
