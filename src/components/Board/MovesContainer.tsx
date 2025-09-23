@@ -129,17 +129,16 @@ export const MovesContainer: React.FC<
           break
         case 'ArrowLeft':
           event.preventDefault()
-          if (controller.currentNode.parent) {
-            // Check if navigation is restricted
-            if (
-              restrictNavigationBefore &&
-              controller.currentNode.parent.fen === restrictNavigationBefore.fen
-            ) {
-              // Don't navigate before the restriction point
-              return
-            }
-            controller.goToNode(controller.currentNode.parent)
+          if (!controller.currentNode?.parent) return
+          // Treat restrictNavigationBefore as the earliest allowed node
+          if (
+            restrictNavigationBefore &&
+            controller.currentNode.fen === restrictNavigationBefore.fen
+          ) {
+            // Already at the boundary; do not go earlier
+            return
           }
+          controller.goToNode(controller.currentNode.parent)
           break
         default:
           break
