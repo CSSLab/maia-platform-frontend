@@ -24,6 +24,8 @@ import {
   PlayerInfo,
   DownloadModelModal,
   AuthenticatedWrapper,
+  AnalysisNotification,
+  AnalysisOverlay,
 } from 'src/components'
 import openings from 'src/constants/openings.json'
 import { OpeningDrillAnalysis } from 'src/components/Openings/OpeningDrillAnalysis'
@@ -867,6 +869,19 @@ const OpeningsPage: NextPage = () => {
               isLastDrill={false}
             />
           )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {controller.drillAnalysisProgress.isAnalyzing && (
+          <>
+            <AnalysisOverlay
+              isActive={controller.drillAnalysisProgress.isAnalyzing}
+            />
+            <AnalysisNotification
+              progress={controller.drillAnalysisProgress}
+              onCancel={controller.cancelDrillAnalysis}
+            />
+          </>
+        )}
       </AnimatePresence>
     </>
   )

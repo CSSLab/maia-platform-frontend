@@ -3,7 +3,14 @@ import { fetchGameMove } from 'src/api/play'
 import { logOpeningDrill } from 'src/api/openings'
 import { useLocalStorage } from '../useLocalStorage'
 import { GameTree, GameNode, Color } from 'src/types'
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  useContext,
+} from 'react'
 import { useTreeController } from '../useTreeController'
 import {
   MoveAnalysis,
@@ -18,6 +25,26 @@ import {
 import { useSound } from 'src/hooks/useSound'
 import { MAIA_MODELS } from 'src/constants/common'
 import { MIN_STOCKFISH_DEPTH } from 'src/constants/analysis'
+import { DeepAnalysisProgress, MaiaEvaluation } from 'src/types/analysis'
+import { StockfishEngineContext, MaiaEngineContext } from 'src/contexts'
+
+const MAIA_ELO_VALUES = MAIA_MODELS.map((model) =>
+  parseInt(model.replace('maia_kdd_', ''), 10),
+)
+
+const getInitialAnalysisProgress = (): DeepAnalysisProgress => ({
+  currentMoveIndex: 0,
+  totalMoves: 0,
+  currentMove: '',
+  isAnalyzing: false,
+  isComplete: false,
+  isCancelled: false,
+})
+
+const delay = (ms: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
 
 const parsePgnToTree = (pgn: string, gameTree: GameTree): GameNode | null => {
   if (!pgn || pgn.trim() === '') return gameTree.getRoot()
@@ -79,6 +106,14 @@ export const useOpeningDrillController = (
   const [isAnalyzingDrill, setIsAnalyzingDrill] = useState(false)
   const [waitingForMaiaResponse, setWaitingForMaiaResponse] = useState(false)
   const [continueAnalyzingMode, setContinueAnalyzingMode] = useState(false)
+
+  const stockfish = useContext(StockfishEngineContext)
+  const maiaEngine = useContext(MaiaEngineContext)
+  const { maia: maiaInstance, status: maiaStatus } = maiaEngine
+
+  const analysisCancellationRef = useRef(false)
+  const [drillAnalysisProgress, setDrillAnalysisProgress] =
+    useState<DeepAnalysisProgress>(getInitialAnalysisProgress())
 
   const [currentMaiaModel, setCurrentMaiaModel] = useLocalStorage(
     'currentMaiaModel',
@@ -441,6 +476,214 @@ export const useOpeningDrillController = (
     [treeController.currentNode],
   )
 
+  const ensureMaiaForNode = useCallback(
+    async (node: GameNode) => {
+      const existingMaia = node.analysis.maia
+      const hasAllMaiaModels =
+        existingMaia && MAIA_MODELS.every((model) => existingMaia[model])
+
+      if (hasAllMaiaModels || analysisCancellationRef.current) {
+        return
+      }
+
+      let retries = 0
+      const maxRetries = 50
+
+      while (
+        maiaStatus !== 'ready' &&
+        retries < maxRetries &&
+        !analysisCancellationRef.current
+      ) {
+        await delay(100)
+        retries++
+      }
+
+      if (
+        maiaStatus !== 'ready' ||
+        !maiaInstance ||
+        analysisCancellationRef.current
+      ) {
+        return
+      }
+
+      try {
+        const boards = Array(MAIA_MODELS.length).fill(node.fen)
+        const { result } = await maiaInstance.batchEvaluate(
+          boards,
+          MAIA_ELO_VALUES,
+          MAIA_ELO_VALUES,
+        )
+
+        const maiaEvaluations: { [rating: string]: MaiaEvaluation } = {}
+        MAIA_MODELS.forEach((model, index) => {
+          maiaEvaluations[model] = result[index]
+        })
+
+        node.addMaiaAnalysis(maiaEvaluations, currentMaiaModel)
+      } catch (error) {
+        console.error('Failed to compute Maia analysis for drill node:', error)
+      }
+    },
+    [currentMaiaModel, maiaInstance, maiaStatus],
+  )
+
+  const ensureStockfishForNode = useCallback(
+    async (node: GameNode) => {
+      const existingStockfish = node.analysis.stockfish
+      if (
+        (existingStockfish && existingStockfish.depth >= MIN_STOCKFISH_DEPTH) ||
+        analysisCancellationRef.current
+      ) {
+        return
+      }
+
+      const chess = new Chess(node.fen)
+      const legalMoveCount = chess.moves().length
+
+      if (legalMoveCount === 0) {
+        return
+      }
+
+      let retries = 0
+      const maxRetries = 50
+
+      while (
+        !stockfish.isReady() &&
+        retries < maxRetries &&
+        !analysisCancellationRef.current
+      ) {
+        await delay(100)
+        retries++
+      }
+
+      if (!stockfish.isReady() || analysisCancellationRef.current) {
+        return
+      }
+
+      const evaluationStream = stockfish.streamEvaluations(
+        node.fen,
+        legalMoveCount,
+        MIN_STOCKFISH_DEPTH,
+      )
+
+      if (!evaluationStream) {
+        return
+      }
+
+      try {
+        for await (const evaluation of evaluationStream) {
+          if (analysisCancellationRef.current) {
+            break
+          }
+
+          node.addStockfishAnalysis(evaluation, currentMaiaModel)
+
+          if (evaluation.depth >= MIN_STOCKFISH_DEPTH) {
+            break
+          }
+        }
+      } catch (error) {
+        console.error(
+          'Failed to compute Stockfish analysis for drill node:',
+          error,
+        )
+      } finally {
+        stockfish.stopEvaluation()
+      }
+    },
+    [currentMaiaModel, stockfish],
+  )
+
+  const ensureDrillAnalysis = useCallback(
+    async (drillGame: OpeningDrillGame): Promise<boolean> => {
+      const mainLine = drillGame.tree.getMainLine()
+      const startingNode = drillGame.openingEndNode || mainLine[0]
+      const startIndex = startingNode
+        ? Math.max(mainLine.indexOf(startingNode), 0)
+        : 0
+      const nodesToAnalyze = mainLine.slice(startIndex)
+
+      const nodesNeedingAnalysis = nodesToAnalyze.filter((node) => {
+        const maiaData = node.analysis.maia
+        const needsMaia =
+          !maiaData || MAIA_MODELS.some((model) => !maiaData[model])
+        const stockfishData = node.analysis.stockfish
+        const needsStockfish =
+          !stockfishData || stockfishData.depth < MIN_STOCKFISH_DEPTH
+        return needsMaia || needsStockfish
+      })
+
+      if (nodesNeedingAnalysis.length === 0) {
+        setDrillAnalysisProgress((prev) => ({
+          ...prev,
+          currentMoveIndex: 0,
+          totalMoves: 0,
+          currentMove: '',
+          isAnalyzing: false,
+          isComplete: true,
+          isCancelled: false,
+        }))
+        return true
+      }
+
+      analysisCancellationRef.current = false
+
+      setDrillAnalysisProgress({
+        ...getInitialAnalysisProgress(),
+        totalMoves: nodesNeedingAnalysis.length,
+        isAnalyzing: true,
+      })
+
+      for (let i = 0; i < nodesNeedingAnalysis.length; i++) {
+        if (analysisCancellationRef.current) {
+          break
+        }
+
+        const node = nodesNeedingAnalysis[i]
+        const moveLabel =
+          node.san || node.move || `Position ${startIndex + i + 1}`
+
+        setDrillAnalysisProgress((prev) => ({
+          ...prev,
+          currentMoveIndex: i + 1,
+          currentMove: moveLabel,
+        }))
+
+        await ensureMaiaForNode(node)
+        if (analysisCancellationRef.current) {
+          break
+        }
+
+        await ensureStockfishForNode(node)
+      }
+
+      const wasCancelled = analysisCancellationRef.current
+
+      setDrillAnalysisProgress((prev) => ({
+        ...prev,
+        isAnalyzing: false,
+        isComplete: !wasCancelled,
+        isCancelled: wasCancelled,
+      }))
+
+      analysisCancellationRef.current = false
+
+      return !wasCancelled
+    },
+    [ensureMaiaForNode, ensureStockfishForNode, setDrillAnalysisProgress],
+  )
+
+  const cancelDrillAnalysis = useCallback(() => {
+    analysisCancellationRef.current = true
+    stockfish.stopEvaluation()
+    setDrillAnalysisProgress((prev) => ({
+      ...prev,
+      isAnalyzing: false,
+      isCancelled: true,
+    }))
+    setIsAnalyzingDrill(false)
+  }, [setIsAnalyzingDrill, stockfish])
+
   const completeDrill = useCallback(
     async (gameToComplete?: OpeningDrillGame) => {
       const drillGame = gameToComplete || currentDrillGame
@@ -465,6 +708,11 @@ export const useOpeningDrillController = (
           // Continue even if backend submission fails
         }
 
+        const analysisSuccessful = await ensureDrillAnalysis(drillGame)
+        if (!analysisSuccessful) {
+          return
+        }
+
         // Simple performance evaluation without complex analysis tracking
 
         const performanceData = await evaluateDrillPerformance(drillGame)
@@ -480,7 +728,7 @@ export const useOpeningDrillController = (
         setIsAnalyzingDrill(false)
       }
     },
-    [currentDrillGame, evaluateDrillPerformance],
+    [currentDrillGame, ensureDrillAnalysis, evaluateDrillPerformance],
   )
 
   const moveToNextDrill = useCallback(async () => {
@@ -488,14 +736,13 @@ export const useOpeningDrillController = (
     setCurrentPerformanceData(null)
     setContinueAnalyzingMode(false)
     setAnalysisEnabled(false)
+    analysisCancellationRef.current = false
+    setDrillAnalysisProgress(getInitialAnalysisProgress())
 
     // Cycle to next drill, or back to first if at end
     const nextIndex = (currentDrillIndex + 1) % configuration.selections.length
     setCurrentDrillIndex(nextIndex)
-  }, [
-    currentDrillIndex,
-    configuration.selections,
-  ])
+  }, [currentDrillIndex, configuration.selections])
 
   // Navigate to a specific drill by index
   const navigateToDrill = useCallback(
@@ -512,6 +759,8 @@ export const useOpeningDrillController = (
       setContinueAnalyzingMode(false)
       setAnalysisEnabled(false)
       setWaitingForMaiaResponse(false)
+      analysisCancellationRef.current = false
+      setDrillAnalysisProgress(getInitialAnalysisProgress())
       setCurrentDrillIndex(index)
     },
     [configuration.selections],
@@ -530,6 +779,10 @@ export const useOpeningDrillController = (
 
     try {
       setIsAnalyzingDrill(true)
+      const analysisSuccessful = await ensureDrillAnalysis(currentDrillGame)
+      if (!analysisSuccessful) {
+        return
+      }
       const performanceData = await evaluateDrillPerformance(currentDrillGame)
       setCurrentPerformanceData(performanceData)
       setShowPerformanceModal(true)
@@ -538,7 +791,7 @@ export const useOpeningDrillController = (
     } finally {
       setIsAnalyzingDrill(false)
     }
-  }, [currentDrillGame, evaluateDrillPerformance])
+  }, [currentDrillGame, ensureDrillAnalysis, evaluateDrillPerformance])
 
   // Shows performance modal for current drill
   const showCurrentPerformance = useCallback(() => {
@@ -554,6 +807,8 @@ export const useOpeningDrillController = (
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setWaitingForMaiaResponse(false)
+    analysisCancellationRef.current = false
+    setDrillAnalysisProgress(getInitialAnalysisProgress())
   }, [])
 
   // Make a move for the player
@@ -901,6 +1156,8 @@ export const useOpeningDrillController = (
     analysisEnabled,
     setAnalysisEnabled,
     continueAnalyzingMode,
+    drillAnalysisProgress,
+    cancelDrillAnalysis,
 
     // Modal states
     showPerformanceModal,
