@@ -20,6 +20,8 @@ import { Chess } from 'chess.ts'
 type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
 type MaterialCount = Record<PieceType, number>
 
+const PIECE_DISPLAY_ORDER: PieceType[] = ['p', 'n', 'b', 'r', 'q']
+
 const PIECE_VALUES: Record<string, number> = {
   p: 1, // pawn
   n: 3, // knight
@@ -131,6 +133,24 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
   // Get pieces captured by this player (pieces of opposite color that were captured)
   const myCapturedPieces =
     color === 'white' ? capturedPieces.black : capturedPieces.white
+  const opponentCapturedPieces =
+    color === 'white' ? capturedPieces.white : capturedPieces.black
+
+  const pieceDifference = useMemo(() => {
+    const diff: Partial<Record<PieceType, number>> = {}
+
+    PIECE_DISPLAY_ORDER.forEach((piece) => {
+      const myCount = myCapturedPieces?.[piece] ?? 0
+      const opponentCount = opponentCapturedPieces?.[piece] ?? 0
+      const net = myCount - opponentCount
+
+      if (net > 0) {
+        diff[piece] = net
+      }
+    })
+
+    return diff
+  }, [myCapturedPieces, opponentCapturedPieces])
 
   // Calculate net material advantage (white total - black total)
   const netAdvantage = materialAdvantage.white - materialAdvantage.black
@@ -165,10 +185,8 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
     const pieceGroups: React.JSX.Element[] = []
 
     // Order pieces by value (lowest to highest)
-    const orderedPieces = ['p', 'n', 'b', 'r', 'q']
-
-    orderedPieces.forEach((piece) => {
-      const count = myCapturedPieces[piece] || 0
+    PIECE_DISPLAY_ORDER.forEach((piece) => {
+      const count = pieceDifference[piece] || 0
       if (count > 0) {
         const piecesOfType: React.JSX.Element[] = []
 
