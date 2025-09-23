@@ -230,7 +230,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
       {/* Smaller screens: 3-row layout */}
       <div className="flex h-full flex-col gap-3 xl:hidden">
         {/* Row 1: Combined Highlight + BlunderMeter container */}
-        <div className="desktop-analysis-small-row-1-container relative flex overflow-hidden rounded-md border border-glassBorder bg-glass-strong backdrop-blur-md">
+        <div className="desktop-analysis-small-row-1-container relative flex overflow-hidden rounded-md border border-glassBorder bg-glass-strong pt-10 backdrop-blur-md">
           {/* Merged header with toggle (mobile/smaller screens) */}
           <div className="absolute left-0 top-0 z-10 flex h-10 w-full items-center justify-between border-b border-glassBorder bg-transparent px-3 text-white/90 backdrop-blur-md">
             <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
               </span>
             </button>
           </div>
-          <div className="mt-10 flex h-full w-full border-r border-white/10">
+          <div className="flex h-full w-full border-r border-white/10">
             <Highlight
               hover={analysisEnabled ? hover : mockHover}
               makeMove={analysisEnabled ? makeMove : mockMakeMove}
@@ -374,33 +374,33 @@ export const AnalysisSidebar: React.FC<Props> = ({
 
         {/* Row 3: MovesByRating */}
         <div className="desktop-analysis-small-row-3-container relative flex w-full">
-          <div className="h-full w-full">
+          <div className="relative flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
             <MovesByRating
               moves={analysisEnabled ? controller.movesByRating : undefined}
               colorSanMapping={
                 analysisEnabled ? controller.colorSanMapping : {}
               }
             />
-          </div>
-          {!analysisEnabled && (
-            <div
-              className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden"
-              style={{
-                background:
-                  'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
-              }}
-            >
-              <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
-                <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
-                  lock
-                </span>
-                <p className="font-medium text-white">Analysis Disabled</p>
-                <p className="text-sm text-white/80">
-                  Enable analysis to see move evaluations
-                </p>
+            {!analysisEnabled && (
+              <div
+                className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-md"
+                style={{
+                  background:
+                    'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
+                }}
+              >
+                <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
+                  <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
+                    lock
+                  </span>
+                  <p className="font-medium text-white">Analysis Disabled</p>
+                  <p className="text-sm text-white/80">
+                    Enable analysis to see move evaluations
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
