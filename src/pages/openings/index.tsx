@@ -40,14 +40,9 @@ import {
 const OpeningsPage: NextPage = () => {
   const router = useRouter()
   const [showSelectionModal, setShowSelectionModal] = useState(true)
-  const [isReopenedModal, setIsReopenedModal] = useState(false)
 
   const handleCloseModal = () => {
-    if (isReopenedModal) {
-      setShowSelectionModal(false)
-    } else {
-      router.push('/')
-    }
+    router.push('/')
   }
   const [drillConfiguration, setDrillConfiguration] =
     useState<DrillConfiguration | null>(null)
@@ -211,13 +206,6 @@ const OpeningsPage: NextPage = () => {
     },
     [],
   )
-
-  const handleChangeSelections = useCallback(() => {
-    controller.resetDrillSession()
-    // Mark that this is a reopened modal so it just closes instead of navigating
-    setIsReopenedModal(true)
-    setShowSelectionModal(true)
-  }, [controller])
 
   // No-op function for disabling orientation changes
   const noOpSetOrientation = useCallback((_orientation: 'white' | 'black') => {
@@ -491,19 +479,8 @@ const OpeningsPage: NextPage = () => {
             {/* Opening drill info and drill list */}
             <OpeningDrillSidebar
               currentDrill={controller.currentDrill}
-              completedDrills={[]}
-              remainingDrills={
-                drillConfiguration?.selections?.filter(
-                  (_, i) => i > controller.currentDrillIndex,
-                ) || []
-              }
-              currentDrillIndex={controller.currentDrillIndex}
-              totalDrills={controller.totalDrills}
-              drillSequence={drillConfiguration?.selections || []}
-              onResetCurrentDrill={controller.resetCurrentDrill}
-              onChangeSelections={handleChangeSelections}
-              onLoadCompletedDrill={() => console.log('Load completed drill')}
-              onNavigateToDrill={controller.navigateToDrill}
+              completedDrills={controller.completedDrills}
+              selectionPool={controller.selectionPool}
               openingEndNode={controller.currentDrillGame?.openingEndNode}
               analysisEnabled={controller.analysisEnabled}
               continueAnalyzingMode={controller.continueAnalyzingMode}
@@ -655,7 +632,7 @@ const OpeningsPage: NextPage = () => {
               </span>
               <span className="text-secondary">•</span>
               <span className="text-secondary">
-                Drill {controller.currentDrillIndex + 1}
+                Drill {controller.currentDrillNumber || 1}
               </span>
             </div>
           ) : (

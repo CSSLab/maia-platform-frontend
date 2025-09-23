@@ -8,14 +8,8 @@ import { GameNode } from 'src/types'
 interface Props {
   currentDrill: OpeningSelection | null
   completedDrills: CompletedDrill[]
-  remainingDrills: OpeningSelection[]
-  currentDrillIndex: number
-  totalDrills: number
-  drillSequence: OpeningSelection[]
-  onResetCurrentDrill: () => void
-  onChangeSelections?: () => void
+  selectionPool: OpeningSelection[]
   onLoadCompletedDrill?: (drill: CompletedDrill) => void
-  onNavigateToDrill?: (drillIndex: number) => void
   embedded?: boolean
   // New optional props to render moves + controller
   openingEndNode?: GameNode | null
@@ -26,14 +20,8 @@ interface Props {
 export const OpeningDrillSidebar: React.FC<Props> = ({
   currentDrill,
   completedDrills,
-  remainingDrills,
-  currentDrillIndex,
-  totalDrills,
-  drillSequence,
-  onResetCurrentDrill,
-  onChangeSelections,
+  selectionPool,
   onLoadCompletedDrill,
-  onNavigateToDrill,
   embedded = false,
   openingEndNode,
   analysisEnabled,
@@ -113,133 +101,111 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
               <span>•</span>
               <span>{currentDrill.targetMoveNumber} moves</span>
             </div>
-            {/* <div className="mt-3 flex gap-2">
-            <button
-                onClick={onResetCurrentDrill}
-                className="w-full rounded bg-background-2 py-1 text-xs transition-colors hover:bg-background-3"
-              >
-                Reset Drill
-              </button>
-            {onChangeSelections && (
-                <button
-                  onClick={onChangeSelections}
-                  className="w-full rounded bg-background-2 py-1 text-xs transition-colors hover:bg-background-3"
-                >
-                  Change
-                </button>
-              )}
-            </div> */}
           </div>
         ) : (
           <p className="text-sm text-white/70">No drill selected</p>
         )}
       </div>
 
-      {/* Separator between current drill and list */}
-      <div className="h-3 w-full border-y border-glassBorder" />
-
-      {/* All Drills List */}
-      <div className="flex h-96 w-full flex-col overflow-hidden">
+      {/* Completed drills history */}
+      <div className="flex h-96 w-full flex-col overflow-hidden border-t border-glassBorder">
         <div className={listHeaderClass}>
           <h3 className="text-sm font-medium text-white/90">
-            Drill Progress ({currentDrillIndex + 1} of {totalDrills})
+            Completed Drills ({completedDrills.length})
           </h3>
         </div>
         <div className="red-scrollbar flex h-full flex-col overflow-y-auto">
-          {drillSequence.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="max-w-[12rem] text-center text-xs text-white/70">
-                No drills selected
+          {completedDrills.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center px-4 py-6">
+              <p className="max-w-[13rem] text-center text-xs text-white/70">
+                Complete drills to see your history here.
               </p>
             </div>
           ) : (
-            <div className="flex flex-col">
-              {drillSequence.map((drill, index) => {
-                // Determine drill status
-                const isCurrentDrill = index === currentDrillIndex
-                const isCompleted = completedDrills.some(
-                  (cd) => cd.selection.id === drill.id,
-                )
-                const isIncomplete = index < currentDrillIndex && !isCompleted
-
-                // Get status info
-                const getStatusInfo = () => {
-                  if (isCompleted) {
-                    return {
-                      label: 'Completed',
-                      color: 'text-green-400',
-                      bgColor: 'bg-green-900/20 hover:bg-green-900/30',
-                    }
-                  } else if (isCurrentDrill) {
-                    return {
-                      label: 'Current',
-                      color: 'text-blue-400',
-                      bgColor: 'bg-blue-900/20 hover:bg-blue-900/30',
-                    }
-                  } else if (isIncomplete) {
-                    return {
-                      label: 'Incomplete',
-                      color: 'text-yellow-400',
-                      bgColor: 'bg-yellow-900/20 hover:bg-yellow-900/30',
-                    }
-                  } else {
-                    return {
-                      label: 'Pending',
-                      color: 'text-secondary',
-                      bgColor: 'bg-background-1 hover:bg-background-2',
-                    }
-                  }
-                }
-
-                const statusInfo = getStatusInfo()
-                const drillNumber = index + 1
-
-                const shouldHide =
-                  !isCurrentDrill && !isCompleted && index > currentDrillIndex
-
+            [...completedDrills]
+              .map((drill, index) => ({ drill, order: index + 1 }))
+              .map(({ drill, order }) => {
+                const selection = drill.selection
                 return (
                   <button
-                    key={drill.id}
-                    className={`w-full border-b border-white/5 px-3 py-2 text-left transition-colors ${
-                      isCurrentDrill
-                        ? 'border-human-4/30 bg-human-4/20'
-                        : statusInfo.bgColor
-                    } ${
-                      onNavigateToDrill ? 'cursor-pointer' : 'cursor-default'
+                    key={`${selection.id}-history-${order}`}
+                    className={`w-full border-b border-white/5 px-3 py-3 text-left transition-colors ${
+                      onLoadCompletedDrill
+                        ? 'cursor-pointer hover:bg-white/5'
+                        : 'cursor-default'
                     }`}
-                    onClick={() => onNavigateToDrill?.(index)}
-                    disabled={!onNavigateToDrill}
+                    onClick={() => onLoadCompletedDrill?.(drill)}
+                    disabled={!onLoadCompletedDrill}
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-2">
+                      <div className="relative mt-0.5 h-4 w-4 flex-shrink-0">
+                        <Image
+                          src={
+                            selection.playerColor === 'white'
+                              ? '/assets/pieces/white king.svg'
+                              : '/assets/pieces/black king.svg'
+                          }
+                          fill={true}
+                          alt={`${selection.playerColor} king`}
+                        />
+                      </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium text-white/90">
-                            Drill #{drillNumber}
+                        <p className="text-xxs text-secondary">
+                          Drill #{order}
+                        </p>
+                        <p className="text-sm font-medium text-white/95">
+                          {selection.opening.name}
+                        </p>
+                        {selection.variation && (
+                          <p className="text-xs text-white/70">
+                            {selection.variation.name}
                           </p>
-                          <span
-                            className={`text-xs font-medium ${statusInfo.color}`}
-                          >
-                            {statusInfo.label}
-                          </span>
-                        </div>
-                        {!shouldHide && (
-                          <>
-                            <p className="text-xs text-white/90">
-                              {drill.opening.name}
-                            </p>
-                            {drill.variation && (
-                              <p className="text-xs text-white/70">
-                                {drill.variation.name}
-                              </p>
-                            )}
-                          </>
                         )}
-                        {/* Details removed: icon, vs Maia, and move count */}
                       </div>
                     </div>
                   </button>
                 )
-              })}
+              })
+          )}
+        </div>
+        <div className="flex flex-col gap-1 border-t border-white/10 px-0 py-2">
+          <h3 className="px-4 text-sm font-medium text-white/90">
+            Active Opening Pool ({selectionPool.length})
+          </h3>
+          {selectionPool.length === 0 ? (
+            <p className="mt-2 text-xs text-white/70">
+              Add openings to begin drilling.
+            </p>
+          ) : (
+            <div className="flex w-full flex-col">
+              {selectionPool.map((selection, index) => (
+                <div
+                  key={`pool-${selection.id}-${index}`}
+                  className="flex w-full items-center gap-2 px-4 py-1"
+                >
+                  <div className="relative h-4 w-4 flex-shrink-0">
+                    <Image
+                      src={
+                        selection.playerColor === 'white'
+                          ? '/assets/pieces/white king.svg'
+                          : '/assets/pieces/black king.svg'
+                      }
+                      fill={true}
+                      alt={`${selection.playerColor} king`}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-white/90">
+                      {selection.opening.name}
+                    </p>
+                    {selection.variation && (
+                      <p className="truncate text-[11px] text-white/60">
+                        {selection.variation.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -247,8 +213,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
 
       {/* Bottom: Moves + Controller (embedded) */}
       {tree?.gameTree && currentDrill && (
-        <div className="flex w-full flex-1 flex-col overflow-hidden">
-          <div className="h-3 border-b border-t border-glassBorder" />
+        <div className="flex w-full flex-1 flex-col overflow-hidden border-t border-glassBorder">
           <div className="red-scrollbar flex w-full flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <MovesContainer
               game={{ id: currentDrill.id, tree: tree.gameTree }}

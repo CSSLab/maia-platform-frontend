@@ -21,6 +21,7 @@ import {
   OpeningDrillGame,
   DrillPerformanceData,
   DrillConfiguration,
+  OpeningSelection,
 } from 'src/types/openings'
 import { useSound } from 'src/hooks/useSound'
 import { MAIA_MODELS } from 'src/constants/common'
@@ -94,11 +95,19 @@ export const useOpeningDrillController = (
   configuration: DrillConfiguration,
 ) => {
   const { playMoveSound } = useSound()
-  const [currentDrillIndex, setCurrentDrillIndex] = useState(0)
+  const [currentDrill, setCurrentDrill] =
+    useState<OpeningSelection | null>(null)
   const [currentDrillGame, setCurrentDrillGame] =
     useState<OpeningDrillGame | null>(null)
   const [analysisEnabled, setAnalysisEnabled] = useState(false)
-  const currentDrill = configuration.selections[currentDrillIndex] || null
+  const [completedDrills, setCompletedDrills] = useState<CompletedDrill[]>([])
+  const [currentDrillNumber, setCurrentDrillNumber] = useState(0)
+  const attemptCountersRef = useRef<Record<string, number>>({})
+  const baseSelectionsRef = useRef<OpeningSelection[]>(
+    configuration.selections,
+  )
+  const [initialCycleComplete, setInitialCycleComplete] = useState(false)
+  const [initialDrillPointer, setInitialDrillPointer] = useState(-1)
 
   const [showPerformanceModal, setShowPerformanceModal] = useState(false)
   const [currentPerformanceData, setCurrentPerformanceData] =
@@ -120,6 +129,53 @@ export const useOpeningDrillController = (
     MAIA_MODELS[0],
   )
 
+  const createDrillInstance = useCallback(
+    (selection: OpeningSelection): OpeningSelection => {
+      const templateId = selection.id
+      const nextAttempt =
+        (attemptCountersRef.current[templateId] ?? 0) + 1
+      attemptCountersRef.current[templateId] = nextAttempt
+
+      const instanceId = `${templateId}__attempt_${nextAttempt}`
+
+      return {
+        ...selection,
+        id: instanceId,
+      }
+    },
+    [],
+  )
+
+  const assignNextDrill = useCallback(() => {
+    const selections = baseSelectionsRef.current
+
+    if (!selections.length) {
+      setCurrentDrill(null)
+      setCurrentDrillNumber(0)
+      setInitialDrillPointer(-1)
+      return null
+    }
+
+    if (!initialCycleComplete && initialDrillPointer < selections.length - 1) {
+      const nextIndex = initialDrillPointer + 1
+      const instance = createDrillInstance(selections[nextIndex])
+      setCurrentDrill(instance)
+      setInitialDrillPointer(nextIndex)
+      setCurrentDrillNumber((prev) => (prev <= 0 ? 1 : prev + 1))
+      return instance
+    }
+
+    if (!initialCycleComplete) {
+      setInitialCycleComplete(true)
+    }
+
+    const randomIndex = Math.floor(Math.random() * selections.length)
+    const instance = createDrillInstance(selections[randomIndex])
+    setCurrentDrill(instance)
+    setCurrentDrillNumber((prev) => prev + 1)
+    return instance
+  }, [createDrillInstance, initialCycleComplete, initialDrillPointer])
+
   useEffect(() => {
     if (!MAIA_MODELS.includes(currentMaiaModel)) {
       setCurrentMaiaModel(MAIA_MODELS[0])
@@ -127,13 +183,36 @@ export const useOpeningDrillController = (
   }, [currentMaiaModel, setCurrentMaiaModel])
 
   useEffect(() => {
-    if (configuration.selections.length > 0 && !currentDrillGame) {
-      setCurrentDrillIndex(0)
+    baseSelectionsRef.current = configuration.selections
+    attemptCountersRef.current = {}
+    setCompletedDrills([])
+    setInitialCycleComplete(false)
+    setInitialDrillPointer(-1)
+    setCurrentDrillNumber(0)
+    setShowPerformanceModal(false)
+    setCurrentPerformanceData(null)
+    setCurrentDrillGame(null)
+    analysisCancellationRef.current = false
+    setDrillAnalysisProgress(getInitialAnalysisProgress())
+
+    if (!configuration.selections.length) {
+      setCurrentDrill(null)
+      return
     }
-  }, [configuration.selections, currentDrillGame])
+
+    const firstSelection = createDrillInstance(configuration.selections[0])
+    setCurrentDrill(firstSelection)
+    setInitialDrillPointer(0)
+    setCurrentDrillNumber(1)
+    setWaitingForMaiaResponse(false)
+    setContinueAnalyzingMode(false)
+  }, [configuration.selections, createDrillInstance])
 
   useEffect(() => {
-    if (!currentDrill) return
+    if (!currentDrill) {
+      setCurrentDrillGame(null)
+      return
+    }
 
     const startingFen =
       'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
@@ -162,7 +241,7 @@ export const useOpeningDrillController = (
     setCurrentDrillGame(drillGame)
     setWaitingForMaiaResponse(false)
     setContinueAnalyzingMode(false)
-  }, [currentDrill?.id])
+  }, [currentDrill])
 
   const gameTree = currentDrillGame?.tree || new GameTree(new Chess().fen())
 
@@ -201,9 +280,6 @@ export const useOpeningDrillController = (
     if (!currentDrillGame || !treeController.currentNode) return false
     return treeController.currentNode === currentDrillGame.openingEndNode
   }, [currentDrillGame, treeController.currentNode])
-
-  // Simplified: drills never "complete" - they cycle infinitely
-  const areAllDrillsCompleted = false
 
   const availableMoves = useMemo(() => {
     if (!treeController.currentNode || !isPlayerTurn)
@@ -717,6 +793,7 @@ export const useOpeningDrillController = (
 
         const performanceData = await evaluateDrillPerformance(drillGame)
         setCurrentPerformanceData(performanceData)
+        setCompletedDrills((prev) => [...prev, performanceData.drill])
 
         // Simplified: just show the performance modal
 
@@ -731,40 +808,17 @@ export const useOpeningDrillController = (
     [currentDrillGame, ensureDrillAnalysis, evaluateDrillPerformance],
   )
 
-  const moveToNextDrill = useCallback(async () => {
+  const moveToNextDrill = useCallback(() => {
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setContinueAnalyzingMode(false)
     setAnalysisEnabled(false)
+    setWaitingForMaiaResponse(false)
     analysisCancellationRef.current = false
     setDrillAnalysisProgress(getInitialAnalysisProgress())
-
-    // Cycle to next drill, or back to first if at end
-    const nextIndex = (currentDrillIndex + 1) % configuration.selections.length
-    setCurrentDrillIndex(nextIndex)
-  }, [currentDrillIndex, configuration.selections])
-
-  // Navigate to a specific drill by index
-  const navigateToDrill = useCallback(
-    (index: number) => {
-      if (
-        index < 0 ||
-        index >=
-          (configuration.selections ? configuration.selections.length : 0)
-      )
-        return
-
-      setShowPerformanceModal(false)
-      setCurrentPerformanceData(null)
-      setContinueAnalyzingMode(false)
-      setAnalysisEnabled(false)
-      setWaitingForMaiaResponse(false)
-      analysisCancellationRef.current = false
-      setDrillAnalysisProgress(getInitialAnalysisProgress())
-      setCurrentDrillIndex(index)
-    },
-    [configuration.selections],
-  )
+    setCurrentDrillGame(null)
+    assignNextDrill()
+  }, [assignNextDrill])
 
   // Continue analyzing current drill
   const continueAnalyzing = useCallback(() => {
@@ -800,7 +854,12 @@ export const useOpeningDrillController = (
 
   // Reset drill to start over
   const resetDrillSession = useCallback(() => {
-    setCurrentDrillIndex(0)
+    attemptCountersRef.current = {}
+    setCompletedDrills([])
+    setInitialCycleComplete(false)
+    setInitialDrillPointer(-1)
+    setCurrentDrillNumber(0)
+    setCurrentDrill(null)
     setCurrentDrillGame(null)
     setAnalysisEnabled(false)
     setContinueAnalyzingMode(false)
@@ -809,7 +868,16 @@ export const useOpeningDrillController = (
     setWaitingForMaiaResponse(false)
     analysisCancellationRef.current = false
     setDrillAnalysisProgress(getInitialAnalysisProgress())
-  }, [])
+
+    if (!baseSelectionsRef.current.length) {
+      return
+    }
+
+    const firstInstance = createDrillInstance(baseSelectionsRef.current[0])
+    setCurrentDrill(firstInstance)
+    setInitialDrillPointer(0)
+    setCurrentDrillNumber(1)
+  }, [createDrillInstance])
 
   // Make a move for the player
   const makePlayerMove = useCallback(
@@ -1123,8 +1191,10 @@ export const useOpeningDrillController = (
     // Drill state
     currentDrill,
     currentDrillGame,
-    currentDrillIndex,
-    totalDrills: configuration.selections.length,
+    currentDrillNumber,
+    selectionPool: configuration.selections,
+    completedDrills,
+    hasCompletedInitialCycle: initialCycleComplete,
     isPlayerTurn,
     isDrillComplete,
     isAtOpeningEnd,
@@ -1150,7 +1220,6 @@ export const useOpeningDrillController = (
     completeDrill,
     moveToNextDrill,
     continueAnalyzing,
-    navigateToDrill,
 
     // Analysis
     analysisEnabled,
@@ -1169,8 +1238,5 @@ export const useOpeningDrillController = (
 
     // Show performance modal for current drill
     showCurrentPerformance,
-
-    // Simplified - no complex session tracking
-    areAllDrillsCompleted,
   }
 }

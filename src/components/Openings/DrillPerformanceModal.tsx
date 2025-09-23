@@ -1056,16 +1056,20 @@ const DesktopLayout: React.FC<{
     <div className="flex gap-3 border-t border-white/10 p-4">
       <button
         onClick={onContinueAnalyzing}
-        className="flex-1 rounded border border-white/10 bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
+        className={`${
+          isLastDrill ? 'w-full' : 'flex-1'
+        } rounded border border-white/10 bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10`}
       >
         Analyze
       </button>
-      <button
-        onClick={onNextDrill}
-        className="flex-1 rounded bg-human-4 py-2 font-medium transition-colors hover:bg-human-4/80"
-      >
-        {isLastDrill ? 'View Summary' : 'Next Drill'}
-      </button>
+      {!isLastDrill && (
+        <button
+          onClick={onNextDrill}
+          className="flex-1 rounded bg-human-4 py-2 font-medium transition-colors hover:bg-human-4/80"
+        >
+          Next Drill
+        </button>
+      )}
     </div>
   </div>
 )

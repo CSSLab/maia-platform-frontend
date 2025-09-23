@@ -129,7 +129,6 @@ const StreamAnalysisPage: NextPage = () => {
   //           content="Connecting to live chess game stream for real-time analysis with Maia AI."
   //         />
   //       </Head>
-  //       <DelayedLoading isLoading={true}>
   //         <div className="flex flex-col items-center justify-center gap-4">
   //           <div className="text-center">
   //             <h2 className="mb-2 text-xl font-semibold">
@@ -154,7 +153,6 @@ const StreamAnalysisPage: NextPage = () => {
   //             )}
   //           </div>
   //         </div>
-  //       </DelayedLoading>
   //     </>
   //   )
   // }
