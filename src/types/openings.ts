@@ -27,7 +27,6 @@ export interface OpeningSelection {
 
 export interface DrillConfiguration {
   selections: OpeningSelection[]
-  sessionId?: string
 }
 
 export interface OpeningDrillState {

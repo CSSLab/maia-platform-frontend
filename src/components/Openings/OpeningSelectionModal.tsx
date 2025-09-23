@@ -22,7 +22,6 @@ import {
   trackDrillConfigurationCompleted,
 } from 'src/lib/analytics'
 import { MAIA_MODELS_WITH_NAMES } from 'src/constants/common'
-import { selectOpeningDrills } from 'src/api/openings'
 
 type MobileTab = 'browse' | 'selected'
 
@@ -991,65 +990,41 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     }
   }
 
-  const handleStartDrilling = async () => {
-    if (selections.length > 0) {
-      try {
-        // Prepare API request data
-        const openings = selections.map((selection) => ({
-          opening_fen: selection.variation
-            ? selection.variation.fen
-            : selection.opening.fen,
-          side_played: selection.playerColor,
-        }))
-
-        // Call the backend API to log opening selections and get session ID
-        const response = await selectOpeningDrills({
-          openings,
-          opponent: selectedMaiaVersion.id,
-          num_moves: targetMoveNumber,
-          num_drills: selections.length, // Use selections length instead of separate drill count
-        })
-
-        const configuration: DrillConfiguration = {
-          selections,
-          sessionId: response.session_id,
-        }
-
-        // Track drill configuration completion
-        const uniqueOpenings = new Set(selections.map((s) => s.opening.id)).size
-        const averageTargetMoves =
-          selections.reduce((sum, s) => sum + s.targetMoveNumber, 0) /
-          selections.length
-        const maiaVersionsUsed = [
-          ...new Set(selections.map((s) => s.maiaVersion)),
-        ]
-        const colorDistribution = selections.reduce(
-          (acc, s) => {
-            acc[s.playerColor]++
-            return acc
-          },
-          { white: 0, black: 0 },
-        )
-
-        trackDrillConfigurationCompleted(
-          selections.length,
-          selections.length, // Use selections length for drill count
-          uniqueOpenings,
-          averageTargetMoves,
-          maiaVersionsUsed,
-          colorDistribution,
-        )
-
-        onComplete(configuration)
-      } catch (error) {
-        console.error('Failed to start drilling session:', error)
-        // Still allow the drill to start even if API call fails
-        const configuration: DrillConfiguration = {
-          selections,
-        }
-        onComplete(configuration)
-      }
+  const handleStartDrilling = () => {
+    if (selections.length === 0) {
+      return
     }
+
+    const configuration: DrillConfiguration = {
+      selections,
+    }
+
+    // Track drill configuration completion
+    const uniqueOpenings = new Set(selections.map((s) => s.opening.id)).size
+    const averageTargetMoves =
+      selections.reduce((sum, s) => sum + s.targetMoveNumber, 0) /
+      selections.length
+    const maiaVersionsUsed = [
+      ...new Set(selections.map((s) => s.maiaVersion)),
+    ]
+    const colorDistribution = selections.reduce(
+      (acc, s) => {
+        acc[s.playerColor]++
+        return acc
+      },
+      { white: 0, black: 0 },
+    )
+
+    trackDrillConfigurationCompleted(
+      selections.length,
+      selections.length, // Use selections length for drill count
+      uniqueOpenings,
+      averageTargetMoves,
+      maiaVersionsUsed,
+      colorDistribution,
+    )
+
+    onComplete(configuration)
   }
 
   return (
