@@ -270,40 +270,38 @@ const BrowsePanel: React.FC<{
   }
 
   const renderTabs = () => (
-    <div className="flex select-none items-center justify-between gap-3 border-b border-white/10 bg-white/5 px-3 py-2 md:px-4">
-      <div className="flex w-full max-w-[340px] overflow-hidden rounded-md border border-white/10">
-        {[
-          { label: 'Openings', value: 'openings' as const },
-          { label: 'Endgames', value: 'endgames' as const },
-          { label: 'Custom', value: 'custom' as const },
-        ].map(({ label, value }) => {
-          const isSelected = browseCategory === value
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                setBrowseCategory(value)
-                setActiveTab('browse')
-              }}
-              aria-pressed={isSelected}
-              className={`relative flex-1 px-3 py-2 text-xs font-medium transition-all duration-200 md:text-sm ${
-                isSelected
-                  ? 'bg-white/10 text-white'
-                  : 'hover:bg-white/8 bg-white/5 text-white/60 hover:text-white/90'
-              }`}
-            >
-              <span>{label}</span>
-              {isSelected && (
-                <motion.div
-                  layoutId="browse-category-underline"
-                  className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-primary/50"
-                />
-              )}
-            </button>
-          )
-        })}
-      </div>
+    <div className="grid w-full select-none grid-cols-3 items-center justify-between overflow-hidden border-b border-white/10">
+      {[
+        { label: 'Openings', value: 'openings' as const },
+        { label: 'Endgames', value: 'endgames' as const },
+        { label: 'Custom', value: 'custom' as const },
+      ].map(({ label, value }) => {
+        const isSelected = browseCategory === value
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              setBrowseCategory(value)
+              setActiveTab('browse')
+            }}
+            aria-pressed={isSelected}
+            className={`relative flex-1 px-3 py-2 text-xs font-medium transition-all duration-200 md:text-sm ${
+              isSelected
+                ? 'bg-white/10 text-white'
+                : 'hover:bg-white/8 bg-white/5 text-white/60 hover:text-white/90'
+            }`}
+          >
+            <span>{label}</span>
+            {isSelected && (
+              <motion.div
+                layoutId="browse-category-underline"
+                className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-primary/50"
+              />
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 
@@ -315,25 +313,20 @@ const BrowsePanel: React.FC<{
       >
         {renderTabs()}
         <form
-          className="flex flex-col gap-3 border-b border-white/10 bg-white/5 p-4"
+          className="flex h-20 flex-col gap-3 border-b border-white/10 p-4"
           onSubmit={(e) => {
             e.preventDefault()
             onAddCustomPosition()
           }}
         >
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-            <label className="flex flex-1 flex-col gap-1">
-              <span className="text-xs font-medium text-secondary">
-                PGN or FEN
-              </span>
-              <input
-                type="text"
-                value={customInput}
-                onChange={(e) => setCustomInput(e.target.value)}
-                placeholder="Paste a PGN or FEN and press Add"
-                className="rounded border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-1 focus:ring-white/20"
-              />
-            </label>
+            <input
+              type="text"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              placeholder="Drill a custom FEN/PGN"
+              className="h-full flex-1 rounded border border-white/10 bg-white/5 px-3 text-sm text-white placeholder-primary/50 focus:outline-none focus:ring-1 focus:ring-white/20"
+            />
             <button
               type="submit"
               className="flex h-10 items-center justify-center rounded border border-human-4/50 bg-human-4/20 px-4 text-xs font-semibold uppercase tracking-wide text-primary transition-colors hover:bg-human-4/30 md:h-10"
