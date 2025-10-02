@@ -7,6 +7,9 @@ export interface Opening {
   fen: string
   pgn: string
   variations: OpeningVariation[]
+  isCustom?: boolean
+  setupFen?: string
+  categoryType?: 'opening' | 'endgame' | 'custom'
 }
 
 export interface OpeningVariation {
@@ -14,6 +17,8 @@ export interface OpeningVariation {
   name: string
   fen: string
   pgn: string
+  isCustom?: boolean
+  setupFen?: string
 }
 
 export interface OpeningSelection {

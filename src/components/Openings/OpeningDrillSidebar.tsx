@@ -153,9 +153,16 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                         <p className="text-xxs text-secondary">
                           Drill #{order}
                         </p>
-                        <p className="text-sm font-medium text-white/95">
-                          {selection.opening.name}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-white/95">
+                            {selection.opening.name}
+                          </p>
+                          {selection.opening.isCustom && (
+                            <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                              Custom
+                            </span>
+                          )}
+                        </div>
                         {selection.variation && (
                           <p className="text-xs text-white/70">
                             {selection.variation.name}
@@ -195,9 +202,16 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-white/90">
-                      {selection.opening.name}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-xs font-medium text-white/90">
+                        {selection.opening.name}
+                      </p>
+                      {selection.opening.isCustom && (
+                        <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                          Custom
+                        </span>
+                      )}
+                    </div>
                     {selection.variation && (
                       <p className="truncate text-[11px] text-white/60">
                         {selection.variation.name}

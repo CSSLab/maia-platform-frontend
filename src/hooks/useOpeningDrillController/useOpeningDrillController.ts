@@ -48,10 +48,16 @@ const delay = (ms: number) =>
   })
 
 const parsePgnToTree = (pgn: string, gameTree: GameTree): GameNode | null => {
-  if (!pgn || pgn.trim() === '') return gameTree.getRoot()
+  const rootNode = gameTree.getRoot()
+
+  if (!pgn || pgn.trim() === '') return rootNode
 
   const chess = new Chess()
-  let currentNode = gameTree.getRoot()
+  if (rootNode?.fen && chess.fen() !== rootNode.fen) {
+    chess.load(rootNode.fen)
+  }
+
+  let currentNode = rootNode
 
   const moveText = pgn.replace(/\d+\./g, '').trim()
   const moves = moveText.split(/\s+/).filter((move) => move && move !== '')
@@ -95,17 +101,16 @@ export const useOpeningDrillController = (
   configuration: DrillConfiguration,
 ) => {
   const { playMoveSound } = useSound()
-  const [currentDrill, setCurrentDrill] =
-    useState<OpeningSelection | null>(null)
+  const [currentDrill, setCurrentDrill] = useState<OpeningSelection | null>(
+    null,
+  )
   const [currentDrillGame, setCurrentDrillGame] =
     useState<OpeningDrillGame | null>(null)
   const [analysisEnabled, setAnalysisEnabled] = useState(false)
   const [completedDrills, setCompletedDrills] = useState<CompletedDrill[]>([])
   const [currentDrillNumber, setCurrentDrillNumber] = useState(0)
   const attemptCountersRef = useRef<Record<string, number>>({})
-  const baseSelectionsRef = useRef<OpeningSelection[]>(
-    configuration.selections,
-  )
+  const baseSelectionsRef = useRef<OpeningSelection[]>(configuration.selections)
   const [initialCycleComplete, setInitialCycleComplete] = useState(false)
   const [initialDrillPointer, setInitialDrillPointer] = useState(-1)
 
@@ -132,8 +137,7 @@ export const useOpeningDrillController = (
   const createDrillInstance = useCallback(
     (selection: OpeningSelection): OpeningSelection => {
       const templateId = selection.id
-      const nextAttempt =
-        (attemptCountersRef.current[templateId] ?? 0) + 1
+      const nextAttempt = (attemptCountersRef.current[templateId] ?? 0) + 1
       attemptCountersRef.current[templateId] = nextAttempt
 
       const instanceId = `${templateId}__attempt_${nextAttempt}`
@@ -215,6 +219,8 @@ export const useOpeningDrillController = (
     }
 
     const startingFen =
+      currentDrill.variation?.setupFen ||
+      currentDrill.opening.setupFen ||
       'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
     const gameTree = new GameTree(startingFen)
 

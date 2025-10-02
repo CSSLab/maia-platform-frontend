@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useContext } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import Chessground from '@react-chess/chessground'
+import { Chess } from 'chess.ts'
 import {
   Opening,
   OpeningVariation,
@@ -25,8 +26,13 @@ import { MAIA_MODELS_WITH_NAMES } from 'src/constants/common'
 
 type MobileTab = 'browse' | 'selected'
 
+const DEFAULT_START_FEN =
+  'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+const PGN_RESULT_TOKENS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
+
 interface Props {
   openings: Opening[]
+  endgames?: Opening[]
   initialSelections?: OpeningSelection[]
   onComplete: (configuration: DrillConfiguration) => void
   onClose: () => void
@@ -210,6 +216,15 @@ const BrowsePanel: React.FC<{
   selections: OpeningSelection[]
   onOpeningClick: (opening: Opening, variation: OpeningVariation | null) => void
   removeSelection: (id: string) => void
+  onRemoveCustomOpening: (openingId: string) => void
+  browseCategory: 'openings' | 'endgames' | 'custom'
+  setBrowseCategory: (category: 'openings' | 'endgames' | 'custom') => void
+  customInput: string
+  setCustomInput: (value: string) => void
+  customError: string | null
+  onAddCustomPosition: () => void
+  categoryLabel: string
+  categoryLabelPlural: string
 }> = ({
   activeTab,
   filteredOpenings,
@@ -225,10 +240,21 @@ const BrowsePanel: React.FC<{
   selections,
   onOpeningClick,
   removeSelection,
+  onRemoveCustomOpening,
+  browseCategory,
+  setBrowseCategory,
+  customInput,
+  setCustomInput,
+  customError,
+  onAddCustomPosition,
+  categoryLabel,
+  categoryLabelPlural,
 }) => {
   const { isMobile } = useContext(WindowSizeContext)
+  const isCustomCategory = browseCategory === 'custom'
 
-  // Helper function to remove a selection by opening and variation
+  const searchPlaceholder = `Search ${categoryLabelPlural.toLowerCase()}...`
+
   const removeOpeningSelection = (
     opening: Opening,
     variation: OpeningVariation | null,
@@ -243,25 +269,244 @@ const BrowsePanel: React.FC<{
     }
   }
 
+  const renderTabs = () => (
+    <div className="flex select-none items-center justify-between gap-3 border-b border-white/10 bg-white/5 px-3 py-2 md:px-4">
+      <div className="flex w-full max-w-[340px] overflow-hidden rounded-md border border-white/10">
+        {[
+          { label: 'Openings', value: 'openings' as const },
+          { label: 'Endgames', value: 'endgames' as const },
+          { label: 'Custom', value: 'custom' as const },
+        ].map(({ label, value }) => {
+          const isSelected = browseCategory === value
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => {
+                setBrowseCategory(value)
+                setActiveTab('browse')
+              }}
+              aria-pressed={isSelected}
+              className={`relative flex-1 px-3 py-2 text-xs font-medium transition-all duration-200 md:text-sm ${
+                isSelected
+                  ? 'bg-white/10 text-white'
+                  : 'hover:bg-white/8 bg-white/5 text-white/60 hover:text-white/90'
+              }`}
+            >
+              <span>{label}</span>
+              {isSelected && (
+                <motion.div
+                  layoutId="browse-category-underline"
+                  className="absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-primary/50"
+                />
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  if (isCustomCategory) {
+    return (
+      <div
+        id="opening-drill-browse"
+        className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-white/10`}
+      >
+        {renderTabs()}
+        <form
+          className="flex flex-col gap-3 border-b border-white/10 bg-white/5 p-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onAddCustomPosition()
+          }}
+        >
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+            <label className="flex flex-1 flex-col gap-1">
+              <span className="text-xs font-medium text-secondary">
+                PGN or FEN
+              </span>
+              <input
+                type="text"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                placeholder="Paste a PGN or FEN and press Add"
+                className="rounded border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-1 focus:ring-white/20"
+              />
+            </label>
+            <button
+              type="submit"
+              className="flex h-10 items-center justify-center rounded border border-human-4/50 bg-human-4/20 px-4 text-xs font-semibold uppercase tracking-wide text-primary transition-colors hover:bg-human-4/30 md:h-10"
+              disabled={!customInput.trim()}
+            >
+              Add Position
+            </button>
+          </div>
+          {customError && <p className="text-xs text-red-400">{customError}</p>}
+        </form>
+
+        <div className="border-b border-white/10 p-4">
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary">
+              search
+            </span>
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded border border-white/10 bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 p-3 text-xs text-secondary md:p-4">
+          <p>Saved custom positions:</p>
+        </div>
+
+        <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto">
+          {filteredOpenings.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-secondary md:text-sm">
+              No saved positions yet. Add a FEN or PGN above to get started.
+            </div>
+          ) : (
+            filteredOpenings.map((opening) => {
+              const openingIsSelected = selections.some(
+                (selection) =>
+                  selection.opening.id === opening.id &&
+                  selection.variation === null,
+              )
+              const openingIsBeingPreviewed =
+                previewOpening.id === opening.id && !previewVariation
+
+              return (
+                <div
+                  key={opening.id}
+                  className={`group border-b border-white/5 transition-colors ${
+                    openingIsSelected
+                      ? 'bg-white/5'
+                      : openingIsBeingPreviewed
+                        ? 'bg-white/5'
+                        : 'hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="flex-1 cursor-pointer p-4"
+                      onClick={() => {
+                        setPreviewOpening(opening)
+                        setPreviewVariation(null)
+                        trackOpeningPreviewSelected(
+                          opening.name,
+                          opening.id,
+                          false,
+                        )
+                        if (isMobile) {
+                          onOpeningClick(opening, null)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setPreviewOpening(opening)
+                          setPreviewVariation(null)
+                          trackOpeningPreviewSelected(
+                            opening.name,
+                            opening.id,
+                            false,
+                          )
+                          if (isMobile) {
+                            onOpeningClick(opening, null)
+                          }
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">{opening.name}</h3>
+                            <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                              Custom
+                            </span>
+                          </div>
+                          <p className="text-xs text-secondary">
+                            {opening.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mr-1 flex items-center gap-1">
+                      {openingIsSelected ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeOpeningSelection(opening, null)
+                          }}
+                          className="rounded p-1 text-white/70 transition-colors hover:text-white"
+                          title="Remove position from selection"
+                        >
+                          <span className="material-symbols-outlined !text-base">
+                            check
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addQuickSelection(opening, null)
+                          }}
+                          className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
+                          title="Add position with current settings"
+                        >
+                          <span className="material-symbols-outlined !text-base">
+                            add
+                          </span>
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveCustomOpening(opening.id)
+                        }}
+                        className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary"
+                        title="Remove custom position"
+                      >
+                        <span className="material-symbols-outlined !text-base">
+                          delete
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       id="opening-drill-browse"
-      className={`flex w-full flex-col overflow-y-scroll ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-white/10`}
+      className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-white/10`}
     >
+      {renderTabs()}
       <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
-        <h2 className="text-xl font-bold">Select Openings</h2>
+        <h2 className="text-xl font-bold">Select {categoryLabelPlural}</h2>
         <p className="text-xs text-secondary">
-          Click the + button to quickly add an opening with current settings
+          Browse and select {categoryLabelPlural.toLowerCase()} to drill.
         </p>
       </div>
 
-      {/* Mobile header */}
       <div className="flex h-16 flex-col justify-center gap-1 border-b border-white/10 p-4 md:hidden">
-        <h2 className="text-lg font-bold">Select Openings</h2>
-        <p className="text-xs text-secondary">Choose openings to practice</p>
+        <h2 className="text-lg font-bold">Select {categoryLabelPlural}</h2>
+        <p className="text-xs text-secondary">
+          Choose {categoryLabelPlural.toLowerCase()} to practice
+        </p>
       </div>
 
-      {/* Search Bar */}
       <div className="border-b border-white/10 p-4">
         <div className="relative">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary">
@@ -269,7 +514,7 @@ const BrowsePanel: React.FC<{
           </span>
           <input
             type="text"
-            placeholder="Search openings..."
+            placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full rounded border border-white/10 bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
@@ -345,33 +590,35 @@ const BrowsePanel: React.FC<{
                       </div>
                     </div>
                   </div>
-                  {openingIsSelected ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeOpeningSelection(opening, null)
-                      }}
-                      className="mr-3 rounded p-1 text-white/70 transition-colors hover:text-white"
-                      title="Remove opening from selection"
-                    >
-                      <span className="material-symbols-outlined !text-base">
-                        check
-                      </span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        addQuickSelection(opening, null)
-                      }}
-                      className="mr-3 rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
-                      title="Add opening with current settings"
-                    >
-                      <span className="material-symbols-outlined !text-base">
-                        add
-                      </span>
-                    </button>
-                  )}
+                  <div className="mr-1 flex items-center gap-1">
+                    {openingIsSelected ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeOpeningSelection(opening, null)
+                        }}
+                        className="rounded p-1 text-white/70 transition-colors hover:text-white"
+                        title={`Remove ${categoryLabel.toLowerCase()} from selection`}
+                      >
+                        <span className="material-symbols-outlined !text-base">
+                          check
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          addQuickSelection(opening, null)
+                        }}
+                        className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
+                        title={`Add ${categoryLabel.toLowerCase()} with current settings`}
+                      >
+                        <span className="material-symbols-outlined !text-base">
+                          add
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               {opening.variations.map((variation) => {
@@ -477,7 +724,6 @@ const BrowsePanel: React.FC<{
     </div>
   )
 }
-
 const PreviewPanel: React.FC<{
   selections: OpeningSelection[]
   previewOpening: Opening
@@ -486,6 +732,7 @@ const PreviewPanel: React.FC<{
   selectedColor: 'white' | 'black'
   setSelectedColor: (color: 'white' | 'black') => void
   addSelection: () => void
+  panelLabel: string
 }> = ({
   selections,
   previewOpening,
@@ -494,6 +741,7 @@ const PreviewPanel: React.FC<{
   selectedColor,
   setSelectedColor,
   addSelection,
+  panelLabel,
 }) => {
   const isDuplicateSelection = (
     opening: Opening,
@@ -512,7 +760,7 @@ const PreviewPanel: React.FC<{
       className="hidden w-full flex-col overflow-hidden md:flex"
     >
       <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
-        <h2 className="text-xl font-bold">Preview Opening</h2>
+        <h2 className="text-xl font-bold">Preview {panelLabel}</h2>
         <p className="text-xs text-secondary">Configure your drill settings</p>
       </div>
 
@@ -613,6 +861,8 @@ const SelectedPanel: React.FC<{
   setSelectedMaiaVersion: (version: (typeof MAIA_MODELS_WITH_NAMES)[0]) => void
   targetMoveNumber: number
   setTargetMoveNumber: (number: number) => void
+  categoryLabel: string
+  categoryLabelPlural: string
 }> = ({
   activeTab,
   selections,
@@ -622,6 +872,8 @@ const SelectedPanel: React.FC<{
   setSelectedMaiaVersion,
   targetMoveNumber,
   setTargetMoveNumber,
+  categoryLabel,
+  categoryLabelPlural,
 }) => (
   <div
     id="opening-drill-selected"
@@ -629,9 +881,11 @@ const SelectedPanel: React.FC<{
   >
     <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
       <h2 className="text-xl font-bold">
-        Selected Openings ({selections.length})
+        Selected {categoryLabelPlural} ({selections.length})
       </h2>
-      <p className="text-xs text-secondary">Click X remove an opening</p>
+      <p className="text-xs text-secondary">
+        Click × to remove from the selection
+      </p>
     </div>
 
     {/* Mobile header */}
@@ -645,8 +899,8 @@ const SelectedPanel: React.FC<{
       {selections.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
           <p className="max-w-xs px-4 text-center text-xs text-secondary md:text-sm">
-            No openings selected yet. Choose openings from the Browse tab to
-            start drilling.
+            No {categoryLabelPlural.toLowerCase()} selected yet. Choose from the
+            Browse tab to start drilling.
           </p>
         </div>
       ) : (
@@ -674,6 +928,11 @@ const SelectedPanel: React.FC<{
                       <span className="truncate text-xs font-medium text-primary md:text-sm">
                         {selection.opening.name}
                       </span>
+                      {selection.opening.isCustom && (
+                        <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                          Custom
+                        </span>
+                      )}
                       {selection.variation && (
                         <span className="mt-1 truncate text-xxs text-secondary">
                           {selection.variation.name}
@@ -751,8 +1010,8 @@ const SelectedPanel: React.FC<{
         disabled={selections.length === 0}
         className="w-full rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Start Drilling ({selections.length} opening
-        {selections.length !== 1 ? 's' : ''})
+        Start Drilling ({selections.length}{' '}
+        {selections.length === 1 ? 'selection' : 'selections'})
       </button>
     </div>
   </div>
@@ -760,15 +1019,89 @@ const SelectedPanel: React.FC<{
 
 export const OpeningSelectionModal: React.FC<Props> = ({
   openings,
+  endgames = [],
   initialSelections = [],
   onComplete,
   onClose,
 }) => {
   const { startTour } = useTour()
   const { isMobile } = useContext(WindowSizeContext)
+
+  const normalizedOpenings = useMemo(
+    () =>
+      openings.map((opening) => ({
+        ...opening,
+        categoryType: opening.categoryType ?? 'opening',
+      })),
+    [openings],
+  )
+
+  const normalizedEndgames = useMemo(
+    () =>
+      endgames.map((endgame) => ({
+        ...endgame,
+        categoryType: endgame.categoryType ?? 'endgame',
+      })),
+    [endgames],
+  )
+
+  const initialCustomOpenings = useMemo(() => {
+    const builtInIds = new Set([
+      ...normalizedOpenings.map((opening) => opening.id),
+      ...normalizedEndgames.map((endgame) => endgame.id),
+    ])
+
+    const unique = new Map<string, Opening>()
+
+    initialSelections.forEach((selection) => {
+      const selectionOpening = selection.opening
+      if (!builtInIds.has(selectionOpening.id)) {
+        unique.set(selectionOpening.id, {
+          ...selectionOpening,
+          variations: (selectionOpening.variations || []).map((variation) => ({
+            ...variation,
+            isCustom: true,
+          })),
+          isCustom: true,
+          categoryType: 'custom',
+        })
+      }
+    })
+
+    return Array.from(unique.values())
+  }, [initialSelections, normalizedEndgames, normalizedOpenings])
+
+  const fallbackOpening: Opening = {
+    id: 'custom-fallback-position',
+    name: 'Custom Position',
+    description: 'Create a custom drill to get started.',
+    fen: DEFAULT_START_FEN,
+    pgn: '',
+    variations: [],
+    isCustom: true,
+    categoryType: 'custom',
+  }
+
+  const [customOpenings, setCustomOpenings] = useState<Opening[]>(
+    initialCustomOpenings,
+  )
   const [selections, setSelections] =
     useState<OpeningSelection[]>(initialSelections)
-  const [previewOpening, setPreviewOpening] = useState<Opening>(openings[0])
+
+  const hasOpenings = normalizedOpenings.length > 0
+  const hasEndgames = normalizedEndgames.length > 0
+
+  const [browseCategory, setBrowseCategory] = useState<
+    'openings' | 'endgames' | 'custom'
+  >(hasOpenings ? 'openings' : hasEndgames ? 'endgames' : 'custom')
+
+  const initialPreview =
+    initialCustomOpenings[0] ||
+    (hasOpenings ? normalizedOpenings[0] : undefined) ||
+    (hasEndgames ? normalizedEndgames[0] : undefined) ||
+    fallbackOpening
+
+  const [previewOpening, setPreviewOpening] = useState<Opening>(initialPreview)
   const [previewVariation, setPreviewVariation] =
     useState<OpeningVariation | null>(null)
   const [selectedMaiaVersion, setSelectedMaiaVersion] = useState(
@@ -786,7 +1119,198 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   const [mobilePopupVariation, setMobilePopupVariation] =
     useState<OpeningVariation | null>(null)
   const [mobilePopupOpen, setMobilePopupOpen] = useState(false)
+  const [customInput, setCustomInput] = useState('')
+  const [customError, setCustomError] = useState<string | null>(null)
 
+  const handleAddCustomPosition = () => {
+    const rawInput = customInput.trim()
+
+    if (!rawInput) {
+      setCustomError('Enter a PGN or FEN to create a custom drill.')
+      return
+    }
+
+    const inputLines = rawInput
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+
+    let detectedFen: string | undefined
+    let remainingInput = ''
+
+    if (inputLines.length > 0) {
+      const potentialFen = inputLines[0]
+      const fenTokens = potentialFen.split(/\s+/)
+      if (fenTokens.length === 6 && potentialFen.includes('/')) {
+        const fenTester = new Chess()
+        try {
+          if (fenTester.load(potentialFen)) {
+            detectedFen = potentialFen
+            inputLines.pop(0)
+            remainingInput = inputLines.join(' ')
+          }
+        } catch (error) {
+          // treat as PGN if parsing fails
+        }
+      }
+    }
+
+    if (!detectedFen) {
+      remainingInput = rawInput
+    }
+
+    const chess = new Chess()
+
+    if (detectedFen) {
+      try {
+        if (!chess.load(detectedFen)) {
+          setCustomError('The supplied FEN could not be parsed.')
+          return
+        }
+      } catch (error) {
+        setCustomError('The supplied FEN could not be parsed.')
+        return
+      }
+    } else {
+      chess.load(DEFAULT_START_FEN)
+    }
+
+    let parsedPgn = ''
+
+    if (remainingInput) {
+      const sanitizedMoves = remainingInput
+        .replace(/\{[^}]*\}/g, ' ')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\$\d+/g, ' ')
+        .replace(/\d+\.\.\.|\d+\./g, ' ')
+        .replace(/\r?\n/g, ' ')
+        .split(/\s+/)
+        .filter((token) => token && !PGN_RESULT_TOKENS.has(token))
+
+      if (sanitizedMoves.length === 0) {
+        setCustomError(
+          'Unable to parse the PGN input. Please check the moves provided.',
+        )
+        return
+      }
+
+      for (const moveToken of sanitizedMoves) {
+        try {
+          const moveResult = chess.move(moveToken, { sloppy: true })
+          if (!moveResult) {
+            setCustomError(`Could not apply move "${moveToken}" from the PGN.`)
+            return
+          }
+        } catch (error) {
+          setCustomError(`Could not apply move "${moveToken}" from the PGN.`)
+          return
+        }
+      }
+
+      parsedPgn = sanitizedMoves.join(' ')
+    }
+
+    const finalFen = chess.fen()
+    const generatedId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+    const newOpening: Opening = {
+      id: generatedId,
+      name: `Custom Position ${customOpenings.length + 1}`,
+      description:
+        detectedFen && !parsedPgn
+          ? 'Custom drill created from a supplied FEN.'
+          : 'Custom drill created from PGN input.',
+      fen: finalFen,
+      pgn: parsedPgn,
+      variations: [],
+      isCustom: true,
+      setupFen: detectedFen,
+      categoryType: 'custom',
+    }
+
+    const duplicate = customOpenings.some(
+      (opening) =>
+        opening.fen === newOpening.fen &&
+        opening.pgn === newOpening.pgn &&
+        opening.setupFen === newOpening.setupFen,
+    )
+
+    if (duplicate) {
+      setCustomError('You already saved a custom drill with the same position.')
+      return
+    }
+
+    setCustomOpenings((prev) => [newOpening, ...prev])
+    setPreviewOpening(newOpening)
+    setPreviewVariation(null)
+    setCustomInput('')
+    setCustomError(null)
+    setBrowseCategory('custom')
+    setActiveTab('browse')
+  }
+
+  const handleRemoveCustomOpening = (openingId: string) => {
+    const remainingCustom = customOpenings.filter(
+      (opening) => opening.id !== openingId,
+    )
+
+    const fallbackCandidates = [
+      ...remainingCustom,
+      ...normalizedOpenings,
+      ...normalizedEndgames,
+    ]
+
+    const nextPreview = fallbackCandidates.find(
+      (opening) => opening.id !== openingId,
+    )
+
+    setCustomOpenings(remainingCustom)
+    setSelections((prev) =>
+      prev.filter((selection) => selection.opening.id !== openingId),
+    )
+
+    if (remainingCustom.length === 0 && browseCategory === 'custom') {
+      setBrowseCategory(
+        hasOpenings ? 'openings' : hasEndgames ? 'endgames' : 'custom',
+      )
+    }
+
+    if (previewOpening.id === openingId) {
+      setPreviewOpening(nextPreview || fallbackOpening)
+      setPreviewVariation(null)
+    }
+
+    if (mobilePopupOpening?.id === openingId) {
+      setMobilePopupOpen(false)
+      setMobilePopupOpening(null)
+      setMobilePopupVariation(null)
+    }
+  }
+  const categoryLabel =
+    browseCategory === 'endgames'
+      ? 'Endgame'
+      : browseCategory === 'custom'
+        ? 'Position'
+        : 'Opening'
+  const categoryLabelPlural =
+    categoryLabel === 'Endgame'
+      ? 'Endgames'
+      : categoryLabel === 'Opening'
+        ? 'Openings'
+        : 'Positions'
+
+  const previewPanelLabel = useMemo(() => {
+    if (previewOpening.isCustom || previewOpening.categoryType === 'custom') {
+      return 'Position'
+    }
+    if (previewOpening.categoryType === 'endgame') {
+      return 'Endgame'
+    }
+    if (previewOpening.categoryType === 'opening') {
+      return 'Opening'
+    }
+    return categoryLabel
+  }, [previewOpening.isCustom, previewOpening.categoryType, categoryLabel])
   // Check if user has completed the tour on initial load
   useEffect(() => {
     if (!initialTourCheck) {
@@ -834,24 +1358,54 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     return previewVariation ? previewVariation.fen : previewOpening.fen
   }, [previewOpening, previewVariation])
 
+  const basePositions = useMemo(() => {
+    if (browseCategory === 'custom') return customOpenings
+    if (browseCategory === 'endgames') return normalizedEndgames
+    return normalizedOpenings
+  }, [browseCategory, customOpenings, normalizedEndgames, normalizedOpenings])
+
   const filteredOpenings = useMemo(() => {
-    if (!searchTerm) return openings
-    const filtered = openings.filter(
+    if (!searchTerm) return basePositions
+    const lowered = searchTerm.toLowerCase()
+    const filtered = basePositions.filter(
       (opening) =>
-        opening.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opening.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        opening.name.toLowerCase().includes(lowered) ||
+        opening.description.toLowerCase().includes(lowered) ||
         opening.variations.some((variation) =>
-          variation.name.toLowerCase().includes(searchTerm.toLowerCase()),
+          variation.name.toLowerCase().includes(lowered),
         ),
     )
 
-    // Track search usage
     if (searchTerm) {
       trackOpeningSearchUsed(searchTerm, filtered.length)
     }
 
     return filtered
-  }, [openings, searchTerm])
+  }, [basePositions, searchTerm])
+
+  useEffect(() => {
+    const availableOpenings = [
+      ...customOpenings,
+      ...normalizedOpenings,
+      ...normalizedEndgames,
+    ]
+
+    if (!availableOpenings.length) return
+
+    const previewExists = availableOpenings.some(
+      (opening) => opening.id === previewOpening.id,
+    )
+
+    if (!previewExists) {
+      setPreviewOpening(availableOpenings[0])
+      setPreviewVariation(null)
+    }
+  }, [
+    customOpenings,
+    normalizedOpenings,
+    normalizedEndgames,
+    previewOpening.id,
+  ])
 
   const isDuplicateSelection = (
     opening: Opening,
@@ -878,14 +1432,15 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       targetMoveNumber,
     }
 
-    // Track opening configuration and addition
-    trackOpeningConfiguredAndAdded(
-      previewOpening.name,
-      selectedColor,
-      selectedMaiaVersion.id,
-      targetMoveNumber,
-      previewVariation?.name,
-    )
+    if (!previewOpening.isCustom) {
+      trackOpeningConfiguredAndAdded(
+        previewOpening.name,
+        selectedColor,
+        selectedMaiaVersion.id,
+        targetMoveNumber,
+        previewVariation?.name,
+      )
+    }
 
     setSelections([...selections, newSelection])
     // Switch to selected tab on mobile after adding
@@ -965,13 +1520,14 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   ) => {
     if (isDuplicateSelection(opening, variation)) return
 
-    // Track quick add usage
-    trackOpeningQuickAddUsed(
-      opening.name,
-      selectedColor,
-      selectedMaiaVersion.id,
-      targetMoveNumber,
-    )
+    if (!opening.isCustom) {
+      trackOpeningQuickAddUsed(
+        opening.name,
+        selectedColor,
+        selectedMaiaVersion.id,
+        targetMoveNumber,
+      )
+    }
 
     const newSelection: OpeningSelection = {
       id: `${opening.id}-${variation?.id || 'main'}-${selectedColor}-${selectedMaiaVersion.id}-${targetMoveNumber}`,
@@ -1004,9 +1560,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     const averageTargetMoves =
       selections.reduce((sum, s) => sum + s.targetMoveNumber, 0) /
       selections.length
-    const maiaVersionsUsed = [
-      ...new Set(selections.map((s) => s.maiaVersion)),
-    ]
+    const maiaVersionsUsed = [...new Set(selections.map((s) => s.maiaVersion))]
     const colorDistribution = selections.reduce(
       (acc, s) => {
         acc[s.playerColor]++
@@ -1105,6 +1659,15 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             selections={selections}
             onOpeningClick={handleMobileOpeningClick}
             removeSelection={removeSelection}
+            onRemoveCustomOpening={handleRemoveCustomOpening}
+            browseCategory={browseCategory}
+            setBrowseCategory={setBrowseCategory}
+            customInput={customInput}
+            setCustomInput={setCustomInput}
+            customError={customError}
+            onAddCustomPosition={handleAddCustomPosition}
+            categoryLabel={categoryLabel}
+            categoryLabelPlural={categoryLabelPlural}
           />
           <PreviewPanel
             selections={selections}
@@ -1114,6 +1677,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             selectedColor={selectedColor}
             setSelectedColor={setSelectedColor}
             addSelection={addSelection}
+            panelLabel={previewPanelLabel}
           />
           <SelectedPanel
             activeTab={activeTab}
@@ -1124,6 +1688,8 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             setSelectedMaiaVersion={setSelectedMaiaVersion}
             targetMoveNumber={targetMoveNumber}
             setTargetMoveNumber={setTargetMoveNumber}
+            categoryLabel={categoryLabel}
+            categoryLabelPlural={categoryLabelPlural}
           />
         </div>
 
