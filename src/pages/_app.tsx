@@ -5,7 +5,6 @@ import { useRouter } from 'next/router'
 import { useEffect } from 'react'
 import type { AppProps } from 'next/app'
 import posthog from 'posthog-js'
-import { Open_Sans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react'
 import { PostHogProvider } from 'posthog-js/react'
 import { SoundProvider } from 'src/contexts/SoundContext'
@@ -34,7 +33,7 @@ import {
   FeedbackButton,
 } from 'src/components'
 
-const OpenSans = Open_Sans({ subsets: ['latin'] })
+const openSansClassName = 'font-sans'
 
 function MaiaPlatform({ Component, pageProps }: AppProps) {
   const router = useRouter()
@@ -107,7 +106,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <meta name="twitter:image" content="/embed.png" />
             <meta name="twitter:image:alt" content="Maia Chess" />
           </Head>
-          <div className={`${OpenSans.className} app-container`}>
+          <div className={`${openSansClassName} app-container`}>
             <Header />
             <div className="content-container">
               <Component {...pageProps} />

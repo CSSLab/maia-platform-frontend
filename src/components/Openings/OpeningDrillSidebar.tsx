@@ -64,6 +64,10 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
     }
   }
 
+  const handleSetOrientation = (orientation: 'white' | 'black') => {
+    tree?.setOrientation(orientation)
+  }
+
   return (
     <div className={containerClass}>
       {/* Current Drill Info */}
@@ -241,7 +245,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
             <BoardController
               gameTree={tree.gameTree}
               orientation={tree.orientation}
-              setOrientation={() => {}}
+              setOrientation={handleSetOrientation}
               currentNode={tree.currentNode}
               plyCount={tree.plyCount}
               goToNode={tree.goToNode}

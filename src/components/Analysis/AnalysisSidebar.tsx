@@ -16,6 +16,9 @@ import { useAnalysisController } from 'src/hooks/useAnalysisController'
 import type { MaiaEvaluation, StockfishEvaluation } from 'src/types'
 
 type AnalysisViewMode = 'simple' | 'detailed'
+type HighlightBoardDescription = ComponentProps<
+  typeof Highlight
+>['boardDescription']
 
 interface Props {
   hover: (move?: string) => void
@@ -98,7 +101,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
         stockfish: undefined,
       }
 
-  const highlightBoardDescription = analysisEnabled
+  const highlightBoardDescription: HighlightBoardDescription = analysisEnabled
     ? controller.boardDescription
     : {
         segments: [

@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import Head from 'next/head'
 import { Component } from 'react'
-import { Open_Sans } from 'next/font/google'
 import Chessground from '@react-chess/chessground'
 import { Header } from './Header'
 import { Footer } from './Footer'
@@ -17,7 +16,7 @@ interface State {
   error: Error | null
 }
 
-const OpenSans = Open_Sans({ subsets: ['latin'] })
+const openSansClassName = 'font-sans'
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -67,7 +66,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
               />
             </Head>
-            <div className={`${OpenSans.className} app-container`}>
+            <div className={`${openSansClassName} app-container`}>
               <div className="flex min-h-screen w-screen flex-col bg-backdrop">
                 <Header />
                 <div className="flex flex-1 flex-col items-center justify-center gap-4">
@@ -104,7 +103,7 @@ export class ErrorBoundary extends Component<Props, State> {
             />
           </Head>
           <div
-            className={`${OpenSans.className} app-container flex min-h-screen w-screen flex-col bg-backdrop`}
+            className={`${openSansClassName} app-container flex min-h-screen w-screen flex-col bg-backdrop`}
           >
             <Header />
             <div className="flex flex-1 flex-col items-center justify-center gap-8 p-6">

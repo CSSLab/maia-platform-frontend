@@ -1139,7 +1139,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         try {
           if (fenTester.load(potentialFen)) {
             detectedFen = potentialFen
-            inputLines.pop(0)
+            inputLines.shift()
             remainingInput = inputLines.join(' ')
           }
         } catch (error) {
