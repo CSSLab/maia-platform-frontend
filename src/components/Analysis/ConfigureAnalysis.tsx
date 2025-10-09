@@ -59,10 +59,6 @@ export const ConfigureAnalysis: React.FC<Props> = ({
           </span>
         </div>
       </div>
-      <ContinueAgainstMaia
-        launchContinue={launchContinue}
-        background="!rounded border border-glassBorder bg-glass text-white/90 hover:bg-glass-hover !px-2.5 !py-[5px] !text-xs"
-      />
       {onAnalyzeEntireGame && (
         <button
           onClick={onAnalyzeEntireGame}
