@@ -24,7 +24,7 @@ export const SoundSettings: React.FC = () => {
   }
 
   return (
-    <div className="from-white/8 to-white/4 group flex flex-col gap-4 rounded-lg border border-white/10 bg-gradient-to-br p-5 backdrop-blur-md transition-all duration-300">
+    <div className="group flex flex-col gap-4 rounded-lg border border-glassBorder bg-glass p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white/95">Sound Settings</h3>
       </div>
@@ -63,7 +63,7 @@ export const SoundSettings: React.FC = () => {
             <button
               onClick={handleTestSound}
               disabled={!settings.soundEnabled}
-              className="group flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className="hover:bg-glass-stronger group flex items-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-base text-white/80">
                 volume_up
@@ -73,7 +73,7 @@ export const SoundSettings: React.FC = () => {
             <button
               onClick={handleTestCaptureSound}
               disabled={!settings.soundEnabled}
-              className="group flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className="group flex items-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-base text-white/80">
                 volume_up

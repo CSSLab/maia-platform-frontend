@@ -29,7 +29,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
 }) => {
   const containerClass = embedded
     ? 'flex h-full w-full max-w-full flex-col'
-    : 'flex h-full w-full max-w-full flex-col border-r border-white/10 bg-background-1'
+    : 'flex h-full w-full max-w-full flex-col border-r border-white/10'
 
   const sectionHeaderClass = embedded
     ? 'px-4 py-4 w-full'

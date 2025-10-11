@@ -16,6 +16,7 @@ module.exports = {
           DEFAULT: 'rgb(var(--glass-bg) / var(--glass-bg-opacity))',
           hover: 'rgb(var(--glass-bg) / var(--glass-bg-hover-opacity))',
           strong: 'rgb(var(--glass-bg) / var(--glass-bg-strong-opacity))',
+          stronger: 'rgb(var(--glass-bg) / var(--glass-bg-stronger-opacity))',
         },
         glassBorder: 'rgb(var(--glass-border) / var(--glass-border-opacity))',
         button: {

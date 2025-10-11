@@ -26,7 +26,6 @@ const SettingsPage: NextPage = () => {
           content="Configure your Maia Chess experience"
         />
       </Head>
-      {/* Radial gradient backdrop to match new design language */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{

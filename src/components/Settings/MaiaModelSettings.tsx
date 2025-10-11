@@ -117,7 +117,7 @@ export const MaiaModelSettings: React.FC = () => {
   const statusDisplay = getStatusDisplay()
 
   return (
-    <div className="from-white/8 to-white/4 group flex flex-col gap-4 rounded-lg border border-white/10 bg-gradient-to-br px-5 pb-0 pt-5 backdrop-blur-md transition-all duration-300">
+    <div className="group flex flex-col gap-4 rounded-lg border border-glassBorder bg-glass px-5 pb-0 pt-5">
       <div className="flex flex-col items-start justify-between">
         <h3 className="text-lg font-semibold text-white/95">
           Maia Neural Network Model
@@ -223,7 +223,7 @@ export const MaiaModelSettings: React.FC = () => {
                     <button
                       onClick={handleRedownloadModel}
                       disabled={status !== 'ready'}
-                      className="flex items-center justify-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 py-2 text-white/90 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
+                      className="hover:bg-glass-stronger flex items-center justify-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm text-white/90 transition-all duration-200 disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-base text-white/80">
                         refresh
@@ -234,7 +234,7 @@ export const MaiaModelSettings: React.FC = () => {
                     <button
                       onClick={handleDeleteModel}
                       disabled={isDeleting || status !== 'ready'}
-                      className="flex items-center justify-center gap-2 rounded-md border border-red-500/30 bg-red-500/20 px-4 py-2 text-red-200 transition-all duration-200 hover:border-red-500/40 hover:bg-red-500/30 disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 rounded-md border border-red-500/30 bg-red-500/20 px-4 py-2 text-sm text-red-200 transition-all duration-200 hover:border-red-500/40 hover:bg-red-500/30 disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-base text-red-200">
                         delete
