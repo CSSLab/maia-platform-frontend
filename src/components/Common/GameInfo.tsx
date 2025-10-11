@@ -41,8 +41,8 @@ export const GameInfo: React.FC<Props> = ({
       id="analysis-game-list"
       className={
         embedded
-          ? 'flex w-full flex-col items-start justify-start gap-1 overflow-hidden border-b border-t border-glassBorder bg-transparent px-4 py-2 md:border md:p-3'
-          : 'flex w-full flex-col items-start justify-start gap-1 overflow-hidden border border-b border-t border-glassBorder bg-glass px-4 py-2 backdrop-blur-md md:rounded-md md:border md:p-3'
+          ? 'border-glass-border flex w-full flex-col items-start justify-start gap-1 overflow-hidden border-b border-t bg-transparent px-4 py-2 md:border md:p-3'
+          : 'border-glass-border flex w-full flex-col items-start justify-start gap-1 overflow-hidden border border-b border-t bg-glass px-4 py-2 backdrop-blur-md md:rounded-md md:border md:p-3'
       }
     >
       <div className="flex w-full items-center justify-between">

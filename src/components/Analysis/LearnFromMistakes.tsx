@@ -36,7 +36,7 @@ export const LearnFromMistakes: React.FC<Props> = ({
   if (state.showPlayerSelection) {
     return (
       <div className="flex h-full w-full flex-col border-white/10 text-white">
-        <div className="flex items-center justify-between border-b border-glassBorder px-4 py-2">
+        <div className="border-glass-border flex items-center justify-between border-b px-4 py-2">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined !text-sm text-white/80">
               school
@@ -63,7 +63,7 @@ export const LearnFromMistakes: React.FC<Props> = ({
             <button
               onClick={() => onSelectPlayer('white')}
               title="Learn from White's mistakes"
-              className="flex h-16 w-16 items-center justify-center rounded border border-glassBorder bg-glass transition-colors duration-200 hover:bg-glass-strong"
+              className="border-glass-border flex h-16 w-16 items-center justify-center rounded border bg-glass transition-colors duration-200 hover:bg-glass-strong"
             >
               <div className="relative h-10 w-10">
                 <Image
@@ -76,7 +76,7 @@ export const LearnFromMistakes: React.FC<Props> = ({
             <button
               onClick={() => onSelectPlayer('black')}
               title="Learn from Black's mistakes"
-              className="flex h-16 w-16 items-center justify-center rounded border border-glassBorder bg-glass transition-colors duration-200 hover:bg-glass-strong"
+              className="border-glass-border flex h-16 w-16 items-center justify-center rounded border bg-glass transition-colors duration-200 hover:bg-glass-strong"
             >
               <div className="relative h-10 w-10">
                 <Image
@@ -137,7 +137,7 @@ export const LearnFromMistakes: React.FC<Props> = ({
 
   return (
     <div className="flex h-full w-full flex-col justify-between text-white">
-      <div className="flex items-center justify-between border-b border-glassBorder px-4 py-2">
+      <div className="border-glass-border flex items-center justify-between border-b px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined !text-sm text-white/80">
             school
@@ -178,7 +178,7 @@ export const LearnFromMistakes: React.FC<Props> = ({
             {!isLastMistake && (
               <button
                 onClick={onNext}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded border border-glassBorder bg-glass px-3 py-2 text-sm font-medium text-white/75 transition duration-200 hover:bg-glass-strong"
+                className="border-glass-border flex flex-1 items-center justify-center gap-1.5 rounded border bg-glass px-3 py-2 text-sm font-medium text-white/75 transition duration-200 hover:bg-glass-strong"
               >
                 <span className="material-symbols-outlined !text-sm">
                   skip_next

@@ -117,7 +117,7 @@ export const MaiaModelSettings: React.FC = () => {
   const statusDisplay = getStatusDisplay()
 
   return (
-    <div className="group flex flex-col gap-4 rounded-lg border border-glassBorder bg-glass px-5 pb-0 pt-5">
+    <div className="border-glass-border group flex flex-col gap-4 rounded-lg border bg-glass px-5 pb-0 pt-5">
       <div className="flex flex-col items-start justify-between">
         <h3 className="text-lg font-semibold text-white/95">
           Maia Neural Network Model
@@ -223,7 +223,7 @@ export const MaiaModelSettings: React.FC = () => {
                     <button
                       onClick={handleRedownloadModel}
                       disabled={status !== 'ready'}
-                      className="flex items-center justify-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:opacity-50"
+                      className="border-glass-border flex items-center justify-center gap-2 rounded-md border bg-glass-strong px-4 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-base text-white/80">
                         refresh

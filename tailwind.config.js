@@ -14,11 +14,10 @@ module.exports = {
         secondary: 'rgb(var(--color-text-secondary))',
         glass: {
           DEFAULT: 'rgb(var(--glass-bg) / var(--glass-bg-opacity))',
-          hover: 'rgb(var(--glass-bg) / var(--glass-bg-hover-opacity))',
+          border: 'rgb(var(--glass-border) / var(--glass-border-opacity))',
           strong: 'rgb(var(--glass-bg) / var(--glass-bg-strong-opacity))',
           stronger: 'rgb(var(--glass-bg) / var(--glass-bg-stronger-opacity))',
         },
-        glassBorder: 'rgb(var(--glass-border) / var(--glass-border-opacity))',
         button: {
           primary: 'rgb(var(--color-button-primary))',
           secondary: 'rgb(var(--color-button-secondary))',

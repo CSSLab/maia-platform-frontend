@@ -74,7 +74,7 @@ export const ChessboardSettings: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-glassBorder bg-glass px-5 pb-0 pt-5">
+    <div className="border-glass-border flex flex-col gap-4 rounded-lg border bg-glass px-5 pb-0 pt-5">
       <div className="flex flex-col items-start justify-between">
         <h3 className="text-lg font-semibold text-white/95">
           Chessboard Theme

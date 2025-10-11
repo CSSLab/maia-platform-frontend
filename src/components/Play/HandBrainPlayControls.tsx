@@ -88,7 +88,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                     '_blank',
                   )
                 }}
-                className="flex items-center justify-center rounded border border-glassBorder bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-hover"
+                className="border-glass-border flex items-center justify-center rounded border bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
               >
                 ANALYZE GAME
               </button>
@@ -96,7 +96,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
             {playAgain ? (
               <button
                 onClick={playAgain}
-                className="flex w-full items-center justify-center rounded border border-glassBorder bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-hover"
+                className="border-glass-border flex w-full items-center justify-center rounded border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
               >
                 PLAY AGAIN
               </button>
@@ -139,7 +139,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                           disabled={!isSelectable}
                           className={`flex h-10 w-10 items-center justify-center rounded transition-colors duration-200 md:h-12 md:w-12 ${
                             isSelectable
-                              ? 'border border-glassBorder bg-glass-strong hover:bg-glass-stronger'
+                              ? 'border-glass-border border bg-glass-strong hover:bg-glass-stronger'
                               : 'cursor-not-allowed bg-glass opacity-40'
                           }`}
                         >
@@ -160,7 +160,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                   </p>
                   <div className="flex h-16 w-16 items-center justify-center">
                     {selectedPiece ? (
-                      <div className="flex items-center justify-center rounded border border-glassBorder bg-glass-strong p-2">
+                      <div className="border-glass-border flex items-center justify-center rounded border bg-glass-strong p-2">
                         <img
                           src={`/assets/pieces/${pieceColorMap[color[0] + selectedPiece]}.svg`}
                           className="h-12 w-12"
@@ -168,7 +168,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                         />
                       </div>
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded border border-dashed border-glassBorder bg-glass">
+                      <div className="border-glass-border flex h-12 w-12 items-center justify-center rounded border border-dashed bg-glass">
                         <span className="text-xs text-white/40">...</span>
                       </div>
                     )}
@@ -183,7 +183,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                   <p className="text-center text-xs font-medium uppercase tracking-wider text-white/70">
                     Maia Thinking Time
                   </p>
-                  <div className="flex overflow-hidden rounded border border-glassBorder bg-glass">
+                  <div className="border-glass-border flex overflow-hidden rounded border bg-glass">
                     <button
                       className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors duration-200 ${
                         !simulateMaiaTime
@@ -215,9 +215,9 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                   <button
                     onClick={offerDraw}
                     disabled={!playerActive}
-                    className={`w-full rounded border border-glassBorder px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
+                    className={`border-glass-border w-full rounded border px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
                       playerActive
-                        ? 'bg-glass text-white/90 hover:bg-glass-hover'
+                        ? 'bg-glass text-white/90 hover:bg-glass-stronger'
                         : 'cursor-not-allowed bg-white/5 text-white/40'
                     }`}
                   >

@@ -158,7 +158,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
       <div className="flex h-full flex-1 flex-col justify-center gap-1 py-2 md:py-4">
         <div className="mx-auto mt-2 flex w-[90%] flex-row items-start justify-between gap-3">
           <div className="flex h-[75vh] min-w-[16rem] max-w-[22rem] flex-shrink-0 flex-col">
-            <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+            <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
               <GameInfo
                 icon="swords"
                 type={playType}
@@ -183,7 +183,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                     type="play"
                   />
                 </div>
-                <div className="h-3 border-y border-glassBorder" />
+                <div className="border-glass-border h-3 border-y" />
                 <StatsDisplay
                   stats={stats}
                   hideSession={true}
@@ -221,8 +221,8 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                 reversed={false}
               />
             ) : null}
-            <div className="flex h-full flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass backdrop-blur-md">
-              <div className="flex-1 overflow-hidden border-b border-glassBorder">
+            <div className="border-glass-border flex h-full flex-col overflow-hidden rounded-lg border bg-glass backdrop-blur-md">
+              <div className="border-glass-border flex-1 overflow-hidden border-b">
                 <MovesContainer
                   game={game}
                   termination={game.termination}
@@ -230,7 +230,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                   heightClass="h-full"
                 />
               </div>
-              <div className="border-b border-glassBorder">
+              <div className="border-glass-border border-b">
                 <BoardController
                   orientation={orientation}
                   setOrientation={setOrientation}
@@ -292,15 +292,15 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
               <GameClock player={orientation} reversed={true} />
             ) : null}
             <div className="w-full">
-              <div className="flex flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass backdrop-blur-md">
-                <div className="border-b border-glassBorder">
+              <div className="border-glass-border flex flex-col overflow-hidden rounded-lg border bg-glass backdrop-blur-md">
+                <div className="border-glass-border border-b">
                   <MovesContainer
                     game={game}
                     termination={game.termination}
                     embedded
                   />
                 </div>
-                <div className="border-b border-glassBorder">
+                <div className="border-glass-border border-b">
                   <BoardController
                     orientation={orientation}
                     setOrientation={setOrientation}

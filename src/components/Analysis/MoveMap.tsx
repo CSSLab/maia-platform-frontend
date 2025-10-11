@@ -259,7 +259,7 @@ export const MoveMap: React.FC<Props> = ({
   return (
     <div
       id="analysis-move-map"
-      className="flex h-64 max-h-full w-full flex-col overflow-hidden border border-glassBorder md:h-full md:rounded-md md:bg-glass md:backdrop-blur-md"
+      className="border-glass-border flex h-64 max-h-full w-full flex-col overflow-hidden border md:h-full md:rounded-md md:bg-glass md:backdrop-blur-md"
       onMouseLeave={onContainerMouseLeave}
     >
       <h2 className="p-3 text-base text-primary md:text-sm xl:text-base">

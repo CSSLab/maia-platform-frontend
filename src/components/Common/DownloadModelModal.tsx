@@ -91,7 +91,7 @@ export const DownloadModelModal: React.FC<Props> = ({
         exit={{ y: 10, opacity: 0 }}
         transition={{ duration: 0.2 }}
       >
-        <div className="group relative flex w-full flex-col gap-5 overflow-hidden rounded-lg border border-glassBorder bg-glass p-5 text-left text-white backdrop-blur-xl transition-all duration-300 md:p-8">
+        <div className="border-glass-border group relative flex w-full flex-col gap-5 overflow-hidden rounded-lg border bg-glass p-5 text-left text-white backdrop-blur-xl transition-all duration-300 md:p-8">
           <div className="flex items-center gap-3">
             <span className="material-symbols-outlined material-symbols-filled text-3xl text-white/90">
               auto_awesome
@@ -127,7 +127,7 @@ export const DownloadModelModal: React.FC<Props> = ({
 
           <div className="mt-4 flex w-full flex-col items-end justify-end gap-2 md:mt-6 md:flex-row">
             {progress ? (
-              <div className="relative order-2 flex h-8 w-full items-center overflow-hidden rounded-md border border-glassBorder bg-[rgb(var(--color-surface-2))] px-3 md:order-1 md:h-10 md:flex-1">
+              <div className="border-glass-border relative order-2 flex h-8 w-full items-center overflow-hidden rounded-md border bg-[rgb(var(--color-surface-2))] px-3 md:order-1 md:h-10 md:flex-1">
                 <p className="z-10 text-xs text-white/90 md:text-sm">
                   {Math.round(progress)}%
                 </p>
@@ -141,7 +141,7 @@ export const DownloadModelModal: React.FC<Props> = ({
             <div className="order-1 flex flex-row gap-2 md:order-2">
               <Link
                 href="/"
-                className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded-md border border-glassBorder bg-[rgb(var(--color-surface-2))] px-3 text-sm text-white/90 transition-all duration-200 hover:bg-[rgb(var(--color-surface))] md:h-10 md:px-4"
+                className="border-glass-border group flex h-8 cursor-pointer select-none items-center gap-2 rounded-md border bg-[rgb(var(--color-surface-2))] px-3 text-sm text-white/90 transition-all duration-200 hover:bg-[rgb(var(--color-surface))] md:h-10 md:px-4"
               >
                 <span className="material-symbols-outlined text-base text-white/70 group-hover:text-white/90 md:text-lg">
                   home

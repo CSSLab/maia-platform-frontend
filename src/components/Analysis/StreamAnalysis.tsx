@@ -285,7 +285,7 @@ export const StreamAnalysis: React.FC<Props> = ({
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+          <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
             {/* Header */}
             <GameInfo
               title="Analysis"
@@ -298,7 +298,7 @@ export const StreamAnalysis: React.FC<Props> = ({
             </GameInfo>
             {/* Moves + controller */}
             <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
-              <div className="h-3 border-b border-glassBorder" />
+              <div className="border-glass-border h-3 border-b" />
               <MovesContainer
                 game={game}
                 termination={game.termination}

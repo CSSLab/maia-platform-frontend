@@ -388,7 +388,7 @@ export const MovesContainer: React.FC<
                 }
               }}
               data-index={index * 2 + 1}
-              className={`col-span-2 flex h-7 min-w-0 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
+              className={`col-span-2 flex h-7 min-w-0 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-stronger ${controller.currentNode === whiteNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 1) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -430,7 +430,7 @@ export const MovesContainer: React.FC<
                 }
               }}
               data-index={index * 2 + 2}
-              className={`col-span-2 flex h-7 min-w-0 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-hover ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
+              className={`col-span-2 flex h-7 min-w-0 flex-1 cursor-pointer flex-row items-center justify-between px-2 text-sm hover:bg-glass-stronger ${controller.currentNode === blackNode && 'bg-glass-strong'} ${highlightSet.has(index * 2 + 2) && 'bg-glass-strong'}`}
             >
               <span
                 style={{
@@ -469,7 +469,7 @@ export const MovesContainer: React.FC<
       })}
       {termination && !isMobile && (
         <div
-          className="col-span-5 cursor-pointer border-b border-t border-glassBorder bg-glass p-5 text-center text-white/90 backdrop-blur-md"
+          className="border-glass-border col-span-5 cursor-pointer border-b border-t bg-glass p-5 text-center text-white/90 backdrop-blur-md"
           onClick={() => {
             if (!disableMoveClicking) {
               controller.goToNode(mainLineNodes[mainLineNodes.length - 1])

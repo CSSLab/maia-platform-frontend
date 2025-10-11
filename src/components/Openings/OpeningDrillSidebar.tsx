@@ -114,7 +114,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
       </div>
 
       {/* Completed drills history */}
-      <div className="flex h-96 w-full flex-col overflow-hidden border-t border-glassBorder">
+      <div className="border-glass-border flex h-96 w-full flex-col overflow-hidden border-t">
         <div className={listHeaderClass}>
           <h3 className="text-sm font-medium text-white/90">
             Completed Drills ({completedDrills.length})
@@ -233,7 +233,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
 
       {/* Bottom: Moves + Controller (embedded) */}
       {tree?.gameTree && currentDrill && (
-        <div className="flex w-full flex-1 flex-col overflow-hidden border-t border-glassBorder">
+        <div className="border-glass-border flex w-full flex-1 flex-col overflow-hidden border-t">
           <div className="red-scrollbar flex w-full flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <MovesContainer
               game={{ id: currentDrill.id, tree: tree.gameTree }}

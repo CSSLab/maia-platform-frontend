@@ -45,7 +45,7 @@ export const PlayControls: React.FC<Props> = ({
               onClick={() => {
                 window.open(`/analysis/${game.id}/play`, '_blank')
               }}
-              className="flex items-center justify-center rounded-md border border-glassBorder bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-hover"
+              className="border-glass-border flex items-center justify-center rounded-md border bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
             >
               ANALYZE GAME
             </button>
@@ -53,7 +53,7 @@ export const PlayControls: React.FC<Props> = ({
           {playAgain ? (
             <button
               onClick={playAgain}
-              className="flex items-center justify-center rounded-md border border-glassBorder bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-hover"
+              className="border-glass-border flex items-center justify-center rounded-md border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
             >
               PLAY AGAIN
             </button>
@@ -77,7 +77,7 @@ export const PlayControls: React.FC<Props> = ({
                 <p className="text-center text-xs font-medium uppercase tracking-wider text-white/70">
                   Maia Thinking Time
                 </p>
-                <div className="flex overflow-hidden rounded-md border border-glassBorder bg-glass">
+                <div className="border-glass-border flex overflow-hidden rounded-md border bg-glass">
                   <button
                     className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors duration-200 ${
                       !simulateMaiaTime
@@ -109,9 +109,9 @@ export const PlayControls: React.FC<Props> = ({
                 <button
                   onClick={offerDraw}
                   disabled={!playerActive}
-                  className={`w-full rounded-md border border-glassBorder px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
+                  className={`border-glass-border w-full rounded-md border px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
                     playerActive
-                      ? 'bg-glass text-white/90 hover:bg-glass-hover'
+                      ? 'bg-glass text-white/90 hover:bg-glass-stronger'
                       : 'cursor-not-allowed bg-white/5 text-white/40'
                   }`}
                 >

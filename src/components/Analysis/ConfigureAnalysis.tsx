@@ -41,7 +41,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
         <div className="relative inline-flex w-full items-center">
           <select
             value={currentMaiaModel}
-            className="w-full cursor-pointer appearance-none rounded border border-glassBorder bg-glass py-[5px] pl-2.5 pr-6 text-xs text-white/90 outline-none transition duration-200 hover:bg-glass-hover"
+            className="border-glass-border w-full cursor-pointer appearance-none rounded border bg-glass py-[5px] pl-2.5 pr-6 text-xs text-white/90 outline-none transition duration-200 hover:bg-glass-stronger"
             onChange={(e) => setCurrentMaiaModel(e.target.value)}
           >
             {MAIA_MODELS.map((model) => (
@@ -63,7 +63,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
         <button
           onClick={onAnalyzeEntireGame}
           disabled={isAnalysisInProgress || isLearnFromMistakesActive}
-          className="flex w-full items-center gap-1.5 rounded border border-glassBorder bg-glass !px-2.5 !py-[5px] !text-sm text-white/90 transition duration-200 hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="border-glass-border flex w-full items-center gap-1.5 rounded border bg-glass !px-2.5 !py-[5px] !text-sm text-white/90 transition duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
         >
           <div className="flex items-center justify-center gap-1.5">
             <span className="material-symbols-outlined !text-sm text-white/80">
@@ -81,7 +81,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
         <button
           onClick={onLearnFromMistakes}
           disabled={isAnalysisInProgress || isLearnFromMistakesActive}
-          className="flex w-full items-center gap-1.5 rounded border border-glassBorder bg-glass !px-2.5 !py-[5px] !text-sm text-white/90 transition duration-200 hover:bg-glass-hover disabled:cursor-not-allowed disabled:opacity-50"
+          className="border-glass-border flex w-full items-center gap-1.5 rounded border bg-glass !px-2.5 !py-[5px] !text-sm text-white/90 transition duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
         >
           <div className="flex items-center justify-center gap-1.5">
             <span className="material-symbols-outlined !text-sm text-white/80">

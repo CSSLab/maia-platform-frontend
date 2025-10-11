@@ -774,8 +774,8 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
       id="analysis-game-list"
       className={
         embedded
-          ? 'relative flex h-full flex-col items-start justify-start overflow-hidden border-b border-t border-glassBorder bg-transparent'
-          : 'relative flex h-full flex-col items-start justify-start overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md'
+          ? 'border-glass-border relative flex h-full flex-col items-start justify-start overflow-hidden border-b border-t bg-transparent'
+          : 'border-glass-border relative flex h-full flex-col items-start justify-start overflow-hidden rounded-md border bg-glass backdrop-blur-md'
       }
     >
       <div className="flex h-full w-full flex-col">
@@ -912,10 +912,10 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                     return (
                       <div
                         key={index}
-                        className={`group flex w-full items-center gap-2 ${selectedGame ? 'bg-glass-strong' : 'hover:bg-glass-hover'}`}
+                        className={`group flex w-full items-center gap-2 ${selectedGame ? 'bg-glass-strong' : 'hover:bg-glass-stronger'}`}
                       >
                         <div
-                          className={`flex h-full w-10 items-center justify-center ${selectedGame ? 'bg-glass-strong' : 'group-hover:bg-glass-hover'}`}
+                          className={`flex h-full w-10 items-center justify-center ${selectedGame ? 'bg-glass-strong' : 'group-hover:bg-glass-stronger'}`}
                         >
                           <p className="text-sm text-white/70">
                             {selected === 'play' ||

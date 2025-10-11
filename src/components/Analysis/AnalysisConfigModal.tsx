@@ -91,9 +91,9 @@ export const AnalysisConfigModal: React.FC<Props> = ({
             {depthOptions.map((option) => (
               <label
                 key={option.value}
-                className={`flex cursor-pointer items-center gap-3 rounded-md border border-glassBorder p-3 transition duration-200 ${
+                className={`border-glass-border flex cursor-pointer items-center gap-3 rounded-md border p-3 transition duration-200 ${
                   selectedDepth === option.value
-                    ? 'border-glassBorder bg-glass-stronger text-white'
+                    ? 'border-glass-border bg-glass-stronger text-white'
                     : 'border-white/10 bg-glass text-white/80 hover:bg-glass-stronger hover:text-white'
                 }`}
                 htmlFor={`depth-${option.value}`}
@@ -135,7 +135,7 @@ export const AnalysisConfigModal: React.FC<Props> = ({
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 rounded border border-glassBorder bg-glass px-4 py-2 text-sm font-medium text-white/80 transition duration-200 hover:bg-glass-strong hover:text-white"
+            className="border-glass-border flex items-center gap-2 rounded border bg-glass px-4 py-2 text-sm font-medium text-white/80 transition duration-200 hover:bg-glass-strong hover:text-white"
           >
             <span className="material-symbols-outlined text-sm">close</span>
             Cancel

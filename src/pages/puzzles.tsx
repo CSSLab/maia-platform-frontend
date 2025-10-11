@@ -715,7 +715,7 @@ const Train: React.FC<Props> = ({
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+          <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
             {/* Header */}
             <GameInfo title="Puzzles" icon="target" type="train" embedded>
               <div className="flex w-full flex-col justify-start text-sm text-secondary 2xl:text-base">

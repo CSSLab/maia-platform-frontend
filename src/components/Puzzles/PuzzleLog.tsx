@@ -20,15 +20,15 @@ export const PuzzleLog: React.FC<Props> = ({
     <div
       className={
         embedded
-          ? 'flex h-full flex-col overflow-hidden border-t border-glassBorder bg-transparent'
-          : 'flex h-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md'
+          ? 'border-glass-border flex h-full flex-col overflow-hidden border-t bg-transparent'
+          : 'border-glass-border flex h-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md'
       }
     >
       <div
         className={
           embedded
-            ? 'border-b border-glassBorder px-3 py-2'
-            : 'border-b border-glassBorder px-3 py-2'
+            ? 'border-glass-border border-b px-3 py-2'
+            : 'border-glass-border border-b px-3 py-2'
         }
       >
         <h3 className="text-sm font-medium text-primary">Puzzle History</h3>

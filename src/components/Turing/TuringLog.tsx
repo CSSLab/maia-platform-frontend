@@ -12,14 +12,14 @@ export const TuringLog: React.FC<{ embedded?: boolean }> = ({
     <div
       className={
         embedded
-          ? 'flex h-full flex-col overflow-hidden border-t border-glassBorder bg-transparent'
+          ? 'border-glass-border flex h-full flex-col overflow-hidden border-t bg-transparent'
           : 'flex h-full flex-col overflow-hidden rounded bg-background-1'
       }
     >
       <div
         className={
           embedded
-            ? 'border-b border-glassBorder px-3 py-2'
+            ? 'border-glass-border border-b px-3 py-2'
             : 'border-b border-white border-opacity-10 px-3 py-2'
         }
       >

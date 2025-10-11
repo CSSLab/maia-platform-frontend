@@ -24,7 +24,7 @@ export const SoundSettings: React.FC = () => {
   }
 
   return (
-    <div className="group flex flex-col gap-4 rounded-lg border border-glassBorder bg-glass p-5">
+    <div className="border-glass-border group flex flex-col gap-4 rounded-lg border bg-glass p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white/95">Sound Settings</h3>
       </div>
@@ -63,7 +63,7 @@ export const SoundSettings: React.FC = () => {
             <button
               onClick={handleTestSound}
               disabled={!settings.soundEnabled}
-              className="group flex items-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-glass-border group flex items-center gap-2 rounded-md border bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-base text-white/80">
                 volume_up
@@ -73,7 +73,7 @@ export const SoundSettings: React.FC = () => {
             <button
               onClick={handleTestCaptureSound}
               disabled={!settings.soundEnabled}
-              className="group flex items-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-glass-border group flex items-center gap-2 rounded-md border bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-base text-white/80">
                 volume_up

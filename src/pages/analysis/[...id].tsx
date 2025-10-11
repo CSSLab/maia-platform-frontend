@@ -634,7 +634,7 @@ const Analysis: React.FC<Props> = ({
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-md">
+          <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
             {/* Game info header */}
             <GameInfo
               title="Analysis"
@@ -667,7 +667,7 @@ const Analysis: React.FC<Props> = ({
             </div>
             {/* Moves + controller */}
             <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
-              <div className="h-3 border-b border-glassBorder" />
+              <div className="border-glass-border h-3 border-b" />
               <MovesContainer
                 game={analyzedGame}
                 termination={analyzedGame.termination}
@@ -1008,7 +1008,7 @@ const Analysis: React.FC<Props> = ({
               </div>
             </div>
             <div className="flex w-full flex-col overflow-hidden">
-              <div className="relative border-t border-glassBorder bg-glass backdrop-blur-md">
+              <div className="border-glass-border relative border-t bg-glass backdrop-blur-md">
                 <Highlight
                   hover={
                     analysisEnabled &&

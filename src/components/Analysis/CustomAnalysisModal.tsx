@@ -63,7 +63,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 20, opacity: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="relative z-10 flex h-[550px] w-full max-w-[620px] flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-xl"
+          className="border-glass-border relative z-10 flex h-[550px] w-full max-w-[620px] flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-xl"
           onClick={(e) => e.stopPropagation()}
         >
           <div
@@ -75,7 +75,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
           />
           <div className="relative z-10 flex h-full flex-col">
             {/* Header */}
-            <div className="relative border-b border-glassBorder px-5 py-4">
+            <div className="border-glass-border relative border-b px-5 py-4">
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-white/95">
                   Custom Analysis
@@ -110,7 +110,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
                       className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-all ${
                         mode === 'pgn'
                           ? 'border-transparent bg-glass-strong text-white hover:bg-glass-stronger'
-                          : 'border-glassBorder bg-glass text-white/80 hover:bg-glass-hover'
+                          : 'border-glass-border bg-glass text-white/80 hover:bg-glass-stronger'
                       }`}
                       onClick={() => setMode('pgn')}
                     >
@@ -120,7 +120,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
                       className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-all ${
                         mode === 'fen'
                           ? 'border-transparent bg-glass-strong text-white hover:bg-glass-stronger'
-                          : 'border-glassBorder bg-glass text-white/80 hover:bg-glass-hover'
+                          : 'border-glass-border bg-glass text-white/80 hover:bg-glass-stronger'
                       }`}
                       onClick={() => setMode('fen')}
                     >
@@ -139,7 +139,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
                   <input
                     id="analysis-name"
                     type="text"
-                    className="w-full rounded-md border border-glassBorder bg-glass px-3 py-2 text-sm text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none"
+                    className="border-glass-border w-full rounded-md border bg-glass px-3 py-2 text-sm text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none"
                     placeholder="Enter a name for this analysis"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -155,7 +155,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
                   </label>
                   <textarea
                     id="analysis-data"
-                    className="h-32 w-full rounded-md border border-glassBorder bg-glass px-3 py-2 font-mono text-sm text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none"
+                    className="border-glass-border h-32 w-full rounded-md border bg-glass px-3 py-2 font-mono text-sm text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none"
                     placeholder={mode === 'pgn' ? examplePGN : exampleFEN}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -169,7 +169,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
 
                 <div className="flex gap-2">
                   <button
-                    className="rounded-md border border-glassBorder bg-glass px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-glass-hover"
+                    className="border-glass-border rounded-md border bg-glass px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-glass-stronger"
                     onClick={() =>
                       setInput(mode === 'pgn' ? examplePGN : exampleFEN)
                     }
@@ -177,7 +177,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
                     Use Example
                   </button>
                   <button
-                    className="rounded-md border border-glassBorder bg-glass px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-glass-hover"
+                    className="border-glass-border rounded-md border bg-glass px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-glass-stronger"
                     onClick={() => setInput('')}
                   >
                     Clear
@@ -187,15 +187,15 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 border-t border-glassBorder px-5 py-4">
+            <div className="border-glass-border flex gap-3 border-t px-5 py-4">
               <button
-                className="flex-1 rounded-md border border-glassBorder bg-glass px-4 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-glass-hover"
+                className="border-glass-border flex-1 rounded-md border bg-glass px-4 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-glass-stronger"
                 onClick={onClose}
               >
                 Cancel
               </button>
               <button
-                className="flex-1 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-glass-stronger"
+                className="border-glass-border flex-1 rounded-md border bg-glass-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-glass-stronger"
                 onClick={validateAndSubmit}
               >
                 Analyze

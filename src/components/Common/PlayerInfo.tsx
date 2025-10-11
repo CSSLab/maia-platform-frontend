@@ -251,7 +251,7 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
 
   return (
     <div
-      className={`flex h-10 w-full items-center justify-between ${roundedClass} border border-glassBorder bg-glass px-4 backdrop-blur-md`}
+      className={`flex h-10 w-full items-center justify-between ${roundedClass} border-glass-border border bg-glass px-4 backdrop-blur-md`}
     >
       <div className="flex items-center gap-1.5">
         <div

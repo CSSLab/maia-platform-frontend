@@ -48,8 +48,8 @@ function OptionSelect<T>({
             key={index}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               option === selected
-                ? 'border border-glassBorder bg-glass-stronger text-white'
-                : 'border border-glassBorder bg-glass text-white/90 hover:bg-glass-hover'
+                ? 'border-glass-border border bg-glass-stronger text-white'
+                : 'border-glass-border border bg-glass text-white/90 hover:bg-glass-stronger'
             } ${index === 0 ? 'rounded-l-lg' : ''} ${
               index === options.length - 1 ? 'rounded-r-lg' : ''
             }`}
@@ -205,7 +205,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="relative flex h-[600px] w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass backdrop-blur-md"
+          className="border-glass-border relative flex h-[600px] w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border bg-glass backdrop-blur-md"
         >
           <div
             className="pointer-events-none absolute inset-0"
@@ -225,7 +225,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           </button>
 
           {/* Header */}
-          <div className="border-b border-glassBorder p-4">
+          <div className="border-glass-border border-b p-4">
             <h2 className="text-xl font-bold text-primary">
               {props.playType == 'againstMaia'
                 ? 'Play Against Maia'
@@ -269,7 +269,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                     <select
                       id="partner-select"
                       value={maiaPartnerVersion}
-                      className="w-full rounded border border-glassBorder bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
+                      className="border-glass-border w-full rounded border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
                       onChange={(e) => setMaiaPartnerVersion(e.target.value)}
                     >
                       {maiaOptions.map((maia) => (
@@ -292,7 +292,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                 <select
                   id="opponent-select"
                   value={maiaVersion}
-                  className="w-full rounded border border-glassBorder bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
+                  className="border-glass-border w-full rounded border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
                   onChange={(e) => setMaiaVersion(e.target.value)}
                 >
                   {maiaOptions.map((maia) => (
@@ -315,8 +315,8 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                         onClick={() => handlePresetSelect(option)}
                         className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${
                           timeControl === option
-                            ? 'border-glassBorder bg-glass-stronger text-white backdrop-blur-md'
-                            : 'border-glassBorder bg-glass text-white/90 hover:bg-glass-strong'
+                            ? 'border-glass-border bg-glass-stronger text-white backdrop-blur-md'
+                            : 'border-glass-border bg-glass text-white/90 hover:bg-glass-strong'
                         }`}
                       >
                         {TimeControlOptionNames[index]}
@@ -417,7 +417,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               </div>
 
               {fen !== undefined && (
-                <div className="rounded border border-glassBorder bg-glass p-3">
+                <div className="border-glass-border rounded border bg-glass p-3">
                   <label
                     htmlFor="fen-input"
                     className="mb-1 block text-sm font-medium text-primary"
@@ -430,7 +430,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                     value={fen}
                     placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
                     onChange={(e) => setFen(e.target.value)}
-                    className="w-full rounded border border-glassBorder bg-glass px-3 py-2 font-mono text-xs text-white/90 placeholder-white/60 focus:outline-none"
+                    className="border-glass-border w-full rounded border bg-glass px-3 py-2 font-mono text-xs text-white/90 placeholder-white/60 focus:outline-none"
                   />
                   <p className="mt-1 text-xs text-secondary">
                     Enter a valid FEN string to start from a specific position
@@ -441,7 +441,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           </div>
 
           {/* Color Selection Section */}
-          <div className="border-t border-glassBorder p-4">
+          <div className="border-glass-border border-t p-4">
             <p className="mb-3 text-center text-sm font-medium text-primary">
               Choose your color:
             </p>
@@ -449,7 +449,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start('black')}
                 title="Play as black"
-                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-stronger"
+                className="border-glass-border flex h-16 w-16 cursor-pointer items-center justify-center rounded border bg-glass transition-colors hover:bg-glass-stronger"
               >
                 <div className="relative h-10 w-10">
                   <Image
@@ -462,7 +462,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start(undefined)}
                 title="Play as random color"
-                className="flex h-20 w-20 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-stronger"
+                className="border-glass-border flex h-20 w-20 cursor-pointer items-center justify-center rounded border bg-glass transition-colors hover:bg-glass-stronger"
               >
                 <div className="relative h-12 w-12">
                   <Image
@@ -475,7 +475,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start('white')}
                 title="Play as white"
-                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-stronger"
+                className="border-glass-border flex h-16 w-16 cursor-pointer items-center justify-center rounded border bg-glass transition-colors hover:bg-glass-stronger"
               >
                 <div className="relative h-10 w-10">
                   <Image

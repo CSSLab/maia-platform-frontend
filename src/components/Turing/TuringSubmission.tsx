@@ -22,7 +22,7 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
 
   if (game?.result)
     return (
-      <div className="flex flex-col gap-5 border-t border-glassBorder bg-transparent p-3">
+      <div className="border-glass-border flex flex-col gap-5 border-t bg-transparent p-3">
         <h2 className="text-2xl">
           Guess {game.result.correct ? 'correct' : 'incorrect'}, <br />
           {game.result.bot} was the bot
@@ -60,7 +60,7 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
     )
 
   return (
-    <div className="flex flex-col gap-1 border-t border-glassBorder">
+    <div className="border-glass-border flex flex-col gap-1 border-t">
       <div className="flex flex-col gap-3 p-3">
         <h2 className="text-2xl font-semibold">Who is the bot?</h2>
         <div className="flex flex-1 flex-row items-center justify-between">
@@ -105,7 +105,7 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
         </div>
       </div>
       <textarea
-        className="border-t border-glassBorder bg-transparent p-2 text-sm text-secondary outline-none placeholder:text-secondary"
+        className="border-glass-border border-t bg-transparent p-2 text-sm text-secondary outline-none placeholder:text-secondary"
         placeholder="Optional justification"
         value={comment}
         onChange={(e) => setComment(e.target.value)}
@@ -113,7 +113,7 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
       <button
         onClick={handleSubmit}
         disabled={!selected}
-        className="flex w-full items-center justify-center border-t border-glassBorder bg-red-500 py-2 transition duration-200 hover:bg-red-400 disabled:bg-black/40"
+        className="border-glass-border flex w-full items-center justify-center border-t bg-red-500 py-2 transition duration-200 hover:bg-red-400 disabled:bg-black/40"
       >
         <p className="text-lg">Submit</p>
       </button>

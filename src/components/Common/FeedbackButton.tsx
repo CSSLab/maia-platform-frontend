@@ -11,7 +11,7 @@ export const FeedbackButton: React.FC = () => {
   return (
     <button
       id="feedback-button"
-      className="fixed bottom-8 right-8 z-20 flex h-12 w-12 items-center justify-center rounded-full border border-glassBorder bg-glass-strong backdrop-blur-md transition-all duration-200 hover:bg-glass-stronger"
+      className="border-glass-border fixed bottom-8 right-8 z-20 flex h-12 w-12 items-center justify-center rounded-full border bg-glass-strong backdrop-blur-md transition-all duration-200 hover:bg-glass-stronger"
     >
       <span className="material-symbols-outlined material-symbols-filled text-primary">
         feedback
