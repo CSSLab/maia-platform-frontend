@@ -52,7 +52,7 @@ export const GameClock: React.FC<Props> = (
 
   return (
     <div
-      className={`flex items-center justify-between bg-background-1 md:items-start md:justify-start ${active ? 'opacity-100' : 'opacity-50'} flex-row md:flex-col`}
+      className={`flex items-center justify-between bg-glass-strong md:items-start md:justify-start ${active ? 'opacity-100' : 'opacity-50'} flex-row md:flex-col`}
     >
       <div className="px-4 py-2">
         {props.player === 'black' ? '●' : '○'}{' '}

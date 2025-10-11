@@ -849,8 +849,8 @@ const Analysis: React.FC<Props> = ({
     >
       <div className="flex h-full flex-1 flex-col justify-center gap-1">
         {showGameListMobile ? (
-          <div className="flex w-full flex-col items-start justify-start gap-1">
-            <div className="flex w-full flex-col items-start justify-start overflow-hidden bg-background-1 p-3">
+          <div className="flex w-full flex-col items-start justify-start">
+            <div className="flex w-full flex-col items-start justify-start overflow-hidden p-3">
               <div className="flex w-full items-center justify-between">
                 <div className="flex items-center justify-start gap-1.5">
                   <span className="material-symbols-outlined text-xl">
@@ -872,7 +872,7 @@ const Analysis: React.FC<Props> = ({
                 Select a game to analyze
               </p>
             </div>
-            <div className="flex h-[calc(100vh-10rem)] w-full flex-col overflow-hidden rounded bg-backdrop/30">
+            <div className="flex h-[calc(100vh-10rem)] w-full flex-col overflow-hidden bg-backdrop/30">
               <AnalysisGameList
                 currentId={currentId}
                 loadNewWorldChampionshipGame={(newId, setCurrentMove) =>
@@ -1068,8 +1068,8 @@ const Analysis: React.FC<Props> = ({
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="border-glass-border rounded border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1118,8 +1118,8 @@ const Analysis: React.FC<Props> = ({
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="border-glass-border rounded border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1150,8 +1150,8 @@ const Analysis: React.FC<Props> = ({
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="border-glass-border rounded border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1194,8 +1194,8 @@ const Analysis: React.FC<Props> = ({
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="border-glass-border rounded border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>

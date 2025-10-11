@@ -214,7 +214,7 @@ const BroadcastAnalysisPage: NextPage = () => {
         <Head>
           <title>Broadcast Error – Maia Chess</title>
         </Head>
-        <div className="flex min-h-screen items-center justify-center bg-background-1">
+        <div className="flex min-h-screen items-center justify-center bg-glass">
           <div className="text-center">
             <h2 className="mb-4 text-xl font-semibold text-red-400">
               Error Loading Broadcast
@@ -223,7 +223,7 @@ const BroadcastAnalysisPage: NextPage = () => {
             <div className="flex justify-center gap-2">
               <button
                 onClick={() => router.push('/broadcast')}
-                className="rounded bg-background-3 px-4 py-2 text-primary transition hover:bg-background-3/80"
+                className="rounded bg-glass px-4 py-2 text-primary transition hover:bg-glass-strong"
               >
                 Back to Broadcasts
               </button>

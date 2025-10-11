@@ -38,7 +38,7 @@ export const Tournament = ({
       ref={openIndex == index ? openElement : null}
     >
       <button
-        className={`flex w-full items-center justify-between px-2 py-1 ${opened ? 'bg-background-2' : 'bg-background-1'}`}
+        className={`flex w-full items-center justify-between px-2 py-1 ${opened ? 'bg-glass-strong' : 'bg-glass'}`}
         onClick={
           index == openIndex
             ? () => setOpenIndex(null)
@@ -56,7 +56,7 @@ export const Tournament = ({
         </span>
       </button>
       <div
-        className={`flex w-full flex-col bg-background-1 ${openIndex === index ? 'block' : 'hidden'}`}
+        className={`flex w-full flex-col ${openIndex === index ? 'block' : 'hidden'}`}
       >
         {games?.map((game, j) => {
           const selected =
@@ -67,7 +67,7 @@ export const Tournament = ({
           return (
             <button
               key={j}
-              className={`group relative flex items-center justify-between text-left ${selected ? 'bg-background-2 font-bold' : 'hover:bg-background-2'}`}
+              className={`group relative flex items-center justify-between text-left ${selected ? 'bg-glass-stronger font-bold' : 'hover:bg-glass-strong'}`}
               onClick={() => {
                 setLoadingIndex(j)
                 router.push(`/analysis/${sectionId}/${game.game_index}`)
@@ -76,7 +76,7 @@ export const Tournament = ({
             >
               <div className="flex items-center justify-start gap-2">
                 <div
-                  className={`flex h-full w-9 justify-center py-1 ${selected ? 'bg-background-3' : 'bg-background-2 group-hover:bg-background-3'}`}
+                  className={`flex h-full w-9 justify-center py-1 ${selected ? 'bg-glass-stronger' : 'bg-glass group-hover:bg-glass-strong'}`}
                 >
                   {loadingIndex === j ? (
                     <div className="spinner" />

@@ -775,11 +775,11 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
       className={
         embedded
           ? 'border-glass-border relative flex h-full flex-col items-start justify-start overflow-hidden border-b border-t bg-transparent'
-          : 'border-glass-border relative flex h-full flex-col items-start justify-start overflow-hidden rounded-md border bg-glass backdrop-blur-md'
+          : 'border-glass-border relative flex h-full flex-col items-start justify-start overflow-hidden border bg-glass backdrop-blur-md'
       }
     >
       <div className="flex h-full w-full flex-col">
-        <div className="flex select-none items-center border-b border-white/10">
+        <div className="border-glass-border flex select-none items-center border-b">
           <Header
             label="★"
             name="favorites"
@@ -1095,7 +1095,7 @@ function Header({
   return (
     <button
       onClick={() => setSelected(name)}
-      className={`relative flex items-center justify-center md:py-1 ${selected === name ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'} ${name === 'favorites' ? 'px-3' : ''}`}
+      className={`relative flex items-center justify-center py-1 ${selected === name ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'} ${name === 'favorites' ? 'px-3' : ''}`}
     >
       <div className="flex items-center justify-start">
         <p

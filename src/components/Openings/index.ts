@@ -1,4 +1,3 @@
-export * from './OpeningDetails'
 export * from './PlayOpening'
 export * from './OpeningSelectionModal'
 export * from './OpeningDrillSidebar'

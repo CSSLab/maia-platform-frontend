@@ -610,7 +610,7 @@ const OpeningsPage: NextPage = () => {
     <div className="flex h-full flex-1 flex-col justify-center gap-1">
       <div className="flex h-full flex-col items-start justify-start gap-1">
         {/* Current Drill Info Header */}
-        <div className="flex w-full flex-col bg-background-1 p-2">
+        <div className="flex w-full flex-col bg-glass p-2">
           <h3 className="mb-1 text-sm font-bold text-primary">Current Drill</h3>
           {controller.currentDrill ? (
             <div className="flex items-center gap-2 text-xs">

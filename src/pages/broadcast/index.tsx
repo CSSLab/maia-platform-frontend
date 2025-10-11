@@ -92,7 +92,7 @@ const BroadcastsPage: NextPage = () => {
           <title>Live Broadcasts – Maia Chess</title>
         </Head>
         <div className="flex min-h-screen items-center justify-center bg-backdrop">
-          <div className="rounded-lg border border-white/10 bg-background-1 p-6 text-center">
+          <div className="rounded-lg border border-white/10 bg-glass p-6 text-center">
             <h2 className="mb-4 text-xl font-semibold text-red-400">
               Failed to Load Broadcasts
             </h2>

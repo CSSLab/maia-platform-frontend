@@ -100,10 +100,10 @@ const BlogPost = ({ post }: BlogPostProps) => {
               {post.tags.map((tag, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-center gap-2 rounded-sm bg-background-1 px-3 py-1"
+                  className="flex items-center justify-center gap-2 rounded bg-glass-strong px-3 py-1 backdrop-blur-md"
                 >
-                  <div className="h-2 w-2 rounded-full bg-human-3" />
-                  <p className="whitespace-nowrap text-sm text-secondary">
+                  <div className="h-1.5 w-1.5 rounded-full bg-human-2" />
+                  <p className="select-none whitespace-nowrap text-sm text-secondary">
                     {tag}
                   </p>
                 </div>
