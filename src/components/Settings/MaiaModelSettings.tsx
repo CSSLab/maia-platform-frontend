@@ -223,7 +223,7 @@ export const MaiaModelSettings: React.FC = () => {
                     <button
                       onClick={handleRedownloadModel}
                       disabled={status !== 'ready'}
-                      className="hover:bg-glass-stronger flex items-center justify-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm text-white/90 transition-all duration-200 disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-base text-white/80">
                         refresh

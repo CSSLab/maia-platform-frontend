@@ -114,7 +114,7 @@ export const FavoriteModal: React.FC<FavoriteModalProps> = ({
               <button
                 onClick={onClose}
                 disabled={isProcessing}
-                className="hover:bg-glass-stronger rounded border border-glassBorder bg-glass-strong px-3 py-1.5 text-sm text-white/70 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded border border-glassBorder bg-glass-strong px-3 py-1.5 text-sm text-white/70 transition-colors hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -131,7 +131,7 @@ export const FavoriteModal: React.FC<FavoriteModalProps> = ({
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || isProcessing}
-                className="hover:bg-glass-stronger flex-1 rounded border border-glassBorder bg-glass-strong px-3 py-1.5 text-sm text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex-1 rounded border border-glassBorder bg-glass-strong px-3 py-1.5 text-sm text-white transition-colors hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isProcessing ? 'Saving...' : 'Save'}
               </button>

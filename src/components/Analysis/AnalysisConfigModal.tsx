@@ -93,8 +93,8 @@ export const AnalysisConfigModal: React.FC<Props> = ({
                 key={option.value}
                 className={`flex cursor-pointer items-center gap-3 rounded-md border border-glassBorder p-3 transition duration-200 ${
                   selectedDepth === option.value
-                    ? 'bg-glass-stronger border-glassBorder text-white'
-                    : 'hover:bg-glass-stronger border-white/10 bg-glass text-white/80 hover:text-white'
+                    ? 'border-glassBorder bg-glass-stronger text-white'
+                    : 'border-white/10 bg-glass text-white/80 hover:bg-glass-stronger hover:text-white'
                 }`}
                 htmlFor={`depth-${option.value}`}
                 aria-label={`Select ${option.label}`}

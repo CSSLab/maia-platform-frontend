@@ -58,10 +58,12 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
   }
 
   const customGoToRootNode = () => {
-    if (!openingEndNode) return tree?.goToRootNode()
-    if (tree) {
-      tree.goToNode(openingEndNode)
+    if (!tree) return
+    if (!openingEndNode) {
+      tree.goToRootNode()
+      return
     }
+    tree.goToNode(openingEndNode)
   }
 
   const handleSetOrientation = (orientation: 'white' | 'black') => {

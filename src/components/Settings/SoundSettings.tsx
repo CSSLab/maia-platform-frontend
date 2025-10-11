@@ -63,7 +63,7 @@ export const SoundSettings: React.FC = () => {
             <button
               onClick={handleTestSound}
               disabled={!settings.soundEnabled}
-              className="hover:bg-glass-stronger group flex items-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="group flex items-center gap-2 rounded-md border border-glassBorder bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-base text-white/80">
                 volume_up

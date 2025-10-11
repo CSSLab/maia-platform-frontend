@@ -51,156 +51,159 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
   }, [])
 
   return (
-    <div
-      className="absolute inset-0 z-50 flex items-center justify-center px-4 sm:px-6"
-      onClick={onClose}
-    >
-      <div className="absolute inset-0 bg-backdrop/80 backdrop-blur-md" />
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 20, opacity: 0 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-        className="relative z-10 flex h-[550px] w-full max-w-[620px] flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-xl"
-        onClick={(e) => e.stopPropagation()}
+    <>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+      <div
+        className="absolute inset-0 z-50 flex items-center justify-center px-4 sm:px-6"
+        onClick={onClose}
       >
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(ellipse 90% 70% at 50% 0%, rgba(239, 68, 68, 0.12) 0%, transparent 65%)',
-          }}
-        />
-        <div className="relative z-10 flex h-full flex-col">
-          {/* Header */}
-          <div className="relative border-b border-glassBorder px-5 py-4">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-white/95">
-                Custom Analysis
-              </h2>
-              <p className="text-xs text-white/70">
-                Import a chess game from PGN notation or analyze a specific
-                position using FEN notation
-              </p>
+        <div className="absolute inset-0 bg-backdrop/80 backdrop-blur-md" />
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 20, opacity: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="relative z-10 flex h-[550px] w-full max-w-[620px] flex-col overflow-hidden rounded-md border border-glassBorder bg-glass backdrop-blur-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse 90% 70% at 50% 0%, rgba(239, 68, 68, 0.12) 0%, transparent 65%)',
+            }}
+          />
+          <div className="relative z-10 flex h-full flex-col">
+            {/* Header */}
+            <div className="relative border-b border-glassBorder px-5 py-4">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-white/95">
+                  Custom Analysis
+                </h2>
+                <p className="text-xs text-white/70">
+                  Import a chess game from PGN notation or analyze a specific
+                  position using FEN notation
+                </p>
+              </div>
+              <button
+                className="absolute right-4 top-4 text-white/60 transition-colors hover:text-white"
+                title="Close"
+                onClick={onClose}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
             </div>
-            <button
-              className="absolute right-4 top-4 text-white/60 transition-colors hover:text-white"
-              title="Close"
-              onClick={onClose}
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-          </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            <div className="space-y-5">
-              {/* Mode selector */}
-              <div>
-                <label
-                  htmlFor="import-type-selector"
-                  className="mb-1 block text-sm font-medium text-white/80"
-                >
-                  Import Type:
-                </label>
-                <div id="import-type-selector" className="flex gap-2">
-                  <button
-                    className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-all ${
-                      mode === 'pgn'
-                        ? 'border-transparent bg-glass-strong text-white hover:bg-glass-stronger'
-                        : 'border-glassBorder bg-glass text-white/80 hover:bg-glass-hover'
-                    }`}
-                    onClick={() => setMode('pgn')}
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="space-y-5">
+                {/* Mode selector */}
+                <div>
+                  <label
+                    htmlFor="import-type-selector"
+                    className="mb-1 block text-sm font-medium text-white/80"
                   >
-                    PGN Game
+                    Import Type:
+                  </label>
+                  <div id="import-type-selector" className="flex gap-2">
+                    <button
+                      className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-all ${
+                        mode === 'pgn'
+                          ? 'hover:bg-glass-stronger border-transparent bg-glass-strong text-white'
+                          : 'border-glassBorder bg-glass text-white/80 hover:bg-glass-hover'
+                      }`}
+                      onClick={() => setMode('pgn')}
+                    >
+                      PGN Game
+                    </button>
+                    <button
+                      className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-all ${
+                        mode === 'fen'
+                          ? 'hover:bg-glass-stronger border-transparent bg-glass-strong text-white'
+                          : 'border-glassBorder bg-glass text-white/80 hover:bg-glass-hover'
+                      }`}
+                      onClick={() => setMode('fen')}
+                    >
+                      FEN Position
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="analysis-name"
+                    className="mb-1 block text-sm font-medium text-white/80"
+                  >
+                    Name (optional):
+                  </label>
+                  <input
+                    id="analysis-name"
+                    type="text"
+                    className="w-full rounded-md border border-glassBorder bg-glass px-3 py-2 text-sm text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none"
+                    placeholder="Enter a name for this analysis"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="analysis-data"
+                    className="mb-1 block text-sm font-medium text-white/80"
+                  >
+                    {mode === 'pgn' ? 'PGN Data:' : 'FEN Position:'}
+                  </label>
+                  <textarea
+                    id="analysis-data"
+                    className="h-32 w-full rounded-md border border-glassBorder bg-glass px-3 py-2 font-mono text-sm text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none"
+                    placeholder={mode === 'pgn' ? examplePGN : exampleFEN}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                  />
+                  <p className="mt-1 text-xs text-white/60">
+                    {mode === 'pgn'
+                      ? 'Paste your PGN game notation here. Headers and variations are supported.'
+                      : 'Enter a valid FEN position string. This will set up the board for analysis.'}
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    className="rounded-md border border-glassBorder bg-glass px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-glass-hover"
+                    onClick={() =>
+                      setInput(mode === 'pgn' ? examplePGN : exampleFEN)
+                    }
+                  >
+                    Use Example
                   </button>
                   <button
-                    className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-all ${
-                      mode === 'fen'
-                        ? 'border-transparent bg-glass-strong text-white hover:bg-glass-stronger'
-                        : 'border-glassBorder bg-glass text-white/80 hover:bg-glass-hover'
-                    }`}
-                    onClick={() => setMode('fen')}
+                    className="rounded-md border border-glassBorder bg-glass px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-glass-hover"
+                    onClick={() => setInput('')}
                   >
-                    FEN Position
+                    Clear
                   </button>
                 </div>
               </div>
+            </div>
 
-              <div>
-                <label
-                  htmlFor="analysis-name"
-                  className="mb-1 block text-sm font-medium text-white/80"
-                >
-                  Name (optional):
-                </label>
-                <input
-                  id="analysis-name"
-                  type="text"
-                  className="w-full rounded-md border border-glassBorder bg-glass px-3 py-2 text-sm text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none"
-                  placeholder="Enter a name for this analysis"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="analysis-data"
-                  className="mb-1 block text-sm font-medium text-white/80"
-                >
-                  {mode === 'pgn' ? 'PGN Data:' : 'FEN Position:'}
-                </label>
-                <textarea
-                  id="analysis-data"
-                  className="h-32 w-full rounded-md border border-glassBorder bg-glass px-3 py-2 font-mono text-sm text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none"
-                  placeholder={mode === 'pgn' ? examplePGN : exampleFEN}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                />
-                <p className="mt-1 text-xs text-white/60">
-                  {mode === 'pgn'
-                    ? 'Paste your PGN game notation here. Headers and variations are supported.'
-                    : 'Enter a valid FEN position string. This will set up the board for analysis.'}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  className="rounded-md border border-glassBorder bg-glass px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-glass-hover"
-                  onClick={() =>
-                    setInput(mode === 'pgn' ? examplePGN : exampleFEN)
-                  }
-                >
-                  Use Example
-                </button>
-                <button
-                  className="rounded-md border border-glassBorder bg-glass px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-glass-hover"
-                  onClick={() => setInput('')}
-                >
-                  Clear
-                </button>
-              </div>
+            {/* Actions */}
+            <div className="flex gap-3 border-t border-glassBorder px-5 py-4">
+              <button
+                className="flex-1 rounded-md border border-glassBorder bg-glass px-4 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-glass-hover"
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+              <button
+                className="hover:bg-glass-stronger flex-1 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm font-medium text-white transition-colors"
+                onClick={validateAndSubmit}
+              >
+                Analyze
+              </button>
             </div>
           </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 border-t border-glassBorder px-5 py-4">
-            <button
-              className="flex-1 rounded-md border border-glassBorder bg-glass px-4 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-glass-hover"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              className="flex-1 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-glass-stronger"
-              onClick={validateAndSubmit}
-            >
-              Analyze
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
+        </motion.div>
+      </div>
+    </>
   )
 }
