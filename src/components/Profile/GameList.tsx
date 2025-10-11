@@ -431,8 +431,8 @@ export const GameList = ({
   }
 
   return (
-    <div className="from-white/8 to-white/4 flex w-full flex-col overflow-hidden rounded-lg border border-white/20 bg-gradient-to-br backdrop-blur-md md:w-[600px]">
-      <div className="flex flex-row items-center justify-start gap-4 border-b border-white/10 bg-white/5 px-2 py-2 md:px-4">
+    <div className="flex w-full flex-col overflow-hidden rounded-md border border-glassBorder bg-glass md:w-[600px]">
+      <div className="flex flex-row items-center justify-start gap-4 px-2 py-2 md:px-4">
         <span className="material-symbols-outlined !text-2xl text-red-500">
           sports_esports
         </span>

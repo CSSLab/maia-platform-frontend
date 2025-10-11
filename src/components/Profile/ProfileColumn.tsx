@@ -20,7 +20,7 @@ export const ProfileColumn: React.FC<Props> = ({ icon, name, data }: Props) => {
   const losses = data.losses ?? data.games - data.wins - (data?.draws || 0)
 
   return (
-    <div className="from-white/8 to-white/4 flex w-full flex-col gap-3 overflow-hidden rounded-lg border border-white/20 bg-white/5 bg-gradient-to-br backdrop-blur-md">
+    <div className="flex w-full flex-col gap-3 overflow-hidden rounded-md border border-glassBorder bg-glass">
       <div className="flex flex-row items-center justify-start gap-2 px-4 pt-3">
         <span className="material-symbols-outlined material-symbols-filled text-xl text-primary/80 md:!text-3xl">
           {icon}
