@@ -364,3 +364,13 @@ export const storeCustomGame = async (data: {
 
   return res.json()
 }
+
+export const deleteCustomGame = async (gameId: string): Promise<void> => {
+  const res = await fetch(buildUrl(`analysis/delete_custom_game/${gameId}`), {
+    method: 'DELETE',
+  })
+
+  if (!res.ok) {
+    console.error(`Failed to delete custom game: ${await res.text()}`)
+  }
+}
