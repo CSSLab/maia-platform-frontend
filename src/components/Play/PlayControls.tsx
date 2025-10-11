@@ -12,7 +12,6 @@ interface Props {
   playAgain?: () => void
   simulateMaiaTime?: boolean
   setSimulateMaiaTime?: (value: boolean) => void
-  embedded?: boolean
 }
 
 export const PlayControls: React.FC<Props> = ({
@@ -24,7 +23,6 @@ export const PlayControls: React.FC<Props> = ({
   playAgain,
   simulateMaiaTime,
   setSimulateMaiaTime,
-  embedded = false,
 }: Props) => {
   const [showResignConfirm, setShowResignConfirm] = useState(false)
 
@@ -37,12 +35,9 @@ export const PlayControls: React.FC<Props> = ({
       resign()
     }
   }
-  const containerClasses = embedded
-    ? 'flex w-full flex-col'
-    : 'flex w-full flex-col overflow-hidden rounded-lg border border-glassBorder bg-glass backdrop-blur-md'
 
   return (
-    <div className={containerClasses}>
+    <div className="flex w-full flex-col">
       {gameOver ? (
         <div className="flex flex-col gap-3 p-4">
           {game.id ? (
@@ -66,7 +61,7 @@ export const PlayControls: React.FC<Props> = ({
         </div>
       ) : (
         <>
-          <div className="border-b border-glassBorder bg-transparent px-4 py-3">
+          <div className="bg-transparent px-4 py-3">
             <p
               className={`text-center text-sm font-semibold uppercase tracking-wider ${
                 playerActive ? 'text-white' : 'text-white/60'
@@ -77,17 +72,17 @@ export const PlayControls: React.FC<Props> = ({
           </div>
 
           {simulateMaiaTime !== undefined && setSimulateMaiaTime && (
-            <div className="border-b border-glassBorder bg-transparent px-4 py-3">
+            <div className="bg-transparent px-4 py-2">
               <div className="flex flex-col gap-2">
-                <p className="text-center text-xs font-semibold tracking-wider text-white/70">
-                  MAIA THINKING TIME
+                <p className="text-center text-xs font-medium uppercase tracking-wider text-white/70">
+                  Maia Thinking Time
                 </p>
                 <div className="flex overflow-hidden rounded-md border border-glassBorder bg-glass">
                   <button
                     className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors duration-200 ${
                       !simulateMaiaTime
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/70 hover:bg-white/10 hover:text-white'
+                        ? 'bg-glass-stronger text-white'
+                        : 'text-white/70 hover:bg-glass-strong hover:text-white'
                     }`}
                     onClick={() => setSimulateMaiaTime(false)}
                   >
@@ -96,8 +91,8 @@ export const PlayControls: React.FC<Props> = ({
                   <button
                     className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors duration-200 ${
                       simulateMaiaTime
-                        ? 'bg-white/10 text-white'
-                        : 'text-white/70 hover:bg-white/10 hover:text-white'
+                        ? 'bg-glass-stronger text-white'
+                        : 'text-white/70 hover:bg-glass-strong hover:text-white'
                     }`}
                     onClick={() => setSimulateMaiaTime(true)}
                   >

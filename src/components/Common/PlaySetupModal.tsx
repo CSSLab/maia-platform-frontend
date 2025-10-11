@@ -48,7 +48,7 @@ function OptionSelect<T>({
             key={index}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               option === selected
-                ? 'border border-glassBorder bg-glass-strong text-white'
+                ? 'border border-glassBorder bg-glass-stronger text-white'
                 : 'border border-glassBorder bg-glass text-white/90 hover:bg-glass-hover'
             } ${index === 0 ? 'rounded-l-lg' : ''} ${
               index === options.length - 1 ? 'rounded-r-lg' : ''
@@ -315,8 +315,8 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                         onClick={() => handlePresetSelect(option)}
                         className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${
                           timeControl === option
-                            ? 'border-glassBorder bg-glass-strong text-white'
-                            : 'border-glassBorder bg-glass text-white/90 hover:bg-glass-hover'
+                            ? 'border-glassBorder bg-glass-stronger text-white backdrop-blur-md'
+                            : 'border-glassBorder bg-glass text-white/90 hover:bg-glass-strong'
                         }`}
                       >
                         {TimeControlOptionNames[index]}
@@ -449,7 +449,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start('black')}
                 title="Play as black"
-                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-hover"
+                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-stronger"
               >
                 <div className="relative h-10 w-10">
                   <Image
@@ -462,7 +462,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start(undefined)}
                 title="Play as random color"
-                className="flex h-20 w-20 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-hover"
+                className="flex h-20 w-20 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-stronger"
               >
                 <div className="relative h-12 w-12">
                   <Image
@@ -475,7 +475,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start('white')}
                 title="Play as white"
-                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-hover"
+                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glassBorder bg-glass transition-colors hover:bg-glass-stronger"
               >
                 <div className="relative h-10 w-10">
                   <Image
