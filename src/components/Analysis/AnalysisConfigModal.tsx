@@ -55,7 +55,7 @@ export const AnalysisConfigModal: React.FC<Props> = ({
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex h-screen w-screen flex-col items-center justify-center bg-backdrop/90 px-4 backdrop-blur-lg md:px-0"
+      className="fixed inset-0 z-50 flex h-screen w-screen flex-col items-center justify-center bg-backdrop/90 px-4 md:px-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -66,7 +66,7 @@ export const AnalysisConfigModal: React.FC<Props> = ({
       }}
     >
       <motion.div
-        className="from-white/10 to-white/5 flex w-full flex-col gap-5 rounded-2xl border border-white/10 bg-gradient-to-br p-6 shadow-none backdrop-blur-xl md:w-[min(500px,40vw)]"
+        className="flex w-full flex-col gap-2 rounded-lg border border-white/10 bg-glass p-6 shadow-none backdrop-blur-md md:w-[min(500px,40vw)]"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 20, opacity: 0 }}
@@ -91,10 +91,10 @@ export const AnalysisConfigModal: React.FC<Props> = ({
             {depthOptions.map((option) => (
               <label
                 key={option.value}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition duration-200 backdrop-blur-sm ${
+                className={`flex cursor-pointer items-center gap-3 rounded-md border border-glassBorder p-3 transition duration-200 ${
                   selectedDepth === option.value
-                    ? 'border-white/25 bg-white/10 text-white'
-                    : 'border-white/10 bg-white/5 text-white/80 hover:border-white/20 hover:bg-white/8 hover:text-white'
+                    ? 'bg-glass-stronger border-glassBorder text-white'
+                    : 'hover:bg-glass-stronger border-white/10 bg-glass text-white/80 hover:text-white'
                 }`}
                 htmlFor={`depth-${option.value}`}
                 aria-label={`Select ${option.label}`}
@@ -120,7 +120,7 @@ export const AnalysisConfigModal: React.FC<Props> = ({
             ))}
           </div>
 
-          <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
             <span className="material-symbols-outlined !text-base text-white/70">
               info
             </span>
@@ -135,13 +135,14 @@ export const AnalysisConfigModal: React.FC<Props> = ({
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-sm font-medium text-white/80 transition duration-200 hover:border-white/20 hover:bg-white/10 hover:text-white"
+            className="flex items-center gap-2 rounded border border-glassBorder bg-glass px-4 py-2 text-sm font-medium text-white/80 transition duration-200 hover:bg-glass-strong hover:text-white"
           >
+            <span className="material-symbols-outlined text-sm">close</span>
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className="flex h-10 items-center gap-2 rounded-lg border border-human-4/50 bg-human-4/80 px-4 text-sm font-semibold text-white transition duration-200 hover:bg-human-4"
+            className="flex items-center gap-2 rounded border border-human-4/50 bg-human-4/80 px-4 py-2 text-sm text-white transition duration-200 hover:bg-human-4"
           >
             <span className="material-symbols-outlined text-sm">
               play_arrow
