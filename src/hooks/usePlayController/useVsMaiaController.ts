@@ -70,6 +70,9 @@ export const useVsMaiaPlayController = (
         }
 
         if (simulateMaiaTime) {
+          const minimumDelayMs = 200 + Math.random() * 100
+          const delayMs = Math.max(moveDelay * 1000, minimumDelayMs)
+
           setTimeout(() => {
             const moveTime = controller.updateClock()
 
@@ -79,7 +82,7 @@ export const useVsMaiaPlayController = (
 
             controller.addMoveWithTime(nextMove, moveTime)
             playMoveSound(isCapture)
-          }, moveDelay * 1000)
+          }, delayMs)
         } else {
           const moveTime = controller.updateClock()
 
