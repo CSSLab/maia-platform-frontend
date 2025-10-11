@@ -1242,14 +1242,6 @@ const Train: React.FC<Props> = ({
           content="Train with Maia as your coach using human-centered puzzles. Curated based on how millions of players improve, with data showing how different ratings approach each position."
         />
       </Head>
-      {/* Radial gradient backdrop to match new design language */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
-        }}
-      />
       <AnimatePresence>
         {analysisController.maia.status === 'no-cache' ||
         analysisController.maia.status === 'downloading' ? (

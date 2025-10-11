@@ -67,7 +67,6 @@ const PlayMaia: React.FC<Props> = ({
             playAgain={playAgain}
             simulateMaiaTime={simulateMaiaTime}
             setSimulateMaiaTime={setSimulateMaiaTime}
-            embedded
           />
         </div>
       </GameplayInterface>

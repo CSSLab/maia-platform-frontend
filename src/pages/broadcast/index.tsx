@@ -125,14 +125,6 @@ const BroadcastsPage: NextPage = () => {
         />
       </Head>
 
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
-        }}
-      />
-
       <motion.div
         className="container relative mx-auto px-6 py-8"
         initial="initial"

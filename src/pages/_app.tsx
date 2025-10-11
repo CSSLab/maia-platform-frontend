@@ -106,9 +106,17 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <meta name="twitter:image" content="/embed.png" />
             <meta name="twitter:image:alt" content="Maia Chess" />
           </Head>
+
           <div className={`${openSansClassName} app-container`}>
             <Header />
             <div className="content-container">
+              <div
+                className="pointer-events-none fixed inset-0"
+                style={{
+                  background:
+                    'radial-gradient(ellipse 120% 80% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 75%)',
+                }}
+              />
               <Component {...pageProps} />
             </div>
             <Footer />

@@ -59,13 +59,6 @@ const BlogPost = ({ post }: BlogPostProps) => {
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href={`https://maiachess.com/blog/${post.id}`} />
       </Head>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
-        }}
-      />
       <div className="relative flex h-full flex-col items-center justify-center gap-5 py-[10%] md:py-[2%]">
         <div className="flex max-w-[90%] flex-col items-center justify-center overflow-x-hidden md:max-w-[80ch]">
           <div className="mb-8 flex w-full flex-col gap-2">

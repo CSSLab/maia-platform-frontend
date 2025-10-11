@@ -322,13 +322,6 @@ const Turing: React.FC<Props> = (props: Props) => {
           content="Test your ability to distinguish between human and AI chess play. This Turing Test for chess is a fun way to see if you understand the differences between human and engine moves."
         />
       </Head>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
-        }}
-      />
       <TuringControllerContext.Provider value={controller}>
         <TreeControllerContext.Provider value={controller}>
           <AnimatePresence mode="wait">

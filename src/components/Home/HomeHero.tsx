@@ -157,13 +157,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
 
   return (
     <Fragment>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
-        }}
-      />
       <BetaBlurb />
       <div className="relative flex flex-col items-center justify-center gap-4 overflow-hidden pb-6 pt-4 md:gap-14 md:pt-16">
         <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">

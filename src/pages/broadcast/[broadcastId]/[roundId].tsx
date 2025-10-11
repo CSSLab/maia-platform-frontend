@@ -246,14 +246,6 @@ const BroadcastAnalysisPage: NextPage = () => {
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
       </Head>
-      {/* Radial gradient backdrop to match new design language */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 75% 60% at center top, rgba(239, 68, 68, 0.08) 0%, transparent 60%)',
-        }}
-      />
 
       <AnimatePresence>
         {analysisController &&
