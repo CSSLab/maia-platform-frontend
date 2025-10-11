@@ -4,12 +4,6 @@ import React, { useState, useEffect, useContext } from 'react'
 import { AuthContext } from 'src/contexts'
 import { MaiaGameListEntry } from 'src/types'
 import { streamLichessGames, fetchMaiaGameList } from 'src/api'
-import { FavoriteModal } from 'src/components/Common/FavoriteModal'
-import {
-  addFavoriteGame,
-  removeFavoriteGame,
-  getFavoritesAsWebGames,
-} from 'src/lib/favorites'
 
 interface GameData {
   game_id: string
@@ -53,19 +47,9 @@ export const GameList = ({
     favorites: {},
   })
 
-  const [favoriteGames, setFavoriteGames] = useState<MaiaGameListEntry[]>([])
-  const [favoritedGameIds, setFavoritedGameIds] = useState<Set<string>>(
-    new Set(),
-  )
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(false)
-
-  // Modal state for favoriting
-  const [favoriteModal, setFavoriteModal] = useState<{
-    isOpen: boolean
-    game: MaiaGameListEntry | null
-  }>({ isOpen: false, game: null })
 
   const [fetchedCache, setFetchedCache] = useState<{
     [key: string]: { [page: number]: boolean }
@@ -90,20 +74,6 @@ export const GameList = ({
     lichess: 1,
     favorites: 1,
   })
-
-  // Update custom analyses and favorites when component mounts
-  useEffect(() => {
-    // Load favorites (supports both sync and async implementations)
-    Promise.resolve(getFavoritesAsWebGames())
-      .then((favorites) => {
-        setFavoriteGames(favorites)
-        setFavoritedGameIds(new Set(favorites.map((f) => f.id)))
-      })
-      .catch(() => {
-        setFavoriteGames([])
-        setFavoritedGameIds(new Set())
-      })
-  }, [])
 
   useEffect(() => {
     const targetUser = lichessId || user?.lichessId
@@ -212,14 +182,6 @@ export const GameList = ({
               },
             }))
 
-            // Update favoritedGameIds from the actual games data
-            const favoritedIds = new Set(
-              parsedGames
-                .filter((game: any) => game.is_favorited)
-                .map((game: any) => game.id),
-            )
-            setFavoritedGameIds((prev) => new Set([...prev, ...favoritedIds]))
-
             setLoading(false)
           })
           .catch(() => {
@@ -298,104 +260,6 @@ export const GameList = ({
     setSelected(newTab)
   }
 
-  const handleFavoriteGame = (game: MaiaGameListEntry) => {
-    setFavoriteModal({ isOpen: true, game })
-  }
-
-  const handleSaveFavorite = async (customName: string) => {
-    if (favoriteModal.game) {
-      await addFavoriteGame(favoriteModal.game, customName)
-      const updatedFavorites = await getFavoritesAsWebGames()
-      setFavoriteGames(updatedFavorites)
-      setFavoritedGameIds(new Set(updatedFavorites.map((f) => f.id)))
-
-      // Clear favorites cache to force re-fetch
-      setFetchedCache((prev) => ({
-        ...prev,
-        favorites: {},
-      }))
-      setGamesByPage((prev) => ({
-        ...prev,
-        favorites: {},
-      }))
-
-      // Also clear current section cache to show updated favorite status
-      if (selected !== 'favorites') {
-        const currentSection = selected === 'hb' ? hbSubsection : selected
-        setFetchedCache((prev) => ({
-          ...prev,
-          [currentSection]: {},
-        }))
-        setGamesByPage((prev) => ({
-          ...prev,
-          [currentSection]: {},
-        }))
-      }
-    }
-  }
-
-  const handleRemoveFavorite = async () => {
-    if (favoriteModal.game) {
-      await removeFavoriteGame(favoriteModal.game.id, favoriteModal.game.type)
-      const updatedFavorites = await getFavoritesAsWebGames()
-      setFavoriteGames(updatedFavorites)
-      setFavoritedGameIds(new Set(updatedFavorites.map((f) => f.id)))
-
-      // Clear favorites cache to force re-fetch
-      setFetchedCache((prev) => ({
-        ...prev,
-        favorites: {},
-      }))
-      setGamesByPage((prev) => ({
-        ...prev,
-        favorites: {},
-      }))
-
-      // Also clear current section cache to show updated favorite status
-      if (selected !== 'favorites') {
-        const currentSection = selected === 'hb' ? hbSubsection : selected
-        setFetchedCache((prev) => ({
-          ...prev,
-          [currentSection]: {},
-        }))
-        setGamesByPage((prev) => ({
-          ...prev,
-          [currentSection]: {},
-        }))
-      }
-    }
-  }
-
-  const handleDirectUnfavorite = async (game: MaiaGameListEntry) => {
-    await removeFavoriteGame(game.id, game.type)
-    const updatedFavorites = await getFavoritesAsWebGames()
-    setFavoriteGames(updatedFavorites)
-    setFavoritedGameIds(new Set(updatedFavorites.map((f) => f.id)))
-
-    // Clear favorites cache to force re-fetch
-    setFetchedCache((prev) => ({
-      ...prev,
-      favorites: {},
-    }))
-    setGamesByPage((prev) => ({
-      ...prev,
-      favorites: {},
-    }))
-
-    // Also clear current section cache to show updated favorite status
-    if (selected !== 'favorites') {
-      const currentSection = selected === 'hb' ? hbSubsection : selected
-      setFetchedCache((prev) => ({
-        ...prev,
-        [currentSection]: {},
-      }))
-      setGamesByPage((prev) => ({
-        ...prev,
-        [currentSection]: {},
-      }))
-    }
-  }
-
   const getCurrentGames = () => {
     if (selected === 'play') {
       return gamesByPage.play[currentPage] || []
@@ -408,26 +272,6 @@ export const GameList = ({
       return gamesByPage.favorites[currentPage] || []
     }
     return []
-  }
-
-  const getModalCurrentName = () => {
-    if (!favoriteModal.game) return ''
-
-    // If we're in the favorites section, the label is already the custom name
-    if (selected === 'favorites') {
-      return favoriteModal.game.label
-    }
-
-    // For other sections, check if the game is favorited and get its custom name
-    const favorite = favoriteGames.find(
-      (fav) => fav.id === favoriteModal.game!.id,
-    )
-    if (favorite) {
-      return favorite.label // In AnalysisWebGame, the label contains the custom name
-    }
-
-    // Otherwise, use the game's label
-    return favoriteModal.game.label
   }
 
   return (
@@ -535,7 +379,6 @@ export const GameList = ({
         ) : (
           <>
             {getCurrentGames().map((game, index) => {
-              const isFavorited = (game as any).is_favorited || false
               const displayName = game.label // This now contains the custom name if favorited
               return (
                 <div
@@ -573,42 +416,6 @@ export const GameList = ({
                         )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {selected === 'favorites' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleFavoriteGame(game)
-                          }}
-                          className="flex items-center justify-center text-white/60 transition-colors duration-200 hover:text-white/90"
-                          title="Edit favourite"
-                        >
-                          <span className="material-symbols-outlined !text-xs">
-                            edit
-                          </span>
-                        </button>
-                      )}
-                      {selected !== 'favorites' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleFavoriteGame(game)
-                          }}
-                          className={`flex items-center justify-center transition-colors duration-200 ${
-                            isFavorited
-                              ? 'text-yellow-400 hover:text-yellow-300'
-                              : 'text-white/60 hover:text-white/90'
-                          }`}
-                          title={
-                            isFavorited ? 'Edit favourite' : 'Add to favourites'
-                          }
-                        >
-                          <span
-                            className={`material-symbols-outlined !text-xs ${isFavorited ? 'material-symbols-filled' : ''}`}
-                          >
-                            star
-                          </span>
-                        </button>
-                      )}
                       <p className="whitespace-nowrap text-sm text-white/70">
                         {game.result.replace('1/2', '½').replace('1/2', '½')}
                       </p>
@@ -667,17 +474,6 @@ export const GameList = ({
           </button>
         </div>
       )}
-      <FavoriteModal
-        isOpen={favoriteModal.isOpen}
-        currentName={getModalCurrentName()}
-        onClose={() => setFavoriteModal({ isOpen: false, game: null })}
-        onSave={handleSaveFavorite}
-        onRemove={
-          favoriteModal.game && favoritedGameIds.has(favoriteModal.game.id)
-            ? handleRemoveFavorite
-            : undefined
-        }
-      />
     </div>
   )
 }
