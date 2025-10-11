@@ -109,7 +109,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
                     <button
                       className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-all ${
                         mode === 'pgn'
-                          ? 'hover:bg-glass-stronger border-transparent bg-glass-strong text-white'
+                          ? 'border-transparent bg-glass-strong text-white hover:bg-glass-stronger'
                           : 'border-glassBorder bg-glass text-white/80 hover:bg-glass-hover'
                       }`}
                       onClick={() => setMode('pgn')}
@@ -119,7 +119,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
                     <button
                       className={`flex-1 rounded-md border px-4 py-2 text-sm font-medium transition-all ${
                         mode === 'fen'
-                          ? 'hover:bg-glass-stronger border-transparent bg-glass-strong text-white'
+                          ? 'border-transparent bg-glass-strong text-white hover:bg-glass-stronger'
                           : 'border-glassBorder bg-glass text-white/80 hover:bg-glass-hover'
                       }`}
                       onClick={() => setMode('fen')}
@@ -195,7 +195,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
                 Cancel
               </button>
               <button
-                className="hover:bg-glass-stronger flex-1 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm font-medium text-white transition-colors"
+                className="flex-1 rounded-md border border-glassBorder bg-glass-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-glass-stronger"
                 onClick={validateAndSubmit}
               >
                 Analyze
