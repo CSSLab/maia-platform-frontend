@@ -348,7 +348,7 @@ export const MovesContainer: React.FC<
           ))}
           {termination && (
             <div
-              className="min-w-fit cursor-pointer border-b border-t border-glass-border bg-[rgb(var(--color-surface-2))] px-4 py-1 text-sm text-white/90"
+              className="min-w-fit cursor-pointer border-b border-t border-glass-border bg-glass px-4 py-1 text-sm text-white/90"
               onClick={() => {
                 if (!disableMoveClicking) {
                   controller.goToNode(mainLineNodes[mainLineNodes.length - 1])

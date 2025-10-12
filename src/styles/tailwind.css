@@ -75,14 +75,13 @@ h5 {
   --color-backdrop: 23 18 20;
   --color-text-primary: 235 235 235;
   --color-text-secondary: 165 169 174;
-  --color-button-primary: 55 55 77;
-  --color-button-secondary: 55 55 77;
 
-  --color-background1: 38 36 45;
-  --color-background2: 48 46 53;
-  --color-background3: 58 56 70;
-  --color-background4: 68 66 80;
-  --color-background5: 78 76 90;
+  --glass-bg: 255 255 255;
+  --glass-bg-opacity: 0.03;
+  --glass-bg-strong-opacity: 0.07;
+  --glass-bg-stronger-opacity: 0.1;
+  --glass-border: 255 255 255;
+  --glass-border-opacity: 0.09;
 
   --color-human-accent1: 254 127 109;
   --color-human-accent2: 222 111 95;
@@ -93,22 +92,7 @@ h5 {
   --color-engine-accent2: 90 157 215;
   --color-engine-accent3: 63 140 208;
   --color-engine-accent4: 35 124 201;
-
-  /* New solid surfaces for glass-style data cards (non-transparent) */
-  /* Opaque, neutral (no tint) surfaces */
-  --color-surface: 32 32 32; /* bright primary surface ~#202020 */
-  --color-surface-2: 24 24 24; /* dim secondary surface ~#181818 */
-
-  /* Glass variables (white, semi-transparent look) */
-  --glass-bg: 255 255 255;
-  --glass-bg-opacity: 0.03; /* base backdrop */
-  --glass-bg-strong-opacity: 0.07; /* stronger emphasis */
-  --glass-bg-stronger-opacity: 0.1; /* stronger emphasis */
-  --glass-border: 255 255 255;
-  --glass-border-opacity: 0.09;
 }
-
-/* Removed gradient surface helpers per design direction */
 
 svg {
   fill: rgb(var(--color-text-primary));

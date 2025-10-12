@@ -65,7 +65,7 @@ export const ProfileLeaderboardBadges: React.FC<
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center border-t border-background-3 px-3 py-2">
+                <div className="flex items-center border-t border-glass-border px-3 py-2">
                   <Link
                     href="/leaderboard"
                     className="text-xxs text-secondary hover:text-primary"

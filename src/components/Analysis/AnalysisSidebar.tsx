@@ -169,7 +169,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
     const buttonBase =
       variant === 'desktop'
         ? 'flex items-center gap-1 rounded-md border border-glass-border bg-glass px-2 py-1 text-xs transition-colors hover:bg-glass-stronger'
-        : 'flex items-center gap-1 rounded-md border border-glass-border bg-[rgb(var(--color-surface-2))] px-2 py-1 text-xs transition-colors'
+        : 'flex items-center gap-1 rounded-md border border-glass-border bg-glass px-2 py-1 text-xs transition-colors'
 
     const viewButtonClass = `${buttonBase} ${
       isSimplifiedView ? 'text-white' : 'text-white/80'

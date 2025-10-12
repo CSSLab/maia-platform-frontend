@@ -14,7 +14,7 @@ export const TuringGames: React.FC = () => {
           <button
             key={id}
             onClick={() => setCurrentIndex(index)}
-            className={`${!game.result ? 'bg-button-secondary' : game.result?.correct ? 'bg-engine-4' : 'bg-human-4'} h-10 w-10 cursor-pointer rounded-sm`}
+            className={`${!game.result ? 'bg-glass' : game.result?.correct ? 'bg-engine-4' : 'bg-human-4'} h-10 w-10 cursor-pointer rounded-sm`}
           >
             {game.result?.ratingDiff ? (
               <>

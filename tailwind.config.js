@@ -18,17 +18,6 @@ module.exports = {
           strong: 'rgb(var(--glass-bg) / var(--glass-bg-strong-opacity))',
           stronger: 'rgb(var(--glass-bg) / var(--glass-bg-stronger-opacity))',
         },
-        button: {
-          primary: 'rgb(var(--color-button-primary))',
-          secondary: 'rgb(var(--color-button-secondary))',
-        },
-        background: {
-          1: 'rgb(var(--color-background1))',
-          2: 'rgb(var(--color-background2))',
-          3: 'rgb(var(--color-background3))',
-          4: 'rgb(var(--color-background4))',
-          5: 'rgb(var(--color-background5))',
-        },
         human: {
           1: 'rgb(var(--color-human-accent1))',
           2: 'rgb(var(--color-human-accent2))',

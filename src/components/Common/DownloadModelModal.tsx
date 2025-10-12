@@ -75,7 +75,7 @@ export const DownloadModelModal: React.FC<Props> = ({
       data-testid="download-modal"
       onTouchMove={(e) => e.preventDefault()}
     >
-      <div className="pointer-events-auto absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <div className="pointer-events-auto absolute inset-0 bg-backdrop/90" />
 
       <div
         className="pointer-events-none absolute inset-0"
@@ -91,18 +91,18 @@ export const DownloadModelModal: React.FC<Props> = ({
         exit={{ y: 10, opacity: 0 }}
         transition={{ duration: 0.2 }}
       >
-        <div className="border-glass-border group relative flex w-full flex-col gap-5 overflow-hidden rounded-lg border bg-glass p-5 text-left text-white backdrop-blur-xl transition-all duration-300 md:p-8">
+        <div className="group relative flex w-full flex-col gap-5 overflow-hidden rounded-lg border border-glass-border bg-glass p-5 text-left backdrop-blur-md transition-all duration-300 md:p-8">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined material-symbols-filled text-3xl text-white/90">
+            <span className="material-symbols-outlined material-symbols-filled text-3xl text-primary">
               auto_awesome
             </span>
-            <h1 className="text-2xl font-bold text-white md:text-3xl">
+            <h1 className="text-2xl font-bold text-primary md:text-3xl">
               Download Our New Model
             </h1>
           </div>
 
           <div className="flex flex-col gap-3 text-sm md:text-base">
-            <p className="text-white/80">
+            <p className="text-primary/80">
               Our newest model, Maia 2, provides richer and more in-depth
               analysis, allowing for:
             </p>
@@ -127,7 +127,7 @@ export const DownloadModelModal: React.FC<Props> = ({
 
           <div className="mt-4 flex w-full flex-col items-end justify-end gap-2 md:mt-6 md:flex-row">
             {progress ? (
-              <div className="border-glass-border relative order-2 flex h-8 w-full items-center overflow-hidden rounded-md border bg-[rgb(var(--color-surface-2))] px-3 md:order-1 md:h-10 md:flex-1">
+              <div className="relative order-2 flex h-8 w-full items-center overflow-hidden rounded-md border border-glass-border bg-glass px-3 md:order-1 md:h-10 md:flex-1">
                 <p className="z-10 text-xs text-white/90 md:text-sm">
                   {Math.round(progress)}%
                 </p>
@@ -141,9 +141,9 @@ export const DownloadModelModal: React.FC<Props> = ({
             <div className="order-1 flex flex-row gap-2 md:order-2">
               <Link
                 href="/"
-                className="border-glass-border group flex h-8 cursor-pointer select-none items-center gap-2 rounded-md border bg-[rgb(var(--color-surface-2))] px-3 text-sm text-white/90 transition-all duration-200 hover:bg-[rgb(var(--color-surface))] md:h-10 md:px-4"
+                className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
               >
-                <span className="material-symbols-outlined text-base text-white/70 group-hover:text-white/90 md:text-lg">
+                <span className="material-symbols-outlined text-base text-secondary group-hover:text-primary md:text-lg">
                   home
                 </span>
                 <p>Return Home</p>
@@ -152,10 +152,10 @@ export const DownloadModelModal: React.FC<Props> = ({
               <div
                 tabIndex={0}
                 role="button"
-                className={`flex h-8 select-none items-center gap-2 rounded-md px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
+                className={`flex h-8 select-none items-center gap-2 rounded px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
                   isDownloading || progress >= 100
                     ? 'cursor-not-allowed border border-human-4/30 bg-human-4/50'
-                    : 'cursor-pointer border border-human-4/30 bg-human-4 hover:border-human-4/50 hover:bg-human-4/90'
+                    : 'cursor-pointer border border-glass-border bg-human-4 hover:bg-human-3'
                 }`}
                 onClick={handleDownload}
                 onKeyDown={(e) => {
