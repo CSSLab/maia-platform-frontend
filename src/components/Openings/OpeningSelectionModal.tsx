@@ -65,8 +65,8 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="from-white/8 to-white/4 mx-4 w-full max-w-sm rounded-lg border border-white/10 bg-gradient-to-br p-4 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-backdrop/90">
+      <div className="mx-4 w-full max-w-sm rounded-lg border border-glass-border bg-glass p-4 backdrop-blur-md">
         <div className="mb-4">
           <h3 className="text-lg font-bold">{opening.name}</h3>
           {variation && (
@@ -1580,15 +1580,13 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="from-white/8 to-white/4 relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1400px] flex-col items-start justify-start overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md md:h-[90vh]"
+        className="relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1400px] flex-col items-start justify-start overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md md:h-[90vh]"
       >
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            background: [
-              'radial-gradient(ellipse 90% 80% at 0% 100%, rgba(239, 68, 68, 0.10) 0%, transparent 72%)',
-              'radial-gradient(ellipse 90% 80% at 100% 0%, rgba(239, 68, 68, 0.08) 0%, transparent 72%)',
-            ].join(', '),
+            background:
+              'radial-gradient(ellipse 180% 160% at 0% 100%, rgba(239, 68, 68, 0.10) 0%, transparent 72%)',
           }}
         />
         {/* Close Button - Top Right of Modal */}

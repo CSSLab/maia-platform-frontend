@@ -20,15 +20,15 @@ export const PuzzleLog: React.FC<Props> = ({
     <div
       className={
         embedded
-          ? 'border-glass-border flex h-full flex-col overflow-hidden border-t bg-transparent'
-          : 'border-glass-border flex h-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md'
+          ? 'flex h-full flex-col overflow-hidden border-t border-glass-border bg-transparent'
+          : 'flex h-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md'
       }
     >
       <div
         className={
           embedded
-            ? 'border-glass-border border-b px-3 py-2'
-            : 'border-glass-border border-b px-3 py-2'
+            ? 'border-b border-glass-border px-3 py-2'
+            : 'border-b border-glass-border px-3 py-2'
         }
       >
         <h3 className="text-sm font-medium text-primary">Puzzle History</h3>
@@ -72,8 +72,8 @@ export const PuzzleLog: React.FC<Props> = ({
                 onClick={() => setCurrentIndex(index)}
                 className={`group flex w-full cursor-pointer items-center gap-2 border-b border-white/5 px-3 py-2 text-left transition-colors ${
                   isCurrentPuzzle
-                    ? 'bg-background-2 font-medium'
-                    : `${statusInfo.bgColor} hover:bg-background-2`
+                    ? 'bg-glass font-medium'
+                    : `${statusInfo.bgColor} hover:bg-glass-strong`
                 }`}
               >
                 <div className="flex min-w-0 flex-1 flex-col">

@@ -1,24 +1,16 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { useInView } from 'react-intersection-observer'
-import { useState, useEffect, useRef } from 'react'
-import {
-  SimplifiedChessboard,
-  SimplifiedBlunderMeter,
-} from './SimplifiedAnalysisComponents'
-import { Highlight } from 'src/components/Analysis/Highlight'
-import { MoveMap } from 'src/components/Analysis/MoveMap'
-import { MovesByRating } from 'src/components/Analysis/MovesByRating'
-import { analysisMockData } from './analysisMockData.js'
-import type { DrawShape } from 'chessground/draw'
-import {
-  MaiaEvaluation,
-  StockfishEvaluation,
-  ColorSanMapping,
-  GameNode,
-} from 'src/types'
-import Chessground from '@react-chess/chessground'
 import type { Key } from 'chessground/types'
+import type { DrawShape } from 'chessground/draw'
+import Chessground from '@react-chess/chessground'
+import { useState, useEffect, useRef } from 'react'
+import { DemoBlunderMeter } from './DemoBlunderMeter'
+import { useInView } from 'react-intersection-observer'
+import { analysisMockData } from './analysisMockData.js'
+import { MoveMap } from 'src/components/Analysis/MoveMap'
+import { Highlight } from 'src/components/Analysis/Highlight'
+import { MovesByRating } from 'src/components/Analysis/MovesByRating'
+import { MaiaEvaluation, StockfishEvaluation, GameNode } from 'src/types'
 
 type DescriptionSegment =
   | { type: 'text'; content: string }
@@ -28,14 +20,12 @@ interface AnalysisSectionProps {
   id: string
 }
 
-// Custom SimplifiedChessboard component with the analysis position FEN
 const AnalysisChessboard = ({ forceKey }: { forceKey?: number }) => {
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
   const stableKey = `analysis-chess-${forceKey || 0}-${windowSize.width}-${windowSize.height}`
 
-  // Define the arrows
   const arrows: DrawShape[] = [
     {
       brush: 'blue',
@@ -165,7 +155,6 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
     }
   }, [inView])
 
-  // Transform the imported mock data to match component expectations
   const mockMaiaEvaluation: MaiaEvaluation = {
     policy: Object.fromEntries(
       analysisMockData.moveRecommendations.maia.map(({ move, prob }) => [
@@ -173,7 +162,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
         prob,
       ]),
     ),
-    value: 0.5, // Default value, could be derived from position evaluation
+    value: 0.5,
   }
 
   const mockStockfishEvaluation: StockfishEvaluation = {
@@ -281,7 +270,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                     }
                     transition={{ duration: 0.3, delay: 0.5 }}
                   >
-                    <SimplifiedBlunderMeter />
+                    <DemoBlunderMeter />
                   </motion.div>
                 </div>
               </div>

@@ -715,7 +715,7 @@ const Train: React.FC<Props> = ({
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             {/* Header */}
             <GameInfo title="Puzzles" icon="target" type="train" embedded>
               <div className="flex w-full flex-col justify-start text-sm text-secondary 2xl:text-base">
@@ -1031,7 +1031,7 @@ const Train: React.FC<Props> = ({
             >
               {/* Analysis Toggle Bar - only show when puzzle is complete */}
               {showAnalysis && (
-                <div className="flex items-center justify-between rounded bg-background-1 px-4 py-2">
+                <div className="flex items-center justify-between rounded bg-glass px-4 py-2">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-xl">
                       analytics
@@ -1043,7 +1043,7 @@ const Train: React.FC<Props> = ({
                     className={`flex items-center gap-2 rounded px-3 py-1 text-sm transition-colors ${
                       analysisEnabled
                         ? 'bg-human-4 text-white hover:bg-human-4/80'
-                        : 'bg-background-2 text-secondary hover:bg-background-3'
+                        : 'bg-glass text-secondary hover:bg-glass-strong'
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">
@@ -1106,8 +1106,8 @@ const Train: React.FC<Props> = ({
                   }
                 />
                 {!analysisEnabled && showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1118,8 +1118,8 @@ const Train: React.FC<Props> = ({
                   </div>
                 )}
                 {!showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1154,8 +1154,8 @@ const Train: React.FC<Props> = ({
                   }
                 />
                 {!analysisEnabled && showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1166,8 +1166,8 @@ const Train: React.FC<Props> = ({
                   </div>
                 )}
                 {!showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1201,8 +1201,8 @@ const Train: React.FC<Props> = ({
                   }
                 />
                 {!analysisEnabled && showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1213,13 +1213,13 @@ const Train: React.FC<Props> = ({
                   </div>
                 )}
                 {!showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
                       <p className="text-xs font-medium text-primary">
-                        Analysis Disabled
+                        Analysis Locked
                       </p>
                     </div>
                   </div>

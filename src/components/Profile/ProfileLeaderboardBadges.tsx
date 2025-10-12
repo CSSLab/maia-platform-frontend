@@ -41,9 +41,9 @@ export const ProfileLeaderboardBadges: React.FC<
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="absolute left-1/2 top-full z-50 w-56 -translate-x-1/2 overflow-hidden rounded border border-white/10 bg-background-1 shadow-lg"
+                className="absolute left-1/2 top-full z-50 w-56 -translate-x-1/2 overflow-hidden rounded border border-glass-border bg-backdrop shadow-lg"
               >
-                <div className="border-b border-background-3 px-3 py-2">
+                <div className="border-b border-glass-border px-3 py-2">
                   <h3 className="text-sm font-medium text-primary">
                     {position.gameName} Leaderboard Player
                   </h3>

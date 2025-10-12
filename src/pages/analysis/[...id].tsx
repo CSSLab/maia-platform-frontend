@@ -634,7 +634,7 @@ const Analysis: React.FC<Props> = ({
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             {/* Game info header */}
             <GameInfo
               title="Analysis"
@@ -667,7 +667,7 @@ const Analysis: React.FC<Props> = ({
             </div>
             {/* Moves + controller */}
             <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
-              <div className="border-glass-border h-3 border-b" />
+              <div className="h-3 border-b border-glass-border" />
               <MovesContainer
                 game={analyzedGame}
                 termination={analyzedGame.termination}
@@ -859,7 +859,7 @@ const Analysis: React.FC<Props> = ({
                   <h2 className="text-xl font-semibold">Switch Game</h2>
                 </div>
                 <button
-                  className="flex items-center gap-1 rounded bg-background-2 px-2 py-1 text-sm duration-200 hover:bg-background-3"
+                  className="flex items-center gap-1 rounded bg-glass-strong px-2 py-1 text-sm duration-200 hover:bg-glass-stronger"
                   onClick={() => setShowGameListMobile(false)}
                 >
                   <span className="material-symbols-outlined text-sm">
@@ -1008,7 +1008,7 @@ const Analysis: React.FC<Props> = ({
               </div>
             </div>
             <div className="flex w-full flex-col overflow-hidden">
-              <div className="border-glass-border relative border-t bg-glass backdrop-blur-md">
+              <div className="relative border-t border-glass-border bg-glass backdrop-blur-md">
                 <Highlight
                   hover={
                     analysisEnabled &&
@@ -1069,7 +1069,7 @@ const Analysis: React.FC<Props> = ({
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
-                    <div className="border-glass-border rounded border bg-glass p-4 text-center shadow-lg">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1119,7 +1119,7 @@ const Analysis: React.FC<Props> = ({
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
-                    <div className="border-glass-border rounded border bg-glass p-4 text-center shadow-lg">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1151,7 +1151,7 @@ const Analysis: React.FC<Props> = ({
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
-                    <div className="border-glass-border rounded border bg-glass p-4 text-center shadow-lg">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1195,7 +1195,7 @@ const Analysis: React.FC<Props> = ({
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
-                    <div className="border-glass-border rounded border bg-glass p-4 text-center shadow-lg">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>

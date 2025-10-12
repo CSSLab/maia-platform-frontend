@@ -67,7 +67,7 @@ export const LiveChessWidget: React.FC = () => {
   if (isLoading && !liveGame) {
     return (
       <motion.div
-        className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-background-2 bg-background-1"
+        className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-glass-border bg-glass"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -84,7 +84,7 @@ export const LiveChessWidget: React.FC = () => {
   if (error && !liveGame) {
     return (
       <motion.div
-        className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-background-2 bg-background-1"
+        className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-glass-border bg-glass"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -107,7 +107,7 @@ export const LiveChessWidget: React.FC = () => {
   if (!liveGame) {
     return (
       <motion.div
-        className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-background-2 bg-background-1"
+        className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-glass-border bg-glass"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -123,7 +123,7 @@ export const LiveChessWidget: React.FC = () => {
 
   return (
     <motion.div
-      className="relative overflow-hidden rounded-md border border-background-2 bg-background-1"
+      className="relative overflow-hidden rounded-md border border-glass-border bg-glass"
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}

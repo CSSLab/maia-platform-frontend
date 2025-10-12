@@ -171,7 +171,7 @@ const Turing: React.FC<Props> = (props: Props) => {
             variants={itemVariants}
             className="desktop-left-column-container flex flex-col justify-between"
           >
-            <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
+            <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
               <GameInfo
                 title="Bot or Not"
                 icon="smart_toy"
@@ -201,7 +201,7 @@ const Turing: React.FC<Props> = (props: Props) => {
             variants={itemVariants}
             className="flex h-[85vh] min-w-64 flex-grow flex-col"
           >
-            <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
+            <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
               <div className="relative bottom-0 min-h-[38px] flex-1 overflow-hidden">
                 <MovesContainer
                   game={game}
@@ -212,11 +212,11 @@ const Turing: React.FC<Props> = (props: Props) => {
               </div>
               <div
                 id="turing-submission"
-                className="border-glass-border border-t"
+                className="border-t border-glass-border"
               >
                 <TuringSubmission rating={stats.rating ?? 0} />
               </div>
-              <div className="border-glass-border flex-none border-t">
+              <div className="flex-none border-t border-glass-border">
                 <BoardController
                   orientation={controller.orientation}
                   setOrientation={controller.setOrientation}
@@ -268,7 +268,7 @@ const Turing: React.FC<Props> = (props: Props) => {
             />
           </div>
           <div className="flex h-auto w-full flex-col gap-2">
-            <div className="border-glass-border flex w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
+            <div className="flex w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
               <div className="relative bottom-0 flex-1 overflow-hidden">
                 <MovesContainer
                   game={game}
@@ -277,7 +277,7 @@ const Turing: React.FC<Props> = (props: Props) => {
                   heightClass="h-full"
                 />
               </div>
-              <div className="border-glass-border border-t">
+              <div className="border-t border-glass-border">
                 <BoardController
                   orientation={controller.orientation}
                   setOrientation={controller.setOrientation}
@@ -293,7 +293,7 @@ const Turing: React.FC<Props> = (props: Props) => {
               </div>
               <div
                 id="turing-submission"
-                className="border-glass-border w-full border-t"
+                className="w-full border-t border-glass-border"
               >
                 <TuringSubmission rating={stats.rating ?? 0} />
               </div>

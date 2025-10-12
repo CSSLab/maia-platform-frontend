@@ -89,8 +89,8 @@ export const StatsDisplay: React.FC<Props> = ({
     <div
       className={
         embedded
-          ? `flex flex-col gap-3 bg-transparent p-3 ${hideEmbeddedBorder ? '' : 'border-glass-border border-t'}`
-          : 'border-glass-border flex flex-col gap-3 rounded-md border bg-glass p-3 backdrop-blur-md'
+          ? `flex flex-col gap-3 bg-transparent p-3 ${hideEmbeddedBorder ? '' : 'border-t border-glass-border'}`
+          : 'flex flex-col gap-3 border border-glass-border bg-glass p-3 backdrop-blur-md md:rounded'
       }
     >
       <div className="flex flex-col">

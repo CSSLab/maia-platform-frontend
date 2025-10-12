@@ -152,8 +152,8 @@ export const LeaderboardEntry = ({
         </div>
         <p className="text-sm font-medium text-white/95">{elo}</p>
         {isPopupVisible && stats && (
-          <div className="absolute left-0 top-[100%] z-50 flex w-full max-w-[24rem] flex-col overflow-hidden rounded border border-white/20 bg-[#171214]">
-            <div className="flex w-full justify-between border-b border-white/10 bg-[#171214] px-3 py-2">
+          <div className="absolute left-0 top-[100%] z-50 flex w-full max-w-[24rem] flex-col overflow-hidden rounded border border-white/20 bg-backdrop">
+            <div className="flex w-full justify-between border-b border-white/10 bg-backdrop px-3 py-2">
               <p className="text-sm text-white/95">
                 <span className="font-bold">{display_name}</span>&apos;s {type}{' '}
                 Statistics

@@ -152,7 +152,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </div>
               </div>
 
-              <div className="w-full max-w-2xl rounded-lg bg-background-1 p-4">
+              <div className="w-full max-w-2xl rounded-lg bg-glass p-4">
                 <details className="cursor-pointer">
                   <summary className="mb-3 font-medium text-primary">
                     Technical Details (click to expand)
@@ -162,7 +162,7 @@ export class ErrorBoundary extends Component<Props, State> {
                       If you continue to experience this issue, please share the
                       following error details with our support team on Discord:
                     </p>
-                    <code className="block overflow-x-auto rounded bg-background-2 p-3 text-xs text-secondary">
+                    <code className="block overflow-x-auto rounded bg-glass-strong p-3 text-xs text-secondary">
                       {this.state.error?.stack ||
                         this.state.error?.toString() ||
                         'Unknown error'}

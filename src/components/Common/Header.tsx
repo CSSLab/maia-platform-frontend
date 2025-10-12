@@ -77,7 +77,7 @@ export const Header: React.FC = () => {
 
   const userInfo = user?.lichessId ? (
     <div
-      className="relative flex items-center gap-2 rounded-full border border-white/10 bg-[#171214] px-3 py-1.5 transition-all duration-200 hover:border-white/20"
+      className="relative flex items-center gap-2 rounded-full border border-white/10 bg-backdrop px-3 py-1.5 transition-all duration-200 hover:border-white/20"
       onMouseEnter={() => setShowProfileDropdown(true)}
       onMouseLeave={() => setShowProfileDropdown(false)}
     >
@@ -101,24 +101,24 @@ export const Header: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-[100%] left-0 z-50 w-full overflow-hidden rounded-md border border-white/10 bg-[#171214] md:bottom-auto md:top-[100%]"
+            className="absolute bottom-[100%] left-0 z-50 w-full overflow-hidden rounded-md border border-glass-border bg-backdrop md:bottom-auto md:top-[100%]"
           >
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-glass-border tracking-wide">
               <Link
                 href="/profile"
-                className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
               >
                 Profile
               </Link>
               <Link
                 href="/settings"
-                className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
               >
                 Settings
               </Link>
               <button
                 onClick={logout}
-                className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
               >
                 Logout
               </button>
@@ -168,23 +168,23 @@ export const Header: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute left-0 top-[100%] z-30 w-48 overflow-hidden rounded-md border border-white/10 bg-[#171214]"
+                  className="absolute left-0 top-[100%] z-30 w-48 overflow-hidden rounded-md border border-glass-border bg-backdrop"
                 >
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-glass-border tracking-wide">
                     <button
                       onClick={() => startGame('againstMaia')}
-                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
                     >
                       Play Maia
                     </button>
                     <button
                       onClick={() => startGame('handAndBrain')}
-                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
                     >
                       Play Hand and Brain
                     </button>
                     <a
-                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
                       href="https://lichess.org/@/maia1"
                       target="_blank"
                       rel="noreferrer"
@@ -258,7 +258,7 @@ export const Header: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute left-0 top-[100%] z-30 w-32 overflow-hidden rounded-md border border-white/10 bg-[#171214]"
+                  className="absolute left-0 top-[100%] z-30 w-32 overflow-hidden rounded-md border border-white/10 bg-backdrop"
                 >
                   <div className="divide-y divide-white/5">
                     {isCompactDesktopNav && (

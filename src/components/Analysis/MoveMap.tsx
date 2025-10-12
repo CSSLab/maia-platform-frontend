@@ -37,7 +37,6 @@ interface Props {
   isHomePage?: boolean
 }
 
-// Helper function to convert hex color to rgba with alpha
 const hexToRgba = (hex: string, alpha: number): string => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   if (!result) return hex
@@ -259,7 +258,7 @@ export const MoveMap: React.FC<Props> = ({
   return (
     <div
       id="analysis-move-map"
-      className="border-glass-border flex h-64 max-h-full w-full flex-col overflow-hidden border md:h-full md:rounded-md md:bg-glass md:backdrop-blur-md"
+      className={`flex h-64 max-h-full w-full flex-col overflow-hidden border border-glass-border md:h-full md:rounded-md ${isHomePage ? '' : 'md:bg-glass md:backdrop-blur-md'}`}
       onMouseLeave={onContainerMouseLeave}
     >
       <h2 className="p-3 text-base text-primary md:text-sm xl:text-base">
