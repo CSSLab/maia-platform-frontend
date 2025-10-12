@@ -14,14 +14,10 @@ const states = [
 ]
 
 interface LoadingProps {
-  // When true, shows loading UI (optionally after a delay); when false, shows children
   isLoading?: boolean
-  // Milliseconds to wait before showing the loading UI
   delay?: number
-  // Visual options for the loading UI
   transparent?: boolean
   message?: React.ReactNode
-  // Optional content to render when not loading
   children?: React.ReactNode
 }
 
@@ -32,7 +28,6 @@ export const Loading: React.FC<LoadingProps> = ({
   message,
   children,
 }) => {
-  // Delay handling for showing the loading UI
   const [showLoading, setShowLoading] = useState(false)
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -77,9 +72,9 @@ export const Loading: React.FC<LoadingProps> = ({
           className="my-auto"
         >
           <div
-            className={`my-40 flex w-screen items-center justify-center ${
+            className={`my-40 flex w-screen items-center justify-center md:my-auto ${
               transparent ? 'absolute left-0 top-0 h-screen' : ''
-            } md:my-auto`}
+            }`}
           >
             <div className="flex flex-col items-center gap-4">
               <div
@@ -101,7 +96,9 @@ export const Loading: React.FC<LoadingProps> = ({
                   />
                 </div>
               </div>
-              <h2 className="text-2xl font-medium">Loading...</h2>
+              <h2 className="text-lg font-medium uppercase tracking-wider">
+                Loading...
+              </h2>
               {message ? (
                 <p className="max-w-prose px-4 text-center text-secondary">
                   {message}

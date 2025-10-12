@@ -260,11 +260,11 @@ export const Header: React.FC = () => {
                   transition={{ duration: 0.2 }}
                   className="absolute left-0 top-[100%] z-30 w-32 overflow-hidden rounded-md border border-glass-border bg-backdrop"
                 >
-                  <div className="divide-y divide-white/5">
+                  <div className="divide-y divide-glass-border tracking-wide">
                     {isCompactDesktopNav && (
                       <Link
                         href="/broadcast"
-                        className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-[rgba(255,255,255,0.04)] ${
+                        className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-glass ${
                           router.pathname.startsWith('/broadcast')
                             ? 'text-primary'
                             : 'text-white/90'
@@ -276,7 +276,7 @@ export const Header: React.FC = () => {
                     {isCompactDesktopNav && (
                       <Link
                         href="/leaderboard"
-                        className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-[rgba(255,255,255,0.04)] ${
+                        className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-glass ${
                           router.pathname.startsWith('/leaderboard')
                             ? 'text-primary'
                             : 'text-white/90'
@@ -287,7 +287,7 @@ export const Header: React.FC = () => {
                     )}
                     <Link
                       href="/blog"
-                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
                     >
                       Blog
                     </Link>
@@ -295,7 +295,7 @@ export const Header: React.FC = () => {
                       target="_blank"
                       rel="noreferrer"
                       href="https://twitch.tv/maiachess"
-                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
                     >
                       Watch
                     </a>
@@ -303,7 +303,7 @@ export const Header: React.FC = () => {
                       target="_blank"
                       rel="noreferrer"
                       href="https://forms.gle/XYeoTJF4YgUu4Vq28"
-                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
                     >
                       Feedback
                     </a>

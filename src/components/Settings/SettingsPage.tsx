@@ -49,7 +49,7 @@ export const SettingsPage: React.FC = () => {
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
-      className="relative mx-auto flex w-full flex-col gap-6 px-4 py-8 md:w-[90%] md:gap-8 md:px-0"
+      className="relative mx-auto flex w-full flex-col gap-4 px-4 py-8 md:w-[90%] md:gap-6 md:px-0"
     >
       {/* Header */}
       <motion.div variants={itemVariants} className="flex flex-col gap-2">
@@ -66,7 +66,7 @@ export const SettingsPage: React.FC = () => {
       </motion.div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4 lg:gap-6">
         {/* Left column: Sound + Model */}
         <div className="flex flex-col gap-4 md:gap-6">
           <motion.div variants={itemVariants}>

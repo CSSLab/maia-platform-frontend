@@ -185,23 +185,28 @@ const StreamAnalysisPage: NextPage = () => {
         {!streamController.game?.loaded &&
         streamController.game &&
         !streamController.streamState.gameEnded ? (
-          <div className="absolute left-0 top-0 z-50">
+          <div className="absolute left-0 top-0 z-40 h-full w-full bg-backdrop/90">
             <Loading
               transparent
               isLoading={true}
               message={
-                <>
-                  Connecting to Lichess game {gameId}...
-                  <br />
-                  Lichess intentionally adds a short delay to live move data to
-                  reduce engine-assisted cheating. The stream will start soon.
-                </>
+                <div className="flex flex-col items-center justify-center">
+                  <p className="text-center tracking-wide text-primary">
+                    Connecting to Lichess game {gameId}...
+                  </p>
+                  <p className="max-w-sm text-center text-sm text-secondary">
+                    Lichess intentionally adds a short delay to live move data
+                    to reduce engine-assisted cheating. The stream will start
+                    soon.
+                  </p>
+                </div>
               }
             >
               <></>
             </Loading>
           </div>
         ) : null}
+
         {analysisController && (
           <StreamAnalysis
             game={streamController.game || dummyGame}
