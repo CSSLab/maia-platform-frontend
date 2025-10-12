@@ -76,8 +76,8 @@ export const Feedback: React.FC<Props> = ({
     <div
       className={
         embedded
-          ? 'border-glass-border flex w-screen flex-1 flex-col border-t bg-transparent p-3 md:w-auto md:p-5 lg:justify-between'
-          : 'border-glass-border flex w-screen flex-1 flex-col rounded-md border bg-glass p-3 backdrop-blur-md md:w-auto md:p-5 lg:justify-between'
+          ? 'flex w-screen flex-1 flex-col border-t border-glass-border bg-transparent p-3 md:w-auto md:p-5 lg:justify-between'
+          : 'flex w-screen flex-1 flex-col rounded-md border border-glass-border bg-glass p-3 backdrop-blur-md md:w-auto md:p-5 lg:justify-between'
       }
     >
       <div>

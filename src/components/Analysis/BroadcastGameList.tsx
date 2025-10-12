@@ -67,14 +67,14 @@ export const BroadcastGameList: React.FC<BroadcastGameListProps> = ({
       className={
         embedded
           ? 'flex h-full flex-col items-start justify-start overflow-hidden'
-          : 'border-glass-border flex h-full flex-col items-start justify-start overflow-hidden rounded-md border bg-glass backdrop-blur-md'
+          : 'flex h-full flex-col items-start justify-start overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md'
       }
     >
       <div
         className={
           embedded
-            ? 'border-glass-border flex w-full flex-col items-start justify-start gap-2 border-b bg-transparent px-3 py-2'
-            : 'border-glass-border flex w-full flex-col items-start justify-start gap-2 border-b bg-transparent px-3 py-2'
+            ? 'flex w-full flex-col items-start justify-start gap-2 border-b border-glass-border bg-transparent px-3 py-2'
+            : 'flex w-full flex-col items-start justify-start gap-2 border-b border-glass-border bg-transparent px-3 py-2'
         }
       >
         <div className="w-full overflow-hidden">
@@ -96,7 +96,7 @@ export const BroadcastGameList: React.FC<BroadcastGameListProps> = ({
             id="round-selector"
             value={selectedRoundId}
             onChange={(e) => handleRoundChange(e.target.value)}
-            className="border-glass-border w-full rounded-md border bg-glass px-2 py-1 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-human-4"
+            className="w-full rounded-md border border-glass-border bg-glass px-2 py-1 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-human-4"
           >
             {broadcastController.currentBroadcast.rounds.map((round) => (
               <option key={round.id} value={round.id}>
@@ -122,7 +122,7 @@ export const BroadcastGameList: React.FC<BroadcastGameListProps> = ({
         )}
 
         {broadcastController.broadcastState.isConnecting && (
-          <div className="border-glass-border mb-2 rounded-md border bg-glass p-2 text-xs text-secondary backdrop-blur-sm">
+          <div className="mb-2 rounded-md border border-glass-border bg-glass p-2 text-xs text-secondary backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 animate-spin rounded-full border-b border-white/80"></div>
               <span>Connecting...</span>
@@ -213,8 +213,8 @@ export const BroadcastGameList: React.FC<BroadcastGameListProps> = ({
       <div
         className={
           embedded
-            ? 'border-glass-border w-full border-t p-2'
-            : 'border-glass-border w-full border-t p-2'
+            ? 'w-full border-t border-glass-border p-2'
+            : 'w-full border-t border-glass-border p-2'
         }
       >
         <div className="text-center text-xs text-white/70">

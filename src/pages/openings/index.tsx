@@ -475,7 +475,7 @@ const OpeningsPage: NextPage = () => {
       <div className="flex h-full w-[90%] flex-row gap-3">
         {/* Left Sidebar - unified glass container */}
         <div className="desktop-left-column-container flex flex-col overflow-hidden">
-          <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             {/* Opening drill info and drill list */}
             <OpeningDrillSidebar
               currentDrill={controller.currentDrill}
@@ -534,7 +534,7 @@ const OpeningsPage: NextPage = () => {
 
           {/* Drill progress with next drill button */}
           {controller.currentDrillGame && controller.currentDrill && (
-            <div className="border-glass-border flex w-full items-center gap-3 rounded-md border bg-glass p-3 backdrop-blur-md">
+            <div className="flex w-full items-center gap-3 rounded-md border border-glass-border bg-glass p-3 backdrop-blur-md">
               <div className="flex-1">
                 <div className="mb-1 flex justify-between text-xs">
                   <span className="text-white/70">Move Progress</span>
@@ -563,7 +563,7 @@ const OpeningsPage: NextPage = () => {
                 !controller.showPerformanceModal && (
                   <button
                     onClick={controller.showCurrentPerformance}
-                    className="border-glass-border rounded-md border bg-glass px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-glass-stronger"
+                    className="rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-glass-stronger"
                   >
                     View Performance
                   </button>
@@ -729,7 +729,7 @@ const OpeningsPage: NextPage = () => {
 
           {/* Drill Progress */}
           {controller.currentDrillGame && controller.currentDrill && (
-            <div className="border-glass-border flex w-full items-center gap-3 rounded-md border bg-glass p-3 backdrop-blur-md">
+            <div className="flex w-full items-center gap-3 rounded-md border border-glass-border bg-glass p-3 backdrop-blur-md">
               <div className="flex-1">
                 <div className="mb-1 flex justify-between text-xs">
                   <span className="text-white/70">Move Progress</span>
@@ -763,7 +763,7 @@ const OpeningsPage: NextPage = () => {
               !controller.showPerformanceModal && (
                 <button
                   onClick={controller.showCurrentPerformance}
-                  className="border-glass-border w-full rounded-md border bg-glass px-6 py-2 text-sm font-medium text-white/90 hover:bg-glass-stronger"
+                  className="w-full rounded-md border border-glass-border bg-glass px-6 py-2 text-sm font-medium text-white/90 hover:bg-glass-stronger"
                 >
                   View Performance
                 </button>

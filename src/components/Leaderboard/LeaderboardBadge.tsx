@@ -60,7 +60,7 @@ export const LeaderboardBadge: React.FC<LeaderboardBadgeProps> = ({
           >
             <Link
               href="/leaderboard"
-              className="border-glass-border block rounded-lg border bg-glass p-4 transition-all hover:border-primary hover:bg-glass-strong"
+              className="block rounded-lg border border-glass-border bg-glass p-4 transition-all hover:border-primary hover:bg-glass-strong"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

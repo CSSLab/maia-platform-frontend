@@ -16,7 +16,7 @@ export const ResignationConfirmModal: React.FC<
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-backdrop/90">
-      <div className="border-glass-border w-full max-w-sm rounded-lg border bg-glass p-6 shadow-lg backdrop-blur-md">
+      <div className="w-full max-w-sm rounded-lg border border-glass-border bg-glass p-6 shadow-lg backdrop-blur-md">
         <h3 className="mb-4 text-lg font-semibold text-primary">
           Confirm Resignation
         </h3>
@@ -29,7 +29,7 @@ export const ResignationConfirmModal: React.FC<
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="border-glass-border flex-1 rounded border bg-glass px-4 py-2 text-sm text-secondary transition hover:bg-glass-stronger"
+            className="flex-1 rounded border border-glass-border bg-glass px-4 py-2 text-sm text-secondary transition hover:bg-glass-stronger"
           >
             Cancel
           </button>

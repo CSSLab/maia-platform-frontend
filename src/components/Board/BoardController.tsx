@@ -128,8 +128,8 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
     <div
       className={`flex w-full flex-row items-center gap-[1px] ${
         embedded
-          ? 'border-glass-border border-t bg-transparent'
-          : 'border-glass-border rounded-md border bg-glass backdrop-blur-md'
+          ? 'border-t border-glass-border bg-transparent'
+          : 'rounded-md border border-glass-border bg-glass backdrop-blur-md'
       }`}
     >
       <button

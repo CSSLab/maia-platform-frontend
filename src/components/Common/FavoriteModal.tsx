@@ -74,7 +74,7 @@ export const FavoriteModal: React.FC<FavoriteModalProps> = ({
         <div
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
-          className="border-glass-border relative z-10 w-full max-w-[420px] overflow-hidden rounded-md border bg-glass p-4 backdrop-blur-md"
+          className="relative z-10 w-full max-w-[420px] overflow-hidden rounded-md border border-glass-border bg-glass p-4 backdrop-blur-md"
         >
           <div
             className="pointer-events-none absolute inset-0"
@@ -106,7 +106,7 @@ export const FavoriteModal: React.FC<FavoriteModalProps> = ({
                   e.key === 'Enter' && !isProcessing && handleSave()
                 }
                 placeholder="Enter custom name"
-                className="border-glass-border rounded-md border bg-glass px-3 py-2 text-sm text-white/90 placeholder-white/40 focus:border-white/35 focus:outline-none"
+                className="rounded-md border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 placeholder-white/40 focus:border-white/35 focus:outline-none"
               />
             </div>
 
@@ -114,7 +114,7 @@ export const FavoriteModal: React.FC<FavoriteModalProps> = ({
               <button
                 onClick={onClose}
                 disabled={isProcessing}
-                className="border-glass-border rounded border bg-glass-strong px-3 py-1.5 text-sm text-white/70 transition-colors hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded border border-glass-border bg-glass-strong px-3 py-1.5 text-sm text-white/70 transition-colors hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -131,7 +131,7 @@ export const FavoriteModal: React.FC<FavoriteModalProps> = ({
               <button
                 onClick={handleSave}
                 disabled={!name.trim() || isProcessing}
-                className="border-glass-border flex-1 rounded border bg-glass-strong px-3 py-1.5 text-sm text-white transition-colors hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex-1 rounded border border-glass-border bg-glass-strong px-3 py-1.5 text-sm text-white transition-colors hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isProcessing ? 'Saving...' : 'Save'}
               </button>

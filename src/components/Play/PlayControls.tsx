@@ -45,7 +45,7 @@ export const PlayControls: React.FC<Props> = ({
               onClick={() => {
                 window.open(`/analysis/${game.id}/play`, '_blank')
               }}
-              className="border-glass-border flex items-center justify-center rounded-md border bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
+              className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
             >
               ANALYZE GAME
             </button>
@@ -53,7 +53,7 @@ export const PlayControls: React.FC<Props> = ({
           {playAgain ? (
             <button
               onClick={playAgain}
-              className="border-glass-border flex items-center justify-center rounded-md border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
+              className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
             >
               PLAY AGAIN
             </button>
@@ -77,7 +77,7 @@ export const PlayControls: React.FC<Props> = ({
                 <p className="text-center text-xs font-medium uppercase tracking-wider text-white/70">
                   Maia Thinking Time
                 </p>
-                <div className="border-glass-border flex overflow-hidden rounded-md border bg-glass">
+                <div className="flex overflow-hidden rounded-md border border-glass-border bg-glass">
                   <button
                     className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors duration-200 ${
                       !simulateMaiaTime
@@ -109,7 +109,7 @@ export const PlayControls: React.FC<Props> = ({
                 <button
                   onClick={offerDraw}
                   disabled={!playerActive}
-                  className={`border-glass-border w-full rounded-md border px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
+                  className={`w-full rounded-md border border-glass-border px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
                     playerActive
                       ? 'bg-glass text-white/90 hover:bg-glass-stronger'
                       : 'cursor-not-allowed bg-white/5 text-white/40'
