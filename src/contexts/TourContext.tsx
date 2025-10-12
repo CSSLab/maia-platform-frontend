@@ -140,13 +140,13 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     return (
       <div
         {...tooltipProps}
-        className="from-white/12/80 to-white/5/80 w-[320px] overflow-hidden rounded-xl border-2 border-white/10 bg-gradient-to-br backdrop-blur-xl"
+        className="from-white/12/80 to-white/5/80 w-[320px] overflow-hidden rounded-xl border-2 border-glass-border bg-gradient-to-br backdrop-blur-xl"
         style={{
           fontFamily: 'inherit',
         }}
       >
         {/* Header */}
-        <div className="bg-white/5/60 flex items-center justify-between border-b border-white/10 p-3 backdrop-blur sm:p-4">
+        <div className="bg-white/5/60 flex items-center justify-between border-b border-glass-border p-3 backdrop-blur sm:p-4">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-human-4 sm:h-8 sm:w-8">
               <span className="text-xs font-bold text-white sm:text-sm">
@@ -159,7 +159,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
           </div>
           <button
             onClick={() => skipTour()}
-            className="bg-white/5/70 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 p-1 text-white/70 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+            className="bg-white/5/70 flex h-8 w-8 items-center justify-center rounded-full border border-glass-border p-1 text-white/70 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
             title="Skip tour"
           >
             <span className="material-symbols-outlined text-lg sm:text-xl">
@@ -176,7 +176,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
         </div>
 
         {/* Footer */}
-        <div className="bg-white/5/60 flex items-center justify-between border-t border-white/10 p-3 backdrop-blur sm:p-4">
+        <div className="bg-white/5/60 flex items-center justify-between border-t border-glass-border p-3 backdrop-blur sm:p-4">
           <div className="flex items-center gap-1">
             {Array.from({ length: size }).map((_, idx) => (
               <div
@@ -196,7 +196,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
             <button
               onClick={handlePrevious}
               disabled={tourState.currentStep === 0}
-              className="bg-white/5/60 flex items-center gap-1 rounded border border-white/10 px-2 py-1 text-xs text-white/75 backdrop-blur transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/5 disabled:text-white/40 sm:px-3 sm:text-sm"
+              className="bg-white/5/60 flex items-center gap-1 rounded border border-glass-border px-2 py-1 text-xs text-white/75 backdrop-blur transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/5 disabled:text-white/40 sm:px-3 sm:text-sm"
             >
               <span className="material-symbols-outlined text-xs sm:text-sm">
                 arrow_back

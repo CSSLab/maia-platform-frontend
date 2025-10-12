@@ -66,7 +66,7 @@ export const AnalysisConfigModal: React.FC<Props> = ({
       }}
     >
       <motion.div
-        className="flex w-full flex-col gap-2 rounded-lg border border-white/10 bg-glass p-6 shadow-none backdrop-blur-md md:w-[min(500px,40vw)]"
+        className="flex w-full flex-col gap-2 rounded-lg border border-glass-border bg-glass p-6 shadow-none backdrop-blur-md md:w-[min(500px,40vw)]"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 20, opacity: 0 }}
@@ -91,10 +91,10 @@ export const AnalysisConfigModal: React.FC<Props> = ({
             {depthOptions.map((option) => (
               <label
                 key={option.value}
-                className={`border-glass-border flex cursor-pointer items-center gap-3 rounded-md border p-3 transition duration-200 ${
+                className={`flex cursor-pointer items-center gap-3 rounded-md border border-glass-border p-3 transition duration-200 ${
                   selectedDepth === option.value
                     ? 'border-glass-border bg-glass-stronger text-white'
-                    : 'border-white/10 bg-glass text-white/80 hover:bg-glass-stronger hover:text-white'
+                    : 'border-glass-border bg-glass text-white/80 hover:bg-glass-stronger hover:text-white'
                 }`}
                 htmlFor={`depth-${option.value}`}
                 aria-label={`Select ${option.label}`}
@@ -120,7 +120,7 @@ export const AnalysisConfigModal: React.FC<Props> = ({
             ))}
           </div>
 
-          <div className="mt-3 flex items-start gap-2 rounded-md border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-glass-border bg-white/5 p-3 backdrop-blur-sm">
             <span className="material-symbols-outlined !text-base text-white/70">
               info
             </span>
@@ -135,7 +135,7 @@ export const AnalysisConfigModal: React.FC<Props> = ({
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="border-glass-border flex items-center gap-2 rounded border bg-glass px-4 py-2 text-sm font-medium text-white/80 transition duration-200 hover:bg-glass-strong hover:text-white"
+            className="flex items-center gap-2 rounded border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-white/80 transition duration-200 hover:bg-glass-strong hover:text-white"
           >
             <span className="material-symbols-outlined text-sm">close</span>
             Cancel

@@ -130,7 +130,7 @@ const PaperCard = ({
   className?: string
 }) => (
   <motion.div
-    className={`from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex h-full flex-col rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md transition-all duration-200 hover:border-white/20 ${featured ? '' : 'hover:scale-[1.02]'} ${className} ${featured ? 'overflow-hidden' : 'p-4 md:p-6'}`}
+    className={`from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex h-full flex-col rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md transition-all duration-200 hover:border-glass-border ${featured ? '' : 'hover:scale-[1.02]'} ${className} ${featured ? 'overflow-hidden' : 'p-4 md:p-6'}`}
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}

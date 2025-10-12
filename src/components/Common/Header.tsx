@@ -77,7 +77,7 @@ export const Header: React.FC = () => {
 
   const userInfo = user?.lichessId ? (
     <div
-      className="relative flex items-center gap-2 rounded-full border border-white/10 bg-backdrop px-3 py-1.5 transition-all duration-200 hover:border-white/20"
+      className="relative flex items-center gap-2 rounded-full border border-glass-border bg-backdrop px-3 py-1.5 transition-all duration-200 hover:border-white/20"
       onMouseEnter={() => setShowProfileDropdown(true)}
       onMouseLeave={() => setShowProfileDropdown(false)}
     >
@@ -258,7 +258,7 @@ export const Header: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute left-0 top-[100%] z-30 w-32 overflow-hidden rounded-md border border-white/10 bg-backdrop"
+                  className="absolute left-0 top-[100%] z-30 w-32 overflow-hidden rounded-md border border-glass-border bg-backdrop"
                 >
                   <div className="divide-y divide-white/5">
                     {isCompactDesktopNav && (

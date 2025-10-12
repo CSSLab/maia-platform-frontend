@@ -82,7 +82,7 @@ export const SimplifiedBlunderMeter: React.FC<SimplifiedBlunderMeterProps> = ({
         <p className="text-sm font-semibold text-primary xl:text-base">
           Blunder Meter
         </p>
-        <div className="flex h-4 w-full items-center overflow-hidden rounded-full border border-white/10 bg-white/5">
+        <div className="flex h-4 w-full items-center overflow-hidden rounded-full border border-glass-border bg-white/5">
           {categories.map((category) => {
             const flexGrow =
               category.probability > 0 ? category.probability : 0.5

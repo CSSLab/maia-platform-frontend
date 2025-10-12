@@ -97,8 +97,8 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
                 onClick={() => setSelectedColor('white')}
                 className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
                   selectedColor === 'white'
-                    ? 'border-white/20 bg-white/10 text-white'
-                    : 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
+                    ? 'border-glass-border bg-white/10 text-white'
+                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
                 }`}
               >
                 <div className="relative h-4 w-4">
@@ -114,8 +114,8 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
                 onClick={() => setSelectedColor('black')}
                 className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
                   selectedColor === 'black'
-                    ? 'border-white/20 bg-white/10 text-white'
-                    : 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
+                    ? 'border-glass-border bg-white/10 text-white'
+                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
                 }`}
               >
                 <div className="relative h-4 w-4">
@@ -134,21 +134,21 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white/90 backdrop-blur-sm transition-colors hover:bg-white/10"
+            className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white/90 backdrop-blur-sm transition-colors hover:bg-white/10"
           >
             Cancel
           </button>
           {isSelected ? (
             <button
               onClick={onRemove}
-              className="flex-1 rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10"
+              className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10"
             >
               Remove
             </button>
           ) : (
             <button
               onClick={() => onAdd(selectedColor)}
-              className="flex-1 rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10"
+              className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10"
             >
               Add Drill
             </button>
@@ -167,7 +167,7 @@ const TabNavigation: React.FC<{
   const { isMobile } = useContext(WindowSizeContext)
 
   return (
-    <div className="flex w-full border-b border-white/10 md:hidden">
+    <div className="flex w-full border-b border-glass-border md:hidden">
       <button
         {...(isMobile ? { id: 'opening-drill-browse' } : {})}
         onClick={() => setActiveTab('browse')}
@@ -270,7 +270,7 @@ const BrowsePanel: React.FC<{
   }
 
   const renderTabs = () => (
-    <div className="grid w-full select-none grid-cols-3 items-center justify-between overflow-hidden border-b border-white/10">
+    <div className="grid w-full select-none grid-cols-3 items-center justify-between overflow-hidden border-b border-glass-border">
       {[
         { label: 'Openings', value: 'openings' as const },
         { label: 'Endgames', value: 'endgames' as const },
@@ -309,11 +309,11 @@ const BrowsePanel: React.FC<{
     return (
       <div
         id="opening-drill-browse"
-        className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-white/10`}
+        className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-glass-border`}
       >
         {renderTabs()}
         <form
-          className="flex h-20 flex-col gap-3 border-b border-white/10 p-4"
+          className="flex h-20 flex-col gap-3 border-b border-glass-border p-4"
           onSubmit={(e) => {
             e.preventDefault()
             onAddCustomPosition()
@@ -325,7 +325,7 @@ const BrowsePanel: React.FC<{
               value={customInput}
               onChange={(e) => setCustomInput(e.target.value)}
               placeholder="Drill a custom FEN/PGN"
-              className="h-full flex-1 rounded border border-white/10 bg-white/5 px-3 text-sm text-white placeholder-primary/50 focus:outline-none focus:ring-1 focus:ring-white/20"
+              className="h-full flex-1 rounded border border-glass-border bg-white/5 px-3 text-sm text-white placeholder-primary/50 focus:outline-none focus:ring-1 focus:ring-white/20"
             />
             <button
               type="submit"
@@ -338,7 +338,7 @@ const BrowsePanel: React.FC<{
           {customError && <p className="text-xs text-red-400">{customError}</p>}
         </form>
 
-        <div className="border-b border-white/10 p-4">
+        <div className="border-b border-glass-border p-4">
           <div className="relative">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary">
               search
@@ -348,7 +348,7 @@ const BrowsePanel: React.FC<{
               placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded border border-white/10 bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+              className="w-full rounded border border-glass-border bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
             />
           </div>
         </div>
@@ -483,24 +483,24 @@ const BrowsePanel: React.FC<{
   return (
     <div
       id="opening-drill-browse"
-      className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-white/10`}
+      className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-glass-border`}
     >
       {renderTabs()}
-      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
+      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
         <h2 className="text-xl font-bold">Select {categoryLabelPlural}</h2>
         <p className="text-xs text-secondary">
           Browse and select {categoryLabelPlural.toLowerCase()} to drill.
         </p>
       </div>
 
-      <div className="flex h-16 flex-col justify-center gap-1 border-b border-white/10 p-4 md:hidden">
+      <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4 md:hidden">
         <h2 className="text-lg font-bold">Select {categoryLabelPlural}</h2>
         <p className="text-xs text-secondary">
           Choose {categoryLabelPlural.toLowerCase()} to practice
         </p>
       </div>
 
-      <div className="border-b border-white/10 p-4">
+      <div className="border-b border-glass-border p-4">
         <div className="relative">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary">
             search
@@ -510,7 +510,7 @@ const BrowsePanel: React.FC<{
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded border border-white/10 bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+            className="w-full rounded border border-glass-border bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
           />
         </div>
       </div>
@@ -752,7 +752,7 @@ const PreviewPanel: React.FC<{
       id="opening-drill-preview"
       className="hidden w-full flex-col overflow-hidden md:flex"
     >
-      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
+      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
         <h2 className="text-xl font-bold">Preview {panelLabel}</h2>
         <p className="text-xs text-secondary">Configure your drill settings</p>
       </div>
@@ -775,8 +775,8 @@ const PreviewPanel: React.FC<{
               onClick={() => setSelectedColor('white')}
               className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
                 selectedColor === 'white'
-                  ? 'border-white/20 bg-white/10 text-white'
-                  : 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
+                  ? 'border-glass-border bg-white/10 text-white'
+                  : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
               }`}
             >
               <div className="relative h-4 w-4 md:h-5 md:w-5">
@@ -792,8 +792,8 @@ const PreviewPanel: React.FC<{
               onClick={() => setSelectedColor('black')}
               className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
                 selectedColor === 'black'
-                  ? 'border-white/20 bg-white/10 text-white'
-                  : 'border-white/10 bg-white/5 text-white/90 hover:bg-white/10'
+                  ? 'border-glass-border bg-white/10 text-white'
+                  : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
               }`}
             >
               <div className="relative h-4 w-4 md:h-5 md:w-5">
@@ -825,11 +825,11 @@ const PreviewPanel: React.FC<{
         </div>
       </div>
 
-      <div className="flex-shrink-0 border-t border-white/10 p-3 md:p-4">
+      <div className="flex-shrink-0 border-t border-glass-border p-3 md:p-4">
         <button
           onClick={addSelection}
           disabled={isDuplicateSelection(previewOpening, previewVariation)}
-          className="w-full rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
           title={
             isDuplicateSelection(previewOpening, previewVariation)
               ? 'Already added with same settings'
@@ -870,9 +870,9 @@ const SelectedPanel: React.FC<{
 }) => (
   <div
     id="opening-drill-selected"
-    className={`flex w-full flex-col overflow-hidden ${activeTab !== 'selected' ? 'hidden md:flex' : 'flex'} md:border-l md:border-white/10`}
+    className={`flex w-full flex-col overflow-hidden ${activeTab !== 'selected' ? 'hidden md:flex' : 'flex'} md:border-l md:border-glass-border`}
   >
-    <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
+    <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
       <h2 className="text-xl font-bold">
         Selected {categoryLabelPlural} ({selections.length})
       </h2>
@@ -882,7 +882,7 @@ const SelectedPanel: React.FC<{
     </div>
 
     {/* Mobile header */}
-    <div className="flex h-16 flex-col justify-center gap-1 border-b border-white/10 p-4 md:hidden">
+    <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4 md:hidden">
       <h2 className="text-lg font-bold">Selected ({selections.length})</h2>
       <p className="text-xs text-secondary">Tap to remove</p>
     </div>
@@ -955,7 +955,7 @@ const SelectedPanel: React.FC<{
     </div>
 
     {/* Fixed button section - always visible */}
-    <div className="flex-shrink-0 border-t border-white/10 p-3 md:p-4">
+    <div className="flex-shrink-0 border-t border-glass-border p-3 md:p-4">
       {/* Opponent Selection */}
       <div className="mb-3 md:mb-4">
         <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">Opponent:</p>
@@ -969,7 +969,7 @@ const SelectedPanel: React.FC<{
               setSelectedMaiaVersion(version)
             }
           }}
-          className="w-full rounded border border-white/10 bg-white/5 p-2 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20 md:text-sm"
+          className="w-full rounded border border-glass-border bg-white/5 p-2 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20 md:text-sm"
         >
           {MAIA_MODELS_WITH_NAMES.map((version) => (
             <option key={version.id} value={version.id}>
@@ -1001,7 +1001,7 @@ const SelectedPanel: React.FC<{
       <button
         onClick={handleStartDrilling}
         disabled={selections.length === 0}
-        className="w-full rounded border border-white/10 bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Start Drilling ({selections.length}{' '}
         {selections.length === 1 ? 'selection' : 'selections'})
@@ -1600,7 +1600,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         {/* Header Section */}
         <div
           id="opening-drill-modal"
-          className="flex w-full flex-col gap-1 border-b border-white/10 p-4"
+          className="flex w-full flex-col gap-1 border-b border-glass-border p-4"
         >
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">

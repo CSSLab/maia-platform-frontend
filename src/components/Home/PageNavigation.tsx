@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 export const PageNavigation = () => {
   return (
     <motion.div
-      className="sticky top-0 z-20 flex flex-row flex-wrap items-center justify-center gap-3 border-b border-t border-white/10 bg-black px-3 py-4 text-sm uppercase tracking-wider md:gap-6"
+      className="sticky top-0 z-20 flex flex-row flex-wrap items-center justify-center gap-3 border-b border-t border-glass-border bg-black px-3 py-4 text-sm uppercase tracking-wider md:gap-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}

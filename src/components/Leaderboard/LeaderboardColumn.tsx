@@ -33,8 +33,8 @@ export const LeaderboardColumn: React.FC<Props> = ({
   ranking,
 }: Props) => {
   return (
-    <div className="from-white/8 to-white/4 relative flex flex-col rounded-md border border-white/10 bg-gradient-to-br backdrop-blur-md">
-      <div className="flex h-12 flex-row items-center justify-start gap-2 border-b border-white/10 bg-white/5 px-3">
+    <div className="from-white/8 to-white/4 relative flex flex-col rounded-md border border-glass-border bg-gradient-to-br backdrop-blur-md">
+      <div className="flex h-12 flex-row items-center justify-start gap-2 border-b border-glass-border bg-white/5 px-3">
         <span className="material-symbols-outlined material-symbols-filled text-2xl text-white/70">
           {getIconForType(id)}
         </span>

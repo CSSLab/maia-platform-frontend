@@ -250,7 +250,7 @@ const AnimatedGameReplay: React.FC<{
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col border-t border-white/10">
+      <div className="flex min-h-0 flex-1 flex-col border-t border-glass-border">
         <MovesContainer
           game={{
             id: 'drill-performance',
@@ -381,7 +381,7 @@ const CustomTooltip: React.FC<{
   }
 
   return (
-    <div className="rounded border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-3 backdrop-blur-md">
+    <div className="rounded border border-glass-border bg-gradient-to-br from-white/10 to-white/5 p-3 backdrop-blur-md">
       <p className="text-sm font-medium text-primary">
         {data.san ? `${moveNotation} ${data.san}` : `${moveNotation}`}
       </p>
@@ -440,7 +440,7 @@ const EvaluationChart: React.FC<{
 
   if (evaluationChart.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded border border-white/10 bg-white/5 p-3 text-secondary backdrop-blur-sm">
+      <div className="flex h-64 items-center justify-center rounded border border-glass-border bg-white/5 p-3 text-secondary backdrop-blur-sm">
         <p>Evaluation chart unavailable</p>
       </div>
     )
@@ -788,7 +788,7 @@ const DesktopLayout: React.FC<{
   currentMoveIndex,
   getChartClassification,
 }) => (
-  <div className="from-white/8 to-white/4 relative flex h-[90vh] max-h-[800px] w-[95vw] max-w-[1200px] flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md">
+  <div className="from-white/8 to-white/4 relative flex h-[90vh] max-h-[800px] w-[95vw] max-w-[1200px] flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md">
     <div
       className="pointer-events-none absolute inset-0"
       style={{
@@ -800,7 +800,7 @@ const DesktopLayout: React.FC<{
       }}
     />
     {/* Header */}
-    <div className="flex items-center justify-between border-b border-white/10 p-4">
+    <div className="flex items-center justify-between border-b border-glass-border p-4">
       <div>
         <h2 className="text-xl font-bold text-primary">
           Opening Analysis Complete
@@ -829,7 +829,7 @@ const DesktopLayout: React.FC<{
     {/* Content */}
     <div className="flex flex-1 overflow-hidden">
       {/* Left Panel - Animated Game Replay */}
-      <div className="flex w-1/3 flex-col border-r border-white/10">
+      <div className="flex w-1/3 flex-col border-r border-glass-border">
         <TreeControllerContext.Provider
           value={{
             gameTree: gameTree,
@@ -846,7 +846,7 @@ const DesktopLayout: React.FC<{
       </div>
 
       {/* Center Panel - Evaluation Chart & Critical Decisions */}
-      <div className="red-scrollbar flex w-1/3 flex-col overflow-y-auto border-r border-white/10">
+      <div className="red-scrollbar flex w-1/3 flex-col overflow-y-auto border-r border-glass-border">
         <EvaluationChart
           evaluationChart={filteredEvaluationChart}
           moveAnalyses={performanceData.moveAnalyses}
@@ -899,7 +899,7 @@ const DesktopLayout: React.FC<{
         />
 
         {/* Critical Decisions Section */}
-        <div className="flex w-full flex-col gap-2 border-t border-white/10">
+        <div className="flex w-full flex-col gap-2 border-t border-glass-border">
           <div className="flex flex-col px-3 pt-3">
             <h3 className="text-lg font-semibold">Critical Decisions</h3>
             <p className="text-xs text-secondary">
@@ -995,7 +995,7 @@ const DesktopLayout: React.FC<{
               return criticalMoves.map((move, index) => (
                 <button
                   key={index}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded border border-white/10 bg-white/5 p-2 text-left transition-colors hover:bg-white/10"
+                  className="flex w-full cursor-pointer items-center gap-2 rounded border border-glass-border bg-white/5 p-2 text-left transition-colors hover:bg-white/10"
                   onClick={() => navigateToMove(move)}
                   type="button"
                 >
@@ -1053,12 +1053,12 @@ const DesktopLayout: React.FC<{
     </div>
 
     {/* Action Buttons */}
-    <div className="flex gap-3 border-t border-white/10 p-4">
+    <div className="flex gap-3 border-t border-glass-border p-4">
       <button
         onClick={onContinueAnalyzing}
         className={`${
           isLastDrill ? 'w-full' : 'flex-1'
-        } rounded border border-white/10 bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10`}
+        } rounded border border-glass-border bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10`}
       >
         Analyze
       </button>
@@ -1113,7 +1113,7 @@ const MobileLayout: React.FC<{
   currentMoveIndex,
   getChartClassification,
 }) => (
-  <div className="from-white/8 to-white/4 relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md">
+  <div className="from-white/8 to-white/4 relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md">
     <div
       className="pointer-events-none absolute inset-0"
       style={{
@@ -1125,7 +1125,7 @@ const MobileLayout: React.FC<{
       }}
     />
     {/* Header */}
-    <div className="flex items-center justify-between border-b border-white/10 p-4">
+    <div className="flex items-center justify-between border-b border-glass-border p-4">
       <div className="min-w-0 flex-1">
         <h2 className="text-lg font-bold text-primary">Analysis Complete</h2>
         <div className="mt-1">
@@ -1149,7 +1149,7 @@ const MobileLayout: React.FC<{
     </div>
 
     {/* Mobile Tab Navigation */}
-    <div className="flex w-full border-b border-white/10">
+    <div className="flex w-full border-b border-glass-border">
       <button
         onClick={() => setActiveTab('replay')}
         className={`flex-1 py-3 text-sm font-medium transition-colors ${
@@ -1266,10 +1266,10 @@ const MobileLayout: React.FC<{
     </div>
 
     {/* Action Buttons */}
-    <div className="flex gap-3 border-t border-white/10 p-4">
+    <div className="flex gap-3 border-t border-glass-border p-4">
       <button
         onClick={onContinueAnalyzing}
-        className="flex-1 rounded border border-white/10 bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
+        className="flex-1 rounded border border-glass-border bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
       >
         Analyze
       </button>

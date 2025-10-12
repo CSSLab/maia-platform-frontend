@@ -92,7 +92,7 @@ const BroadcastsPage: NextPage = () => {
           <title>Live Broadcasts – Maia Chess</title>
         </Head>
         <div className="flex min-h-screen items-center justify-center bg-backdrop">
-          <div className="rounded-lg border border-white/10 bg-glass p-6 text-center">
+          <div className="rounded-lg border border-glass-border bg-glass p-6 text-center">
             <h2 className="mb-4 text-xl font-semibold text-red-400">
               Failed to Load Broadcasts
             </h2>
@@ -219,7 +219,7 @@ const BroadcastsPage: NextPage = () => {
                     return (
                       <motion.div
                         key={broadcast.tour.id}
-                        className={`from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md transition-all duration-300 hover:border-white/20 ${
+                        className={`from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md transition-all duration-300 hover:border-glass-border ${
                           section.type === 'official-active' ? 'w-[280px]' : ''
                         }`}
                         variants={{
@@ -277,8 +277,8 @@ const BroadcastsPage: NextPage = () => {
                             hasOngoingRounds
                               ? 'border-red-500/30 bg-red-500/20 text-red-400 group-hover:bg-red-500/30'
                               : isPast
-                                ? 'border-white/10 bg-white/5 text-white/60 group-hover:bg-white/10 group-hover:text-white/80'
-                                : 'cursor-not-allowed border-white/10 bg-white/5 text-white/40'
+                                ? 'border-glass-border bg-white/5 text-white/60 group-hover:bg-white/10 group-hover:text-white/80'
+                                : 'cursor-not-allowed border-glass-border bg-white/5 text-white/40'
                           }`}
                         >
                           {hasOngoingRounds

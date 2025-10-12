@@ -253,8 +253,8 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           transition={{ duration: 0.4, ease: 'easeOut' }}
         >
-          <div className="from-white/8 to-white/4 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md">
-            <div className="border-b border-white/10 px-4 pt-4">
+          <div className="from-white/8 to-white/4 flex flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md">
+            <div className="border-b border-glass-border px-4 pt-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div className="mr-2 h-2 w-2 rounded-full bg-human-3" />
@@ -280,7 +280,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                     transform: 'translateZ(0)',
                   }}
                 >
-                  <div className="from-white/8 to-white/4 flex flex-col overflow-hidden rounded border border-white/10 bg-gradient-to-br backdrop-blur-md">
+                  <div className="from-white/8 to-white/4 flex flex-col overflow-hidden rounded border border-glass-border bg-gradient-to-br backdrop-blur-md">
                     <div
                       className="relative w-full"
                       style={{
@@ -312,7 +312,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                   }
                   transition={{ duration: 0.3, delay: 0.5 }}
                 >
-                  <div className="from-white/8 to-white/4 h-full w-full rounded border border-white/10 bg-gradient-to-br backdrop-blur-md">
+                  <div className="from-white/8 to-white/4 h-full w-full rounded border border-glass-border bg-gradient-to-br backdrop-blur-md">
                     <MovesByRating
                       moves={puzzleMockData.movesByRating}
                       colorSanMapping={puzzleMockData.colorSanMapping}
@@ -323,7 +323,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
 
                 {/* Position Analysis */}
                 <motion.div
-                  className="from-white/8 to-white/4 mt-3 overflow-hidden rounded border border-white/10 bg-gradient-to-br p-3 backdrop-blur-md"
+                  className="from-white/8 to-white/4 mt-3 overflow-hidden rounded border border-glass-border bg-gradient-to-br p-3 backdrop-blur-md"
                   initial={{ opacity: 0, y: 20 }}
                   animate={
                     inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }

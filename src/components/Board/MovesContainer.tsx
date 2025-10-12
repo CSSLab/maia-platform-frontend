@@ -348,7 +348,7 @@ export const MovesContainer: React.FC<
           ))}
           {termination && (
             <div
-              className="min-w-fit cursor-pointer border-b border-t border-white/10 bg-[rgb(var(--color-surface-2))] px-4 py-1 text-sm text-white/90"
+              className="min-w-fit cursor-pointer border-b border-t border-glass-border bg-[rgb(var(--color-surface-2))] px-4 py-1 text-sm text-white/90"
               onClick={() => {
                 if (!disableMoveClicking) {
                   controller.goToNode(mainLineNodes[mainLineNodes.length - 1])
@@ -469,7 +469,7 @@ export const MovesContainer: React.FC<
       })}
       {termination && !isMobile && (
         <div
-          className="border-glass-border col-span-5 cursor-pointer border-b border-t bg-glass p-5 text-center text-white/90 backdrop-blur-md"
+          className="col-span-5 cursor-pointer border-b border-t border-glass-border bg-glass p-5 text-center text-white/90 backdrop-blur-md"
           onClick={() => {
             if (!disableMoveClicking) {
               controller.goToNode(mainLineNodes[mainLineNodes.length - 1])

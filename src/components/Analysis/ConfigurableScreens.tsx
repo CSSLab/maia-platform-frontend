@@ -82,7 +82,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
     (learnFromMistakesCurrentInfo || learnFromMistakesState.showPlayerSelection)
   ) {
     return (
-      <div className="border-glass-border flex w-full flex-1 flex-col overflow-hidden bg-glass md:w-auto md:rounded">
+      <div className="flex w-full flex-1 flex-col overflow-hidden border-glass-border bg-glass md:w-auto md:rounded">
         <div className="red-scrollbar flex flex-1 flex-col items-start justify-start overflow-y-scroll">
           <LearnFromMistakes
             state={learnFromMistakesState}
@@ -119,8 +119,8 @@ export const ConfigurableScreens: React.FC<Props> = ({
   }
 
   return (
-    <div className="border-glass-border flex w-full flex-1 flex-col overflow-hidden bg-glass md:w-auto md:rounded">
-      <div className="flex flex-row border-b border-white/10">
+    <div className="flex w-full flex-1 flex-col overflow-hidden border-glass-border bg-glass md:w-auto md:rounded">
+      <div className="flex flex-row border-b border-glass-border">
         {screens.map((s) => {
           const selected = s.id === screen.id
           return (

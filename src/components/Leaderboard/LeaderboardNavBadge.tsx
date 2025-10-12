@@ -49,13 +49,13 @@ export const LeaderboardNavBadge: React.FC<LeaderboardNavBadgeProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="absolute right-0 top-full z-50 w-64 overflow-hidden rounded-md border border-white/10 text-white/90 shadow-lg"
+            className="absolute right-0 top-full z-50 w-64 overflow-hidden rounded-md border border-glass-border text-white/90 shadow-lg"
             style={{
               background:
                 'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), #171214',
             }}
           >
-            <div className="border-b border-white/10 px-3 py-2">
+            <div className="border-b border-glass-border px-3 py-2">
               <h3 className="text-sm font-medium text-white/90">
                 You&apos;re on the leaderboard!
               </h3>
@@ -88,7 +88,7 @@ export const LeaderboardNavBadge: React.FC<LeaderboardNavBadgeProps> = ({
                 </Link>
               ))}
             </div>
-            <div className="border-t border-white/10 px-3 py-2">
+            <div className="border-t border-glass-border px-3 py-2">
               <Link
                 href="/leaderboard"
                 className="text-xs text-secondary hover:text-primary"

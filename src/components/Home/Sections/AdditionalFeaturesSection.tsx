@@ -69,7 +69,7 @@ const FeatureCard = ({
 
   return (
     <motion.div
-      className="from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 flex flex-col overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br backdrop-blur-md transition-all duration-200 hover:border-white/20"
+      className="from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 flex flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md transition-all duration-200 hover:border-white/20"
       variants={variants}
     >
       <div className="flex flex-col p-5">

@@ -774,12 +774,12 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
       id="analysis-game-list"
       className={
         embedded
-          ? 'border-glass-border relative flex h-full flex-col items-start justify-start overflow-hidden border-b border-t bg-transparent'
-          : 'border-glass-border relative flex h-full flex-col items-start justify-start overflow-hidden border bg-glass backdrop-blur-md'
+          ? 'relative flex h-full flex-col items-start justify-start overflow-hidden border-b border-t border-glass-border bg-transparent'
+          : 'relative flex h-full flex-col items-start justify-start overflow-hidden border border-glass-border bg-glass backdrop-blur-md'
       }
     >
       <div className="flex h-full w-full flex-col">
-        <div className="border-glass-border flex select-none items-center border-b">
+        <div className="flex select-none items-center border-b border-glass-border">
           <Header
             label="★"
             name="favorites"
@@ -821,7 +821,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
         </div>
 
         {selected === 'custom' && onCustomAnalysis && (
-          <div className="flex border-b border-white/10">
+          <div className="flex border-b border-glass-border">
             <button
               onClick={onCustomAnalysis}
               className="flex w-full items-center gap-2 bg-white/5 px-3 py-1.5 text-white/80 transition duration-200 hover:bg-white/10"
@@ -838,7 +838,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
 
         {/* H&B Subsections */}
         {selected === 'hb' && (
-          <div className="flex border-b border-white/10">
+          <div className="flex border-b border-glass-border">
             <button
               onClick={() => setHbSubsection('hand')}
               className={`flex-1 px-3 text-sm transition-colors ${

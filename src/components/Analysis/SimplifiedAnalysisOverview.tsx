@@ -19,7 +19,7 @@ export const SimplifiedAnalysisOverview: React.FC<
     >
       <div className="hidden h-full w-full xl:flex">
         <div className="flex h-full w-full flex-1">
-          <div className="flex h-full w-auto min-w-[60%] max-w-[60%] flex-col overflow-hidden border-r border-white/10">
+          <div className="flex h-full w-auto min-w-[60%] max-w-[60%] flex-col overflow-hidden border-r border-glass-border">
             <SimplifiedHighlight {...highlightProps} />
           </div>
           <div className="flex h-full w-full flex-col">

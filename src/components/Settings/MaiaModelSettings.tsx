@@ -117,7 +117,7 @@ export const MaiaModelSettings: React.FC = () => {
   const statusDisplay = getStatusDisplay()
 
   return (
-    <div className="border-glass-border group flex flex-col gap-4 rounded-lg border bg-glass px-5 pb-0 pt-5">
+    <div className="group flex flex-col gap-4 rounded-lg border border-glass-border bg-glass px-5 pb-0 pt-5">
       <div className="flex flex-col items-start justify-between">
         <h3 className="text-lg font-semibold text-white/95">
           Maia Neural Network Model
@@ -142,7 +142,7 @@ export const MaiaModelSettings: React.FC = () => {
         )}
 
         {/* Shared border wrapper for Status + Storage */}
-        <div className="-mx-5 mt-1 border-t border-white/10">
+        <div className="-mx-5 mt-1 border-t border-glass-border">
           {/* Status section */}
           <div className="px-5 py-4 text-white/90">
             <div className="flex items-center gap-3">
@@ -173,7 +173,7 @@ export const MaiaModelSettings: React.FC = () => {
 
           {/* Storage Information section */}
           {storageInfo && (
-            <div className="border-t border-white/10 px-5 py-4 text-white/90">
+            <div className="border-t border-glass-border px-5 py-4 text-white/90">
               <h4 className="mb-3 font-medium text-white">
                 Storage Information
               </h4>
@@ -223,7 +223,7 @@ export const MaiaModelSettings: React.FC = () => {
                     <button
                       onClick={handleRedownloadModel}
                       disabled={status !== 'ready'}
-                      className="border-glass-border flex items-center justify-center gap-2 rounded-md border bg-glass-strong px-4 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:opacity-50"
+                      className="flex items-center justify-center gap-2 rounded-md border border-glass-border bg-glass-strong px-4 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-base text-white/80">
                         refresh

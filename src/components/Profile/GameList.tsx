@@ -275,7 +275,7 @@ export const GameList = ({
   }
 
   return (
-    <div className="border-glass-border flex w-full flex-col overflow-hidden rounded-md border bg-glass md:w-[600px]">
+    <div className="flex w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass md:w-[600px]">
       <div className="flex flex-row items-center justify-start gap-4 px-2 py-2 md:px-4">
         <span className="material-symbols-outlined !text-2xl text-red-500">
           sports_esports
@@ -284,7 +284,7 @@ export const GameList = ({
           {userName ? `${userName}'s Games` : 'Your Games'}
         </p>
       </div>
-      <div className="flex select-none items-center border-b border-white/10">
+      <div className="flex select-none items-center border-b border-glass-border">
         {showCustom && (
           <Header
             label="★"
@@ -337,7 +337,7 @@ export const GameList = ({
 
       {/* H&B Subsections */}
       {selected === 'hb' && (
-        <div className="flex h-6 items-center overflow-hidden border-b border-white/10">
+        <div className="flex h-6 items-center overflow-hidden border-b border-glass-border">
           <button
             onClick={() => setHbSubsection('hand')}
             className={`flex-1 px-3 text-sm transition-all duration-200 ${
@@ -432,7 +432,7 @@ export const GameList = ({
       {(selected === 'play' ||
         selected === 'hb' ||
         selected === 'favorites') && (
-        <div className="flex items-center justify-center gap-2 border-t border-white/10 bg-white/5 py-1">
+        <div className="flex items-center justify-center gap-2 border-t border-glass-border bg-white/5 py-1">
           <button
             onClick={() => handlePageChange(1)}
             disabled={currentPage === 1}

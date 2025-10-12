@@ -288,10 +288,10 @@ export const Highlight: React.FC<Props> = ({
   return (
     <div
       id="analysis-highlight"
-      className="flex h-full w-full flex-col border-white/10 bg-transparent"
+      className="flex h-full w-full flex-col border-glass-border bg-transparent"
     >
-      <div className="grid grid-cols-2 border-b border-white/10">
-        <div className="flex flex-col items-center justify-start gap-0.5 border-r border-white/10 xl:gap-1">
+      <div className="grid grid-cols-2 border-b border-glass-border">
+        <div className="flex flex-col items-center justify-start gap-0.5 border-r border-glass-border xl:gap-1">
           <div className="relative flex w-full flex-col border-b border-white/5">
             {isHomePage ? (
               <div className="py-2 text-center text-sm font-semibold text-human-1 md:text-xxs lg:text-xs">

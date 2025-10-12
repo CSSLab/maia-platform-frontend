@@ -29,15 +29,15 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
 }) => {
   const containerClass = embedded
     ? 'flex h-full w-full max-w-full flex-col'
-    : 'flex h-full w-full max-w-full flex-col border-r border-white/10'
+    : 'flex h-full w-full max-w-full flex-col border-r border-glass-border'
 
   const sectionHeaderClass = embedded
     ? 'px-4 py-4 w-full'
-    : 'border-b border-white/10 p-4 w-full'
+    : 'border-b border-glass-border p-4 w-full'
 
   const listHeaderClass = embedded
     ? 'px-4 py-2'
-    : 'border-b border-white/10 px-3 py-2'
+    : 'border-b border-glass-border px-3 py-2'
 
   const tree = useContext(TreeControllerContext)
 
@@ -114,7 +114,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
       </div>
 
       {/* Completed drills history */}
-      <div className="border-glass-border flex h-96 w-full flex-col overflow-hidden border-t">
+      <div className="flex h-96 w-full flex-col overflow-hidden border-t border-glass-border">
         <div className={listHeaderClass}>
           <h3 className="text-sm font-medium text-white/90">
             Completed Drills ({completedDrills.length})
@@ -181,7 +181,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
               })
           )}
         </div>
-        <div className="flex flex-col gap-1 border-t border-white/10 px-0 py-2">
+        <div className="flex flex-col gap-1 border-t border-glass-border px-0 py-2">
           <h3 className="px-4 text-sm font-medium text-white/90">
             Active Opening Pool ({selectionPool.length})
           </h3>
@@ -233,7 +233,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
 
       {/* Bottom: Moves + Controller (embedded) */}
       {tree?.gameTree && currentDrill && (
-        <div className="border-glass-border flex w-full flex-1 flex-col overflow-hidden border-t">
+        <div className="flex w-full flex-1 flex-col overflow-hidden border-t border-glass-border">
           <div className="red-scrollbar flex w-full flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <MovesContainer
               game={{ id: currentDrill.id, tree: tree.gameTree }}

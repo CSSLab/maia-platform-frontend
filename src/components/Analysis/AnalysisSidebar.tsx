@@ -169,7 +169,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
     const buttonBase =
       variant === 'desktop'
         ? 'flex items-center gap-1 rounded-md border border-glass-border bg-glass px-2 py-1 text-xs transition-colors hover:bg-glass-stronger'
-        : 'flex items-center gap-1 rounded-md border border-white/10 bg-[rgb(var(--color-surface-2))] px-2 py-1 text-xs transition-colors'
+        : 'flex items-center gap-1 rounded-md border border-glass-border bg-[rgb(var(--color-surface-2))] px-2 py-1 text-xs transition-colors'
 
     const viewButtonClass = `${buttonBase} ${
       isSimplifiedView ? 'text-white' : 'text-white/80'
@@ -242,7 +242,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
             'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
         }}
       >
-        <div className="rounded-md border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
+        <div className="rounded-md border border-glass-border bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
           <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
             lock
           </span>
@@ -256,7 +256,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
   const simplifiedLayout = (
     <>
       <div className="hidden xl:flex xl:flex-col xl:gap-3">
-        <div className="border-glass-border relative flex h-full flex-col overflow-hidden rounded-md border bg-glass-strong backdrop-blur-md">
+        <div className="relative flex h-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass-strong backdrop-blur-md">
           {renderHeader('desktop')}
           <div className="flex h-full w-full flex-1">
             <SimplifiedAnalysisOverview
@@ -272,7 +272,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
         </div>
       </div>
       <div className="flex h-full flex-col gap-3 xl:hidden">
-        <div className="border-glass-border relative flex overflow-hidden rounded-md border bg-glass-strong pt-10 backdrop-blur-md">
+        <div className="relative flex overflow-hidden rounded-md border border-glass-border bg-glass-strong pt-10 backdrop-blur-md">
           {renderHeader('mobile', 'absolute left-0 top-0 z-10 w-full')}
           <div className="flex h-full w-full flex-col gap-3 p-3">
             <SimplifiedAnalysisOverview
@@ -294,10 +294,10 @@ export const AnalysisSidebar: React.FC<Props> = ({
     <>
       <div className="hidden xl:flex xl:h-full xl:flex-col xl:gap-3">
         <div className="desktop-analysis-big-row-1-container relative flex gap-3">
-          <div className="border-glass-border flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass-strong backdrop-blur-md">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass-strong backdrop-blur-md">
             {renderHeader('desktop')}
             <div className="flex h-full w-full flex-1">
-              <div className="flex h-full w-auto min-w-[40%] max-w-[40%] border-r border-white/10">
+              <div className="flex h-full w-auto min-w-[40%] max-w-[40%] border-r border-glass-border">
                 <Highlight {...highlightProps} />
               </div>
               <div className="flex h-full w-full">
@@ -322,9 +322,9 @@ export const AnalysisSidebar: React.FC<Props> = ({
       </div>
 
       <div className="flex h-full flex-col gap-3 xl:hidden">
-        <div className="desktop-analysis-small-row-1-container border-glass-border relative flex overflow-hidden rounded-md border bg-glass-strong pt-10 backdrop-blur-md">
+        <div className="desktop-analysis-small-row-1-container relative flex overflow-hidden rounded-md border border-glass-border bg-glass-strong pt-10 backdrop-blur-md">
           {renderHeader('mobile', 'absolute left-0 top-0 z-10 w-full')}
-          <div className="flex h-full w-full border-r border-white/10">
+          <div className="flex h-full w-full border-r border-glass-border">
             <Highlight {...highlightProps} />
           </div>
           <div className="flex h-full w-auto min-w-[40%] max-w-[40%] p-3">
@@ -347,7 +347,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
         </div>
 
         <div className="desktop-analysis-small-row-3-container relative flex w-full">
-          <div className="border-glass-border relative flex h-full w-full flex-col overflow-hidden rounded-md border bg-glass backdrop-blur-md">
+          <div className="relative flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             <MovesByRating {...movesByRatingProps} />
             {!analysisEnabled &&
               renderDisabledOverlay('Enable analysis to see move evaluations')}
