@@ -173,18 +173,16 @@ class Engine {
       return
     }
 
-    // Handle mate values properly instead of converting to ±10000
+    // here, mate is in the perspective of white
     let mateIn: number | undefined = undefined
     if (!isNaN(mate) && isNaN(cp)) {
-      // For mate scores, use a very high cp value for sorting but keep mate info
       mateIn = mate
       cp = mate > 0 ? 10000 : -10000
     }
 
     /*
-      The Stockfish engine, by default, reports centipawn (CP) scores from White's perspective.
-      This means a positive CP indicates an advantage for White, while a negative CP indicates
-      an advantage for Black.
+      The Stockfish engine, by default, reports mate and centipawn (CP) scores from White's perspective.
+      This means a positive CP indicates an advantage for White, while a negative CP indicates an advantage for Black.
 
       However, when it's Black's turn to move, we want to interpret the CP score from Black's
       perspective. To achieve this, we invert the sign of the CP score when it's Black's turn.
@@ -225,9 +223,13 @@ class Engine {
         : cp - this.store[depth].model_optimal_cp
 
       const winrate = mateIn
-        ? mateIn > 0
-          ? 1.0
-          : 0.0
+        ? mateIn > 0 // if white has a mate in sight
+          ? isBlackTurn
+            ? 0.0 // black has no chance of winning if this move is played
+            : 1.0 // white has a 100% chance of winning if this move is played
+          : isBlackTurn
+            ? 1.0 // black has a 100% chance of winning if this move is played
+            : 0.0 // white has no chance of winning if this move is played
         : cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
 
       if (!this.store[depth].winrate_vec) {
