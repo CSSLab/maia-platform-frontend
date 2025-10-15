@@ -188,7 +188,7 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
             }
             playerToMove={
               analysisEnabled
-                ? analysisController.currentNode?.turn ?? 'w'
+                ? (analysisController.currentNode?.turn ?? 'w')
                 : 'w'
             }
           />
@@ -241,7 +241,7 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
             makeMove={analysisEnabled ? makeMove : mockMakeMove}
             playerToMove={
               analysisEnabled
-                ? analysisController.currentNode?.turn ?? 'w'
+                ? (analysisController.currentNode?.turn ?? 'w')
                 : 'w'
             }
           />

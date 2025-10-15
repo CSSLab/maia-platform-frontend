@@ -1118,7 +1118,7 @@ const Analysis: React.FC<Props> = ({
                   playerToMove={
                     analysisEnabled &&
                     !controller.learnFromMistakes.state.isActive
-                      ? controller.currentNode?.turn ?? 'w'
+                      ? (controller.currentNode?.turn ?? 'w')
                       : 'w'
                   }
                 />
@@ -1200,7 +1200,7 @@ const Analysis: React.FC<Props> = ({
                   playerToMove={
                     analysisEnabled &&
                     !controller.learnFromMistakes.state.isActive
-                      ? controller.currentNode?.turn ?? 'w'
+                      ? (controller.currentNode?.turn ?? 'w')
                       : 'w'
                   }
                 />

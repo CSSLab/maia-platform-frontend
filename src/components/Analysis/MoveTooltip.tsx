@@ -43,11 +43,7 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
 
   const formatMateDisplay = (mateValue: number) => {
     const deliveringColor =
-      mateValue > 0
-        ? playerToMove
-        : playerToMove === 'w'
-          ? 'b'
-          : 'w'
+      mateValue > 0 ? playerToMove : playerToMove === 'w' ? 'b' : 'w'
     const prefix = deliveringColor === 'w' ? '+' : '-'
     return `${prefix}M${Math.abs(mateValue)}`
   }

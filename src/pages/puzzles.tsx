@@ -1154,7 +1154,7 @@ const Train: React.FC<Props> = ({
                   }
                   playerToMove={
                     analysisEnabled && showAnalysis
-                      ? analysisController.currentNode?.turn ?? 'w'
+                      ? (analysisController.currentNode?.turn ?? 'w')
                       : 'w'
                   }
                 />
@@ -1206,7 +1206,7 @@ const Train: React.FC<Props> = ({
                   }
                   playerToMove={
                     analysisEnabled && showAnalysis
-                      ? analysisController.currentNode?.turn ?? 'w'
+                      ? (analysisController.currentNode?.turn ?? 'w')
                       : 'w'
                   }
                 />
