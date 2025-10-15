@@ -198,9 +198,6 @@ class Engine {
     const isBlackTurn = board.turn() === 'b'
     if (isBlackTurn) {
       cp *= -1
-      if (mateIn !== undefined) {
-        mateIn *= -1
-      }
     }
 
     if (this.store[depth]) {
@@ -222,15 +219,19 @@ class Engine {
         ? this.store[depth].model_optimal_cp - cp
         : cp - this.store[depth].model_optimal_cp
 
-      const winrate = mateIn
-        ? mateIn > 0 // if white has a mate in sight
-          ? isBlackTurn
-            ? 0.0 // black has no chance of winning if this move is played
-            : 1.0 // white has a 100% chance of winning if this move is played
-          : isBlackTurn
-            ? 1.0 // black has a 100% chance of winning if this move is played
-            : 0.0 // white has no chance of winning if this move is played
-        : cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
+      if (mateIn !== undefined) {
+        if (!this.store[depth].mate_vec) {
+          this.store[depth].mate_vec = {}
+        }
+        this.store[depth].mate_vec[move] = mateIn
+      } else if (this.store[depth].mate_vec) {
+        delete this.store[depth].mate_vec[move]
+        if (Object.keys(this.store[depth].mate_vec).length === 0) {
+          delete this.store[depth].mate_vec
+        }
+      }
+
+      const winrate = cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
 
       if (!this.store[depth].winrate_vec) {
         this.store[depth].winrate_vec = {}
@@ -244,11 +245,7 @@ class Engine {
         winrateVec[move] = winrate
       }
     } else {
-      const winrate = mateIn
-        ? mateIn > 0
-          ? 1.0
-          : 0.0
-        : cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
+      const winrate = cpToWinrate(cp * (isBlackTurn ? -1 : 1), false)
 
       this.store[depth] = {
         depth: depth,
@@ -258,7 +255,7 @@ class Engine {
         cp_relative_vec: { [move]: 0 },
         winrate_vec: { [move]: winrate },
         winrate_loss_vec: { [move]: 0 },
-        mate_in: mateIn,
+        mate_vec: mateIn !== undefined ? { [move]: mateIn } : undefined,
         sent: false,
       }
     }

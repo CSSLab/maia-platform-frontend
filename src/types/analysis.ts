@@ -29,7 +29,7 @@ export interface StockfishEvaluation {
   cp_relative_vec: { [key: string]: number }
   winrate_vec?: { [key: string]: number }
   winrate_loss_vec?: { [key: string]: number }
-  mate_in?: number
+  mate_vec?: { [key: string]: number }
   is_checkmate?: boolean
 }
 

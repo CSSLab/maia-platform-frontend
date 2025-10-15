@@ -17,7 +17,7 @@ export function convertBackendEvalToStockfishEval(
   const cp_relative_vec: { [key: string]: number } = {}
   let model_optimal_cp = -Infinity
   let model_move = ''
-  let bestMateIn: number | undefined = undefined
+  const mate_vec: { [key: string]: number } = {}
 
   // Detect mate values and convert them
   for (const move in possibleMoves) {
@@ -33,13 +33,13 @@ export function convertBackendEvalToStockfishEval(
         cp > 0
           ? Math.max(1, Math.floor(mateDistance / 100) + 1)
           : -Math.max(1, Math.floor(mateDistance / 100) + 1)
+      mate_vec[move] = mateIn
     }
 
     cp_vec[move] = cp
     if (cp > model_optimal_cp) {
       model_optimal_cp = cp
       model_move = move
-      bestMateIn = mateIn
     }
   }
 
@@ -89,10 +89,19 @@ export function convertBackendEvalToStockfishEval(
     for (const move in cp_vec_sorted) {
       cp_vec_sorted[move] *= -1
     }
-    if (bestMateIn !== undefined) {
-      bestMateIn *= -1
+    for (const move in mate_vec) {
+      mate_vec[move] *= -1
     }
   }
+
+  const mate_vec_sorted =
+    Object.keys(mate_vec).length > 0
+      ? Object.fromEntries(
+          Object.keys(cp_vec_sorted)
+            .filter((move) => mate_vec[move] !== undefined)
+            .map((move) => [move, mate_vec[move]]),
+        )
+      : undefined
 
   // We can't easily detect checkmate from backend data without FEN,
   // so we'll leave is_checkmate as undefined for backend evaluations
@@ -105,7 +114,7 @@ export function convertBackendEvalToStockfishEval(
     cp_relative_vec: cp_relative_vec_sorted,
     winrate_vec: winrate_vec_sorted,
     winrate_loss_vec: winrate_loss_vec_sorted,
-    mate_in: bestMateIn,
+    mate_vec: mate_vec_sorted,
     is_checkmate: undefined,
   }
 }

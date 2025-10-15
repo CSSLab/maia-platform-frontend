@@ -70,21 +70,82 @@ export const Highlight: React.FC<Props> = ({
       })()
     : false
 
-  // Helper function to format evaluation values
-  const formatEvaluation = (
-    cp: number,
-    mateIn?: number,
-    isCheckmate?: boolean,
-  ) => {
-    if (isCheckmate) {
+  const currentTurn: 'w' | 'b' =
+    currentNode?.turn || (recommendations.isBlackTurn ? 'b' : 'w')
+
+  const formatMateDisplay = (mateValue: number) => {
+    const deliveringColor =
+      mateValue > 0 ? currentTurn : currentTurn === 'w' ? 'b' : 'w'
+    const prefix = deliveringColor === 'w' ? '+' : '-'
+    return `${prefix}M${Math.abs(mateValue)}`
+  }
+
+  const getStockfishEvalDisplay = () => {
+    if (!moveEvaluation?.stockfish) {
+      return '...'
+    }
+
+    const { stockfish } = moveEvaluation
+    const isBlackTurn = currentTurn === 'b'
+
+    if (stockfish.is_checkmate) {
       return 'Checkmate'
     }
-    if (mateIn !== undefined) {
-      // Show +M2/-M2 to indicate whose mate it is
-      const sign = mateIn > 0 ? '+' : '-'
-      return `${sign}M${Math.abs(mateIn)}`
+
+    const mateEntries = Object.entries(stockfish.mate_vec ?? {})
+    const positiveMates = mateEntries.filter(([, mate]) => mate > 0)
+
+    if (positiveMates.length > 0) {
+      const minMate = positiveMates.reduce(
+        (min, [, mate]) => Math.min(min, mate),
+        Infinity,
+      )
+
+      if (isFinite(minMate)) {
+        return formatMateDisplay(minMate)
+      }
     }
-    return `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`
+
+    const mateVec = stockfish.mate_vec ?? {}
+    const cpEntries = Object.entries(stockfish.cp_vec)
+    const nonMateEntries = cpEntries.filter(
+      ([move]) => mateVec[move] === undefined,
+    )
+    const bestCp = nonMateEntries.reduce<number | null>((acc, [, cp]) => {
+      if (acc === null) {
+        return cp
+      }
+      return isBlackTurn ? Math.min(acc, cp) : Math.max(acc, cp)
+    }, null)
+
+    if (bestCp !== null) {
+      return `${bestCp > 0 ? '+' : ''}${(bestCp / 100).toFixed(2)}`
+    }
+
+    const opponentMates = mateEntries.filter(([, mate]) => mate < 0)
+    if (opponentMates.length > 0) {
+      const maxMate = opponentMates.reduce(
+        (max, [, mate]) => Math.max(max, Math.abs(mate)),
+        0,
+      )
+
+      if (maxMate > 0) {
+        return formatMateDisplay(-maxMate)
+      }
+    }
+
+    const fallbackCp = cpEntries.reduce<number | null>((acc, [, cp]) => {
+      if (acc === null) {
+        return cp
+      }
+      return isBlackTurn ? Math.min(acc, cp) : Math.max(acc, cp)
+    }, null)
+
+    if (fallbackCp !== null) {
+      return `${fallbackCp > 0 ? '+' : ''}${(fallbackCp / 100).toFixed(2)}`
+    }
+
+    return '...'
   }
   const [tooltipData, setTooltipData] = useState<{
     move: string
@@ -246,23 +307,26 @@ export const Highlight: React.FC<Props> = ({
       return currentTurn === 'w' ? '0.0%' : '100.0%'
     }
 
-    if (moveEvaluation?.stockfish?.is_checkmate) {
+    const stockfishEval = moveEvaluation?.stockfish
+
+    if (stockfishEval?.is_checkmate) {
       const currentTurn = currentNode?.turn || 'w'
       return currentTurn === 'w' ? '0.0%' : '100.0%'
     }
 
-    if (moveEvaluation?.stockfish?.mate_in !== undefined) {
-      const mateIn = moveEvaluation.stockfish.mate_in
-      return mateIn > 0 ? '100.0%' : '0.0%'
+    if (
+      stockfishEval?.model_move &&
+      stockfishEval.mate_vec &&
+      stockfishEval.mate_vec[stockfishEval.model_move] !== undefined
+    ) {
+      const mateValue = stockfishEval.mate_vec[stockfishEval.model_move]
+      const deliveringColor =
+        mateValue > 0 ? currentTurn : currentTurn === 'w' ? 'b' : 'w'
+      return deliveringColor === 'w' ? '100.0%' : '0.0%'
     }
 
-    if (
-      isInFirst10Ply &&
-      moveEvaluation?.stockfish?.model_optimal_cp !== undefined
-    ) {
-      const stockfishWinRate = cpToWinrate(
-        moveEvaluation.stockfish.model_optimal_cp,
-      )
+    if (isInFirst10Ply && stockfishEval?.model_optimal_cp !== undefined) {
+      const stockfishWinRate = cpToWinrate(stockfishEval.model_optimal_cp)
       return `${Math.round(stockfishWinRate * 1000) / 10}%`
     } else if (moveEvaluation?.maia) {
       return `${Math.round(moveEvaluation.maia.value * 1000) / 10}%`
@@ -391,13 +455,7 @@ export const Highlight: React.FC<Props> = ({
             <p className="text-sm font-bold text-engine-1 md:text-sm lg:text-lg">
               {isCurrentPositionCheckmate
                 ? 'Checkmate'
-                : moveEvaluation?.stockfish
-                  ? formatEvaluation(
-                      moveEvaluation.stockfish.model_optimal_cp,
-                      moveEvaluation.stockfish.mate_in,
-                      moveEvaluation.stockfish.is_checkmate,
-                    )
-                  : '...'}
+                : getStockfishEvalDisplay()}
             </p>
           </div>
 
@@ -424,6 +482,11 @@ export const Highlight: React.FC<Props> = ({
             {recommendations.stockfish
               ?.slice(0, 4)
               .map(({ move, cp, winrate, cp_relative }, index) => {
+                const mateValue = moveEvaluation?.stockfish?.mate_vec?.[move]
+                const moveEvalDisplay =
+                  mateValue !== undefined
+                    ? formatMateDisplay(mateValue)
+                    : `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`
                 return (
                   <button
                     key={index}
@@ -463,9 +526,7 @@ export const Highlight: React.FC<Props> = ({
                     <p
                       className={`text-right font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
                     >
-                      {Math.abs(cp) >= 10000
-                        ? `${cp > 0 ? '+' : '-'}M${Math.max(1, Math.floor(Math.abs(10000 - Math.abs(cp)) / 100) + 1)}`
-                        : `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`}
+                      {moveEvalDisplay}
                     </p>
                   </button>
                 )
