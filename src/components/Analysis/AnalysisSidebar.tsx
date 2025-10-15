@@ -202,10 +202,10 @@ export const AnalysisSidebar: React.FC<Props> = ({
             aria-pressed={isSimplifiedView}
           >
             <span className="material-symbols-outlined !text-xs text-white/80">
-              {isSimplifiedView ? 'view_agenda' : 'view_quilt'}
+              {isSimplifiedView ? 'expand_all' : 'collapse_all'}
             </span>
             <span className="text-white/90">
-              {isSimplifiedView ? 'Simple' : 'Detailed'}
+              {isSimplifiedView ? 'Expand' : 'Collapse'}
             </span>
           </button>
           <button
@@ -215,10 +215,10 @@ export const AnalysisSidebar: React.FC<Props> = ({
             aria-pressed={analysisEnabled}
           >
             <span className="material-symbols-outlined !text-xs text-white/80">
-              {analysisEnabled ? 'visibility' : 'visibility_off'}
+              {analysisEnabled ? 'visibility_off' : 'visibility'}
             </span>
             <span className="text-white/90">
-              {analysisEnabled ? 'Visible' : 'Hidden'}
+              {analysisEnabled ? 'Hide' : 'Show'}
             </span>
           </button>
         </div>
@@ -236,18 +236,16 @@ export const AnalysisSidebar: React.FC<Props> = ({
 
     return (
       <div
-        className={`pointer-events-none absolute ${offsetClasses} z-10 flex items-center justify-center overflow-hidden`}
-        style={{
-          background:
-            'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), rgba(23, 18, 20, 0.9)',
-        }}
+        className={`pointer-events-none absolute z-10 flex items-center justify-center overflow-hidden rounded-md border border-glass-border bg-backdrop/90 backdrop-blur-md ${offsetClasses}`}
       >
         <div className="rounded-md border border-glass-border bg-gradient-to-br from-white/10 to-white/5 p-4 text-center">
           <span className="material-symbols-outlined mb-2 text-3xl text-white/80">
             lock
           </span>
-          <p className="font-medium text-white">Analysis Disabled</p>
-          <p className="text-sm text-white/80">{message}</p>
+          <p className="font-medium tracking-wide text-white">
+            Analysis Disabled
+          </p>
+          <p className="text-xs text-secondary">{message}</p>
         </div>
       </div>
     )
