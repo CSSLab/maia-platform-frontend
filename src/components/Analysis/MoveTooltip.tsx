@@ -9,6 +9,8 @@ interface MoveTooltipProps {
   stockfishCp?: number
   stockfishWinrate?: number
   stockfishCpRelative?: number
+  stockfishMate?: number
+  playerToMove?: 'w' | 'b'
   position?: { x: number; y: number }
   isVisible?: boolean
   onClickMove?: (move: string) => void
@@ -21,6 +23,8 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
   stockfishCp,
   stockfishWinrate,
   stockfishCpRelative,
+  stockfishMate,
+  playerToMove = 'w',
   position,
   isVisible = true,
   onClickMove,
@@ -36,6 +40,24 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
       onClickMove(move)
     }
   }
+
+  const formatMateDisplay = (mateValue: number) => {
+    const deliveringColor =
+      mateValue > 0
+        ? playerToMove
+        : playerToMove === 'w'
+          ? 'b'
+          : 'w'
+    const prefix = deliveringColor === 'w' ? '+' : '-'
+    return `${prefix}M${Math.abs(mateValue)}`
+  }
+
+  const stockfishEvalDisplay =
+    stockfishMate !== undefined
+      ? formatMateDisplay(stockfishMate)
+      : stockfishCp !== undefined
+        ? `${stockfishCp > 0 ? '+' : ''}${(stockfishCp / 100).toFixed(2)}`
+        : undefined
 
   const tooltipContent = (
     <div
@@ -70,13 +92,10 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
         )}
 
         {/* Stockfish Evaluation */}
-        {stockfishCp !== undefined && (
+        {stockfishEvalDisplay !== undefined && (
           <div className="flex w-full items-center justify-between gap-2 font-mono">
             <span className="font-medium text-engine-2">SF Eval:</span>
-            <span>
-              {stockfishCp > 0 ? '+' : ''}
-              {(stockfishCp / 100).toFixed(2)}
-            </span>
+            <span>{stockfishEvalDisplay}</span>
           </div>
         )}
 

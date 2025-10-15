@@ -186,6 +186,11 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
                 ? analysisController.moveEvaluation
                 : undefined
             }
+            playerToMove={
+              analysisEnabled
+                ? analysisController.currentNode?.turn ?? 'w'
+                : 'w'
+            }
           />
           {!analysisEnabled && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
@@ -234,6 +239,11 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
               analysisEnabled ? parentSetHoverArrow : mockSetHoverArrow
             }
             makeMove={analysisEnabled ? makeMove : mockMakeMove}
+            playerToMove={
+              analysisEnabled
+                ? analysisController.currentNode?.turn ?? 'w'
+                : 'w'
+            }
           />
           {!analysisEnabled && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">

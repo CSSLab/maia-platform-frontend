@@ -1115,6 +1115,12 @@ const Analysis: React.FC<Props> = ({
                       ? controller.moveEvaluation
                       : undefined
                   }
+                  playerToMove={
+                    analysisEnabled &&
+                    !controller.learnFromMistakes.state.isActive
+                      ? controller.currentNode?.turn ?? 'w'
+                      : 'w'
+                  }
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
@@ -1190,6 +1196,12 @@ const Analysis: React.FC<Props> = ({
                     !controller.learnFromMistakes.state.isActive
                       ? makeMove
                       : mockMakeMove
+                  }
+                  playerToMove={
+                    analysisEnabled &&
+                    !controller.learnFromMistakes.state.isActive
+                      ? controller.currentNode?.turn ?? 'w'
+                      : 'w'
                   }
                 />
                 {(!analysisEnabled ||

@@ -27,6 +27,7 @@ interface MoveMapEntry {
   winrate?: number
   rawMaiaProb?: number
   relativeCp?: number
+  mate?: number
 }
 
 interface Props {
@@ -35,6 +36,7 @@ interface Props {
   setHoverArrow: React.Dispatch<React.SetStateAction<DrawShape | null>>
   makeMove: (move: string) => void
   isHomePage?: boolean
+  playerToMove?: 'w' | 'b'
 }
 
 const hexToRgba = (hex: string, alpha: number): string => {
@@ -54,6 +56,7 @@ export const MoveMap: React.FC<Props> = ({
   setHoverArrow,
   makeMove,
   isHomePage = false,
+  playerToMove = 'w',
 }: Props) => {
   const { isMobile, width } = useContext(WindowSizeContext)
   const [hoveredMove, setHoveredMove] = useState<string | null>(null)
@@ -249,6 +252,8 @@ export const MoveMap: React.FC<Props> = ({
         stockfishCp={hoveredMoveData.rawCp}
         stockfishWinrate={hoveredMoveData.winrate}
         stockfishCpRelative={hoveredMoveData.relativeCp}
+        stockfishMate={hoveredMoveData.mate}
+        playerToMove={playerToMove}
         position={mousePosition}
         onClickMove={isMobile ? onTooltipClick : undefined}
       />

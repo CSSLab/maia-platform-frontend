@@ -19,6 +19,7 @@ interface SimplifiedBlunderMeterProps {
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null
+  playerToMove?: 'w' | 'b'
 }
 
 type CategoryKey = 'goodMoves' | 'okMoves' | 'blunderMoves'
@@ -57,6 +58,7 @@ export const SimplifiedBlunderMeter: React.FC<SimplifiedBlunderMeterProps> = ({
   makeMove,
   colorSanMapping,
   moveEvaluation,
+  playerToMove = 'w',
 }) => {
   const categories = useMemo(
     () =>
@@ -121,6 +123,7 @@ export const SimplifiedBlunderMeter: React.FC<SimplifiedBlunderMeterProps> = ({
             makeMove={makeMove}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
         ))}
       </div>
@@ -140,6 +143,7 @@ interface SimplifiedBlunderMeterColumnProps {
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null
+  playerToMove?: 'w' | 'b'
 }
 
 const SimplifiedBlunderMeterColumn: React.FC<
@@ -153,6 +157,7 @@ const SimplifiedBlunderMeterColumn: React.FC<
   makeMove,
   colorSanMapping,
   moveEvaluation,
+  playerToMove = 'w',
 }) => {
   const { isMobile } = useContext(WindowSizeContext)
   const [tooltipData, setTooltipData] = useState<{
@@ -262,6 +267,8 @@ const SimplifiedBlunderMeterColumn: React.FC<
           stockfishCpRelative={
             moveEvaluation.stockfish?.cp_relative_vec?.[tooltipData.move]
           }
+          stockfishMate={moveEvaluation.stockfish?.mate_vec?.[tooltipData.move]}
+          playerToMove={playerToMove}
           position={tooltipData.position}
           onClickMove={isMobile ? handleTooltipClick : undefined}
         />

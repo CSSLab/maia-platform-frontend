@@ -153,6 +153,7 @@ export const Highlight: React.FC<Props> = ({
     stockfishCp?: number
     stockfishWinrate?: number
     stockfishCpRelative?: number
+    stockfishMate?: number
     position: { x: number; y: number }
   } | null>(null)
   const [mobileTooltipMove, setMobileTooltipMove] = useState<string | null>(
@@ -199,6 +200,8 @@ export const Highlight: React.FC<Props> = ({
           ? cpRelative
           : (matchingMove as { cp_relative?: number })?.cp_relative
 
+      const stockfishMate = moveEvaluation?.stockfish?.mate_vec?.[move]
+
       // Get Stockfish cp relative from the move evaluation if not provided
       const actualStockfishCpRelative =
         stockfishCpRelative !== undefined
@@ -211,6 +214,7 @@ export const Highlight: React.FC<Props> = ({
         stockfishCp,
         stockfishWinrate,
         stockfishCpRelative: actualStockfishCpRelative,
+        stockfishMate,
         position: { x: event.clientX, y: event.clientY },
       })
     }
@@ -257,6 +261,8 @@ export const Highlight: React.FC<Props> = ({
             ? cpRelative
             : (matchingMove as { cp_relative?: number })?.cp_relative
 
+        const stockfishMate = moveEvaluation?.stockfish?.mate_vec?.[move]
+
         // Get Stockfish cp relative from the move evaluation if not provided
         const actualStockfishCpRelative =
           stockfishCpRelative !== undefined
@@ -269,6 +275,7 @@ export const Highlight: React.FC<Props> = ({
           stockfishCp,
           stockfishWinrate,
           stockfishCpRelative: actualStockfishCpRelative,
+          stockfishMate,
           position: { x: event.clientX, y: event.clientY },
         })
       }
@@ -555,6 +562,7 @@ export const Highlight: React.FC<Props> = ({
                 makeMove={makeMove}
                 isHomePage={isHomePage}
                 simplified={simplified}
+                playerToMove={currentTurn}
               />
             </motion.div>
           ) : null}
@@ -570,6 +578,8 @@ export const Highlight: React.FC<Props> = ({
           stockfishCp={tooltipData.stockfishCp}
           stockfishWinrate={tooltipData.stockfishWinrate}
           stockfishCpRelative={tooltipData.stockfishCpRelative}
+          stockfishMate={tooltipData.stockfishMate}
+          playerToMove={currentTurn}
           position={tooltipData.position}
           onClickMove={isMobile ? handleTooltipClick : undefined}
         />

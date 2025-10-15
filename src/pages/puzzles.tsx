@@ -1152,6 +1152,11 @@ const Train: React.FC<Props> = ({
                       ? analysisController.moveEvaluation
                       : undefined
                   }
+                  playerToMove={
+                    analysisEnabled && showAnalysis
+                      ? analysisController.currentNode?.turn ?? 'w'
+                      : 'w'
+                  }
                 />
                 {!analysisEnabled && showAnalysis && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
@@ -1198,6 +1203,11 @@ const Train: React.FC<Props> = ({
                   }
                   makeMove={
                     analysisEnabled && showAnalysis ? makeMove : mockMakeMove
+                  }
+                  playerToMove={
+                    analysisEnabled && showAnalysis
+                      ? analysisController.currentNode?.turn ?? 'w'
+                      : 'w'
                   }
                 />
                 {!analysisEnabled && showAnalysis && (

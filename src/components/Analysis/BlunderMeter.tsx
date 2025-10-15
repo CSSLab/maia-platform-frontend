@@ -20,6 +20,7 @@ interface Props {
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null
+  playerToMove?: 'w' | 'b'
 }
 
 export const BlunderMeter: React.FC<Props> = ({
@@ -29,6 +30,7 @@ export const BlunderMeter: React.FC<Props> = ({
   colorSanMapping,
   showContainer = true,
   moveEvaluation,
+  playerToMove = 'w',
 }: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
 
@@ -40,6 +42,7 @@ export const BlunderMeter: React.FC<Props> = ({
       colorSanMapping={colorSanMapping}
       showContainer={showContainer}
       moveEvaluation={moveEvaluation}
+      playerToMove={playerToMove}
     />
   ) : (
     <DesktopBlunderMeter
@@ -49,6 +52,7 @@ export const BlunderMeter: React.FC<Props> = ({
       colorSanMapping={colorSanMapping}
       showContainer={showContainer}
       moveEvaluation={moveEvaluation}
+      playerToMove={playerToMove}
     />
   )
 }
@@ -60,6 +64,7 @@ const DesktopBlunderMeter: React.FC<Props> = ({
   colorSanMapping,
   showContainer = true,
   moveEvaluation,
+  playerToMove = 'w',
 }: Props) => {
   return (
     <div
@@ -79,6 +84,7 @@ const DesktopBlunderMeter: React.FC<Props> = ({
             probability={data.goodMoves.probability}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
           <Meter
             hover={hover}
@@ -90,6 +96,7 @@ const DesktopBlunderMeter: React.FC<Props> = ({
             probability={data.okMoves.probability}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
           <Meter
             hover={hover}
@@ -101,6 +108,7 @@ const DesktopBlunderMeter: React.FC<Props> = ({
             probability={data.blunderMoves.probability}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
         </div>
       </div>
@@ -115,6 +123,7 @@ const MobileBlunderMeter: React.FC<Props> = ({
   colorSanMapping,
   showContainer,
   moveEvaluation,
+  playerToMove = 'w',
 }: Props) => {
   return (
     <div
@@ -166,6 +175,7 @@ const MobileBlunderMeter: React.FC<Props> = ({
             makeMove={makeMove}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
           <MovesList
             title="OK Moves"
@@ -175,6 +185,7 @@ const MobileBlunderMeter: React.FC<Props> = ({
             makeMove={makeMove}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
           <MovesList
             title="Blunders"
@@ -184,6 +195,7 @@ const MobileBlunderMeter: React.FC<Props> = ({
             makeMove={makeMove}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
         </div>
       </div>
@@ -199,6 +211,7 @@ function MovesList({
   makeMove,
   colorSanMapping,
   moveEvaluation,
+  playerToMove = 'w',
 }: {
   title: string
   textColor: string
@@ -210,6 +223,7 @@ function MovesList({
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null
+  playerToMove?: 'w' | 'b'
 }) {
   const { isMobile } = useContext(WindowSizeContext)
   const [tooltipData, setTooltipData] = useState<{
@@ -309,6 +323,8 @@ function MovesList({
           stockfishCpRelative={
             moveEvaluation.stockfish?.cp_relative_vec?.[tooltipData.move]
           }
+          stockfishMate={moveEvaluation.stockfish?.mate_vec?.[tooltipData.move]}
+          playerToMove={playerToMove}
           position={tooltipData.position}
           onClickMove={isMobile ? handleTooltipClick : undefined}
         />
@@ -365,6 +381,7 @@ function Meter({
   probability,
   colorSanMapping,
   moveEvaluation,
+  playerToMove = 'w',
 }: {
   title: string
   textColor: string
@@ -378,6 +395,7 @@ function Meter({
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null
+  playerToMove?: 'w' | 'b'
 }) {
   const { isMobile } = useContext(WindowSizeContext)
   const [tooltipData, setTooltipData] = useState<{
@@ -493,6 +511,8 @@ function Meter({
           stockfishCpRelative={
             moveEvaluation.stockfish?.cp_relative_vec?.[tooltipData.move]
           }
+          stockfishMate={moveEvaluation.stockfish?.mate_vec?.[tooltipData.move]}
+          playerToMove={playerToMove}
           position={tooltipData.position}
           onClickMove={isMobile ? handleTooltipClick : undefined}
         />

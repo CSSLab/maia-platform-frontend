@@ -135,6 +135,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
     data: analysisEnabled ? controller.blunderMeter : emptyBlunderMeterData,
     colorSanMapping: analysisEnabled ? controller.colorSanMapping : {},
     moveEvaluation: analysisEnabled ? controller.moveEvaluation : undefined,
+    playerToMove: analysisEnabled ? (controller.currentNode?.turn ?? 'w') : 'w',
   }
 
   const blunderMeterProps: ComponentProps<typeof BlunderMeter> = {
@@ -146,6 +147,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
     colorSanMapping: analysisEnabled ? controller.colorSanMapping : {},
     setHoverArrow: analysisEnabled ? setHoverArrow : mockSetHoverArrow,
     makeMove: analysisEnabled ? makeMove : mockMakeMove,
+    playerToMove: analysisEnabled ? (controller.currentNode?.turn ?? 'w') : 'w',
   }
 
   const movesByRatingProps = {
