@@ -39,14 +39,12 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
 
   const tooltipContent = (
     <div
-      className={`fixed z-50 flex w-auto min-w-[12rem] flex-col overflow-hidden rounded-md border border-glass-border text-white/90 ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
+      className={`fixed z-50 flex w-auto min-w-48 flex-col overflow-hidden rounded-md border border-glass-border bg-backdrop/90 text-white/90 shadow-md backdrop-blur-md ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
       style={{
         left: position.x + 15,
         top: position.y - 10,
         transform:
           position.x > window.innerWidth - 250 ? 'translateX(-100%)' : 'none',
-        background:
-          'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), #171214',
       }}
       onClick={onClickMove ? () => onClickMove(move) : undefined}
       onKeyDown={onClickMove ? handleKeyDown : undefined}
