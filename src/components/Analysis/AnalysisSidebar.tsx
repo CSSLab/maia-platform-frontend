@@ -4,7 +4,6 @@ import {
   BlunderMeter,
   MovesByRating,
   SimplifiedAnalysisOverview,
-  SimplifiedHighlight,
   SimplifiedBlunderMeter,
 } from 'src/components/Analysis'
 import { motion } from 'framer-motion'
@@ -113,7 +112,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
         ],
       }
 
-  const highlightProps: ComponentProps<typeof SimplifiedHighlight> = {
+  const highlightProps: ComponentProps<typeof Highlight> = {
     hover: analysisEnabled ? hover : mockHover,
     makeMove: analysisEnabled ? makeMove : mockMakeMove,
     currentMaiaModel: controller.currentMaiaModel,
@@ -125,6 +124,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
     colorSanMapping: analysisEnabled ? controller.colorSanMapping : {},
     boardDescription: highlightBoardDescription,
     currentNode: controller.currentNode ?? undefined,
+    simplified: isSimplifiedView,
   }
 
   const simplifiedBlunderMeterProps: ComponentProps<

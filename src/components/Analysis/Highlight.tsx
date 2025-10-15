@@ -40,6 +40,7 @@ interface Props {
   boardDescription: { segments: DescriptionSegment[] }
   currentNode?: GameNode
   isHomePage?: boolean
+  simplified?: boolean
 }
 
 export const Highlight: React.FC<Props> = ({
@@ -53,6 +54,7 @@ export const Highlight: React.FC<Props> = ({
   boardDescription,
   currentNode,
   isHomePage = false,
+  simplified = false,
 }: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
 
@@ -238,23 +240,17 @@ export const Highlight: React.FC<Props> = ({
       })()
     : false
 
-  // Get the appropriate win rate
   const getWhiteWinRate = () => {
-    // Handle checkmate positions (check this first, even without Stockfish analysis)
     if (isCurrentPositionCheckmate) {
-      // If it's checkmate, the current player has lost
       const currentTurn = currentNode?.turn || 'w'
       return currentTurn === 'w' ? '0.0%' : '100.0%'
     }
 
-    // Handle checkmate positions detected by Stockfish
     if (moveEvaluation?.stockfish?.is_checkmate) {
-      // If it's checkmate, the current player has lost
       const currentTurn = currentNode?.turn || 'w'
       return currentTurn === 'w' ? '0.0%' : '100.0%'
     }
 
-    // Handle mate in X positions
     if (moveEvaluation?.stockfish?.mate_in !== undefined) {
       const mateIn = moveEvaluation.stockfish.mate_in
       return mateIn > 0 ? '100.0%' : '0.0%'
@@ -264,13 +260,11 @@ export const Highlight: React.FC<Props> = ({
       isInFirst10Ply &&
       moveEvaluation?.stockfish?.model_optimal_cp !== undefined
     ) {
-      // Use Stockfish win rate for first 10 ply
       const stockfishWinRate = cpToWinrate(
         moveEvaluation.stockfish.model_optimal_cp,
       )
       return `${Math.round(stockfishWinRate * 1000) / 10}%`
     } else if (moveEvaluation?.maia) {
-      // Use Maia win rate for later positions
       return `${Math.round(moveEvaluation.maia.value * 1000) / 10}%`
     }
     return '...'
@@ -278,7 +272,6 @@ export const Highlight: React.FC<Props> = ({
 
   useEffect(() => {
     const descriptionNowExists = boardDescription?.segments?.length > 0
-    // Only trigger animation when presence changes (exists vs doesn't exist)
     if (hasDescriptionRef.current !== descriptionNowExists) {
       hasDescriptionRef.current = descriptionNowExists
       setAnimationKey((prev) => prev + 1)
@@ -290,7 +283,11 @@ export const Highlight: React.FC<Props> = ({
       id="analysis-highlight"
       className="flex h-full w-full flex-col border-glass-border bg-transparent"
     >
-      <div className="grid grid-cols-2 border-b border-glass-border">
+      <div
+        className={`grid grid-cols-2 border-b border-glass-border ${
+          simplified ? 'grid-cols-1' : ''
+        }`}
+      >
         <div className="flex flex-col items-center justify-start gap-0.5 border-r border-glass-border xl:gap-1">
           <div className="relative flex w-full flex-col border-b border-white/5">
             {isHomePage ? (
@@ -330,15 +327,23 @@ export const Highlight: React.FC<Props> = ({
             </p>
           </div>
 
-          <div className="flex w-full flex-col items-start justify-center px-2 py-1.5 md:items-center xl:py-2">
-            <p className="mb-1 whitespace-nowrap text-sm font-semibold text-human-2 md:text-xxs lg:text-xs">
+          <div
+            className={`flex w-full flex-col items-start justify-center md:items-center ${simplified ? 'p-3' : 'px-2 py-1.5 xl:py-2'}`}
+          >
+            <p
+              className={`mb-1 whitespace-nowrap text-sm font-semibold text-human-2 ${simplified ? 'text-sm' : 'md:text-xxs lg:text-xs'}`}
+            >
               Human Moves
             </p>
             <div className="flex w-full cursor-pointer items-center justify-between">
-              <p className="text-left font-mono text-sm text-secondary/50 md:text-xxs">
+              <p
+                className={`text-left font-mono ${simplified ? 'text-xs' : 'text-sm md:text-xxs'} text-secondary/50`}
+              >
                 move
               </p>
-              <p className="text-right font-mono text-sm text-secondary/50 md:text-xxs">
+              <p
+                className={`text-right font-mono ${simplified ? 'text-xs' : 'text-sm md:text-xxs'} text-secondary/50`}
+              >
                 prob
               </p>
             </div>
@@ -354,10 +359,14 @@ export const Highlight: React.FC<Props> = ({
                   onMouseEnter={(e) => handleMouseEnter(move, 'maia', e, prob)}
                   onClick={(e) => handleClick(move, 'maia', e, prob)}
                 >
-                  <p className="text-left font-mono text-sm md:text-xxs xl:text-xs">
+                  <p
+                    className={`text-left font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
+                  >
                     {colorSanMapping[move]?.san ?? move}
                   </p>
-                  <p className="text-right font-mono text-sm md:text-xxs xl:text-xs">
+                  <p
+                    className={`text-right font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
+                  >
                     {(Math.round(prob * 1000) / 10).toFixed(1)}%
                   </p>
                 </button>
@@ -392,15 +401,23 @@ export const Highlight: React.FC<Props> = ({
             </p>
           </div>
 
-          <div className="flex w-full flex-col items-start justify-center px-2 py-1.5 md:items-center xl:py-2">
-            <p className="mb-1 whitespace-nowrap text-sm font-semibold text-engine-2 md:text-xxs lg:text-xs">
+          <div
+            className={`flex w-full flex-col items-start justify-center ${simplified ? 'p-3' : 'px-2 py-1.5 xl:py-2'} md:items-center`}
+          >
+            <p
+              className={`mb-1 whitespace-nowrap text-sm font-semibold text-engine-2 ${simplified ? 'text-sm' : 'md:text-xxs lg:text-xs'}`}
+            >
               Engine Moves
             </p>
             <div className="flex w-full cursor-pointer items-center justify-between">
-              <p className="text-left font-mono text-sm text-secondary/50 md:text-xxs">
+              <p
+                className={`text-left font-mono text-secondary/50 ${simplified ? 'text-xs' : 'text-sm md:text-xxs'}`}
+              >
                 move
               </p>
-              <p className="text-right font-mono text-sm text-secondary/50 md:text-xxs">
+              <p
+                className={`text-right font-mono text-secondary/50 ${simplified ? 'text-xs' : 'text-sm md:text-xxs'}`}
+              >
                 eval
               </p>
             </div>
@@ -438,10 +455,14 @@ export const Highlight: React.FC<Props> = ({
                       )
                     }
                   >
-                    <p className="text-left font-mono text-sm md:text-xxs xl:text-xs">
+                    <p
+                      className={`text-left font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
+                    >
                       {colorSanMapping[move]?.san ?? move}
                     </p>
-                    <p className="text-right font-mono text-sm md:text-xxs xl:text-xs">
+                    <p
+                      className={`text-right font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
+                    >
                       {Math.abs(cp) >= 10000
                         ? `${cp > 0 ? '+' : '-'}M${Math.max(1, Math.floor(Math.abs(10000 - Math.abs(cp)) / 100) + 1)}`
                         : `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(2)}`}
@@ -452,7 +473,9 @@ export const Highlight: React.FC<Props> = ({
           </div>
         </div>
       </div>
-      <div className="flex flex-col items-start justify-start bg-transparent p-2 text-sm">
+      <div
+        className={`flex flex-col items-start justify-start bg-transparent text-sm ${simplified ? 'p-3' : 'p-2'}`}
+      >
         <AnimatePresence mode="wait">
           {boardDescription?.segments?.length > 0 ? (
             <motion.div
@@ -470,6 +493,7 @@ export const Highlight: React.FC<Props> = ({
                 hover={hover}
                 makeMove={makeMove}
                 isHomePage={isHomePage}
+                simplified={simplified}
               />
             </motion.div>
           ) : null}

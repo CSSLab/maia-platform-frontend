@@ -16,6 +16,7 @@ interface Props {
   hover: (move?: string) => void
   makeMove: (move: string) => void
   isHomePage?: boolean
+  simplified?: boolean
 }
 
 export const InteractiveDescription: React.FC<Props> = ({
@@ -25,6 +26,7 @@ export const InteractiveDescription: React.FC<Props> = ({
   hover,
   makeMove,
   isHomePage = false,
+  simplified = false,
 }) => {
   const [tooltipData, setTooltipData] = useState<{
     move: string
@@ -82,12 +84,10 @@ export const InteractiveDescription: React.FC<Props> = ({
   return (
     <div className="w-full">
       <p
-        className={`w-full whitespace-normal break-words leading-tight text-secondary xl:leading-tight ${isHomePage ? 'text-xs' : 'text-sm md:text-[11px]'}`}
+        className={`w-full whitespace-normal break-words leading-tight text-secondary xl:leading-tight ${isHomePage ? 'text-xs' : simplified ? 'text-sm' : 'text-sm md:text-[11px]'}`}
       >
         {renderSegments()}
       </p>
-
-      {/* Tooltip */}
       {tooltipData && moveEvaluation && (
         <MoveTooltip
           move={tooltipData.move}

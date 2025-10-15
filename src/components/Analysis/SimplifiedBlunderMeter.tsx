@@ -77,7 +77,7 @@ export const SimplifiedBlunderMeter: React.FC<SimplifiedBlunderMeterProps> = ({
   )
 
   return (
-    <div className="flex h-full w-full flex-col gap-4 px-4 py-3">
+    <div className="flex h-full w-full flex-col gap-4 p-3">
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold text-primary xl:text-base">
           Blunder Meter
@@ -109,7 +109,7 @@ export const SimplifiedBlunderMeter: React.FC<SimplifiedBlunderMeterProps> = ({
         </div>
       </div>
 
-      <div className="flex w-full flex-col gap-4 md:flex-row md:flex-wrap md:gap-6">
+      <div className="flex w-full flex-col gap-4 md:gap-6">
         {categories.map((category) => (
           <SimplifiedBlunderMeterColumn
             key={category.key}
@@ -225,11 +225,11 @@ const SimplifiedBlunderMeterColumn: React.FC<
     <div className="flex min-w-[140px] flex-1 flex-col">
       <div className="flex items-baseline justify-between">
         <p className={`text-sm font-semibold ${textColor}`}>{title}</p>
-        <span className="text-xs text-white/70">
+        <span className="text-sm text-white/70">
           {Math.round(probability)}%
         </span>
       </div>
-      <div className="mt-1 flex flex-1 flex-col gap-1 text-xs text-secondary">
+      <div className="mt-1 flex flex-row flex-wrap gap-3 text-sm text-secondary">
         {filteredMoves.length ? (
           filteredMoves.map((move) => (
             <button
