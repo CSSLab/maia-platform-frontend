@@ -23,7 +23,7 @@
     "lila-stockfish-web": "^0.0.7",
     "next": "^15.2.3",
     "next-transpile-modules": "^10.0.1",
-    "onnxruntime-web": "^1.21.0-dev.20250114-228dd16893",
+    "onnxruntime-web": "^1.23.0",
     "posthog-js": "^1.257.0",
     "posthog-node": "^5.3.1",
     "react": "^18.3.1",
