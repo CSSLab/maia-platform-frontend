@@ -109,7 +109,7 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
           <span className="material-symbols-outlined !text-sm">
             {analysisEnabled ? 'visibility' : 'visibility_off'}
           </span>
-          {analysisEnabled ? 'Visible' : 'Hidden'}
+          {analysisEnabled ? 'Hide' : 'Show'}
         </button>
       </div>
 

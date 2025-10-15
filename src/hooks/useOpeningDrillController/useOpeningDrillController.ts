@@ -249,7 +249,12 @@ export const useOpeningDrillController = (
     setContinueAnalyzingMode(false)
   }, [currentDrill])
 
-  const gameTree = currentDrillGame?.tree || new GameTree(new Chess().fen())
+  const fallbackGameTree = useMemo(
+    () => new GameTree(new Chess().fen()),
+    [],
+  )
+
+  const gameTree = currentDrillGame?.tree || fallbackGameTree
 
   // Delegate navigation/orientation to the shared tree controller
   const treeController = useTreeController(

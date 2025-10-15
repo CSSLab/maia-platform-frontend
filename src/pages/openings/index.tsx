@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import { NextPage } from 'next'
-import { useRouter } from 'next/router'
 import { useState, useEffect, useContext, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/router'
 import { Chess, PieceSymbol } from 'chess.ts'
 import { AnimatePresence } from 'framer-motion'
 import type { Key } from 'chessground/types'
@@ -44,6 +44,7 @@ const OpeningsPage: NextPage = () => {
   const handleCloseModal = () => {
     router.push('/')
   }
+
   const [drillConfiguration, setDrillConfiguration] =
     useState<DrillConfiguration | null>(null)
   const [promotionFromTo, setPromotionFromTo] = useState<
@@ -58,13 +59,12 @@ const OpeningsPage: NextPage = () => {
     }
   }, [])
 
-  const emptyConfiguration: DrillConfiguration = {
-    selections: [],
-  }
-
-  const controller = useOpeningDrillController(
-    drillConfiguration || emptyConfiguration,
+  const safeConfiguration = useMemo<DrillConfiguration>(
+    () => drillConfiguration ?? { selections: [] },
+    [drillConfiguration],
   )
+
+  const controller = useOpeningDrillController(safeConfiguration)
   const { isMobile } = useContext(WindowSizeContext)
 
   const playerNames = useMemo(() => {
@@ -192,12 +192,7 @@ const OpeningsPage: NextPage = () => {
     }
   }, [controller.gameTree, controller.currentDrill?.id])
 
-  // Show selection modal when no drill configuration exists
-  useEffect(() => {
-    if (!drillConfiguration || drillConfiguration.selections.length === 0) {
-      setShowSelectionModal(true)
-    }
-  }, [drillConfiguration])
+  // Removed auto-reopen behavior so the modal can be dismissed even without configuration
 
   const handleCompleteSelection = useCallback(
     (configuration: DrillConfiguration) => {
@@ -444,11 +439,7 @@ const OpeningsPage: NextPage = () => {
   }
 
   // Show selection modal when no drill configuration exists (after model is ready)
-  if (
-    !drillConfiguration ||
-    drillConfiguration.selections.length === 0 ||
-    showSelectionModal
-  ) {
+  if (showSelectionModal) {
     return (
       <>
         <Head>

@@ -1589,7 +1589,6 @@ export const OpeningSelectionModal: React.FC<Props> = ({
               'radial-gradient(ellipse 180% 160% at 0% 100%, rgba(239, 68, 68, 0.10) 0%, transparent 72%)',
           }}
         />
-        {/* Close Button - Top Right of Modal */}
         <button
           onClick={onClose}
           className="absolute right-4 top-4 z-10 text-secondary transition-colors hover:text-primary"
