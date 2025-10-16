@@ -228,14 +228,6 @@ export const Header: React.FC = () => {
               BROADCASTS
             </Link>
           )}
-          {!isCompactDesktopNav && (
-            <Link
-              href="/leaderboard"
-              className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/leaderboard') ? '!text-primary' : '!text-primary/80'}`}
-            >
-              LEADERBOARD
-            </Link>
-          )}
           <div
             className="relative"
             onMouseEnter={() => setShowMoreDropdown(true)}
@@ -273,40 +265,38 @@ export const Header: React.FC = () => {
                         Broadcasts
                       </Link>
                     )}
-                    {isCompactDesktopNav && (
-                      <Link
-                        href="/leaderboard"
-                        className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-glass ${
-                          router.pathname.startsWith('/leaderboard')
-                            ? 'text-primary'
-                            : 'text-white/90'
-                        }`}
-                      >
-                        Leaderboard
-                      </Link>
-                    )}
+                    <Link
+                      href="/leaderboard"
+                      className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-glass ${
+                        router.pathname.startsWith('/leaderboard')
+                          ? 'text-primary'
+                          : 'text-white/90'
+                      }`}
+                    >
+                      Leaderboard
+                    </Link>
                     <Link
                       href="/blog"
                       className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
                     >
-                      Blog
+                      Maia Blog
                     </Link>
-                    <a
+                    {/* <a
                       target="_blank"
                       rel="noreferrer"
                       href="https://twitch.tv/maiachess"
                       className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
                     >
                       Watch
-                    </a>
-                    <a
+                    </a> */}
+                    {/* <a
                       target="_blank"
                       rel="noreferrer"
                       href="https://forms.gle/XYeoTJF4YgUu4Vq28"
                       className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
                     >
                       Feedback
-                    </a>
+                    </a> */}
                   </div>
                 </motion.div>
               )}
@@ -363,14 +353,13 @@ export const Header: React.FC = () => {
               <span className="material-symbols-outlined text-3xl">menu</span>
             </button>
           </div>
-          <div className="flex flex-col gap-6 px-12">
-            <div className="flex flex-col items-start justify-center gap-6">
+          <div className="flex flex-col gap-5 px-12 tracking-wider">
+            <div className="flex flex-col items-start justify-center gap-3">
               <button>PLAY</button>
-              <div className="flex flex-col items-start justify-center gap-4">
+              <div className="ml-4 flex flex-col items-start justify-center gap-2">
                 <button onClick={() => startGame('againstMaia')}>
                   Play Maia
                 </button>
-
                 <button onClick={() => startGame('handAndBrain')}>
                   Play Hand and Brain
                 </button>
@@ -402,24 +391,24 @@ export const Header: React.FC = () => {
               Leaderboard
             </Link>
             <Link href="/blog" className="uppercase">
-              Blog
+              Maia Blog
             </Link>
-            <a
+            {/* <a
               target="_blank"
               rel="noreferrer"
               href="https://twitch.tv/maiachess"
               className="uppercase"
             >
               Watch
-            </a>
-            <a
+            </a> */}
+            {/* <a
               target="_blank"
               rel="noreferrer"
               href="https://forms.gle/XYeoTJF4YgUu4Vq28"
               className="uppercase"
             >
               Feedback
-            </a>
+            </a> */}
             {user?.lichessId && (
               <>
                 <Link href="/profile" className="uppercase">
@@ -434,14 +423,7 @@ export const Header: React.FC = () => {
               </>
             )}
           </div>
-          <div className="flex w-full flex-row items-center gap-3 px-4">
-            <a
-              target="_blank"
-              rel="noreferrer"
-              href="https://discord.gg/Az93GqEAs7"
-            >
-              <div className="h-6 w-6">{DiscordIcon}</div>
-            </a>
+          <div className="flex w-full flex-row items-center gap-3 px-12">
             {user?.lichessId && (
               <LeaderboardNavBadge
                 status={leaderboardStatus}
@@ -450,10 +432,10 @@ export const Header: React.FC = () => {
             )}
             {user?.lichessId ? (
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-xl text-primary/80">
+                <span className="material-symbols-outlined text-2xl text-primary/80">
                   account_circle
                 </span>
-                <span className="text-sm font-medium text-primary/90">
+                <span className="text-lg font-medium tracking-wider text-primary/90">
                   {user?.displayName}
                 </span>
               </div>
@@ -470,7 +452,10 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <div className="flex w-screen flex-row items-center justify-center pb-1 pt-4 md:pb-0">
+      <div
+        data-component="app-header"
+        className="flex w-screen flex-row items-center justify-center pb-1 pt-4 md:pb-0"
+      >
         {isMobile ? mobileLayout : desktopLayout}
       </div>
     </>
