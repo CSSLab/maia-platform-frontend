@@ -44,9 +44,14 @@ export const useAutoSave = ({
         return
       }
 
-      const hasMeaningfulAnalysis = analysisData.some(
-        (pos) => (pos.stockfish && pos.stockfish.depth >= 12) || pos.maia,
-      )
+      const hasMeaningfulAnalysis = analysisData.some((pos) => {
+        const hasDeepStockfish = pos.stockfish && pos.stockfish.depth >= 12
+        const hasMateData =
+          (pos.stockfish?.mate_vec &&
+            Object.keys(pos.stockfish.mate_vec).length > 0) ||
+          false
+        return hasDeepStockfish || hasMateData || !!pos.maia
+      })
 
       if (!hasMeaningfulAnalysis) {
         setIsAutoSaving(false)

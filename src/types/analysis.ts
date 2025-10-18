@@ -40,6 +40,7 @@ export interface CachedEngineAnalysisEntry {
   stockfish?: {
     depth: number
     cp_vec: MoveValueMapping
+    mate_vec?: MoveValueMapping
   }
 }
 

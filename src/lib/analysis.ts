@@ -169,6 +169,7 @@ export const collectEngineAnalysisData = (
       position.stockfish = {
         depth: node.analysis.stockfish.depth,
         cp_vec: node.analysis.stockfish.cp_vec,
+        mate_vec: node.analysis.stockfish.mate_vec,
       }
     }
 
@@ -182,6 +183,7 @@ const reconstructCachedStockfishAnalysis = (
   cpVec: { [move: string]: number },
   depth: number,
   fen: string,
+  mateVec?: { [move: string]: number },
 ) => {
   const board = new Chess(fen)
   const isBlackTurn = board.turn() === 'b'
@@ -248,6 +250,7 @@ const reconstructCachedStockfishAnalysis = (
     cp_relative_vec,
     winrate_vec: sortedWinrateVec,
     winrate_loss_vec: sortedWinrateLossVec,
+    mate_vec: mateVec,
   }
 }
 
@@ -273,6 +276,7 @@ export const applyEngineAnalysisData = (
             stockfish.cp_vec,
             stockfish.depth,
             node.fen,
+            stockfish.mate_vec,
           )
 
           if (
