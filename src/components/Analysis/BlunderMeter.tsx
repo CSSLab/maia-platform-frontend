@@ -176,6 +176,7 @@ const MobileBlunderMeter: React.FC<Props> = ({
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
             playerToMove={playerToMove}
+            probability={data.goodMoves.probability}
           />
           <MovesList
             title="OK Moves"
@@ -186,6 +187,7 @@ const MobileBlunderMeter: React.FC<Props> = ({
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
             playerToMove={playerToMove}
+            probability={data.okMoves.probability}
           />
           <MovesList
             title="Blunders"
@@ -196,6 +198,7 @@ const MobileBlunderMeter: React.FC<Props> = ({
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
             playerToMove={playerToMove}
+            probability={data.blunderMoves.probability}
           />
         </div>
       </div>
@@ -212,6 +215,7 @@ function MovesList({
   colorSanMapping,
   moveEvaluation,
   playerToMove = 'w',
+  probability,
 }: {
   title: string
   textColor: string
@@ -224,6 +228,7 @@ function MovesList({
     stockfish?: StockfishEvaluation
   } | null
   playerToMove?: 'w' | 'b'
+  probability: number
 }) {
   const { isMobile } = useContext(WindowSizeContext)
   const [tooltipData, setTooltipData] = useState<{
@@ -241,7 +246,17 @@ function MovesList({
   }, [colorSanMapping])
 
   const filteredMoves = () => {
-    return moves.slice(0, 6).filter((move) => move.probability >= 8)
+    const threshold = 5
+    const filtered = moves
+      .slice(0, 6)
+      .filter((move) => move.probability >= threshold)
+
+    // If category has meaningful probability but no moves meet threshold, show top move
+    if (filtered.length === 0 && probability >= 10 && moves.length > 0) {
+      return [moves[0]]
+    }
+
+    return filtered
   }
 
   const handleMouseEnter = (move: string, event: React.MouseEvent) => {
@@ -413,7 +428,17 @@ function Meter({
   }, [colorSanMapping])
 
   const filteredMoves = () => {
-    return moves.slice(0, 6).filter((move) => move.probability >= 8)
+    const threshold = 8
+    const filtered = moves
+      .slice(0, 6)
+      .filter((move) => move.probability >= threshold)
+
+    // If category has meaningful probability but no moves meet threshold, show top move
+    if (filtered.length === 0 && probability >= 10 && moves.length > 0) {
+      return [moves[0]]
+    }
+
+    return filtered
   }
 
   const handleMouseEnter = (move: string, event: React.MouseEvent) => {
