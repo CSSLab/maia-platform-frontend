@@ -1,44 +1,18 @@
 import { Chess } from 'chess.ts'
 import { GameTree } from 'src/types'
-import { TrainingGame } from 'src/types/training'
+import { PuzzleGame } from 'src/types/puzzle'
 import { useMemo, useCallback, useEffect } from 'react'
 import { useTreeController } from '../useTreeController'
 
-const buildTrainingGameTree = (game: TrainingGame): GameTree => {
-  if (!game.moves || game.moves.length === 0) {
-    return new GameTree(new Chess().fen())
-  }
-
-  const initialFen = game.moves[0].board
-  const tree = new GameTree(initialFen)
-  let currentNode = tree.getRoot()
-
-  for (let i = 1; i < game.moves.length; i++) {
-    const move = game.moves[i]
-    if (move.uci && move.san) {
-      currentNode = tree.addMainMove(
-        currentNode,
-        move.board,
-        move.uci,
-        move.san,
-      )
-    }
-  }
-
-  return tree
-}
-
-export const useTrainingController = (game: TrainingGame) => {
-  const gameTree = useMemo(() => buildTrainingGameTree(game), [game])
+export const useTrainingController = (game: PuzzleGame) => {
   const initialOrientation = useMemo(() => {
-    const puzzleFen = game.moves[game.targetIndex].board
-    const chess = new Chess(puzzleFen)
+    const chess = new Chess(game.tree.getLastMainlineNode().fen)
     return chess.turn() === 'w' ? 'white' : 'black'
-  }, [game.targetIndex, game.moves])
-  const controller = useTreeController(gameTree, initialOrientation)
+  }, [game.targetIndex])
+  const controller = useTreeController(game.tree, initialOrientation)
 
   const puzzleStartingNode = useMemo(() => {
-    let node = gameTree.getRoot()
+    let node = controller.tree.getRoot()
     for (let i = 1; i <= game.targetIndex; i++) {
       if (node.mainChild) {
         node = node.mainChild
@@ -47,7 +21,7 @@ export const useTrainingController = (game: TrainingGame) => {
       }
     }
     return node
-  }, [gameTree, game.targetIndex])
+  }, [controller.tree, game.targetIndex])
 
   useEffect(() => {
     controller.goToNode(puzzleStartingNode)
@@ -73,7 +47,7 @@ export const useTrainingController = (game: TrainingGame) => {
 
   const onPlayerGuess = useCallback(
     (moveUci: string) => {
-      const newNode = controller.gameTree.addMoveToMainLine(moveUci)
+      const newNode = controller.tree.addMoveToMainLine(moveUci)
       if (newNode) {
         controller.setCurrentNode(newNode)
       }
@@ -92,7 +66,7 @@ export const useTrainingController = (game: TrainingGame) => {
     availableMovesMapped,
     puzzleStartingNode,
 
-    gameTree: controller.gameTree,
+    gameTree: controller.tree,
     currentNode: controller.currentNode,
     setCurrentNode: controller.setCurrentNode,
     goToNode: controller.goToNode,

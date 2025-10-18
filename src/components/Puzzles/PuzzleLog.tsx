@@ -1,22 +1,36 @@
 import { Dispatch, SetStateAction } from 'react'
 
-import { TrainingGame } from 'src/types/training'
+import { PuzzleGame } from 'src/types/puzzle'
 
 interface Props {
-  previousGameResults: (TrainingGame & {
+  previousGameResults: (PuzzleGame & {
     result?: boolean
     ratingDiff?: number
   })[]
   setCurrentIndex: Dispatch<SetStateAction<number>>
+  embedded?: boolean
 }
 
 export const PuzzleLog: React.FC<Props> = ({
   previousGameResults,
   setCurrentIndex,
+  embedded = false,
 }: Props) => {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded bg-background-1">
-      <div className="border-b border-white border-opacity-10 px-3 py-2">
+    <div
+      className={
+        embedded
+          ? 'flex h-full flex-col overflow-hidden border-t border-glass-border bg-transparent'
+          : 'flex h-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md'
+      }
+    >
+      <div
+        className={
+          embedded
+            ? 'border-b border-glass-border px-3 py-2'
+            : 'border-b border-glass-border px-3 py-2'
+        }
+      >
         <h3 className="text-sm font-medium text-primary">Puzzle History</h3>
       </div>
       <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto">
@@ -58,8 +72,8 @@ export const PuzzleLog: React.FC<Props> = ({
                 onClick={() => setCurrentIndex(index)}
                 className={`group flex w-full cursor-pointer items-center gap-2 border-b border-white/5 px-3 py-2 text-left transition-colors ${
                   isCurrentPuzzle
-                    ? 'bg-background-2 font-medium'
-                    : `${statusInfo.bgColor} hover:bg-background-2`
+                    ? 'bg-glass font-medium'
+                    : `${statusInfo.bgColor} hover:bg-glass-strong`
                 }`}
               >
                 <div className="flex min-w-0 flex-1 flex-col">

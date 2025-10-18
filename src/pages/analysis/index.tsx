@@ -1,7 +1,7 @@
 import { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import { DelayedLoading } from 'src/components'
-import { getAnalysisGameList } from 'src/api'
+import { Loading } from 'src/components'
+import { fetchMaiaGameList } from 'src/api'
 import { AnalysisListContext } from 'src/contexts'
 import { useContext, useEffect, useState } from 'react'
 
@@ -22,7 +22,7 @@ const AnalysisPage: NextPage = () => {
 
       // If no play games in context, try to fetch them directly
       try {
-        const playGames = await getAnalysisGameList('play', 1)
+        const playGames = await fetchMaiaGameList('play', 1)
         if (playGames.games && playGames.games.length > 0) {
           const gameId = playGames.games[0].game_id
           push(`/analysis/${gameId}/play`)
@@ -51,9 +51,9 @@ const AnalysisPage: NextPage = () => {
   }, [analysisTournamentList, analysisPlayList, push])
 
   return (
-    <DelayedLoading isLoading={loading}>
+    <Loading isLoading={loading}>
       <div></div>
-    </DelayedLoading>
+    </Loading>
   )
 }
 

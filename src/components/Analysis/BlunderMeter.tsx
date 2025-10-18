@@ -20,6 +20,7 @@ interface Props {
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null
+  playerToMove?: 'w' | 'b'
 }
 
 export const BlunderMeter: React.FC<Props> = ({
@@ -29,6 +30,7 @@ export const BlunderMeter: React.FC<Props> = ({
   colorSanMapping,
   showContainer = true,
   moveEvaluation,
+  playerToMove = 'w',
 }: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
 
@@ -40,6 +42,7 @@ export const BlunderMeter: React.FC<Props> = ({
       colorSanMapping={colorSanMapping}
       showContainer={showContainer}
       moveEvaluation={moveEvaluation}
+      playerToMove={playerToMove}
     />
   ) : (
     <DesktopBlunderMeter
@@ -49,6 +52,7 @@ export const BlunderMeter: React.FC<Props> = ({
       colorSanMapping={colorSanMapping}
       showContainer={showContainer}
       moveEvaluation={moveEvaluation}
+      playerToMove={playerToMove}
     />
   )
 }
@@ -60,11 +64,12 @@ const DesktopBlunderMeter: React.FC<Props> = ({
   colorSanMapping,
   showContainer = true,
   moveEvaluation,
+  playerToMove = 'w',
 }: Props) => {
   return (
     <div
       id="analysis-blunder-meter"
-      className={`flex h-64 max-h-full w-full flex-col gap-2 overflow-hidden rounded ${showContainer ? 'bg-background-1/60 p-3 md:w-auto md:min-w-[40%] md:max-w-[40%]' : ''} md:h-full`}
+      className={`flex h-64 max-h-full w-full flex-col gap-2 overflow-hidden rounded-md ${showContainer ? 'border border-glass-border bg-glass p-3 backdrop-blur-md md:w-auto md:min-w-[40%] md:max-w-[40%]' : ''} md:h-full`}
     >
       <p className="text-sm text-primary xl:text-base">Blunder Meter</p>
       <div className="flex h-full w-full flex-col overflow-hidden">
@@ -79,6 +84,7 @@ const DesktopBlunderMeter: React.FC<Props> = ({
             probability={data.goodMoves.probability}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
           <Meter
             hover={hover}
@@ -90,6 +96,7 @@ const DesktopBlunderMeter: React.FC<Props> = ({
             probability={data.okMoves.probability}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
           <Meter
             hover={hover}
@@ -101,6 +108,7 @@ const DesktopBlunderMeter: React.FC<Props> = ({
             probability={data.blunderMoves.probability}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
           />
         </div>
       </div>
@@ -115,11 +123,12 @@ const MobileBlunderMeter: React.FC<Props> = ({
   colorSanMapping,
   showContainer,
   moveEvaluation,
+  playerToMove = 'w',
 }: Props) => {
   return (
     <div
       id="analysis-blunder-meter"
-      className={`flex w-full flex-col gap-2 overflow-hidden rounded ${showContainer ? 'bg-background-1/60 p-3' : ''}`}
+      className={`flex w-full flex-col gap-2 overflow-hidden ${showContainer ? 'border border-glass-border p-3' : ''}`}
     >
       <p className="text-base text-primary">Blunder Meter</p>
       <div className="flex w-full flex-col gap-1">
@@ -166,6 +175,8 @@ const MobileBlunderMeter: React.FC<Props> = ({
             makeMove={makeMove}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
+            probability={data.goodMoves.probability}
           />
           <MovesList
             title="OK Moves"
@@ -175,6 +186,8 @@ const MobileBlunderMeter: React.FC<Props> = ({
             makeMove={makeMove}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
+            probability={data.okMoves.probability}
           />
           <MovesList
             title="Blunders"
@@ -184,6 +197,8 @@ const MobileBlunderMeter: React.FC<Props> = ({
             makeMove={makeMove}
             colorSanMapping={colorSanMapping}
             moveEvaluation={moveEvaluation}
+            playerToMove={playerToMove}
+            probability={data.blunderMoves.probability}
           />
         </div>
       </div>
@@ -199,6 +214,8 @@ function MovesList({
   makeMove,
   colorSanMapping,
   moveEvaluation,
+  playerToMove = 'w',
+  probability,
 }: {
   title: string
   textColor: string
@@ -210,6 +227,8 @@ function MovesList({
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null
+  playerToMove?: 'w' | 'b'
+  probability: number
 }) {
   const { isMobile } = useContext(WindowSizeContext)
   const [tooltipData, setTooltipData] = useState<{
@@ -227,7 +246,17 @@ function MovesList({
   }, [colorSanMapping])
 
   const filteredMoves = () => {
-    return moves.slice(0, 6).filter((move) => move.probability >= 8)
+    const threshold = 5
+    const filtered = moves
+      .slice(0, 6)
+      .filter((move) => move.probability >= threshold)
+
+    // If category has meaningful probability but no moves meet threshold, show top move
+    if (filtered.length === 0 && probability >= 10 && moves.length > 0) {
+      return [moves[0]]
+    }
+
+    return filtered
   }
 
   const handleMouseEnter = (move: string, event: React.MouseEvent) => {
@@ -309,6 +338,8 @@ function MovesList({
           stockfishCpRelative={
             moveEvaluation.stockfish?.cp_relative_vec?.[tooltipData.move]
           }
+          stockfishMate={moveEvaluation.stockfish?.mate_vec?.[tooltipData.move]}
+          playerToMove={playerToMove}
           position={tooltipData.position}
           onClickMove={isMobile ? handleTooltipClick : undefined}
         />
@@ -365,6 +396,7 @@ function Meter({
   probability,
   colorSanMapping,
   moveEvaluation,
+  playerToMove = 'w',
 }: {
   title: string
   textColor: string
@@ -378,6 +410,7 @@ function Meter({
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null
+  playerToMove?: 'w' | 'b'
 }) {
   const { isMobile } = useContext(WindowSizeContext)
   const [tooltipData, setTooltipData] = useState<{
@@ -395,7 +428,17 @@ function Meter({
   }, [colorSanMapping])
 
   const filteredMoves = () => {
-    return moves.slice(0, 6).filter((move) => move.probability >= 8)
+    const threshold = 8
+    const filtered = moves
+      .slice(0, 6)
+      .filter((move) => move.probability >= threshold)
+
+    // If category has meaningful probability but no moves meet threshold, show top move
+    if (filtered.length === 0 && probability >= 10 && moves.length > 0) {
+      return [moves[0]]
+    }
+
+    return filtered
   }
 
   const handleMouseEnter = (move: string, event: React.MouseEvent) => {
@@ -493,6 +536,8 @@ function Meter({
           stockfishCpRelative={
             moveEvaluation.stockfish?.cp_relative_vec?.[tooltipData.move]
           }
+          stockfishMate={moveEvaluation.stockfish?.mate_vec?.[tooltipData.move]}
+          playerToMove={playerToMove}
           position={tooltipData.position}
           onClickMove={isMobile ? handleTooltipClick : undefined}
         />

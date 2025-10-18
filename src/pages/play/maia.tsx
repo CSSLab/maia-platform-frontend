@@ -2,14 +2,14 @@ import Head from 'next/head'
 import { startGame } from 'src/api'
 import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
+import { tourConfigs } from 'src/constants/tours'
 import { ModalContext, useTour } from 'src/contexts'
-import { useContext, useEffect, useMemo, useState } from 'react'
-import { DelayedLoading, PlayControls } from 'src/components'
+import { Loading, PlayControls } from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
+import { useContext, useEffect, useMemo, useState } from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
-import { PlayControllerContext } from 'src/contexts/PlayControllerContext/PlayControllerContext'
-import { tourConfigs } from 'src/constants/tours'
+import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 
 interface Props {
   id: string
@@ -100,7 +100,6 @@ const PlayMaiaPage: NextPage = () => {
     startFen,
   } = router.query
 
-  // simulateMaiaTime can be configured in setup modal, default to true if not specified
   const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
     simulateMaiaTimeQuery === 'true' || simulateMaiaTimeQuery === undefined
       ? true
@@ -132,7 +131,6 @@ const PlayMaiaPage: NextPage = () => {
   useEffect(() => {
     if (!initialTourCheck) {
       setInitialTourCheck(true)
-      // Always attempt to start the tour - the tour context will handle completion checking
       startTour(tourConfigs.play.id, tourConfigs.play.steps, false)
     }
   }, [initialTourCheck, startTour])
@@ -197,7 +195,7 @@ const PlayMaiaPage: NextPage = () => {
           content="Challenge the most human-like chess AI. Unlike traditional engines that play robotically, Maia naturally plays moves a person would make, trained on millions of human games with real chess intuition."
         />
       </Head>
-      <DelayedLoading isLoading={!router.isReady || !id}>
+      <Loading isLoading={!router.isReady || !id}>
         {router.isReady && id && (
           <PlayMaia
             id={id as string}
@@ -207,7 +205,7 @@ const PlayMaiaPage: NextPage = () => {
             setSimulateMaiaTime={setSimulateMaiaTime}
           />
         )}
-      </DelayedLoading>
+      </Loading>
     </>
   )
 }

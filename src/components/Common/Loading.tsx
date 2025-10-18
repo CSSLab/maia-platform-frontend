@@ -1,5 +1,6 @@
 import Chessground from '@react-chess/chessground'
 import { useEffect, useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const states = [
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -12,7 +13,34 @@ const states = [
   'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R b KQkq - 0 4',
 ]
 
-export const Loading: React.FC = () => {
+interface LoadingProps {
+  isLoading?: boolean
+  delay?: number
+  transparent?: boolean
+  message?: React.ReactNode
+  children?: React.ReactNode
+}
+
+export const Loading: React.FC<LoadingProps> = ({
+  isLoading = true,
+  delay = 1000,
+  transparent = false,
+  message,
+  children,
+}) => {
+  const [showLoading, setShowLoading] = useState(false)
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (isLoading) {
+      timer = setTimeout(() => setShowLoading(true), delay)
+    } else {
+      setShowLoading(false)
+    }
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [isLoading, delay])
+
   const [currentIndex, setCurrentIndex] = useState(0)
   const [renderKey, setRenderKey] = useState(0)
 
@@ -24,34 +52,71 @@ export const Loading: React.FC = () => {
   useEffect(() => {
     const increment = async () => {
       await new Promise((resolve) => setTimeout(resolve, 500))
-      setCurrentIndex(currentIndex + 1)
-
+      setCurrentIndex((idx) => idx + 1)
       setRenderKey((prev) => prev + 1)
     }
-
-    increment()
-  }, [currentIndex])
+    if (isLoading && showLoading) {
+      increment()
+    }
+  }, [isLoading, showLoading, currentIndex])
 
   return (
-    <div className="my-40 flex w-screen items-center justify-center bg-backdrop md:my-auto">
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-[50vw] w-[50vw] opacity-50 md:h-[30vh] md:w-[30vh]">
-          <div className="h-full w-full">
-            <Chessground
-              key={renderKey}
-              contained
-              config={{
-                fen: currentState,
-                animation: {
-                  duration: 0,
-                },
-                viewOnly: true,
-              }}
-            />
+    <AnimatePresence mode="wait">
+      {isLoading && showLoading ? (
+        <motion.div
+          key="loading"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="my-auto"
+        >
+          <div
+            className={`my-40 flex w-screen items-center justify-center md:my-auto ${
+              transparent ? 'absolute left-0 top-0 h-screen' : ''
+            }`}
+          >
+            <div className="flex flex-col items-center gap-4">
+              <div
+                className={`h-[50vw] w-[50vw] md:h-[30vh] md:w-[30vh] ${
+                  !transparent ? 'opacity-50' : 'opacity-100'
+                }`}
+              >
+                <div className="h-full w-full">
+                  <Chessground
+                    key={renderKey}
+                    contained
+                    config={{
+                      fen: currentState,
+                      animation: {
+                        duration: 0,
+                      },
+                      viewOnly: true,
+                    }}
+                  />
+                </div>
+              </div>
+              <h2 className="text-lg font-medium uppercase tracking-wider">
+                Loading...
+              </h2>
+              {message ? (
+                <p className="max-w-prose px-4 text-center text-secondary">
+                  {message}
+                </p>
+              ) : null}
+            </div>
           </div>
-        </div>
-        <h2 className="text-2xl font-semibold">Loading...</h2>
-      </div>
-    </div>
+        </motion.div>
+      ) : !isLoading ? (
+        <motion.div
+          key="content"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   )
 }

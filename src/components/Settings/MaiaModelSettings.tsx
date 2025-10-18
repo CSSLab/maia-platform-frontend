@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { MaiaEngineContext } from 'src/contexts'
-import { MaiaModelStorage } from 'src/providers/MaiaEngineContextProvider/storage'
+import { MaiaModelStorage } from 'src/lib/engine/storage'
 
 interface StorageInfo {
   supported: boolean
@@ -117,121 +117,22 @@ export const MaiaModelSettings: React.FC = () => {
   const statusDisplay = getStatusDisplay()
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg bg-background-1 p-6">
+    <div className="group flex flex-col gap-4 rounded-lg border border-glass-border bg-glass px-5 pb-0 pt-5">
       <div className="flex flex-col items-start justify-between">
-        <h3 className="text-lg font-semibold">Maia Neural Network Model</h3>
-        <p className="text-sm text-secondary">
+        <h3 className="text-lg font-semibold text-white/95">
+          Maia Neural Network Model
+        </h3>
+        <p className="text-sm text-white/70">
           Manage your locally stored Maia chess engine model. The model is
           downloaded once and stored in your browser for offline use.
         </p>
       </div>
       <div className="flex flex-col gap-2">
-        {/* Status Display */}
-        <div className="rounded-lg bg-background-2 p-4">
-          <div className="flex items-center gap-3">
-            <span
-              className={`material-symbols-outlined text-xl ${statusDisplay.color}`}
-            >
-              {statusDisplay.icon}
-            </span>
-            <div className="flex flex-col">
-              <p className="font-medium">Model Status</p>
-              <p className={`text-sm ${statusDisplay.color}`}>
-                {statusDisplay.text}
-              </p>
-            </div>
-          </div>
-
-          {status === 'downloading' && (
-            <div className="mt-3">
-              <div className="h-2 w-full rounded-full bg-background-2">
-                <div
-                  className="h-2 rounded-full bg-human-4 transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Storage Information */}
-        {storageInfo && (
-          <div className="rounded-lg bg-background-2 p-4">
-            <h4 className="mb-3 font-medium">Storage Information</h4>
-            <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
-              {storageInfo.modelSize && (
-                <div className="flex justify-between">
-                  <span className="text-secondary">Model Size:</span>
-                  <span>{formatBytes(storageInfo.modelSize)}</span>
-                </div>
-              )}
-              {storageInfo.modelTimestamp && (
-                <div className="flex justify-between">
-                  <span className="text-secondary">Downloaded:</span>
-                  <span>{formatDate(storageInfo.modelTimestamp)}</span>
-                </div>
-              )}
-              {storageInfo.usage && (
-                <div className="flex justify-between">
-                  <span className="text-secondary">Total Usage:</span>
-                  <span>{formatBytes(storageInfo.usage)}</span>
-                </div>
-              )}
-              {storageInfo.quota && (
-                <div className="flex justify-between">
-                  <span className="text-secondary">Available:</span>
-                  <span>{formatBytes(storageInfo.quota)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex flex-col gap-2 md:flex-row">
-          {status === 'no-cache' && (
-            <button
-              onClick={handleRedownloadModel}
-              className="flex items-center justify-center gap-2 rounded bg-human-4 px-4 py-2 text-white hover:bg-human-4/80"
-            >
-              <span className="material-symbols-outlined text-base">
-                download
-              </span>
-              Download Model
-            </button>
-          )}
-
-          {status === 'ready' && (
-            <>
-              <button
-                onClick={handleRedownloadModel}
-                disabled={status !== 'ready'}
-                className="flex items-center justify-center gap-2 rounded bg-background-2 px-4 py-2 hover:bg-background-3 disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-base">
-                  refresh
-                </span>
-                Re-download
-              </button>
-
-              <button
-                onClick={handleDeleteModel}
-                disabled={isDeleting || status !== 'ready'}
-                className="flex items-center justify-center gap-2 rounded bg-human-4 px-4 py-2 text-white hover:bg-human-4/80 disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-base">
-                  delete
-                </span>
-                {isDeleting ? 'Deleting...' : 'Delete Model'}
-              </button>
-            </>
-          )}
-        </div>
-
+        {/* Warning displayed above sections so bottom aligns with card */}
         {!storageInfo?.supported && (
-          <div className="rounded-lg bg-yellow-100 p-3 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-yellow-200">
             <p className="text-sm">
-              <span className="material-symbols-outlined mr-2 inline text-base">
+              <span className="material-symbols-outlined mr-2 inline align-middle text-base text-yellow-200">
                 warning
               </span>
               IndexedDB storage is not supported in your browser. Model
@@ -239,6 +140,115 @@ export const MaiaModelSettings: React.FC = () => {
             </p>
           </div>
         )}
+
+        {/* Shared border wrapper for Status + Storage */}
+        <div className="-mx-5 mt-1 border-t border-glass-border">
+          {/* Status section */}
+          <div className="px-5 py-4 text-white/90">
+            <div className="flex items-center gap-3">
+              <span
+                className={`material-symbols-outlined text-xl ${statusDisplay.color}`}
+              >
+                {statusDisplay.icon}
+              </span>
+              <div className="flex flex-col">
+                <p className="font-medium text-white">Model Status</p>
+                <p className={`text-sm ${statusDisplay.color}`}>
+                  {statusDisplay.text}
+                </p>
+              </div>
+            </div>
+
+            {status === 'downloading' && (
+              <div className="mt-3">
+                <div className="h-2 w-full rounded-full bg-white/10">
+                  <div
+                    className="h-2 rounded-full bg-red-500/70 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Storage Information section */}
+          {storageInfo && (
+            <div className="border-t border-glass-border px-5 py-4 text-white/90">
+              <h4 className="mb-3 font-medium text-white">
+                Storage Information
+              </h4>
+              <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+                {storageInfo.modelSize && (
+                  <div className="flex justify-between">
+                    <span className="text-white/70">Model Size:</span>
+                    <span>{formatBytes(storageInfo.modelSize)}</span>
+                  </div>
+                )}
+                {storageInfo.modelTimestamp && (
+                  <div className="flex justify-between">
+                    <span className="text-white/70">Downloaded:</span>
+                    <span>{formatDate(storageInfo.modelTimestamp)}</span>
+                  </div>
+                )}
+                {storageInfo.usage && (
+                  <div className="flex justify-between">
+                    <span className="text-white/70">Total Usage:</span>
+                    <span>{formatBytes(storageInfo.usage)}</span>
+                  </div>
+                )}
+                {storageInfo.quota && (
+                  <div className="flex justify-between">
+                    <span className="text-white/70">Available:</span>
+                    <span>{formatBytes(storageInfo.quota)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons inside storage section */}
+              <div className="mt-3 flex flex-col gap-2 md:flex-row">
+                {status === 'no-cache' && (
+                  <button
+                    onClick={handleRedownloadModel}
+                    className="flex items-center justify-center gap-2 rounded-md border border-red-500/30 bg-red-500/20 px-4 py-2 text-red-200 transition-all duration-200 hover:border-red-500/40 hover:bg-red-500/30"
+                  >
+                    <span className="material-symbols-outlined text-base text-red-200">
+                      download
+                    </span>
+                    Download Model
+                  </button>
+                )}
+
+                {status === 'ready' && (
+                  <>
+                    <button
+                      onClick={handleRedownloadModel}
+                      disabled={status !== 'ready'}
+                      className="flex items-center justify-center gap-2 rounded-md border border-glass-border bg-glass-strong px-4 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-base text-white/80">
+                        refresh
+                      </span>
+                      Re-download
+                    </button>
+
+                    <button
+                      onClick={handleDeleteModel}
+                      disabled={isDeleting || status !== 'ready'}
+                      className="flex items-center justify-center gap-2 rounded-md border border-red-500/30 bg-red-500/20 px-4 py-2 text-sm text-red-200 transition-all duration-200 hover:border-red-500/40 hover:bg-red-500/30 disabled:opacity-50"
+                    >
+                      <span className="material-symbols-outlined text-base text-red-200">
+                        delete
+                      </span>
+                      {isDeleting ? 'Deleting...' : 'Delete Model'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons are inside storage info section above */}
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import { Chess } from 'chess.ts'
-import { getBookMoves } from 'src/api'
+import { fetchOpeningBookMoves } from 'src/api'
 import { useEffect, useContext } from 'react'
 import { MAIA_MODELS } from 'src/constants/common'
 import { GameNode, MaiaEvaluation } from 'src/types'
@@ -37,7 +37,7 @@ export const useEngineAnalysis = (
   }
 
   async function fetchOpeningBook(board: Chess) {
-    const bookMoves = await getBookMoves(board.fen())
+    const bookMoves = await fetchOpeningBookMoves(board.fen())
 
     return bookMoves
   }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getLeaderboard } from 'src/api'
+import { fetchLeaderboard } from 'src/api'
 import {
   LeaderboardData,
   LeaderboardStatus,
@@ -104,7 +104,7 @@ export const useLeaderboardStatus = (displayName?: string) => {
       }
 
       // Fetch fresh data
-      const leaderboardData = await getLeaderboard()
+      const leaderboardData = await fetchLeaderboard()
 
       // Update cache
       cacheRef.current = {

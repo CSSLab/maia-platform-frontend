@@ -16,7 +16,7 @@ export const Header: React.FC = () => {
   const [showPlayDropdown, setShowPlayDropdown] = useState(false)
   const [showMoreDropdown, setShowMoreDropdown] = useState(false)
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
-  const { isMobile } = useContext(WindowSizeContext)
+  const { isMobile, width } = useContext(WindowSizeContext)
 
   const { user, connectLichess, logout } = useContext(AuthContext)
 
@@ -27,6 +27,8 @@ export const Header: React.FC = () => {
   const router = useRouter()
 
   const { setPlaySetupModalProps } = useContext(ModalContext)
+
+  const isCompactDesktopNav = !isMobile && width > 0 && width < 1300
 
   const startGame = useCallback(
     (playType: PlayType) => {
@@ -75,7 +77,7 @@ export const Header: React.FC = () => {
 
   const userInfo = user?.lichessId ? (
     <div
-      className="relative flex items-center gap-2 rounded-full bg-background-1/50 px-3 py-1.5 transition-all duration-200 hover:bg-background-1"
+      className="relative flex items-center gap-2 rounded-full border border-glass-border bg-backdrop px-3 py-1.5 transition-all duration-200 hover:border-white/20"
       onMouseEnter={() => setShowProfileDropdown(true)}
       onMouseLeave={() => setShowProfileDropdown(false)}
     >
@@ -99,32 +101,39 @@ export const Header: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-[100%] left-0 z-50 w-full overflow-hidden rounded border border-white/10 bg-background-1 shadow-lg md:bottom-auto md:top-[100%]"
+            className="absolute bottom-[100%] left-0 z-50 w-full overflow-hidden rounded-md border border-glass-border bg-backdrop md:bottom-auto md:top-[100%]"
           >
-            <Link
-              href="/profile"
-              className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-            >
-              Profile
-            </Link>
-            <Link
-              href="/settings"
-              className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-            >
-              Settings
-            </Link>
-            <button
-              onClick={logout}
-              className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-            >
-              Logout
-            </button>
+            <div className="divide-y divide-glass-border tracking-wide">
+              <Link
+                href="/profile"
+                className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
+              >
+                Profile
+              </Link>
+              <Link
+                href="/settings"
+                className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
+              >
+                Settings
+              </Link>
+              <button
+                onClick={logout}
+                className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
+              >
+                Logout
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   ) : (
-    <button onClick={connectLichess}>Sign in</button>
+    <button
+      onClick={connectLichess}
+      className="px-2 py-1 text-sm tracking-wide text-primary/80 transition-all duration-200 hover:text-primary"
+    >
+      Sign in
+    </button>
   )
 
   const desktopLayout = (
@@ -159,28 +168,30 @@ export const Header: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute left-0 top-[100%] z-30 w-48 overflow-hidden rounded border border-white/10 bg-background-1 shadow-lg"
+                  className="absolute left-0 top-[100%] z-30 w-48 overflow-hidden rounded-md border border-glass-border bg-backdrop"
                 >
-                  <button
-                    onClick={() => startGame('againstMaia')}
-                    className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-                  >
-                    Play Maia
-                  </button>
-                  <button
-                    onClick={() => startGame('handAndBrain')}
-                    className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-                  >
-                    Play Hand and Brain
-                  </button>
-                  <a
-                    className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-                    href="https://lichess.org/@/maia1"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Play Maia on Lichess
-                  </a>
+                  <div className="divide-y divide-glass-border tracking-wide">
+                    <button
+                      onClick={() => startGame('againstMaia')}
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
+                    >
+                      Play Maia
+                    </button>
+                    <button
+                      onClick={() => startGame('handAndBrain')}
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
+                    >
+                      Play Hand and Brain
+                    </button>
+                    <a
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
+                      href="https://lichess.org/@/maia1"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Play Maia on Lichess
+                    </a>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -209,12 +220,14 @@ export const Header: React.FC = () => {
           >
             BOT-OR-NOT
           </Link>
-          <Link
-            href="/leaderboard"
-            className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/leaderboard') ? '!text-primary' : '!text-primary/80'}`}
-          >
-            LEADERBOARD
-          </Link>
+          {!isCompactDesktopNav && (
+            <Link
+              href="/broadcast"
+              className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/broadcast') ? '!text-primary' : '!text-primary/80'}`}
+            >
+              BROADCASTS
+            </Link>
+          )}
           <div
             className="relative"
             onMouseEnter={() => setShowMoreDropdown(true)}
@@ -237,30 +250,54 @@ export const Header: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute left-0 top-[100%] z-30 w-32 overflow-hidden rounded border border-white/10 bg-background-1 shadow-lg"
+                  className="absolute left-0 top-[100%] z-30 w-32 overflow-hidden rounded-md border border-glass-border bg-backdrop"
                 >
-                  <Link
-                    href="/blog"
-                    className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-                  >
-                    Blog
-                  </Link>
-                  <a
-                    target="_blank"
-                    rel="noreferrer"
-                    href="https://twitch.tv/maiachess"
-                    className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-                  >
-                    Watch
-                  </a>
-                  <a
-                    target="_blank"
-                    rel="noreferrer"
-                    href="https://forms.gle/XYeoTJF4YgUu4Vq28"
-                    className="flex w-full items-center justify-start px-3 py-2 text-sm hover:bg-background-2/60"
-                  >
-                    Feedback
-                  </a>
+                  <div className="divide-y divide-glass-border tracking-wide">
+                    {isCompactDesktopNav && (
+                      <Link
+                        href="/broadcast"
+                        className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-glass ${
+                          router.pathname.startsWith('/broadcast')
+                            ? 'text-primary'
+                            : 'text-white/90'
+                        }`}
+                      >
+                        Broadcasts
+                      </Link>
+                    )}
+                    <Link
+                      href="/leaderboard"
+                      className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-glass ${
+                        router.pathname.startsWith('/leaderboard')
+                          ? 'text-primary'
+                          : 'text-white/90'
+                      }`}
+                    >
+                      Leaderboard
+                    </Link>
+                    <Link
+                      href="/blog"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
+                    >
+                      Maia Blog
+                    </Link>
+                    {/* <a
+                      target="_blank"
+                      rel="noreferrer"
+                      href="https://twitch.tv/maiachess"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
+                    >
+                      Watch
+                    </a> */}
+                    {/* <a
+                      target="_blank"
+                      rel="noreferrer"
+                      href="https://forms.gle/XYeoTJF4YgUu4Vq28"
+                      className="flex w-full items-center justify-start px-3 py-2 text-sm text-white/90 transition-colors hover:bg-glass"
+                    >
+                      Feedback
+                    </a> */}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -316,14 +353,13 @@ export const Header: React.FC = () => {
               <span className="material-symbols-outlined text-3xl">menu</span>
             </button>
           </div>
-          <div className="flex flex-col gap-6 px-12">
-            <div className="flex flex-col items-start justify-center gap-6">
+          <div className="flex flex-col gap-5 px-12 tracking-wider">
+            <div className="flex flex-col items-start justify-center gap-3">
               <button>PLAY</button>
-              <div className="flex flex-col items-start justify-center gap-4">
+              <div className="ml-4 flex flex-col items-start justify-center gap-2">
                 <button onClick={() => startGame('againstMaia')}>
                   Play Maia
                 </button>
-
                 <button onClick={() => startGame('handAndBrain')}>
                   Play Hand and Brain
                 </button>
@@ -348,44 +384,66 @@ export const Header: React.FC = () => {
             <Link href="/turing" className="uppercase">
               Bot-or-not
             </Link>
+            <Link href="/broadcast" className="uppercase">
+              Broadcasts
+            </Link>
             <Link href="/leaderboard" className="uppercase">
               Leaderboard
             </Link>
             <Link href="/blog" className="uppercase">
-              Blog
+              Maia Blog
             </Link>
-            <a
+            {/* <a
               target="_blank"
               rel="noreferrer"
               href="https://twitch.tv/maiachess"
               className="uppercase"
             >
               Watch
-            </a>
-            <a
+            </a> */}
+            {/* <a
               target="_blank"
               rel="noreferrer"
               href="https://forms.gle/XYeoTJF4YgUu4Vq28"
               className="uppercase"
             >
               Feedback
-            </a>
+            </a> */}
+            {user?.lichessId && (
+              <>
+                <Link href="/profile" className="uppercase">
+                  Profile
+                </Link>
+                <Link href="/settings" className="uppercase">
+                  Settings
+                </Link>
+                <button onClick={logout} className="text-left uppercase">
+                  Logout
+                </button>
+              </>
+            )}
           </div>
-          <div className="flex w-full flex-row items-center gap-3 px-4">
-            <a
-              target="_blank"
-              rel="noreferrer"
-              href="https://discord.gg/Az93GqEAs7"
-            >
-              <div className="h-6 w-6">{DiscordIcon}</div>
-            </a>
+          <div className="flex w-full flex-row items-center gap-3 px-12">
             {user?.lichessId && (
               <LeaderboardNavBadge
                 status={leaderboardStatus}
                 loading={leaderboardLoading}
               />
             )}
-            {userInfo}
+            {user?.lichessId ? (
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-2xl text-primary/80">
+                  account_circle
+                </span>
+                <span className="text-lg font-medium tracking-wider text-primary/90">
+                  {user?.displayName}
+                </span>
+              </div>
+            ) : (
+              <button onClick={connectLichess} className="uppercase">
+                Sign in
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -394,7 +452,10 @@ export const Header: React.FC = () => {
 
   return (
     <>
-      <div className="flex w-screen flex-row items-center justify-center pb-1 pt-4 md:pb-0">
+      <div
+        data-component="app-header"
+        className="flex w-screen flex-row items-center justify-center pb-1 pt-4 md:pb-0"
+      >
         {isMobile ? mobileLayout : desktopLayout}
       </div>
     </>

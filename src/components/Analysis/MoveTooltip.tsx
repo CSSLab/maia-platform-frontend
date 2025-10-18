@@ -9,6 +9,8 @@ interface MoveTooltipProps {
   stockfishCp?: number
   stockfishWinrate?: number
   stockfishCpRelative?: number
+  stockfishMate?: number
+  playerToMove?: 'w' | 'b'
   position?: { x: number; y: number }
   isVisible?: boolean
   onClickMove?: (move: string) => void
@@ -21,6 +23,8 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
   stockfishCp,
   stockfishWinrate,
   stockfishCpRelative,
+  stockfishMate,
+  playerToMove = 'w',
   position,
   isVisible = true,
   onClickMove,
@@ -37,9 +41,23 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
     }
   }
 
+  const formatMateDisplay = (mateValue: number) => {
+    const deliveringColor =
+      mateValue > 0 ? playerToMove : playerToMove === 'w' ? 'b' : 'w'
+    const prefix = deliveringColor === 'w' ? '+' : '-'
+    return `${prefix}M${Math.abs(mateValue)}`
+  }
+
+  const stockfishEvalDisplay =
+    stockfishMate !== undefined
+      ? formatMateDisplay(stockfishMate)
+      : stockfishCp !== undefined
+        ? `${stockfishCp > 0 ? '+' : ''}${(stockfishCp / 100).toFixed(2)}`
+        : undefined
+
   const tooltipContent = (
     <div
-      className={`fixed z-50 flex w-auto min-w-[12rem] flex-col overflow-hidden rounded-lg border border-white/30 bg-background-1 text-primary backdrop-blur-sm ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
+      className={`fixed z-50 flex w-auto min-w-48 flex-col overflow-hidden rounded-md border border-glass-border bg-backdrop/90 text-white/90 shadow-md backdrop-blur-md ${onClickMove ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
       style={{
         left: position.x + 15,
         top: position.y - 10,
@@ -53,14 +71,14 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
       aria-label={onClickMove ? `Make move ${san}` : undefined}
     >
       {/* Header */}
-      <div className="flex w-full justify-between border-b border-white/20 bg-gradient-to-r from-background-2/90 to-background-2/70 px-3 py-1.5">
+      <div className="flex w-full justify-between border-b border-glass-border bg-transparent px-3 py-1.5">
         <span style={{ color }} className="font-medium">
           {san}
         </span>
       </div>
 
       {/* Content */}
-      <div className="flex flex-col items-start justify-start gap-1 bg-gradient-to-b from-background-1 to-background-1/90 px-3 py-1.5 text-sm">
+      <div className="flex flex-col items-start justify-start gap-1 bg-transparent px-3 py-1.5 text-sm">
         {/* Maia Probability */}
         {maiaProb !== undefined && (
           <div className="flex w-full items-center justify-between gap-2 font-mono">
@@ -70,13 +88,10 @@ export const MoveTooltip: React.FC<MoveTooltipProps> = ({
         )}
 
         {/* Stockfish Evaluation */}
-        {stockfishCp !== undefined && (
+        {stockfishEvalDisplay !== undefined && (
           <div className="flex w-full items-center justify-between gap-2 font-mono">
             <span className="font-medium text-engine-2">SF Eval:</span>
-            <span>
-              {stockfishCp > 0 ? '+' : ''}
-              {(stockfishCp / 100).toFixed(2)}
-            </span>
+            <span>{stockfishEvalDisplay}</span>
           </div>
         )}
 

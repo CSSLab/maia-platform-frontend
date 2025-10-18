@@ -161,6 +161,7 @@ export const useMoveRecommendations = (
 
       // Get additional data for comprehensive tooltip
       const rawCp = moveEvaluation.stockfish.cp_vec[move] || 0
+      const mate = moveEvaluation.stockfish.mate_vec?.[move]
       const winrate = moveEvaluation.stockfish.winrate_vec?.[move] || 0
       const rawMaiaProb = moveEvaluation.maia.policy[move] || 0
 
@@ -176,6 +177,7 @@ export const useMoveRecommendations = (
         winrate,
         rawMaiaProb,
         relativeCp: moveEvaluation.stockfish.cp_relative_vec[move],
+        mate,
       })
     }
 

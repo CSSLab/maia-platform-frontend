@@ -12,6 +12,7 @@ import {
   AdditionalFeaturesSection,
   PageNavigation,
 } from 'src/components'
+import { GameCarousel } from 'src/components/Home/GameCarousel'
 
 const Home: NextPage = () => {
   const { setPlaySetupModalProps } = useContext(ModalContext)
@@ -40,20 +41,57 @@ const Home: NextPage = () => {
         />
       </Head>
       <HomeHero scrollHandler={scrollHandler} />
+      <GameCarousel />
       <PageNavigation />
       <div ref={featuresRef}>
-        <div className="bg-background-1">
+        {/* Play Section with subtle radial overlays */}
+        <div className="relative bg-transparent">
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse 90% 80% at 0% 20%, rgba(239, 68, 68, 0.08) 0%, transparent 72%), radial-gradient(ellipse 70% 60% at 100% 60%, rgba(239, 68, 68, 0.06) 0%, transparent 75%)',
+            }}
+          />
           <PlaySection id="play-section" />
         </div>
-        <div className="bg-background-2">
+
+        {/* Analysis Section with mirrored edge glows */}
+        <div className="relative bg-transparent">
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse 95% 85% at 100% 15%, rgba(239, 68, 68, 0.08) 0%, transparent 72%), radial-gradient(ellipse 80% 70% at 0% 70%, rgba(239, 68, 68, 0.06) 0%, transparent 75%)',
+            }}
+          />
           <AnalysisSection id="analysis-section" />
         </div>
-        <div className="bg-background-1">
+
+        {/* Train Section with lower-edge emphasis */}
+        <div className="relative bg-transparent">
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse 100% 85% at 0% 90%, rgba(239, 68, 68, 0.07) 0%, transparent 75%), radial-gradient(ellipse 75% 65% at 100% 40%, rgba(239, 68, 68, 0.05) 0%, transparent 75%)',
+            }}
+          />
           <TrainSection id="train-section" />
         </div>
-        <div className="bg-background-2">
+
+        {/* Additional Features with diagonal accents */}
+        <div className="relative bg-transparent">
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse 90% 80% at 100% 85%, rgba(239, 68, 68, 0.08) 0%, transparent 72%), radial-gradient(ellipse 80% 70% at 0% 10%, rgba(239, 68, 68, 0.06) 0%, transparent 75%)',
+            }}
+          />
           <AdditionalFeaturesSection id="more-features" />
         </div>
+
         <AboutMaia />
       </div>
     </>

@@ -7,7 +7,7 @@ import {
   AnalysisSidebar,
 } from '../Analysis'
 import { GameNode } from 'src/types'
-import { GameTree } from 'src/types/base/tree'
+import { GameTree } from 'src/types/tree'
 import type { DrawShape } from 'chessground/draw'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
 import { WindowSizeContext } from 'src/contexts'
@@ -93,7 +93,7 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
   const mobileLayout = (
     <div className="flex h-full w-full flex-col gap-2">
       {/* Analysis Toggle */}
-      <div className="flex items-center justify-between rounded bg-background-1 px-4 py-2">
+      <div className="flex items-center justify-between rounded bg-glass px-4 py-2">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-xl">analytics</span>
           <h3 className="font-semibold">Analysis</h3>
@@ -103,13 +103,13 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
           className={`flex items-center gap-2 rounded px-3 py-1 text-sm transition-colors ${
             analysisEnabled
               ? 'bg-human-4 text-white hover:bg-human-4/80'
-              : 'bg-background-2 text-secondary hover:bg-background-3'
+              : 'bg-glass-strong text-secondary hover:bg-glass-strong'
           }`}
         >
           <span className="material-symbols-outlined !text-sm">
             {analysisEnabled ? 'visibility' : 'visibility_off'}
           </span>
-          {analysisEnabled ? 'Visible' : 'Hidden'}
+          {analysisEnabled ? 'Hide' : 'Show'}
         </button>
       </div>
 
@@ -156,8 +156,8 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
             }
           />
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+              <div className="rounded bg-glass p-4 text-center shadow-lg">
                 <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                   lock
                 </span>
@@ -186,10 +186,15 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
                 ? analysisController.moveEvaluation
                 : undefined
             }
+            playerToMove={
+              analysisEnabled
+                ? (analysisController.currentNode?.turn ?? 'w')
+                : 'w'
+            }
           />
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+              <div className="rounded bg-glass p-4 text-center shadow-lg">
                 <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                   lock
                 </span>
@@ -211,8 +216,8 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
             }
           />
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+              <div className="rounded bg-glass p-4 text-center shadow-lg">
                 <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                   lock
                 </span>
@@ -234,10 +239,15 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
               analysisEnabled ? parentSetHoverArrow : mockSetHoverArrow
             }
             makeMove={analysisEnabled ? makeMove : mockMakeMove}
+            playerToMove={
+              analysisEnabled
+                ? (analysisController.currentNode?.turn ?? 'w')
+                : 'w'
+            }
           />
           {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-              <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+              <div className="rounded bg-glass p-4 text-center shadow-lg">
                 <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                   lock
                 </span>

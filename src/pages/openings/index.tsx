@@ -1,86 +1,64 @@
 import Head from 'next/head'
 import { NextPage } from 'next'
+import { useState, useEffect, useContext, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/router'
-import {
-  useState,
-  useEffect,
-  useContext,
-  useCallback,
-  useMemo,
-  Suspense,
-  lazy,
-} from 'react'
 import { Chess, PieceSymbol } from 'chess.ts'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence } from 'framer-motion'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 
 import {
   WindowSizeContext,
-  TreeControllerContext,
-  AuthContext,
   MaiaEngineContext,
+  TreeControllerContext,
 } from 'src/contexts'
 import { DrillConfiguration, AnalyzedGame } from 'src/types'
-import { GameNode } from 'src/types/base/tree'
-import { MIN_STOCKFISH_DEPTH } from 'src/constants/analysis'
-import openings from 'src/lib/openings/openings.json'
-
-const LazyOpeningDrillAnalysis = lazy(() =>
-  import('src/components/Openings/OpeningDrillAnalysis').then((module) => ({
-    default: module.OpeningDrillAnalysis,
-  })),
-)
-
 import {
+  MovesContainer,
+  BoardController,
   OpeningSelectionModal,
   OpeningDrillSidebar,
   DrillPerformanceModal,
-  FinalCompletionModal,
   GameBoard,
-  BoardController,
-  MovesContainer,
   PromotionOverlay,
   PlayerInfo,
   DownloadModelModal,
   AuthenticatedWrapper,
+  AnalysisNotification,
+  AnalysisOverlay,
 } from 'src/components'
-import {
-  useOpeningDrillController,
-  useTreeController,
-  useAnalysisController,
-} from 'src/hooks'
+import openings from 'src/constants/openings.json'
+import endgamesRaw from 'src/constants/endgames.json'
+import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
+import { OpeningDrillAnalysis } from 'src/components/Openings/OpeningDrillAnalysis'
+
+import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
 import {
   getCurrentPlayer,
   getAvailableMovesArray,
   requiresPromotion,
-} from 'src/lib/train/utils'
+} from 'src/lib/puzzle'
 
 const OpeningsPage: NextPage = () => {
   const router = useRouter()
-  const { user } = useContext(AuthContext)
   const [showSelectionModal, setShowSelectionModal] = useState(true)
-  const [isReopenedModal, setIsReopenedModal] = useState(false)
+
+  const endgameDataset = useMemo(() => buildEndgameDataset(endgamesRaw), [])
+  const endgameOpenings = useMemo(
+    () => createEndgameOpenings(endgameDataset),
+    [endgameDataset],
+  )
 
   const handleCloseModal = () => {
-    if (isReopenedModal) {
-      setShowSelectionModal(false)
-    } else {
-      router.push('/')
-    }
+    router.push('/')
   }
+
   const [drillConfiguration, setDrillConfiguration] =
     useState<DrillConfiguration | null>(null)
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
-
-  // useEffect(() => {
-  //   if (user !== null && !user.lichessId) {
-  //     router.push('/401')
-  //   }
-  // }, [user, router])
 
   useEffect(() => {
     return () => {
@@ -89,23 +67,12 @@ const OpeningsPage: NextPage = () => {
     }
   }, [])
 
-  const deferHeavyOperation = useCallback((callback: () => void) => {
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      window.requestIdleCallback(callback, { timeout: 1000 })
-    } else {
-      setTimeout(callback, 0)
-    }
-  }, [])
-
-  const emptyConfiguration: DrillConfiguration = {
-    selections: [],
-    drillCount: 0,
-    drillSequence: [],
-  }
-
-  const controller = useOpeningDrillController(
-    drillConfiguration || emptyConfiguration,
+  const safeConfiguration = useMemo<DrillConfiguration>(
+    () => drillConfiguration ?? { selections: [] },
+    [drillConfiguration],
   )
+
+  const controller = useOpeningDrillController(safeConfiguration)
   const { isMobile } = useContext(WindowSizeContext)
 
   const playerNames = useMemo(() => {
@@ -140,77 +107,12 @@ const OpeningsPage: NextPage = () => {
     controller.currentDrill?.maiaVersion,
   ])
 
-  const treeController = useTreeController(
-    controller.gameTree || null,
-    controller.currentDrill?.playerColor || 'white',
-  )
-
   const maiaEngine = useContext(MaiaEngineContext)
 
-  // Sync tree controller with opening drill controller
-  useEffect(() => {
-    if (controller.currentNode && treeController.setCurrentNode) {
-      treeController.setCurrentNode(controller.currentNode)
-    }
-  }, [controller.currentNode, treeController.setCurrentNode])
-
-  // Memoize arrow calculations to reduce re-renders
-  const calculatedArrows = useMemo(() => {
-    if (!controller.analysisEnabled || !treeController.currentNode) {
-      return []
-    }
-
-    const arr: DrawShape[] = []
-    const currentNode = treeController.currentNode
-
-    // Show Maia best move if available
-    if (currentNode.analysis?.maia?.['maia_kdd_1500']?.policy) {
-      const maiaPolicy = currentNode.analysis.maia['maia_kdd_1500'].policy
-      const maiaEntries = Object.entries(maiaPolicy)
-      if (maiaEntries.length > 0) {
-        const bestMove = maiaEntries.reduce((a, b) =>
-          maiaPolicy[a[0]] > maiaPolicy[b[0]] ? a : b,
-        )
-        arr.push({
-          brush: 'red',
-          orig: bestMove[0].slice(0, 2) as Key,
-          dest: bestMove[0].slice(2, 4) as Key,
-        } as DrawShape)
-      }
-    }
-
-    // Show Stockfish best move if available
-    if (currentNode.analysis?.stockfish?.cp_vec) {
-      const stockfishEntries = Object.entries(
-        currentNode.analysis.stockfish.cp_vec,
-      )
-      if (stockfishEntries.length > 0) {
-        const vec = currentNode.analysis.stockfish.cp_vec
-        const bestMove = stockfishEntries.reduce((a, b) =>
-          vec[a[0]] > vec[b[0]] ? a : b,
-        )
-        arr.push({
-          brush: 'blue',
-          orig: bestMove[0].slice(0, 2) as Key,
-          dest: bestMove[0].slice(2, 4) as Key,
-          modifiers: { lineWidth: 8 },
-        })
-      }
-    }
-
-    return arr
-  }, [
-    controller.analysisEnabled,
-    treeController.currentNode?.analysis?.maia,
-    treeController.currentNode?.analysis?.stockfish,
-  ])
-
-  // Clear hover arrow when node changes
   useEffect(() => {
     setHoverArrow(null)
   }, [controller.currentNode])
 
-  // Hover function for analysis components
   const hover = useCallback((move?: string) => {
     if (move) {
       setHoverArrow({
@@ -240,17 +142,15 @@ const OpeningsPage: NextPage = () => {
     }
   }, [controller])
 
-  // Create minimal AnalyzedGame for analysis controller
   const analyzedGame = useMemo((): AnalyzedGame | null => {
-    if (!treeController.gameTree || !controller.currentDrill || !playerNames)
+    if (!controller.gameTree || !controller.currentDrill || !playerNames)
       return null
 
     return {
       id: `opening-drill-${controller.currentDrill.id}`,
-      tree: treeController.gameTree,
+      tree: controller.gameTree,
       blackPlayer: playerNames.blackPlayer,
       whitePlayer: playerNames.whitePlayer,
-      moves: [], // Tree will be used directly
       availableMoves: [],
       gameType: 'play' as const,
       termination: {
@@ -258,20 +158,17 @@ const OpeningsPage: NextPage = () => {
         winner: 'none' as const,
         condition: 'Normal',
       },
-      maiaEvaluations: [],
-      stockfishEvaluations: [],
       type: 'play' as const,
     }
-  }, [treeController.gameTree, controller.currentDrill?.id, playerNames])
+  }, [controller.gameTree, controller.currentDrill?.id, playerNames])
 
   // Analysis controller for the components
   const analysisController = useAnalysisController(
     analyzedGame || {
       id: 'empty',
-      tree: treeController.gameTree,
+      tree: controller.gameTree,
       blackPlayer: { name: 'Black' },
       whitePlayer: { name: 'White' },
-      moves: [],
       availableMoves: [],
       gameType: 'play' as const,
       termination: {
@@ -279,108 +176,11 @@ const OpeningsPage: NextPage = () => {
         winner: 'none' as const,
         condition: 'Normal',
       },
-      maiaEvaluations: [],
-      stockfishEvaluations: [],
       type: 'play' as const,
     },
     controller.currentDrill?.playerColor || 'white',
     false, // Disable auto-saving on openings page
   )
-
-  // Function to ensure all positions have sufficient analysis
-  const ensureAnalysisComplete = useCallback(
-    async (nodes: GameNode[]): Promise<void> => {
-      // Use the centralized minimum depth constant
-
-      // Filter nodes that actually need analysis to avoid redundant work
-      const nodesNeedingAnalysis = nodes.filter((node) => {
-        const hasStockfishAnalysis =
-          node.analysis.stockfish &&
-          node.analysis.stockfish.depth >= MIN_STOCKFISH_DEPTH
-        const hasMaiaAnalysis =
-          node.analysis.maia && Object.keys(node.analysis.maia).length > 0
-
-        return !hasStockfishAnalysis || !hasMaiaAnalysis
-      })
-
-      if (nodesNeedingAnalysis.length === 0) {
-        return // All nodes already have sufficient analysis
-      }
-
-      // Set initial progress
-      if (controller.setAnalysisProgress) {
-        controller.setAnalysisProgress({
-          total: nodesNeedingAnalysis.length,
-          completed: 0,
-          currentMove: 'Starting analysis...',
-        })
-      }
-
-      for (let i = 0; i < nodesNeedingAnalysis.length; i++) {
-        const node = nodesNeedingAnalysis[i]
-
-        // Update progress for current node
-        if (controller.setAnalysisProgress) {
-          controller.setAnalysisProgress({
-            total: nodesNeedingAnalysis.length,
-            completed: i,
-            currentMove: `Analyzing position ${i + 1}/${nodesNeedingAnalysis.length}`,
-          })
-        }
-
-        // Set this node as current to trigger analysis via the existing analysis controller
-        if (analysisController && analysisController.setCurrentNode) {
-          analysisController.setCurrentNode(node)
-
-          // Wait for analysis to complete with optimized timing
-          await new Promise<void>((resolve) => {
-            let attempts = 0
-            const maxAttempts = 150 // Reduced from 300 to 150 (15 seconds timeout)
-
-            const checkAnalysis = () => {
-              attempts++
-              const hasStockfish =
-                node.analysis.stockfish &&
-                node.analysis.stockfish.depth >= MIN_STOCKFISH_DEPTH
-              const hasMaia =
-                node.analysis.maia && Object.keys(node.analysis.maia).length > 0
-
-              if (hasStockfish && hasMaia) {
-                resolve()
-              } else if (attempts >= maxAttempts) {
-                console.warn(`Analysis timeout for node ${node.fen}`)
-                resolve()
-              } else {
-                setTimeout(checkAnalysis, 50) // Reduced from 100ms to 50ms for faster checking
-              }
-            }
-
-            // Start checking immediately without delay
-            checkAnalysis()
-          })
-        }
-      }
-
-      // Mark analysis as complete
-      if (controller.setAnalysisProgress) {
-        controller.setAnalysisProgress({
-          total: nodesNeedingAnalysis.length,
-          completed: nodesNeedingAnalysis.length,
-          currentMove: 'Analysis complete',
-        })
-      }
-    },
-    [analysisController, controller.setAnalysisProgress],
-  )
-
-  // Pass the ensureAnalysisComplete function to the controller via ref
-  useEffect(() => {
-    if (controller && ensureAnalysisComplete) {
-      // Store the function in the controller's ref or call a setter
-      // This way the controller can access it when needed
-      controller.setEnsureAnalysisComplete?.(ensureAnalysisComplete)
-    }
-  }, [controller, ensureAnalysisComplete])
 
   // Sync analysis controller with current node
   useEffect(() => {
@@ -391,21 +191,28 @@ const OpeningsPage: NextPage = () => {
 
   // Create game object for MovesContainer
   const gameForContainer = useMemo(() => {
-    if (!treeController.gameTree) return null
+    if (!controller.gameTree) return null
 
     return {
       id: `opening-drill-${controller.currentDrill?.id || 'current'}`,
-      tree: treeController.gameTree,
+      tree: controller.gameTree, // Use the original tree
       moves: [], // Not used when tree is provided
     }
-  }, [treeController.gameTree, controller.currentDrill?.id])
+  }, [controller.gameTree, controller.currentDrill?.id])
 
-  // Show selection modal when no drill configuration exists
-  useEffect(() => {
-    if (!drillConfiguration || drillConfiguration.selections.length === 0) {
-      setShowSelectionModal(true)
-    }
-  }, [drillConfiguration])
+  const targetMoves = controller.currentDrill?.targetMoveNumber ?? null
+  const targetMovesLabel = typeof targetMoves === 'number' ? targetMoves : '∞'
+  const moveProgressPercent =
+    controller.currentDrillGame &&
+    typeof targetMoves === 'number' &&
+    targetMoves > 0
+      ? Math.min(
+          (controller.currentDrillGame.playerMoveCount / targetMoves) * 100,
+          100,
+        )
+      : 0
+
+  // Removed auto-reopen behavior so the modal can be dismissed even without configuration
 
   const handleCompleteSelection = useCallback(
     (configuration: DrillConfiguration) => {
@@ -414,13 +221,6 @@ const OpeningsPage: NextPage = () => {
     },
     [],
   )
-
-  const handleChangeSelections = useCallback(() => {
-    controller.resetDrillSession()
-    // Mark that this is a reopened modal so it just closes instead of navigating
-    setIsReopenedModal(true)
-    setShowSelectionModal(true)
-  }, [controller])
 
   // No-op function for disabling orientation changes
   const noOpSetOrientation = useCallback((_orientation: 'white' | 'black') => {
@@ -534,13 +334,15 @@ const OpeningsPage: NextPage = () => {
             controller.setCurrentNode(controller.currentNode.mainChild)
           } else {
             // Create variation for different move
-            const newVariation = controller.gameTree.addVariation(
-              controller.currentNode,
+
+            const newVariation = controller.currentNode.addChild(
               newFen,
               moveString,
               san,
+              false,
               'maia_kdd_1500',
             )
+
             controller.setCurrentNode(newVariation)
           }
         }
@@ -657,11 +459,7 @@ const OpeningsPage: NextPage = () => {
   }
 
   // Show selection modal when no drill configuration exists (after model is ready)
-  if (
-    !drillConfiguration ||
-    drillConfiguration.selections.length === 0 ||
-    showSelectionModal
-  ) {
+  if (showSelectionModal) {
     return (
       <>
         <Head>
@@ -674,6 +472,8 @@ const OpeningsPage: NextPage = () => {
         <AnimatePresence>
           <OpeningSelectionModal
             openings={openings}
+            endgames={endgameOpenings}
+            endgameDataset={endgameDataset}
             initialSelections={drillConfiguration?.selections || []}
             onComplete={handleCompleteSelection}
             onClose={handleCloseModal}
@@ -685,68 +485,32 @@ const OpeningsPage: NextPage = () => {
 
   const desktopLayout = () => (
     <div className="flex h-full w-full flex-col items-center py-4">
-      <div className="flex h-full w-[90%] flex-row gap-2">
-        {/* Left Sidebar */}
-        <div className="desktop-left-column-container flex flex-col gap-2 overflow-hidden rounded">
-          <div className="flex w-full flex-col">
+      <div className="flex h-full w-[90%] flex-row gap-3">
+        {/* Left Sidebar - unified glass container */}
+        <div className="desktop-left-column-container flex flex-col overflow-hidden">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+            {/* Opening drill info and drill list */}
             <OpeningDrillSidebar
               currentDrill={controller.currentDrill}
               completedDrills={controller.completedDrills}
-              remainingDrills={controller.remainingDrills}
-              currentDrillIndex={controller.currentDrillIndex}
-              totalDrills={controller.totalDrills}
-              onResetCurrentDrill={controller.resetCurrentDrill}
-              onChangeSelections={handleChangeSelections}
-              onLoadCompletedDrill={controller.loadCompletedDrill}
-              drillSequence={controller.drillSequence}
+              selectionPool={controller.selectionPool}
+              openingEndNode={controller.currentDrillGame?.openingEndNode}
+              analysisEnabled={controller.analysisEnabled}
+              continueAnalyzingMode={controller.continueAnalyzingMode}
+              embedded
             />
-          </div>
-
-          {/* Moves Container with Board Controller */}
-          <div className="flex h-[30vh] flex-col overflow-hidden">
-            {controller.currentDrillGame && (
-              <div className="flex h-full flex-col">
-                <div className="flex-1 overflow-hidden">
-                  <MovesContainer
-                    game={
-                      gameForContainer || {
-                        id: controller.currentDrillGame.id,
-                        tree: controller.gameTree,
-                        moves: [],
-                      }
-                    }
-                    type="analysis"
-                    showAnnotations={
-                      controller.analysisEnabled ||
-                      controller.continueAnalyzingMode
-                    }
-                    showVariations={controller.continueAnalyzingMode}
-                  />
-                </div>
-                <div className="border-t border-white/10">
-                  <BoardController
-                    gameTree={controller.gameTree}
-                    orientation={controller.orientation}
-                    setOrientation={noOpSetOrientation}
-                    currentNode={controller.currentNode}
-                    plyCount={controller.plyCount}
-                    goToNode={controller.goToNode}
-                    goToNextNode={controller.goToNextNode}
-                    goToPreviousNode={customGoToPreviousNode}
-                    goToRootNode={customGoToRootNode}
-                    disableFlip={true}
-                    disablePrevious={controller.isAtOpeningEnd}
-                  />
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Center - Board */}
         <div className="desktop-middle-column-container flex flex-col gap-2">
           <div className="flex w-full flex-col overflow-hidden rounded">
-            <PlayerInfo name={topPlayer.name} color={topPlayer.color} />
+            <PlayerInfo
+              name={topPlayer.name}
+              color={topPlayer.color}
+              currentFen={controller.currentNode?.fen}
+              orientation={controller.orientation}
+            />
             <div className="desktop-board-container relative flex aspect-square">
               <GameBoard
                 currentNode={controller.currentNode}
@@ -776,62 +540,47 @@ const OpeningsPage: NextPage = () => {
               name={bottomPlayer.name}
               color={bottomPlayer.color}
               showArrowLegend={controller.analysisEnabled}
+              currentFen={controller.currentNode?.fen}
+              orientation={controller.orientation}
             />
           </div>
 
           {/* Drill progress with next drill button */}
           {controller.currentDrillGame && controller.currentDrill && (
-            <div className="flex w-full items-center gap-3 rounded bg-background-1 p-3">
+            <div className="flex w-full items-center gap-3 rounded-md border border-glass-border bg-glass p-3 backdrop-blur-md">
               <div className="flex-1">
                 <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-secondary">Move Progress</span>
-                  <span className="font-medium text-primary">
+                  <span className="text-white/70">Move Progress</span>
+                  <span className="font-medium text-white/90">
                     {controller.currentDrillGame.playerMoveCount}/
-                    {controller.currentDrill.targetMoveNumber}
+                    {targetMovesLabel}
                   </span>
                 </div>
-                <div className="h-2 w-full rounded bg-background-3">
+                <div className="h-2 w-full rounded bg-white/10">
                   <div
                     className="h-full rounded bg-human-3 transition-all duration-300"
                     style={{
-                      width: `${
-                        controller.currentDrill.targetMoveNumber > 0
-                          ? (controller.currentDrillGame.playerMoveCount /
-                              controller.currentDrill.targetMoveNumber) *
-                            100
-                          : 0
-                      }%`,
+                      width: `${moveProgressPercent}%`,
                       maxWidth: '100%',
                     }}
                   />
                 </div>
               </div>
-              {controller.areAllDrillsCompleted && (
-                <button
-                  onClick={controller.showSummary}
-                  className="rounded bg-human-3 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-3/80"
-                >
-                  View Summary
-                </button>
-              )}
               {controller.currentPerformanceData &&
                 !controller.showPerformanceModal && (
                   <button
                     onClick={controller.showCurrentPerformance}
-                    className="rounded bg-background-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-background-3"
+                    className="rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-glass-stronger"
                   >
                     View Performance
                   </button>
                 )}
-              {controller.remainingDrills.length > 1 &&
-                !controller.areAllDrillsCompleted && (
-                  <button
-                    onClick={controller.moveToNextDrill}
-                    className="rounded bg-human-4 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80"
-                  >
-                    Next Drill
-                  </button>
-                )}
+              <button
+                onClick={controller.moveToNextDrill}
+                className="rounded bg-human-4 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80"
+              >
+                Next Drill
+              </button>
             </div>
           )}
         </div>
@@ -841,34 +590,24 @@ const OpeningsPage: NextPage = () => {
           id="analysis"
           className="desktop-right-column-container flex flex-col gap-2"
         >
-          <Suspense
-            fallback={
-              <div className="flex h-full items-center justify-center">
-                <div className="text-sm text-secondary">
-                  Loading analysis...
-                </div>
-              </div>
-            }
-          >
-            {analyzedGame && (
-              <LazyOpeningDrillAnalysis
-                currentNode={controller.currentNode}
-                gameTree={treeController.gameTree}
-                analysisEnabled={controller.analysisEnabled}
-                onToggleAnalysis={() =>
-                  controller.setAnalysisEnabled(!controller.analysisEnabled)
-                }
-                playerColor={controller.currentDrill?.playerColor || 'white'}
-                maiaVersion={
-                  controller.currentDrill?.maiaVersion || 'maia_kdd_1500'
-                }
-                analysisController={analysisController}
-                hover={hover}
-                setHoverArrow={setHoverArrow}
-                makeMove={makeMove}
-              />
-            )}
-          </Suspense>
+          {analyzedGame && (
+            <OpeningDrillAnalysis
+              currentNode={controller.currentNode}
+              gameTree={controller.gameTree}
+              analysisEnabled={controller.analysisEnabled}
+              onToggleAnalysis={() =>
+                controller.setAnalysisEnabled(!controller.analysisEnabled)
+              }
+              playerColor={controller.currentDrill?.playerColor || 'white'}
+              maiaVersion={
+                controller.currentDrill?.maiaVersion || 'maia_kdd_1500'
+              }
+              analysisController={analysisController}
+              hover={hover}
+              setHoverArrow={setHoverArrow}
+              makeMove={makeMove}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -878,7 +617,7 @@ const OpeningsPage: NextPage = () => {
     <div className="flex h-full flex-1 flex-col justify-center gap-1">
       <div className="flex h-full flex-col items-start justify-start gap-1">
         {/* Current Drill Info Header */}
-        <div className="flex w-full flex-col bg-background-1 p-2">
+        <div className="flex w-full flex-col bg-glass p-2">
           <h3 className="mb-1 text-sm font-bold text-primary">Current Drill</h3>
           {controller.currentDrill ? (
             <div className="flex items-center gap-2 text-xs">
@@ -900,8 +639,7 @@ const OpeningsPage: NextPage = () => {
               </span>
               <span className="text-secondary">•</span>
               <span className="text-secondary">
-                Drill {controller.currentDrillIndex + 1} of{' '}
-                {controller.totalDrills}
+                Drill {controller.currentDrillNumber || 1}
               </span>
             </div>
           ) : (
@@ -911,7 +649,12 @@ const OpeningsPage: NextPage = () => {
 
         {/* Board Section */}
         <div className="flex w-full flex-col">
-          <PlayerInfo name={topPlayer.name} color={topPlayer.color} />
+          <PlayerInfo
+            name={topPlayer.name}
+            color={topPlayer.color}
+            currentFen={controller.currentNode?.fen}
+            orientation={controller.orientation}
+          />
           <div className="relative flex aspect-square h-[100vw] w-screen">
             <GameBoard
               currentNode={controller.currentNode}
@@ -941,6 +684,8 @@ const OpeningsPage: NextPage = () => {
             name={bottomPlayer.name}
             color={bottomPlayer.color}
             showArrowLegend={controller.analysisEnabled}
+            currentFen={controller.currentNode?.fen}
+            orientation={controller.orientation}
           />
         </div>
 
@@ -960,6 +705,7 @@ const OpeningsPage: NextPage = () => {
               gameTree={controller.gameTree}
               disableFlip={true}
               disablePrevious={controller.isAtOpeningEnd}
+              embedded
             />
           </div>
 
@@ -974,7 +720,12 @@ const OpeningsPage: NextPage = () => {
                     moves: [],
                   }
                 }
-                type="analysis"
+                startFromNode={
+                  controller.currentDrillGame?.openingEndNode || undefined
+                }
+                restrictNavigationBefore={
+                  controller.currentDrillGame?.openingEndNode || undefined
+                }
                 showAnnotations={
                   controller.analysisEnabled || controller.continueAnalyzingMode
                 }
@@ -985,26 +736,20 @@ const OpeningsPage: NextPage = () => {
 
           {/* Drill Progress */}
           {controller.currentDrillGame && controller.currentDrill && (
-            <div className="flex w-full items-center gap-3 rounded bg-background-1 p-3">
+            <div className="flex w-full items-center gap-3 rounded-md border border-glass-border bg-glass p-3 backdrop-blur-md">
               <div className="flex-1">
                 <div className="mb-1 flex justify-between text-xs">
-                  <span className="text-secondary">Move Progress</span>
-                  <span className="font-medium text-primary">
+                  <span className="text-white/70">Move Progress</span>
+                  <span className="font-medium text-white/90">
                     {controller.currentDrillGame.playerMoveCount}/
-                    {controller.currentDrill.targetMoveNumber}
+                    {targetMovesLabel}
                   </span>
                 </div>
-                <div className="h-2 w-full rounded bg-background-3">
+                <div className="h-2 w-full rounded bg-white/10">
                   <div
                     className="h-full rounded bg-human-3 transition-all duration-300"
                     style={{
-                      width: `${
-                        controller.currentDrill.targetMoveNumber > 0
-                          ? (controller.currentDrillGame.playerMoveCount /
-                              controller.currentDrill.targetMoveNumber) *
-                            100
-                          : 0
-                      }%`,
+                      width: `${moveProgressPercent}%`,
                       maxWidth: '100%',
                     }}
                   />
@@ -1015,40 +760,29 @@ const OpeningsPage: NextPage = () => {
 
           {/* Action Buttons */}
           <div className="flex w-full justify-center gap-1">
-            {controller.areAllDrillsCompleted && (
-              <button
-                onClick={controller.showSummary}
-                className="w-full rounded bg-human-3 px-6 py-2 text-sm font-medium"
-              >
-                View Summary
-              </button>
-            )}
             {controller.currentPerformanceData &&
               !controller.showPerformanceModal && (
                 <button
                   onClick={controller.showCurrentPerformance}
-                  className="w-full rounded bg-background-2 px-6 py-2 text-sm font-medium"
+                  className="w-full rounded-md border border-glass-border bg-glass px-6 py-2 text-sm font-medium text-white/90 hover:bg-glass-stronger"
                 >
                   View Performance
                 </button>
               )}
-            {controller.remainingDrills.length > 1 &&
-              !controller.areAllDrillsCompleted && (
-                <button
-                  onClick={controller.moveToNextDrill}
-                  className="w-full rounded bg-human-4 px-6 py-2 text-sm font-medium"
-                >
-                  Next Drill
-                </button>
-              )}
+            <button
+              onClick={controller.moveToNextDrill}
+              className="w-full rounded bg-human-4 px-6 py-2 text-sm font-medium"
+            >
+              Next Drill
+            </button>
           </div>
 
           {/* Analysis Components Stacked */}
           <div className="flex w-full flex-col gap-1 overflow-hidden">
             {analyzedGame && (
-              <LazyOpeningDrillAnalysis
+              <OpeningDrillAnalysis
                 currentNode={controller.currentNode}
-                gameTree={treeController.gameTree}
+                gameTree={controller.gameTree}
                 analysisEnabled={controller.analysisEnabled}
                 onToggleAnalysis={() =>
                   controller.setAnalysisEnabled(!controller.analysisEnabled)
@@ -1095,60 +829,6 @@ const OpeningsPage: NextPage = () => {
         {isMobile ? mobileLayout() : desktopLayout()}
       </TreeControllerContext.Provider>
 
-      {/* Analysis Loading Overlay */}
-      <AnimatePresence>
-        {controller.isAnalyzingDrill && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          >
-            <div className="flex max-w-md flex-col items-center gap-4 rounded-lg border border-white/10 bg-background-1 p-8 shadow-2xl">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-human-4 border-t-transparent"></div>
-              <div className="text-center">
-                <h3 className="text-lg font-semibold">
-                  Finalizing Performance Analysis
-                </h3>
-                <p className="text-sm text-secondary">
-                  {controller.analysisProgress.currentMove ||
-                    'Aggregating cached analysis results...'}
-                </p>
-                {controller.analysisProgress.total > 0 && (
-                  <div className="mt-3 w-full">
-                    <div className="mb-1 flex justify-between text-xs text-secondary">
-                      <span>Progress</span>
-                      <span>
-                        {Math.round(
-                          (controller.analysisProgress.completed /
-                            controller.analysisProgress.total) *
-                            100,
-                        )}
-                        %
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded bg-background-3">
-                      <div
-                        className="h-full rounded bg-human-4 transition-all duration-300 ease-out"
-                        style={{
-                          width: `${
-                            controller.analysisProgress.total > 0
-                              ? (controller.analysisProgress.completed /
-                                  controller.analysisProgress.total) *
-                                100
-                              : 0
-                          }%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Performance Modal */}
       <AnimatePresence>
         {controller.showPerformanceModal &&
@@ -1157,22 +837,21 @@ const OpeningsPage: NextPage = () => {
               performanceData={controller.currentPerformanceData}
               onContinueAnalyzing={controller.continueAnalyzing}
               onNextDrill={controller.moveToNextDrill}
-              isLastDrill={controller.remainingDrills.length <= 1}
+              isLastDrill={false}
             />
           )}
       </AnimatePresence>
-
-      {/* Final Completion Modal */}
       <AnimatePresence>
-        {controller.showFinalModal && (
-          <FinalCompletionModal
-            performanceData={controller.overallPerformanceData}
-            onContinueAnalyzing={controller.continueAnalyzingFromFinal}
-            onSelectNewOpenings={() => {
-              controller.resetDrillSession()
-              setShowSelectionModal(true)
-            }}
-          />
+        {controller.drillAnalysisProgress.isAnalyzing && (
+          <>
+            <AnalysisOverlay
+              isActive={controller.drillAnalysisProgress.isAnalyzing}
+            />
+            <AnalysisNotification
+              progress={controller.drillAnalysisProgress}
+              onCancel={controller.cancelDrillAnalysis}
+            />
+          </>
         )}
       </AnimatePresence>
     </>

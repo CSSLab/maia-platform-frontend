@@ -65,12 +65,16 @@ interface Props {
   stats: AllStats
   hideSession?: boolean
   isGame?: boolean
+  embedded?: boolean
+  hideEmbeddedBorder?: boolean
 }
 
 export const StatsDisplay: React.FC<Props> = ({
   hideSession,
   stats,
   isGame,
+  embedded = false,
+  hideEmbeddedBorder = false,
 }: Props) => {
   const [cachedRating, setCachedRating] = useState<number | undefined>(0)
 
@@ -82,7 +86,13 @@ export const StatsDisplay: React.FC<Props> = ({
   }, [stats])
 
   return (
-    <div className="flex flex-col gap-3 rounded-l bg-background-1/90 p-4">
+    <div
+      className={
+        embedded
+          ? `flex flex-col gap-3 bg-transparent p-3 ${hideEmbeddedBorder ? '' : 'border-t border-glass-border'}`
+          : 'flex flex-col gap-3 border border-glass-border bg-glass p-3 backdrop-blur-md md:rounded'
+      }
+    >
       <div className="flex flex-col">
         <div className="text-sm uppercase">Your rating</div>
         <div

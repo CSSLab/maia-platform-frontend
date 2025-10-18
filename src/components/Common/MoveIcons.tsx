@@ -58,7 +58,7 @@ export const BlunderIcon: React.FC<IconProps> = ({
         content="Blunder"
         place="top"
         delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
+        className="z-50 !bg-black !px-2 !py-1 !text-xs"
       />
     </>
   )
@@ -101,7 +101,7 @@ export const InaccuracyIcon: React.FC<IconProps> = ({
         content="Inaccuracy"
         place="top"
         delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
+        className="z-50 !bg-black !px-2 !py-1 !text-xs"
       />
     </>
   )
@@ -144,7 +144,7 @@ export const ExcellentIcon: React.FC<IconProps> = ({
         content="Excellent"
         place="top"
         delayShow={300}
-        className="z-50 !bg-background-2 !px-2 !py-1 !text-xs"
+        className="z-50 !bg-black !px-2 !py-1 !text-xs"
       />
     </>
   )

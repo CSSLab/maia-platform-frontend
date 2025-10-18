@@ -1,9 +1,3 @@
-/**
- * Settings Management Utilities
- *
- * Utilities for managing user preferences stored in localStorage
- */
-
 export interface UserSettings {
   soundEnabled: boolean
   chessboardTheme:
@@ -45,9 +39,6 @@ const DEFAULT_SETTINGS: UserSettings = {
   chessboardTheme: 'brown',
 }
 
-/**
- * Get user settings from localStorage with defaults
- */
 export const getUserSettings = (): UserSettings => {
   if (typeof window === 'undefined') {
     return DEFAULT_SETTINGS
@@ -70,9 +61,6 @@ export const getUserSettings = (): UserSettings => {
   }
 }
 
-/**
- * Save user settings to localStorage
- */
 export const saveUserSettings = (settings: UserSettings): void => {
   if (typeof window === 'undefined') {
     return
@@ -85,9 +73,6 @@ export const saveUserSettings = (settings: UserSettings): void => {
   }
 }
 
-/**
- * Update a specific setting
- */
 export const updateUserSetting = <K extends keyof UserSettings>(
   key: K,
   value: UserSettings[K],

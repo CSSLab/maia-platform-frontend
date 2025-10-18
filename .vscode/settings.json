@@ -6,5 +6,7 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "[dockerfile]": {
     "editor.defaultFormatter": "ms-azuretools.vscode-docker"
-  }
+  },
+  "editor.tabCompletion": "on",
+  "github.copilot.nextEditSuggestions.enabled": true
 }

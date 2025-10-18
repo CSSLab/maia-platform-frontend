@@ -46,7 +46,7 @@ const teamMembers = [
     image: '/assets/team/kevin.jpg',
     name: 'Kevin Thomas',
     website: 'https://kevinjosethomas.com/',
-    institution: 'Burnaby South Secondary',
+    institution: 'University of Waterloo',
     role: 'Web Developer',
     github: 'kevinjosethomas',
   },
@@ -130,7 +130,7 @@ const PaperCard = ({
   className?: string
 }) => (
   <motion.div
-    className={`group relative flex h-full flex-col rounded-lg bg-background-1 transition-all duration-200 ${featured ? '' : 'hover:scale-[1.02]'} ${className} ${featured ? 'overflow-hidden' : 'p-4 md:p-6'}`}
+    className={`from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex h-full flex-col rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md transition-all duration-200 hover:border-glass-border ${featured ? '' : 'hover:scale-[1.02]'} ${className} ${featured ? 'overflow-hidden' : 'p-4 md:p-6'}`}
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
@@ -214,7 +214,7 @@ export const AboutMaia = () => {
     <div>
       <section
         id="main_info"
-        className="relative flex flex-col items-center justify-center bg-background-2 py-20 text-center"
+        className="relative flex flex-col items-center justify-center bg-transparent py-20 text-center"
         ref={projectRef}
       >
         <div className="flex max-w-3xl flex-col items-center justify-center px-4 md:px-0">
@@ -295,7 +295,7 @@ export const AboutMaia = () => {
 
       <section
         id="team_info"
-        className="relative overflow-hidden bg-background-1 py-16"
+        className="relative overflow-hidden bg-transparent py-16"
         ref={teamRef}
       >
         <div className="relative z-10 mx-auto my-0 flex max-w-[1200px] flex-col items-center justify-center gap-8">
@@ -311,7 +311,7 @@ export const AboutMaia = () => {
       </section>
 
       <section
-        className="relative flex flex-col items-center justify-center gap-2 overflow-hidden bg-background-2 py-20"
+        className="relative flex flex-col items-center justify-center gap-2 overflow-hidden bg-transparent py-20"
         ref={acknowledgementsRef}
       >
         <h3 className="text-center text-xl font-bold uppercase">

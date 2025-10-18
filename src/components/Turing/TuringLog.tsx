@@ -1,14 +1,28 @@
 import { useContext } from 'react'
 import { TuringControllerContext } from 'src/contexts'
 
-export const TuringLog: React.FC = () => {
-  const { games, gameIds, setCurrentGameId, currentGameId } = useContext(
+export const TuringLog: React.FC<{ embedded?: boolean }> = ({
+  embedded = false,
+}) => {
+  const { games, gameIds, setCurrentIndex, currentIndex } = useContext(
     TuringControllerContext,
   )
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded bg-background-1">
-      <div className="border-b border-white border-opacity-10 px-3 py-2">
+    <div
+      className={
+        embedded
+          ? 'flex h-full flex-col overflow-hidden border-t border-glass-border bg-transparent'
+          : 'flex h-full flex-col overflow-hidden border border-glass-border bg-glass'
+      }
+    >
+      <div
+        className={
+          embedded
+            ? 'border-b border-glass-border px-3 py-2'
+            : 'border-b border-white border-opacity-10 px-3 py-2'
+        }
+      >
         <h3 className="text-sm font-medium text-primary">Game History</h3>
       </div>
       <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto">
@@ -18,8 +32,8 @@ export const TuringLog: React.FC = () => {
           </div>
         ) : (
           gameIds.map((gameId, index) => {
-            const game = games[gameId]
-            const isCurrentGame = gameId === currentGameId
+            const game = games[index]
+            const isCurrentGame = index === currentIndex
             const getStatusInfo = () => {
               if (game.result?.correct === true) {
                 return {
@@ -48,11 +62,11 @@ export const TuringLog: React.FC = () => {
             return (
               <button
                 key={gameId}
-                onClick={() => setCurrentGameId(gameId)}
+                onClick={() => setCurrentIndex(index)}
                 className={`group flex w-full cursor-pointer items-center gap-2 border-b border-white/5 px-3 py-2 text-left transition-colors ${
                   isCurrentGame
-                    ? 'bg-background-2 font-medium'
-                    : `${statusInfo.bgColor} hover:bg-background-2`
+                    ? 'bg-glass font-medium'
+                    : `${statusInfo.bgColor} hover:bg-glass-strong`
                 }`}
               >
                 <div className="flex min-w-0 flex-1 flex-col">

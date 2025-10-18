@@ -1,13 +1,22 @@
-import React, { useState, useMemo, useEffect, useContext } from 'react'
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useContext,
+  useCallback,
+} from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import Chessground from '@react-chess/chessground'
-import { useWindowSize } from 'src/hooks/useWindowSize'
+import { Chess } from 'chess.ts'
 import {
   Opening,
+  EndgameTrait,
   OpeningVariation,
   OpeningSelection,
   DrillConfiguration,
+  DrillCategoryType,
+  EndgamePositionDetail,
 } from 'src/types'
 import { ModalContainer } from '../Common/ModalContainer'
 import { useTour } from 'src/contexts'
@@ -23,12 +32,49 @@ import {
   trackDrillConfigurationCompleted,
 } from 'src/lib/analytics'
 import { MAIA_MODELS_WITH_NAMES } from 'src/constants/common'
-import { selectOpeningDrills } from 'src/api/opening'
+import {
+  ENDGAME_TRAITS,
+  ENDGAME_TRAIT_LABELS,
+  collectEndgamePositions,
+  EndgameDataset,
+  EndgameCategoryData,
+  EndgameMotifData,
+} from 'src/lib/endgames'
 
 type MobileTab = 'browse' | 'selected'
 
+const DEFAULT_START_FEN =
+  'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+const PGN_RESULT_TOKENS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
+
+const getTraitSelectionKey = (
+  openingId: string,
+  variationId: string | null | undefined,
+) => (variationId ? `${openingId}__${variationId}` : openingId)
+
+const getOpeningCategory = (opening: Opening): DrillCategoryType => {
+  if (opening.categoryType === 'endgame') return 'endgame'
+  if (opening.categoryType === 'custom' || opening.isCustom) return 'custom'
+  return 'opening'
+}
+
+const formatCategoryLabel = (category: DrillCategoryType) => {
+  switch (category) {
+    case 'opening':
+      return 'opening'
+    case 'endgame':
+      return 'endgame'
+    case 'custom':
+      return 'custom position'
+    default:
+      return category
+  }
+}
+
 interface Props {
   openings: Opening[]
+  endgames?: Opening[]
+  endgameDataset?: EndgameDataset
   initialSelections?: OpeningSelection[]
   onComplete: (configuration: DrillConfiguration) => void
   onClose: () => void
@@ -39,9 +85,20 @@ interface MobileOpeningPopupProps {
   variation: OpeningVariation | null
   isOpen: boolean
   onClose: () => void
-  onAdd: (color: 'white' | 'black') => void
+  previewFen: string
+  onAddOpening: (color: 'white' | 'black') => void
+  onAddEndgame: () => void
   onRemove: () => void
   isSelected: boolean
+  isEndgame: boolean
+  selectedTraits: EndgameTrait[]
+  availableTraits: EndgameTrait[]
+  onToggleTrait: (trait: EndgameTrait) => void
+  isDuplicate: boolean
+  isAddDisabled: boolean
+  disabledReason?: string
+  selectedColor: 'white' | 'black'
+  setSelectedColor: (color: 'white' | 'black') => void
 }
 
 const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
@@ -49,20 +106,39 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
   variation,
   isOpen,
   onClose,
-  onAdd,
+  previewFen,
+  onAddOpening,
+  onAddEndgame,
   onRemove,
   isSelected,
+  isEndgame,
+  selectedTraits,
+  availableTraits,
+  onToggleTrait,
+  isDuplicate,
+  isAddDisabled,
+  disabledReason,
+  selectedColor,
+  setSelectedColor,
 }) => {
-  const [selectedColor, setSelectedColor] = useState<'white' | 'black'>('white')
-  const previewFen = useMemo(() => {
-    return variation ? variation.fen : opening.fen
-  }, [opening, variation])
+  const addDisabled = isDuplicate || isAddDisabled
+  const addTitle = isDuplicate
+    ? 'Already added with same settings'
+    : disabledReason || undefined
+
+  const handleAdd = () => {
+    if (isEndgame) {
+      onAddEndgame()
+    } else {
+      onAddOpening(selectedColor)
+    }
+  }
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-sm rounded-lg bg-background-1 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-backdrop/90">
+      <div className="mx-4 w-full max-w-sm rounded-lg border border-glass-border bg-glass p-4 backdrop-blur-md">
         <div className="mb-4">
           <h3 className="text-lg font-bold">{opening.name}</h3>
           {variation && (
@@ -79,74 +155,115 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
                 fen: previewFen,
                 coordinates: true,
                 animation: { enabled: true, duration: 200 },
-                orientation: selectedColor,
+                orientation: isEndgame ? 'white' : selectedColor,
               }}
             />
           </div>
         </div>
 
-        {!isSelected && (
-          <div className="mb-4">
-            <p className="mb-2 text-sm font-medium">Play as:</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedColor('white')}
-                className={`flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors ${
-                  selectedColor === 'white'
-                    ? 'bg-human-4 text-white'
-                    : 'bg-background-2 hover:bg-background-3'
-                }`}
-              >
-                <div className="relative h-4 w-4">
-                  <Image
-                    src="/assets/pieces/white king.svg"
-                    fill={true}
-                    alt="white king"
-                  />
+        {!isSelected &&
+          (isEndgame ? (
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-medium">Include traits:</p>
+              {availableTraits.length === 0 ? (
+                <p className="text-xs text-secondary">
+                  No positions available for this selection.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {availableTraits.map((trait) => {
+                    const checked = selectedTraits.includes(trait)
+                    return (
+                      <label
+                        key={trait}
+                        className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                          checked
+                            ? 'border-human-4 bg-human-4/20 text-white'
+                            : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-human-4"
+                          checked={checked}
+                          onChange={() => onToggleTrait(trait)}
+                        />
+                        {ENDGAME_TRAIT_LABELS[trait]}
+                      </label>
+                    )
+                  })}
                 </div>
-                White
-              </button>
-              <button
-                onClick={() => setSelectedColor('black')}
-                className={`flex items-center gap-2 rounded px-3 py-2 text-sm transition-colors ${
-                  selectedColor === 'black'
-                    ? 'bg-human-4 text-white'
-                    : 'bg-background-2 hover:bg-background-3'
-                }`}
-              >
-                <div className="relative h-4 w-4">
-                  <Image
-                    src="/assets/pieces/black king.svg"
-                    fill={true}
-                    alt="black king"
-                  />
-                </div>
-                Black
-              </button>
+              )}
+              {selectedTraits.length === 0 && availableTraits.length > 0 && (
+                <p className="mt-2 text-xs text-red-400">
+                  Select at least one trait to add this endgame drill.
+                </p>
+              )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-medium">Play as:</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedColor('white')}
+                  className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                    selectedColor === 'white'
+                      ? 'border-glass-border bg-white/10 text-white'
+                      : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="relative h-4 w-4">
+                    <Image
+                      src="/assets/pieces/white king.svg"
+                      fill={true}
+                      alt="white king"
+                    />
+                  </div>
+                  White
+                </button>
+                <button
+                  onClick={() => setSelectedColor('black')}
+                  className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                    selectedColor === 'black'
+                      ? 'border-glass-border bg-white/10 text-white'
+                      : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="relative h-4 w-4">
+                    <Image
+                      src="/assets/pieces/black king.svg"
+                      fill={true}
+                      alt="black king"
+                    />
+                  </div>
+                  Black
+                </button>
+              </div>
+            </div>
+          ))}
 
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 rounded bg-background-2 py-2 text-sm font-medium transition-colors hover:bg-background-3"
+            className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white/90 backdrop-blur-sm transition-colors hover:bg-white/10"
           >
             Cancel
           </button>
           {isSelected ? (
             <button
               onClick={onRemove}
-              className="flex-1 rounded bg-human-4 py-2 text-sm font-medium transition-colors"
+              className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10"
             >
               Remove
             </button>
           ) : (
             <button
-              onClick={() => onAdd(selectedColor)}
-              className="flex-1 rounded bg-human-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80"
+              onClick={handleAdd}
+              disabled={addDisabled}
+              className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              title={addTitle}
             >
-              Add Drill
+              {isDuplicate ? 'Drill Already Added' : 'Add Drill'}
             </button>
           )}
         </div>
@@ -163,7 +280,7 @@ const TabNavigation: React.FC<{
   const { isMobile } = useContext(WindowSizeContext)
 
   return (
-    <div className="flex w-full border-b border-white/10 md:hidden">
+    <div className="flex w-full border-b border-glass-border md:hidden">
       <button
         {...(isMobile ? { id: 'opening-drill-browse' } : {})}
         onClick={() => setActiveTab('browse')}
@@ -206,12 +323,22 @@ const BrowsePanel: React.FC<{
   isDuplicateSelection: (
     opening: Opening,
     variation: OpeningVariation | null,
+    traits?: EndgameTrait[],
   ) => boolean
   searchTerm: string
   setSearchTerm: (term: string) => void
   selections: OpeningSelection[]
   onOpeningClick: (opening: Opening, variation: OpeningVariation | null) => void
   removeSelection: (id: string) => void
+  onRemoveCustomOpening: (openingId: string) => void
+  browseCategory: 'openings' | 'endgames' | 'custom'
+  onBrowseCategoryChange: (category: 'openings' | 'endgames' | 'custom') => void
+  customInput: string
+  setCustomInput: (value: string) => void
+  customError: string | null
+  onAddCustomPosition: () => void
+  categoryLabel: string
+  categoryLabelPlural: string
 }> = ({
   activeTab,
   filteredOpenings,
@@ -227,10 +354,21 @@ const BrowsePanel: React.FC<{
   selections,
   onOpeningClick,
   removeSelection,
+  onRemoveCustomOpening,
+  browseCategory,
+  onBrowseCategoryChange,
+  customInput,
+  setCustomInput,
+  customError,
+  onAddCustomPosition,
+  categoryLabel,
+  categoryLabelPlural,
 }) => {
   const { isMobile } = useContext(WindowSizeContext)
+  const isCustomCategory = browseCategory === 'custom'
 
-  // Helper function to remove a selection by opening and variation
+  const searchPlaceholder = `Search ${categoryLabelPlural.toLowerCase()}...`
+
   const removeOpeningSelection = (
     opening: Opening,
     variation: OpeningVariation | null,
@@ -245,36 +383,248 @@ const BrowsePanel: React.FC<{
     }
   }
 
+  const renderTabs = () => (
+    <div className="grid w-full select-none grid-cols-3 items-center justify-between overflow-hidden border-b border-glass-border">
+      {[
+        { label: 'Openings', value: 'openings' as const },
+        { label: 'Endgames', value: 'endgames' as const },
+        { label: 'Custom', value: 'custom' as const },
+      ].map(({ label, value }) => {
+        const isSelected = browseCategory === value
+        return (
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              onBrowseCategoryChange(value)
+              setActiveTab('browse')
+            }}
+            aria-pressed={isSelected}
+            className={`relative flex-1 px-3 py-2 text-xs font-medium transition-all duration-200 md:text-sm ${
+              isSelected
+                ? 'bg-white/10 text-white'
+                : 'hover:bg-white/8 bg-white/5 text-white/60 hover:text-white/90'
+            }`}
+          >
+            <span>{label}</span>
+            {isSelected && (
+              <motion.div
+                layoutId="browse-category-underline"
+                className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-primary/50"
+              />
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  if (isCustomCategory) {
+    return (
+      <div
+        id="opening-drill-browse"
+        className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-glass-border`}
+      >
+        {renderTabs()}
+        <form
+          className="flex h-20 flex-col gap-3 border-b border-glass-border p-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onAddCustomPosition()
+          }}
+        >
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+            <input
+              type="text"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              placeholder="Drill a custom FEN/PGN"
+              className="h-full flex-1 rounded border border-glass-border bg-white/5 px-3 text-sm text-white placeholder-primary/50 focus:outline-none focus:ring-1 focus:ring-white/20"
+            />
+            <button
+              type="submit"
+              className="flex h-10 items-center justify-center rounded border border-human-4/50 bg-human-4/20 px-4 text-xs font-semibold uppercase tracking-wide text-primary transition-colors hover:bg-human-4/30 md:h-10"
+              disabled={!customInput.trim()}
+            >
+              Add Position
+            </button>
+          </div>
+          {customError && <p className="text-xs text-red-400">{customError}</p>}
+        </form>
+
+        <div className="border-b border-glass-border p-4">
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary">
+              search
+            </span>
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded border border-glass-border bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 p-3 text-xs text-secondary md:p-4">
+          <p>Saved custom positions:</p>
+        </div>
+
+        <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto">
+          {filteredOpenings.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-secondary md:text-sm">
+              No saved positions yet. Add a FEN or PGN above to get started.
+            </div>
+          ) : (
+            filteredOpenings.map((opening) => {
+              const openingIsSelected = selections.some(
+                (selection) =>
+                  selection.opening.id === opening.id &&
+                  selection.variation === null,
+              )
+              const openingIsBeingPreviewed =
+                previewOpening.id === opening.id && !previewVariation
+
+              return (
+                <div
+                  key={opening.id}
+                  className={`group border-b border-white/5 transition-colors ${
+                    openingIsSelected
+                      ? 'bg-white/5'
+                      : openingIsBeingPreviewed
+                        ? 'bg-white/5'
+                        : 'hover:bg-white/5'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="flex-1 cursor-pointer p-4"
+                      onClick={() => {
+                        setPreviewOpening(opening)
+                        setPreviewVariation(null)
+                        trackOpeningPreviewSelected(
+                          opening.name,
+                          opening.id,
+                          false,
+                        )
+                        if (isMobile) {
+                          onOpeningClick(opening, null)
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          setPreviewOpening(opening)
+                          setPreviewVariation(null)
+                          trackOpeningPreviewSelected(
+                            opening.name,
+                            opening.id,
+                            false,
+                          )
+                          if (isMobile) {
+                            onOpeningClick(opening, null)
+                          }
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium">{opening.name}</h3>
+                            <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                              Custom
+                            </span>
+                          </div>
+                          <p className="text-xs text-secondary">
+                            {opening.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mr-1 flex items-center gap-1">
+                      {openingIsSelected ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeOpeningSelection(opening, null)
+                          }}
+                          className="rounded p-1 text-white/70 transition-colors hover:text-white"
+                          title="Remove position from selection"
+                        >
+                          <span className="material-symbols-outlined !text-base">
+                            check
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addQuickSelection(opening, null)
+                          }}
+                          className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
+                          title="Add position with current settings"
+                        >
+                          <span className="material-symbols-outlined !text-base">
+                            add
+                          </span>
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveCustomOpening(opening.id)
+                        }}
+                        className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary"
+                        title="Remove custom position"
+                      >
+                        <span className="material-symbols-outlined !text-base">
+                          delete
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       id="opening-drill-browse"
-      className={`flex w-full flex-col overflow-y-scroll ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-white/10`}
+      className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-glass-border`}
     >
-      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
-        <h2 className="text-xl font-bold">Select Openings</h2>
+      {renderTabs()}
+      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
+        <h2 className="text-xl font-bold">Select {categoryLabelPlural}</h2>
         <p className="text-xs text-secondary">
-          Click the + button to quickly add an opening with current settings
+          Browse and select {categoryLabelPlural.toLowerCase()} to drill.
         </p>
       </div>
 
-      {/* Mobile header */}
-      <div className="flex h-16 flex-col justify-center gap-1 border-b border-white/10 p-4 md:hidden">
-        <h2 className="text-lg font-bold">Select Openings</h2>
-        <p className="text-xs text-secondary">Choose openings to practice</p>
+      <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4 md:hidden">
+        <h2 className="text-lg font-bold">Select {categoryLabelPlural}</h2>
+        <p className="text-xs text-secondary">
+          Choose {categoryLabelPlural.toLowerCase()} to practice
+        </p>
       </div>
 
-      {/* Search Bar */}
-      <div className="border-b border-white/10 p-4">
+      <div className="border-b border-glass-border p-4">
         <div className="relative">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary">
             search
           </span>
           <input
             type="text"
-            placeholder="Search openings..."
+            placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded bg-background-2 py-2 pl-10 pr-4 text-sm text-primary placeholder-secondary focus:outline-none focus:ring-1 focus:ring-human-4"
+            className="w-full rounded border border-glass-border bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
           />
         </div>
       </div>
@@ -297,13 +647,13 @@ const BrowsePanel: React.FC<{
                 className={`group transition-colors ${
                   isMobile
                     ? openingIsSelected
-                      ? 'bg-human-2/20'
+                      ? 'bg-white/5'
                       : ''
                     : openingIsSelected
-                      ? 'bg-human-2/20'
+                      ? 'bg-white/5'
                       : openingIsBeingPreviewed
-                        ? 'bg-human-2/10'
-                        : 'hover:bg-human-2/10'
+                        ? 'bg-white/5'
+                        : 'hover:bg-white/5'
                 }`}
               >
                 <div className="flex items-center">
@@ -347,33 +697,35 @@ const BrowsePanel: React.FC<{
                       </div>
                     </div>
                   </div>
-                  {openingIsSelected ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeOpeningSelection(opening, null)
-                      }}
-                      className="mr-3 rounded p-1 text-human-3 transition-colors hover:text-human-4"
-                      title="Remove opening from selection"
-                    >
-                      <span className="material-symbols-outlined !text-base">
-                        check
-                      </span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        addQuickSelection(opening, null)
-                      }}
-                      className="mr-3 rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
-                      title="Add opening with current settings"
-                    >
-                      <span className="material-symbols-outlined !text-base">
-                        add
-                      </span>
-                    </button>
-                  )}
+                  <div className="mr-1 flex items-center gap-1">
+                    {openingIsSelected ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          removeOpeningSelection(opening, null)
+                        }}
+                        className="rounded p-1 text-white/70 transition-colors hover:text-white"
+                        title={`Remove ${categoryLabel.toLowerCase()} from selection`}
+                      >
+                        <span className="material-symbols-outlined !text-base">
+                          check
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          addQuickSelection(opening, null)
+                        }}
+                        className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
+                        title={`Add ${categoryLabel.toLowerCase()} with current settings`}
+                      >
+                        <span className="material-symbols-outlined !text-base">
+                          add
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               {opening.variations.map((variation) => {
@@ -392,13 +744,13 @@ const BrowsePanel: React.FC<{
                     className={`group transition-colors ${
                       isMobile
                         ? variationIsSelected
-                          ? 'bg-human-2/20'
+                          ? 'bg-white/5'
                           : ''
                         : variationIsSelected
-                          ? 'bg-human-2/20'
+                          ? 'bg-white/5'
                           : variationIsBeingPreviewed
-                            ? 'bg-human-2/10'
-                            : 'hover:bg-human-2/10'
+                            ? 'bg-white/5'
+                            : 'hover:bg-white/5'
                     }`}
                   >
                     <div className="flex items-center">
@@ -447,7 +799,7 @@ const BrowsePanel: React.FC<{
                             e.stopPropagation()
                             removeOpeningSelection(opening, variation)
                           }}
-                          className="mr-3 rounded p-1 text-human-3 transition-colors hover:text-human-4"
+                          className="mr-3 rounded p-1 text-white/70 transition-colors hover:text-white"
                           title="Remove variation from selection"
                         >
                           <span className="material-symbols-outlined !text-base">
@@ -479,42 +831,90 @@ const BrowsePanel: React.FC<{
     </div>
   )
 }
-
 const PreviewPanel: React.FC<{
-  selections: OpeningSelection[]
   previewOpening: Opening
   previewVariation: OpeningVariation | null
   previewFen: string
   selectedColor: 'white' | 'black'
   setSelectedColor: (color: 'white' | 'black') => void
   addSelection: () => void
+  panelLabel: string
+  isDuplicate: boolean
+  isAddDisabled: boolean
+  disabledReason?: string
+  isEndgame: boolean
+  selectedTraits: EndgameTrait[]
+  availableTraits: EndgameTrait[]
+  onToggleTrait: (trait: EndgameTrait) => void
 }> = ({
-  selections,
   previewOpening,
   previewVariation,
   previewFen,
   selectedColor,
   setSelectedColor,
   addSelection,
+  panelLabel,
+  isDuplicate,
+  isAddDisabled,
+  disabledReason,
+  isEndgame,
+  selectedTraits,
+  availableTraits,
+  onToggleTrait,
 }) => {
-  const isDuplicateSelection = (
-    opening: Opening,
-    variation: OpeningVariation | null,
-  ) => {
-    return selections.some(
-      (selection) =>
-        selection.opening.id === opening.id &&
-        selection.variation?.id === variation?.id,
-    )
-  }
+  const addDisabled = isDuplicate || isAddDisabled
+  const addButtonLabel = isDuplicate ? 'Drill Already Added' : 'Add to Drill'
+  const addButtonTitle = isDuplicate
+    ? 'Already added with same settings'
+    : disabledReason || undefined
+
+  const renderEndgameTraitControls = () => (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-medium md:text-sm">Include traits:</p>
+      {availableTraits.length === 0 ? (
+        <p className="text-xs text-secondary">
+          No positions available for this selection.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {availableTraits.map((trait) => {
+            const checked = selectedTraits.includes(trait)
+            return (
+              <label
+                key={trait}
+                className={`flex cursor-pointer items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
+                  checked
+                    ? 'border-human-4 bg-human-4/20 text-white'
+                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="h-3 w-3 accent-human-4 md:h-4 md:w-4"
+                  checked={checked}
+                  onChange={() => onToggleTrait(trait)}
+                />
+                {ENDGAME_TRAIT_LABELS[trait]}
+              </label>
+            )
+          })}
+        </div>
+      )}
+      {selectedTraits.length === 0 && availableTraits.length > 0 && (
+        <p className="text-xs text-red-400">
+          Select at least one trait to add this endgame drill.
+        </p>
+      )}
+    </div>
+  )
 
   return (
     <div
       id="opening-drill-preview"
       className="hidden w-full flex-col overflow-hidden md:flex"
     >
-      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
-        <h2 className="text-xl font-bold">Preview Opening</h2>
+      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
+        <h2 className="text-xl font-bold">Preview {panelLabel}</h2>
         <p className="text-xs text-secondary">Configure your drill settings</p>
       </div>
 
@@ -529,45 +929,49 @@ const PreviewPanel: React.FC<{
           <p className="text-xs text-secondary">{previewOpening.description}</p>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium md:text-sm">Play as:</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSelectedColor('white')}
-              className={`flex items-center gap-2 rounded px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
-                selectedColor === 'white'
-                  ? 'bg-human-4 text-white'
-                  : 'bg-background-2 hover:bg-background-3'
-              }`}
-            >
-              <div className="relative h-4 w-4 md:h-5 md:w-5">
-                <Image
-                  src="/assets/pieces/white king.svg"
-                  fill={true}
-                  alt="white king"
-                />
-              </div>
-              White
-            </button>
-            <button
-              onClick={() => setSelectedColor('black')}
-              className={`flex items-center gap-2 rounded px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
-                selectedColor === 'black'
-                  ? 'bg-human-4 text-white'
-                  : 'bg-background-2 hover:bg-background-3'
-              }`}
-            >
-              <div className="relative h-4 w-4 md:h-5 md:w-5">
-                <Image
-                  src="/assets/pieces/black king.svg"
-                  fill={true}
-                  alt="black king"
-                />
-              </div>
-              Black
-            </button>
+        {isEndgame ? (
+          renderEndgameTraitControls()
+        ) : (
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-medium md:text-sm">Play as:</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedColor('white')}
+                className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
+                  selectedColor === 'white'
+                    ? 'border-glass-border bg-white/10 text-white'
+                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                }`}
+              >
+                <div className="relative h-4 w-4 md:h-5 md:w-5">
+                  <Image
+                    src="/assets/pieces/white king.svg"
+                    fill={true}
+                    alt="white king"
+                  />
+                </div>
+                White
+              </button>
+              <button
+                onClick={() => setSelectedColor('black')}
+                className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
+                  selectedColor === 'black'
+                    ? 'border-glass-border bg-white/10 text-white'
+                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                }`}
+              >
+                <div className="relative h-4 w-4 md:h-5 md:w-5">
+                  <Image
+                    src="/assets/pieces/black king.svg"
+                    fill={true}
+                    alt="black king"
+                  />
+                </div>
+                Black
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex w-full flex-col items-start justify-center gap-1">
           <p className="text-xs font-medium md:text-sm">Preview:</p>
@@ -579,27 +983,21 @@ const PreviewPanel: React.FC<{
                 fen: previewFen,
                 coordinates: true,
                 animation: { enabled: true, duration: 200 },
-                orientation: selectedColor,
+                orientation: isEndgame ? 'white' : selectedColor,
               }}
             />
           </div>
         </div>
       </div>
 
-      <div className="flex-shrink-0 border-t border-white/10 bg-background-1 p-3 md:p-4">
+      <div className="flex-shrink-0 border-t border-glass-border p-3 md:p-4">
         <button
           onClick={addSelection}
-          disabled={isDuplicateSelection(previewOpening, previewVariation)}
-          className="w-full rounded bg-human-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80 disabled:cursor-not-allowed disabled:opacity-50"
-          title={
-            isDuplicateSelection(previewOpening, previewVariation)
-              ? 'Already added with same settings'
-              : 'Add to Drill'
-          }
+          disabled={addDisabled}
+          className="w-full rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          title={addButtonTitle}
         >
-          {isDuplicateSelection(previewOpening, previewVariation)
-            ? 'Drill Already Added'
-            : 'Add to Drill'}
+          {addButtonLabel}
         </button>
       </div>
     </div>
@@ -610,38 +1008,42 @@ const SelectedPanel: React.FC<{
   activeTab: MobileTab
   selections: OpeningSelection[]
   removeSelection: (id: string) => void
-  drillCount: number
-  setDrillCount: (count: number) => void
   handleStartDrilling: () => void
   selectedMaiaVersion: (typeof MAIA_MODELS_WITH_NAMES)[0]
   setSelectedMaiaVersion: (version: (typeof MAIA_MODELS_WITH_NAMES)[0]) => void
   targetMoveNumber: number
   setTargetMoveNumber: (number: number) => void
+  categoryLabel: string
+  categoryLabelPlural: string
+  showTargetSlider: boolean
 }> = ({
   activeTab,
   selections,
   removeSelection,
-  drillCount,
-  setDrillCount,
   handleStartDrilling,
   selectedMaiaVersion,
   setSelectedMaiaVersion,
   targetMoveNumber,
   setTargetMoveNumber,
+  categoryLabel,
+  categoryLabelPlural,
+  showTargetSlider,
 }) => (
   <div
     id="opening-drill-selected"
-    className={`flex w-full flex-col overflow-hidden ${activeTab !== 'selected' ? 'hidden md:flex' : 'flex'} md:border-l md:border-white/10`}
+    className={`flex w-full flex-col overflow-hidden ${activeTab !== 'selected' ? 'hidden md:flex' : 'flex'} md:border-l md:border-glass-border`}
   >
-    <div className="hidden h-20 flex-col justify-center gap-1 border-b border-white/10 p-4 md:flex">
+    <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
       <h2 className="text-xl font-bold">
-        Selected Openings ({selections.length})
+        Selected {categoryLabelPlural} ({selections.length})
       </h2>
-      <p className="text-xs text-secondary">Click X remove an opening</p>
+      <p className="text-xs text-secondary">
+        Click × to remove from the selection
+      </p>
     </div>
 
     {/* Mobile header */}
-    <div className="flex h-16 flex-col justify-center gap-1 border-b border-white/10 p-4 md:hidden">
+    <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4 md:hidden">
       <h2 className="text-lg font-bold">Selected ({selections.length})</h2>
       <p className="text-xs text-secondary">Tap to remove</p>
     </div>
@@ -651,65 +1053,102 @@ const SelectedPanel: React.FC<{
       {selections.length === 0 ? (
         <div className="flex flex-1 items-center justify-center">
           <p className="max-w-xs px-4 text-center text-xs text-secondary md:text-sm">
-            No openings selected yet. Choose openings from the Browse tab to
-            start drilling.
+            No {categoryLabelPlural.toLowerCase()} selected yet. Choose from the
+            Browse tab to start drilling.
           </p>
         </div>
       ) : (
         <div className="red-scrollbar flex-1 overflow-y-auto">
           <div className="flex w-full flex-col">
-            {selections.map((selection) => (
-              <div
-                key={selection.id}
-                className="flex items-center justify-between border-b border-white/5 p-3 transition-colors md:px-4"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <div className="relative h-4 w-4 flex-shrink-0 md:h-5 md:w-5">
-                      <Image
-                        src={
-                          selection.playerColor === 'white'
-                            ? '/assets/pieces/white king.svg'
-                            : '/assets/pieces/black king.svg'
-                        }
-                        fill={true}
-                        alt={`${selection.playerColor} king`}
-                      />
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-row items-center gap-2">
-                      <span className="truncate text-xs font-medium text-primary md:text-sm">
-                        {selection.opening.name}
-                      </span>
-                      {selection.variation && (
-                        <span className="mt-1 truncate text-xxs text-secondary">
-                          {selection.variation.name}
+            {selections.map((selection) => {
+              const isEndgameSelection =
+                getOpeningCategory(selection.opening) === 'endgame'
+
+              return (
+                <div
+                  key={selection.id}
+                  className="flex items-center justify-between border-b border-white/5 p-3 transition-colors md:px-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-2">
+                      {isEndgameSelection ? (
+                        <span className="material-symbols-outlined text-base text-human-3 md:text-lg">
+                          trophy
                         </span>
+                      ) : (
+                        <div className="relative h-4 w-4 flex-shrink-0 md:h-5 md:w-5">
+                          <Image
+                            src={
+                              selection.playerColor === 'white'
+                                ? '/assets/pieces/white king.svg'
+                                : '/assets/pieces/black king.svg'
+                            }
+                            fill={true}
+                            alt={`${selection.playerColor} king`}
+                          />
+                        </div>
                       )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-xs font-medium text-primary md:text-sm">
+                            {selection.opening.name}
+                          </span>
+                          {selection.opening.isCustom && (
+                            <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                        {selection.variation && (
+                          <p className="text-xs text-white/70">
+                            {selection.variation.name}
+                          </p>
+                        )}
+                        {isEndgameSelection &&
+                        selection.endgameTraits?.length ? (
+                          <div className="mt-1 flex flex-col items-start gap-1">
+                            <span className="text-xxs text-secondary">
+                              {selection.endgameTraits
+                                .map((trait) => ENDGAME_TRAIT_LABELS[trait])
+                                .join(', ')}
+                            </span>
+                            <span className="text-xxs text-secondary">
+                              {(
+                                selection.endgamePositions?.length ?? 0
+                              ).toLocaleString()}{' '}
+                              positions ·{' '}
+                              {selection.playerColor === 'white'
+                                ? 'White to move'
+                                : 'Black to move'}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        removeSelection(selection.id)
+                      }
+                    }}
+                    onClick={() => removeSelection(selection.id)}
+                    className="ml-2 text-secondary transition-colors hover:text-white"
+                  >
+                    <span className="material-symbols-outlined !text-lg">
+                      close
+                    </span>
+                  </button>
                 </div>
-                <button
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      removeSelection(selection.id)
-                    }
-                  }}
-                  onClick={() => removeSelection(selection.id)}
-                  className="ml-2 text-secondary transition-colors hover:text-human-4"
-                >
-                  <span className="material-symbols-outlined !text-lg">
-                    close
-                  </span>
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
     </div>
 
     {/* Fixed button section - always visible */}
-    <div className="flex-shrink-0 border-t border-white/10 bg-background-1 p-3 md:p-4">
+    <div className="flex-shrink-0 border-t border-glass-border p-3 md:p-4">
       {/* Opponent Selection */}
       <div className="mb-3 md:mb-4">
         <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">Opponent:</p>
@@ -723,7 +1162,7 @@ const SelectedPanel: React.FC<{
               setSelectedMaiaVersion(version)
             }
           }}
-          className="w-full rounded bg-background-2 p-2 text-xs focus:outline-none md:text-sm"
+          className="w-full rounded border border-glass-border bg-white/5 p-2 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20 md:text-sm"
         >
           {MAIA_MODELS_WITH_NAMES.map((version) => (
             <option key={version.id} value={version.id}>
@@ -734,56 +1173,35 @@ const SelectedPanel: React.FC<{
       </div>
 
       {/* Target Move Count Configuration */}
-      <div className="mb-3 md:mb-4">
-        <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">
-          Target Move Count: {targetMoveNumber}
-        </p>
-        <input
-          type="range"
-          min="5"
-          max="20"
-          value={targetMoveNumber}
-          onChange={(e) => setTargetMoveNumber(parseInt(e.target.value) || 10)}
-          className="w-full accent-human-4"
-        />
-        <div className="mt-1 flex justify-between text-xs text-secondary">
-          <span>5</span>
-          <span>20</span>
+      {showTargetSlider && (
+        <div className="mb-3 md:mb-4">
+          <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">
+            Target Move Count: {targetMoveNumber}
+          </p>
+          <input
+            type="range"
+            min="5"
+            max="20"
+            value={targetMoveNumber}
+            onChange={(e) =>
+              setTargetMoveNumber(parseInt(e.target.value) || 10)
+            }
+            className="w-full accent-human-4"
+          />
+          <div className="mt-1 flex justify-between text-xs text-secondary">
+            <span>5</span>
+            <span>20</span>
+          </div>
         </div>
-      </div>
-
-      {/* Drill Count Configuration */}
-      <div className="mb-3 md:mb-4">
-        <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">
-          Number of Drills: {drillCount}
-        </p>
-        <input
-          type="range"
-          min="1"
-          max="20"
-          value={drillCount}
-          onChange={(e) => setDrillCount(parseInt(e.target.value) || 5)}
-          className="w-full accent-human-4"
-        />
-        <div className="mt-1 flex justify-between text-xs text-secondary">
-          <span>1</span>
-          <span>20</span>
-        </div>
-        <p className="mt-1 text-xs text-secondary">
-          {drillCount <= selections.length
-            ? `You'll play ${drillCount} of your selected openings`
-            : selections.length > 0
-              ? `Each opening played at least once, with ${drillCount - selections.length} repeats`
-              : 'Total number of opening drills to complete'}
-        </p>
-      </div>
+      )}
 
       <button
         onClick={handleStartDrilling}
         disabled={selections.length === 0}
-        className="w-full rounded bg-human-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Start Drilling ({drillCount} drill{drillCount !== 1 ? 's' : ''})
+        Start Drilling ({selections.length}{' '}
+        {selections.length === 1 ? 'selection' : 'selections'})
       </button>
     </div>
   </div>
@@ -791,23 +1209,176 @@ const SelectedPanel: React.FC<{
 
 export const OpeningSelectionModal: React.FC<Props> = ({
   openings,
+  endgames = [],
+  endgameDataset,
   initialSelections = [],
   onComplete,
   onClose,
 }) => {
   const { startTour } = useTour()
   const { isMobile } = useContext(WindowSizeContext)
+
+  const normalizedOpenings = useMemo(
+    () =>
+      openings.map((opening) => ({
+        ...opening,
+        categoryType: opening.categoryType ?? 'opening',
+      })),
+    [openings],
+  )
+
+  const normalizedEndgames = useMemo(
+    () =>
+      endgames.map((endgame) => ({
+        ...endgame,
+        categoryType: endgame.categoryType ?? 'endgame',
+      })),
+    [endgames],
+  )
+
+  const firstInitialSelection = initialSelections[0] ?? null
+  const initialSelectionCategory = firstInitialSelection
+    ? getOpeningCategory(firstInitialSelection.opening)
+    : null
+
+  const initialCustomOpenings = useMemo(() => {
+    const builtInIds = new Set([
+      ...normalizedOpenings.map((opening) => opening.id),
+      ...normalizedEndgames.map((endgame) => endgame.id),
+    ])
+
+    const unique = new Map<string, Opening>()
+
+    initialSelections.forEach((selection) => {
+      const selectionOpening = selection.opening
+      if (!builtInIds.has(selectionOpening.id)) {
+        unique.set(selectionOpening.id, {
+          ...selectionOpening,
+          variations: (selectionOpening.variations || []).map((variation) => ({
+            ...variation,
+            isCustom: true,
+          })),
+          isCustom: true,
+          categoryType: 'custom',
+        })
+      }
+    })
+
+    return Array.from(unique.values())
+  }, [initialSelections, normalizedEndgames, normalizedOpenings])
+
+  const fallbackOpening = useMemo<Opening>(
+    () => ({
+      id: 'custom-fallback-position',
+      name: 'Custom Position',
+      description: 'Create a custom drill to get started.',
+      fen: DEFAULT_START_FEN,
+      pgn: '',
+      variations: [],
+      isCustom: true,
+      categoryType: 'custom',
+    }),
+    [],
+  )
+
+  const [customOpenings, setCustomOpenings] = useState<Opening[]>(
+    initialCustomOpenings,
+  )
   const [selections, setSelections] =
     useState<OpeningSelection[]>(initialSelections)
-  const [previewOpening, setPreviewOpening] = useState<Opening>(openings[0])
+  const [endgameTraitSelections, setEndgameTraitSelections] = useState<
+    Record<string, EndgameTrait[]>
+  >(() => {
+    const initial: Record<string, EndgameTrait[]> = {}
+    initialSelections.forEach((selection) => {
+      if (
+        (selection.opening.categoryType ?? 'opening') === 'endgame' &&
+        selection.endgameTraits
+      ) {
+        const key = getTraitSelectionKey(
+          selection.opening.id,
+          selection.variation?.id ?? null,
+        )
+        initial[key] = selection.endgameTraits
+      }
+    })
+    return initial
+  })
+
+  const hasOpenings = normalizedOpenings.length > 0
+  const hasEndgames = normalizedEndgames.length > 0
+
+  const initialBrowseCategory: 'openings' | 'endgames' | 'custom' =
+    initialSelectionCategory === 'opening'
+      ? 'openings'
+      : initialSelectionCategory === 'endgame'
+        ? 'endgames'
+        : initialSelectionCategory === 'custom'
+          ? 'custom'
+          : hasOpenings
+            ? 'openings'
+            : hasEndgames
+              ? 'endgames'
+              : 'custom'
+
+  const [browseCategory, setBrowseCategory] = useState<
+    'openings' | 'endgames' | 'custom'
+  >(initialBrowseCategory)
+
+  const initialPreview = useMemo(() => {
+    if (firstInitialSelection) {
+      const selectionOpening = firstInitialSelection.opening
+      const selectionIsUsable =
+        selectionOpening.categoryType !== 'endgame' ||
+        selectionOpening.endgameMeta
+
+      if (selectionIsUsable) {
+        return selectionOpening
+      }
+    }
+
+    if (initialBrowseCategory === 'custom') {
+      return initialCustomOpenings[0] ?? fallbackOpening
+    }
+
+    if (initialBrowseCategory === 'endgames') {
+      return normalizedEndgames[0] ?? fallbackOpening
+    }
+
+    return normalizedOpenings[0] ?? fallbackOpening
+  }, [
+    fallbackOpening,
+    firstInitialSelection,
+    initialBrowseCategory,
+    initialCustomOpenings,
+    normalizedEndgames,
+    normalizedOpenings,
+  ])
+
+  const initialPreviewVariation =
+    firstInitialSelection && initialPreview === firstInitialSelection.opening
+      ? (firstInitialSelection.variation ?? null)
+      : null
+  const defaultMaiaVersion =
+    MAIA_MODELS_WITH_NAMES[4] ?? MAIA_MODELS_WITH_NAMES[0]
+  const initialMaiaVersion = firstInitialSelection?.maiaVersion
+    ? (MAIA_MODELS_WITH_NAMES.find(
+        (model) => model.id === firstInitialSelection.maiaVersion,
+      ) ?? defaultMaiaVersion)
+    : defaultMaiaVersion
+  const initialTargetMoves = firstInitialSelection?.targetMoveNumber ?? 10
+  const initialSelectedColor: 'white' | 'black' =
+    firstInitialSelection?.playerColor ?? 'white'
+
+  const [previewOpening, setPreviewOpening] = useState<Opening>(initialPreview)
   const [previewVariation, setPreviewVariation] =
-    useState<OpeningVariation | null>(null)
-  const [selectedMaiaVersion, setSelectedMaiaVersion] = useState(
-    MAIA_MODELS_WITH_NAMES[4],
+    useState<OpeningVariation | null>(initialPreviewVariation)
+  const [selectedMaiaVersion, setSelectedMaiaVersion] =
+    useState(initialMaiaVersion)
+  const [selectedColor, setSelectedColor] = useState<'white' | 'black'>(
+    initialBrowseCategory === 'endgames' ? 'white' : initialSelectedColor,
   )
-  const [selectedColor, setSelectedColor] = useState<'white' | 'black'>('white')
-  const [targetMoveNumber, setTargetMoveNumber] = useState(10)
-  const [drillCount, setDrillCount] = useState(5)
+  const [targetMoveNumber, setTargetMoveNumber] = useState(initialTargetMoves)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState<MobileTab>('browse')
   const [initialTourCheck, setInitialTourCheck] = useState(false)
@@ -818,7 +1389,423 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   const [mobilePopupVariation, setMobilePopupVariation] =
     useState<OpeningVariation | null>(null)
   const [mobilePopupOpen, setMobilePopupOpen] = useState(false)
+  const [customInput, setCustomInput] = useState('')
+  const [customError, setCustomError] = useState<string | null>(null)
+  const getDefaultPreviewByCategory = useCallback(
+    (category: 'openings' | 'endgames' | 'custom'): Opening => {
+      if (category === 'openings') {
+        return normalizedOpenings[0] ?? fallbackOpening
+      }
+      if (category === 'endgames') {
+        return normalizedEndgames[0] ?? fallbackOpening
+      }
+      return customOpenings[0] ?? fallbackOpening
+    },
+    [customOpenings, normalizedEndgames, normalizedOpenings, fallbackOpening],
+  )
 
+  const handleBrowseCategoryChange = useCallback(
+    (
+      category: 'openings' | 'endgames' | 'custom',
+      options: { preservePreview?: boolean } = {},
+    ) => {
+      const { preservePreview = false } = options
+
+      setBrowseCategory(category)
+      setSearchTerm('')
+      setMobilePopupOpen(false)
+      setMobilePopupOpening(null)
+      setMobilePopupVariation(null)
+
+      if (!preservePreview) {
+        const nextPreview = getDefaultPreviewByCategory(category)
+        setPreviewOpening(nextPreview)
+        setPreviewVariation(null)
+        if (category === 'endgames') {
+          setSelectedColor('white')
+        }
+      }
+
+      if (category !== 'endgames') {
+        setEndgameTraitSelections({})
+      }
+
+      setSelections((prevSelections) => {
+        if (!prevSelections.length) return prevSelections
+        const selectionCategory = getOpeningCategory(prevSelections[0].opening)
+        return selectionCategory === category ? prevSelections : []
+      })
+    },
+    [
+      getDefaultPreviewByCategory,
+      setPreviewOpening,
+      setPreviewVariation,
+      setBrowseCategory,
+      setSearchTerm,
+      setSelectedColor,
+      setMobilePopupOpen,
+      setMobilePopupOpening,
+      setMobilePopupVariation,
+      setEndgameTraitSelections,
+      setSelections,
+    ],
+  )
+
+  const activeSelectionCategory = useMemo<DrillCategoryType | null>(() => {
+    if (selections.length === 0) {
+      return null
+    }
+
+    const first = selections[0]
+    return getOpeningCategory(first.opening)
+  }, [selections])
+
+  const resolveCategoryData = useCallback(
+    (opening: Opening): EndgameCategoryData | null => {
+      if (opening.categoryType !== 'endgame' || !opening.endgameMeta) {
+        return null
+      }
+
+      const fromDataset =
+        endgameDataset?.categoryMap[opening.endgameMeta.categorySlug]
+      if (fromDataset) {
+        return fromDataset
+      }
+
+      return {
+        slug: opening.endgameMeta.categorySlug,
+        name: opening.endgameMeta.categoryName,
+        traits: opening.endgameMeta.traits ?? {},
+        motifs:
+          opening.endgameMeta.motifs?.map((motif) => ({
+            slug: motif.subcategorySlug,
+            name: motif.subcategoryName,
+            traits: motif.traits ?? {},
+          })) ?? [],
+      }
+    },
+    [endgameDataset],
+  )
+
+  const resolveMotifData = useCallback(
+    (
+      opening: Opening,
+      variation: OpeningVariation | null,
+    ): EndgameMotifData | null => {
+      if (opening.categoryType !== 'endgame' || !variation?.endgameMeta) {
+        return null
+      }
+
+      const categoryFromDataset =
+        endgameDataset?.categoryMap[variation.endgameMeta.categorySlug]
+      if (categoryFromDataset) {
+        const fromMap =
+          endgameDataset?.motifMap[
+            `${variation.endgameMeta.categorySlug}/${variation.endgameMeta.subcategorySlug}`
+          ]
+        if (fromMap) {
+          return fromMap
+        }
+      }
+
+      const category = resolveCategoryData(opening)
+      if (!category) return null
+
+      const fallback =
+        category.motifs.find(
+          (motif) => motif.slug === variation.endgameMeta?.subcategorySlug,
+        ) ??
+        (variation.endgameMeta
+          ? {
+              slug: variation.endgameMeta.subcategorySlug,
+              name: variation.endgameMeta.subcategoryName,
+              traits: variation.endgameMeta.traits ?? {},
+            }
+          : null)
+
+      return fallback ? { ...fallback } : null
+    },
+    [endgameDataset, resolveCategoryData],
+  )
+
+  const getAvailableEndgameTraits = useCallback(
+    (opening: Opening, variation: OpeningVariation | null): EndgameTrait[] => {
+      if (opening.categoryType !== 'endgame') return []
+
+      const category = resolveCategoryData(opening)
+      if (!category) return []
+
+      const motif = variation ? resolveMotifData(opening, variation) : null
+      const sourceTraits = motif ? motif.traits : category.traits
+
+      return ENDGAME_TRAITS.filter(
+        (trait) => (sourceTraits[trait]?.length ?? 0) > 0,
+      )
+    },
+    [resolveCategoryData, resolveMotifData],
+  )
+
+  const getSelectedEndgameTraits = useCallback(
+    (opening: Opening, variation: OpeningVariation | null): EndgameTrait[] => {
+      const available = getAvailableEndgameTraits(opening, variation)
+      if (!available.length) return []
+
+      const key = getTraitSelectionKey(opening.id, variation?.id ?? null)
+      const stored = endgameTraitSelections[key]
+
+      if (stored === undefined) {
+        return available
+      }
+
+      const filtered = stored.filter((trait) => available.includes(trait))
+      if (filtered.length === 0) {
+        return stored.length === 0 ? [] : available
+      }
+      return filtered
+    },
+    [endgameTraitSelections, getAvailableEndgameTraits],
+  )
+
+  const updateEndgameTraitSelection = useCallback(
+    (
+      openingId: string,
+      variationId: string | null,
+      nextTraits: EndgameTrait[],
+    ) => {
+      setEndgameTraitSelections((prev) => ({
+        ...prev,
+        [getTraitSelectionKey(openingId, variationId)]: nextTraits,
+      }))
+    },
+    [],
+  )
+
+  const buildEndgamePositions = useCallback(
+    (
+      opening: Opening,
+      variation: OpeningVariation | null,
+      traits: EndgameTrait[],
+    ): EndgamePositionDetail[] => {
+      const category = resolveCategoryData(opening)
+      if (!category || !traits.length) return []
+
+      const motif = variation ? resolveMotifData(opening, variation) : null
+      return collectEndgamePositions(category, motif, traits)
+    },
+    [resolveCategoryData, resolveMotifData],
+  )
+
+  const getEndgamePreviewFen = useCallback(
+    (
+      opening: Opening,
+      variation: OpeningVariation | null,
+      traits: EndgameTrait[],
+    ): string => {
+      const positions = buildEndgamePositions(opening, variation, traits)
+      if (positions.length > 0) {
+        return positions[0].fen
+      }
+      return variation?.fen ?? opening.fen
+    },
+    [buildEndgamePositions],
+  )
+
+  const handleAddCustomPosition = () => {
+    const rawInput = customInput.trim()
+
+    if (!rawInput) {
+      setCustomError('Enter a PGN or FEN to create a custom drill.')
+      return
+    }
+
+    const inputLines = rawInput
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+
+    let detectedFen: string | undefined
+    let remainingInput = ''
+
+    if (inputLines.length > 0) {
+      const potentialFen = inputLines[0]
+      const fenTokens = potentialFen.split(/\s+/)
+      if (fenTokens.length === 6 && potentialFen.includes('/')) {
+        const fenTester = new Chess()
+        try {
+          if (fenTester.load(potentialFen)) {
+            detectedFen = potentialFen
+            inputLines.shift()
+            remainingInput = inputLines.join(' ')
+          }
+        } catch (error) {
+          // treat as PGN if parsing fails
+        }
+      }
+    }
+
+    if (!detectedFen) {
+      remainingInput = rawInput
+    }
+
+    const chess = new Chess()
+
+    if (detectedFen) {
+      try {
+        if (!chess.load(detectedFen)) {
+          setCustomError('The supplied FEN could not be parsed.')
+          return
+        }
+      } catch (error) {
+        setCustomError('The supplied FEN could not be parsed.')
+        return
+      }
+    } else {
+      chess.load(DEFAULT_START_FEN)
+    }
+
+    let parsedPgn = ''
+
+    if (remainingInput) {
+      const sanitizedMoves = remainingInput
+        .replace(/\{[^}]*\}/g, ' ')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\$\d+/g, ' ')
+        .replace(/\d+\.\.\.|\d+\./g, ' ')
+        .replace(/\r?\n/g, ' ')
+        .split(/\s+/)
+        .filter((token) => token && !PGN_RESULT_TOKENS.has(token))
+
+      if (sanitizedMoves.length === 0) {
+        setCustomError(
+          'Unable to parse the PGN input. Please check the moves provided.',
+        )
+        return
+      }
+
+      for (const moveToken of sanitizedMoves) {
+        try {
+          const moveResult = chess.move(moveToken, { sloppy: true })
+          if (!moveResult) {
+            setCustomError(`Could not apply move "${moveToken}" from the PGN.`)
+            return
+          }
+        } catch (error) {
+          setCustomError(`Could not apply move "${moveToken}" from the PGN.`)
+          return
+        }
+      }
+
+      parsedPgn = sanitizedMoves.join(' ')
+    }
+
+    const finalFen = chess.fen()
+    const generatedId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+    const newOpening: Opening = {
+      id: generatedId,
+      name: `Custom Position ${customOpenings.length + 1}`,
+      description:
+        detectedFen && !parsedPgn
+          ? 'Custom drill created from a supplied FEN.'
+          : 'Custom drill created from PGN input.',
+      fen: finalFen,
+      pgn: parsedPgn,
+      variations: [],
+      isCustom: true,
+      setupFen: detectedFen,
+      categoryType: 'custom',
+    }
+
+    const duplicate = customOpenings.some(
+      (opening) =>
+        opening.fen === newOpening.fen &&
+        opening.pgn === newOpening.pgn &&
+        opening.setupFen === newOpening.setupFen,
+    )
+
+    if (duplicate) {
+      setCustomError('You already saved a custom drill with the same position.')
+      return
+    }
+
+    setCustomOpenings((prev) => [newOpening, ...prev])
+    setPreviewOpening(newOpening)
+    setPreviewVariation(null)
+    setCustomInput('')
+    setCustomError(null)
+    handleBrowseCategoryChange('custom', { preservePreview: true })
+    setActiveTab('browse')
+  }
+
+  const handleRemoveCustomOpening = (openingId: string) => {
+    const remainingCustom = customOpenings.filter(
+      (opening) => opening.id !== openingId,
+    )
+
+    const fallbackCandidates = [
+      ...remainingCustom,
+      ...normalizedOpenings,
+      ...normalizedEndgames,
+    ]
+
+    const nextPreview = fallbackCandidates.find(
+      (opening) => opening.id !== openingId,
+    )
+
+    setCustomOpenings(remainingCustom)
+    setSelections((prev) =>
+      prev.filter((selection) => selection.opening.id !== openingId),
+    )
+
+    if (remainingCustom.length === 0 && browseCategory === 'custom') {
+      const fallbackCategory = hasOpenings
+        ? 'openings'
+        : hasEndgames
+          ? 'endgames'
+          : 'custom'
+      handleBrowseCategoryChange(fallbackCategory, { preservePreview: true })
+    }
+
+    if (previewOpening.id === openingId) {
+      const updatedPreview = nextPreview || fallbackOpening
+      setPreviewOpening(updatedPreview)
+      setPreviewVariation(null)
+      if ((updatedPreview.categoryType ?? 'opening') === 'endgame') {
+        setSelectedColor('white')
+      }
+    }
+
+    if (mobilePopupOpening?.id === openingId) {
+      setMobilePopupOpen(false)
+      setMobilePopupOpening(null)
+      setMobilePopupVariation(null)
+    }
+  }
+  const categoryLabel =
+    browseCategory === 'endgames'
+      ? 'Endgame'
+      : browseCategory === 'custom'
+        ? 'Position'
+        : 'Opening'
+  const categoryLabelPlural =
+    categoryLabel === 'Endgame'
+      ? 'Endgames'
+      : categoryLabel === 'Opening'
+        ? 'Openings'
+        : 'Positions'
+
+  const previewPanelLabel = useMemo(() => {
+    if (previewOpening.isCustom || previewOpening.categoryType === 'custom') {
+      return 'Position'
+    }
+    if (previewOpening.categoryType === 'endgame') {
+      return 'Endgame'
+    }
+    if (previewOpening.categoryType === 'opening') {
+      return 'Opening'
+    }
+    return categoryLabel
+  }, [previewOpening.isCustom, previewOpening.categoryType, categoryLabel])
   // Check if user has completed the tour on initial load
   useEffect(() => {
     if (!initialTourCheck) {
@@ -853,7 +1840,10 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       prevSelections.map((selection) => ({
         ...selection,
         maiaVersion: selectedMaiaVersion.id,
-        targetMoveNumber,
+        targetMoveNumber:
+          getOpeningCategory(selection.opening) === 'endgame'
+            ? null
+            : targetMoveNumber,
       })),
     )
   }, [selectedMaiaVersion.id, targetMoveNumber])
@@ -863,42 +1853,155 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   }
 
   const previewFen = useMemo(() => {
+    if (previewOpening.categoryType === 'endgame') {
+      const traits = getSelectedEndgameTraits(previewOpening, previewVariation)
+      return getEndgamePreviewFen(previewOpening, previewVariation, traits)
+    }
+
     return previewVariation ? previewVariation.fen : previewOpening.fen
-  }, [previewOpening, previewVariation])
+  }, [
+    getEndgamePreviewFen,
+    getSelectedEndgameTraits,
+    previewOpening,
+    previewVariation,
+  ])
+
+  const basePositions = useMemo(() => {
+    if (browseCategory === 'custom') return customOpenings
+    if (browseCategory === 'endgames') return normalizedEndgames
+    return normalizedOpenings
+  }, [browseCategory, customOpenings, normalizedEndgames, normalizedOpenings])
 
   const filteredOpenings = useMemo(() => {
-    if (!searchTerm) return openings
-    const filtered = openings.filter(
+    if (!searchTerm) return basePositions
+    const lowered = searchTerm.toLowerCase()
+    const filtered = basePositions.filter(
       (opening) =>
-        opening.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        opening.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        opening.name.toLowerCase().includes(lowered) ||
+        opening.description.toLowerCase().includes(lowered) ||
         opening.variations.some((variation) =>
-          variation.name.toLowerCase().includes(searchTerm.toLowerCase()),
+          variation.name.toLowerCase().includes(lowered),
         ),
     )
 
-    // Track search usage
     if (searchTerm) {
       trackOpeningSearchUsed(searchTerm, filtered.length)
     }
 
     return filtered
-  }, [openings, searchTerm])
+  }, [basePositions, searchTerm])
 
-  const isDuplicateSelection = (
-    opening: Opening,
-    variation: OpeningVariation | null,
-  ) => {
-    return selections.some(
-      (s) =>
-        s.opening.id === opening.id &&
-        s.variation?.id === variation?.id &&
-        s.playerColor === selectedColor &&
-        s.maiaVersion === selectedMaiaVersion.id,
+  useEffect(() => {
+    const availableOpenings = [
+      ...customOpenings,
+      ...normalizedOpenings,
+      ...normalizedEndgames,
+    ]
+
+    if (!availableOpenings.length) return
+
+    const previewExists = availableOpenings.some(
+      (opening) => opening.id === previewOpening.id,
     )
-  }
+
+    if (!previewExists) {
+      setPreviewOpening(availableOpenings[0])
+      setPreviewVariation(null)
+    }
+  }, [
+    customOpenings,
+    normalizedOpenings,
+    normalizedEndgames,
+    previewOpening.id,
+  ])
+
+  const isDuplicateSelection = useCallback(
+    (
+      opening: Opening,
+      variation: OpeningVariation | null,
+      traits: EndgameTrait[] = [],
+    ) => {
+      const category = getOpeningCategory(opening)
+      if (category === 'endgame') {
+        const normalizedTraits = [...traits].sort().join('|')
+        return selections.some((selection) => {
+          if (getOpeningCategory(selection.opening) !== 'endgame') {
+            return false
+          }
+          if (selection.opening.id !== opening.id) return false
+          if ((selection.variation?.id ?? null) !== (variation?.id ?? null)) {
+            return false
+          }
+          const existingTraits = [...(selection.endgameTraits ?? [])]
+            .sort()
+            .join('|')
+          return existingTraits === normalizedTraits
+        })
+      }
+
+      return selections.some(
+        (selection) =>
+          selection.opening.id === opening.id &&
+          selection.variation?.id === variation?.id &&
+          selection.playerColor === selectedColor &&
+          selection.maiaVersion === selectedMaiaVersion.id,
+      )
+    },
+    [selectedColor, selectedMaiaVersion.id, selections],
+  )
 
   const addSelection = () => {
+    const category = getOpeningCategory(previewOpening)
+    if (
+      activeSelectionCategory &&
+      activeSelectionCategory !== category &&
+      selections.length > 0
+    ) {
+      return
+    }
+
+    if (category === 'endgame') {
+      const selectedTraits = getSelectedEndgameTraits(
+        previewOpening,
+        previewVariation,
+      )
+      if (!selectedTraits.length) return
+
+      if (
+        isDuplicateSelection(previewOpening, previewVariation, selectedTraits)
+      )
+        return
+
+      const positions = buildEndgamePositions(
+        previewOpening,
+        previewVariation,
+        selectedTraits,
+      )
+      if (!positions.length) return
+
+      const scope = previewVariation ? 'motif' : 'category'
+
+      const newSelection: OpeningSelection = {
+        id: `endgame-${previewOpening.id}-${previewVariation?.id || 'all'}-${selectedTraits.slice().sort().join('-')}-${
+          positions.length
+        }-${Date.now()}`,
+        opening: previewOpening,
+        variation: previewVariation,
+        playerColor: 'white',
+        maiaVersion: selectedMaiaVersion.id,
+        targetMoveNumber: null,
+        endgameTraits: selectedTraits,
+        endgamePositions: positions,
+        endgameScope: scope,
+      }
+
+      setSelections([...selections, newSelection])
+      if (isMobile) {
+        setActiveTab('selected')
+      }
+      return
+    }
+
     if (isDuplicateSelection(previewOpening, previewVariation)) return
 
     const newSelection: OpeningSelection = {
@@ -910,17 +2013,17 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       targetMoveNumber,
     }
 
-    // Track opening configuration and addition
-    trackOpeningConfiguredAndAdded(
-      previewOpening.name,
-      selectedColor,
-      selectedMaiaVersion.id,
-      targetMoveNumber,
-      previewVariation?.name,
-    )
+    if (!previewOpening.isCustom) {
+      trackOpeningConfiguredAndAdded(
+        previewOpening.name,
+        selectedColor,
+        selectedMaiaVersion.id,
+        targetMoveNumber,
+        previewVariation?.name,
+      )
+    }
 
     setSelections([...selections, newSelection])
-    // Switch to selected tab on mobile after adding
     if (isMobile) {
       setActiveTab('selected')
     }
@@ -946,8 +2049,20 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     setMobilePopupOpen(true)
   }
 
-  const handleMobilePopupAdd = (color: 'white' | 'black') => {
+  const handleMobilePopupAddOpening = (color: 'white' | 'black') => {
     if (!mobilePopupOpening) return
+
+    if (
+      activeSelectionCategory &&
+      activeSelectionCategory !== getOpeningCategory(mobilePopupOpening) &&
+      selections.length > 0
+    ) {
+      return
+    }
+
+    if (isDuplicateSelection(mobilePopupOpening, mobilePopupVariation)) {
+      return
+    }
 
     const newSelection: OpeningSelection = {
       id: `${mobilePopupOpening.id}-${mobilePopupVariation?.id || 'main'}-${color}-${selectedMaiaVersion.id}-${targetMoveNumber}`,
@@ -962,6 +2077,64 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     setMobilePopupOpen(false)
     setMobilePopupOpening(null)
     setMobilePopupVariation(null)
+    if (isMobile) {
+      setActiveTab('selected')
+    }
+  }
+
+  const handleMobilePopupAddEndgame = () => {
+    if (!mobilePopupOpening) return
+
+    if (
+      activeSelectionCategory &&
+      activeSelectionCategory !== getOpeningCategory(mobilePopupOpening) &&
+      selections.length > 0
+    ) {
+      return
+    }
+
+    const traits = getSelectedEndgameTraits(
+      mobilePopupOpening,
+      mobilePopupVariation,
+    )
+    if (!traits.length) return
+
+    if (
+      isDuplicateSelection(mobilePopupOpening, mobilePopupVariation, traits)
+    ) {
+      return
+    }
+
+    const positions = buildEndgamePositions(
+      mobilePopupOpening,
+      mobilePopupVariation,
+      traits,
+    )
+    if (!positions.length) return
+
+    const scope = mobilePopupVariation ? 'motif' : 'category'
+
+    const newSelection: OpeningSelection = {
+      id: `endgame-${mobilePopupOpening.id}-${mobilePopupVariation?.id || 'all'}-${traits.slice().sort().join('-')}-${
+        positions.length
+      }-${Date.now()}`,
+      opening: mobilePopupOpening,
+      variation: mobilePopupVariation,
+      playerColor: 'white',
+      maiaVersion: selectedMaiaVersion.id,
+      targetMoveNumber: null,
+      endgameTraits: traits,
+      endgamePositions: positions,
+      endgameScope: scope,
+    }
+
+    setSelections([...selections, newSelection])
+    setMobilePopupOpen(false)
+    setMobilePopupOpening(null)
+    setMobilePopupVariation(null)
+    if (isMobile) {
+      setActiveTab('selected')
+    }
   }
 
   const handleMobilePopupRemove = () => {
@@ -995,15 +2168,61 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     opening: Opening,
     variation: OpeningVariation | null,
   ) => {
+    const category = getOpeningCategory(opening)
+    if (
+      activeSelectionCategory &&
+      activeSelectionCategory !== category &&
+      selections.length > 0
+    ) {
+      return
+    }
+
+    if (category === 'endgame') {
+      const selectedTraits = getSelectedEndgameTraits(opening, variation)
+      if (!selectedTraits.length) return
+      if (isDuplicateSelection(opening, variation, selectedTraits)) return
+
+      const positions = buildEndgamePositions(
+        opening,
+        variation,
+        selectedTraits,
+      )
+      if (!positions.length) return
+
+      const scope = variation ? 'motif' : 'category'
+      const newSelection: OpeningSelection = {
+        id: `endgame-${opening.id}-${variation?.id || 'all'}-${selectedTraits.slice().sort().join('-')}-${
+          positions.length
+        }-${Date.now()}`,
+        opening,
+        variation,
+        playerColor: 'white',
+        maiaVersion: selectedMaiaVersion.id,
+        targetMoveNumber: null,
+        endgameTraits: selectedTraits,
+        endgamePositions: positions,
+        endgameScope: scope,
+      }
+
+      setSelections([...selections, newSelection])
+      setPreviewOpening(opening)
+      setPreviewVariation(variation)
+      if (isMobile) {
+        setActiveTab('selected')
+      }
+      return
+    }
+
     if (isDuplicateSelection(opening, variation)) return
 
-    // Track quick add usage
-    trackOpeningQuickAddUsed(
-      opening.name,
-      selectedColor,
-      selectedMaiaVersion.id,
-      targetMoveNumber,
-    )
+    if (!opening.isCustom) {
+      trackOpeningQuickAddUsed(
+        opening.name,
+        selectedColor,
+        selectedMaiaVersion.id,
+        targetMoveNumber,
+      )
+    }
 
     const newSelection: OpeningSelection = {
       id: `${opening.id}-${variation?.id || 'main'}-${selectedColor}-${selectedMaiaVersion.id}-${targetMoveNumber}`,
@@ -1022,119 +2241,140 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     }
   }
 
-  // Helper function to generate drill sequenc
-  const generateDrillSequence = (
-    selections: OpeningSelection[],
-    count: number,
-  ): OpeningSelection[] => {
-    if (selections.length === 0) return []
-
-    const createUniqueDrill = (
-      selection: OpeningSelection,
-      index: number,
-    ): OpeningSelection => {
-      const timestamp = Date.now()
-      const uniqueId = `${selection.id}-${timestamp}-${index}`
-      return {
-        ...selection,
-        id: uniqueId,
-      }
+  const handleStartDrilling = () => {
+    if (selections.length === 0) {
+      return
     }
 
-    if (count <= selections.length) {
-      const shuffled = [...selections].sort(() => Math.random() - 0.5)
-      return shuffled
-        .slice(0, count)
-        .map((selection, index) => createUniqueDrill(selection, index))
+    const configuration: DrillConfiguration = {
+      selections,
     }
 
-    // If drill count is more than selections, ensure each opening is played at least once
-    const sequence: OpeningSelection[] = []
+    // Track drill configuration completion
+    const uniqueOpenings = new Set(selections.map((s) => s.opening.id)).size
+    const numericTargets = selections
+      .map((selection) =>
+        typeof selection.targetMoveNumber === 'number'
+          ? selection.targetMoveNumber
+          : null,
+      )
+      .filter((value): value is number => value !== null)
+    const averageTargetMoves =
+      numericTargets.length > 0
+        ? numericTargets.reduce((sum, value) => sum + value, 0) /
+          numericTargets.length
+        : 0
+    const maiaVersionsUsed = [...new Set(selections.map((s) => s.maiaVersion))]
+    const colorDistribution = selections.reduce(
+      (acc, s) => {
+        acc[s.playerColor]++
+        return acc
+      },
+      { white: 0, black: 0 },
+    )
 
-    // Add each selection once
-    selections.forEach((selection, index) => {
-      sequence.push(createUniqueDrill(selection, index))
-    })
+    trackDrillConfigurationCompleted(
+      selections.length,
+      selections.length, // Use selections length for drill count
+      uniqueOpenings,
+      averageTargetMoves,
+      maiaVersionsUsed,
+      colorDistribution,
+    )
 
-    const remaining = count - selections.length
-
-    // Fill remaining slots by randomly picking from selections
-    for (let i = 0; i < remaining; i++) {
-      const randomSelection =
-        selections[Math.floor(Math.random() * selections.length)]
-      sequence.push(createUniqueDrill(randomSelection, selections.length + i))
-    }
-
-    // Shuffle the final sequence
-    return sequence.sort(() => Math.random() - 0.5)
+    onComplete(configuration)
   }
 
-  const handleStartDrilling = async () => {
-    if (selections.length > 0) {
-      const drillSequence = generateDrillSequence(selections, drillCount)
-
-      try {
-        // Prepare API request data
-        const openings = selections.map((selection) => ({
-          opening_fen: selection.variation
-            ? selection.variation.fen
-            : selection.opening.fen,
-          side_played: selection.playerColor,
-        }))
-
-        // Call the backend API to log opening selections and get session ID
-        const response = await selectOpeningDrills({
-          openings,
-          opponent: selectedMaiaVersion.id,
-          num_moves: targetMoveNumber,
-          num_drills: drillCount,
-        })
-
-        const configuration: DrillConfiguration = {
-          selections,
-          drillCount,
-          drillSequence,
-          sessionId: response.session_id,
-        }
-
-        // Track drill configuration completion
-        const uniqueOpenings = new Set(selections.map((s) => s.opening.id)).size
-        const averageTargetMoves =
-          selections.reduce((sum, s) => sum + s.targetMoveNumber, 0) /
-          selections.length
-        const maiaVersionsUsed = [
-          ...new Set(selections.map((s) => s.maiaVersion)),
-        ]
-        const colorDistribution = selections.reduce(
-          (acc, s) => {
-            acc[s.playerColor]++
-            return acc
-          },
-          { white: 0, black: 0 },
+  const previewCategoryType = getOpeningCategory(previewOpening)
+  const previewAvailableTraits =
+    previewOpening.categoryType === 'endgame'
+      ? getAvailableEndgameTraits(previewOpening, previewVariation)
+      : []
+  const previewSelectedTraits =
+    previewOpening.categoryType === 'endgame'
+      ? getSelectedEndgameTraits(previewOpening, previewVariation)
+      : []
+  const categoryMismatch =
+    selections.length > 0 &&
+    activeSelectionCategory !== null &&
+    activeSelectionCategory !== previewCategoryType
+  const previewIsDuplicate =
+    previewOpening.categoryType === 'endgame'
+      ? isDuplicateSelection(
+          previewOpening,
+          previewVariation,
+          previewSelectedTraits,
         )
+      : isDuplicateSelection(previewOpening, previewVariation)
+  const previewAddDisabled =
+    categoryMismatch ||
+    (previewOpening.categoryType === 'endgame' &&
+      (previewSelectedTraits.length === 0 ||
+        previewAvailableTraits.length === 0))
+  const previewDisabledReason = categoryMismatch
+    ? `Cannot mix ${formatCategoryLabel(
+        activeSelectionCategory,
+      )} drills with ${formatCategoryLabel(previewCategoryType)} drills.`
+    : previewOpening.categoryType === 'endgame' &&
+        previewSelectedTraits.length === 0
+      ? 'Select at least one trait.'
+      : previewOpening.categoryType === 'endgame' &&
+          previewAvailableTraits.length === 0
+        ? 'No positions available for this selection.'
+        : undefined
 
-        trackDrillConfigurationCompleted(
-          selections.length,
-          drillCount,
-          uniqueOpenings,
-          averageTargetMoves,
-          maiaVersionsUsed,
-          colorDistribution,
+  const mobileCategory = mobilePopupOpening
+    ? getOpeningCategory(mobilePopupOpening)
+    : null
+  const mobileAvailableTraits =
+    mobilePopupOpening && mobilePopupOpening.categoryType === 'endgame'
+      ? getAvailableEndgameTraits(mobilePopupOpening, mobilePopupVariation)
+      : []
+  const mobileSelectedTraits =
+    mobilePopupOpening && mobilePopupOpening.categoryType === 'endgame'
+      ? getSelectedEndgameTraits(mobilePopupOpening, mobilePopupVariation)
+      : []
+  const mobileCategoryMismatch =
+    !!mobilePopupOpening &&
+    selections.length > 0 &&
+    activeSelectionCategory !== null &&
+    mobileCategory !== null &&
+    activeSelectionCategory !== mobileCategory
+  const mobileIsDuplicate =
+    mobilePopupOpening && mobilePopupOpening.categoryType === 'endgame'
+      ? isDuplicateSelection(
+          mobilePopupOpening,
+          mobilePopupVariation,
+          mobileSelectedTraits,
         )
-
-        onComplete(configuration)
-      } catch (error) {
-        console.error('Failed to start drilling session:', error)
-        // Still allow the drill to start even if API call fails
-        const configuration: DrillConfiguration = {
-          selections,
-          drillCount,
-          drillSequence,
-        }
-        onComplete(configuration)
-      }
-    }
-  }
+      : mobilePopupOpening
+        ? isDuplicateSelection(mobilePopupOpening, mobilePopupVariation)
+        : false
+  const mobileAddDisabled =
+    mobileCategoryMismatch ||
+    (mobilePopupOpening?.categoryType === 'endgame' &&
+      (mobileSelectedTraits.length === 0 || mobileAvailableTraits.length === 0))
+  const mobileDisabledReason = mobileCategoryMismatch
+    ? `Cannot mix ${formatCategoryLabel(
+        activeSelectionCategory,
+      )} drills with ${mobileCategory ? formatCategoryLabel(mobileCategory) : 'this'} drills.`
+    : mobilePopupOpening?.categoryType === 'endgame' &&
+        mobileSelectedTraits.length === 0
+      ? 'Select at least one trait.'
+      : mobilePopupOpening?.categoryType === 'endgame' &&
+          mobileAvailableTraits.length === 0
+        ? 'No positions available for this selection.'
+        : undefined
+  const mobilePreviewFen =
+    mobilePopupOpening?.categoryType === 'endgame'
+      ? getEndgamePreviewFen(
+          mobilePopupOpening,
+          mobilePopupVariation,
+          mobileSelectedTraits,
+        )
+      : mobilePopupVariation
+        ? mobilePopupVariation.fen
+        : (mobilePopupOpening?.fen ?? DEFAULT_START_FEN)
 
   return (
     <ModalContainer className="!z-10" dismiss={onClose}>
@@ -1142,9 +2382,15 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1400px] flex-col items-start justify-start overflow-hidden rounded-lg bg-background-1 shadow-2xl md:h-[90vh]"
+        className="relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1400px] flex-col items-start justify-start overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md md:h-[90vh]"
       >
-        {/* Close Button - Top Right of Modal */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 180% 160% at 0% 100%, rgba(239, 68, 68, 0.10) 0%, transparent 72%)',
+          }}
+        />
         <button
           onClick={onClose}
           className="absolute right-4 top-4 z-10 text-secondary transition-colors hover:text-primary"
@@ -1155,7 +2401,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         {/* Header Section */}
         <div
           id="opening-drill-modal"
-          className="flex w-full flex-col gap-1 border-b border-white/10 p-4"
+          className="flex w-full flex-col gap-1 border-b border-glass-border p-4"
         >
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
@@ -1165,7 +2411,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
                 </h1>
                 <button
                   type="button"
-                  className="material-symbols-outlined text-lg text-secondary duration-200 hover:text-human-3 focus:outline-none"
+                  className="material-symbols-outlined text-lg text-secondary duration-200 hover:text-white focus:outline-none"
                   onClick={handleStartTour}
                   title="Start tour"
                 >
@@ -1174,8 +2420,9 @@ export const OpeningSelectionModal: React.FC<Props> = ({
               </div>
 
               <p className="text-xs text-secondary md:text-sm">
-                Practice openings against Maia. Select openings to drill, choose
-                your color and opponent strength.
+                Practice openings, endgames, or custom positions against Maia.
+                Select drills, choose your color or trait settings, and pick
+                your opponent strength.
               </p>
             </div>
           </div>
@@ -1205,27 +2452,60 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             selections={selections}
             onOpeningClick={handleMobileOpeningClick}
             removeSelection={removeSelection}
+            onRemoveCustomOpening={handleRemoveCustomOpening}
+            browseCategory={browseCategory}
+            onBrowseCategoryChange={handleBrowseCategoryChange}
+            customInput={customInput}
+            setCustomInput={setCustomInput}
+            customError={customError}
+            onAddCustomPosition={handleAddCustomPosition}
+            categoryLabel={categoryLabel}
+            categoryLabelPlural={categoryLabelPlural}
           />
           <PreviewPanel
-            selections={selections}
             previewOpening={previewOpening}
             previewVariation={previewVariation}
             previewFen={previewFen}
             selectedColor={selectedColor}
             setSelectedColor={setSelectedColor}
             addSelection={addSelection}
+            panelLabel={previewPanelLabel}
+            isDuplicate={previewIsDuplicate}
+            isAddDisabled={previewAddDisabled}
+            disabledReason={previewDisabledReason}
+            isEndgame={previewOpening.categoryType === 'endgame'}
+            selectedTraits={previewSelectedTraits}
+            availableTraits={previewAvailableTraits}
+            onToggleTrait={(trait) => {
+              const key = getTraitSelectionKey(
+                previewOpening.id,
+                previewVariation?.id ?? null,
+              )
+              const current = new Set(previewSelectedTraits)
+              if (current.has(trait)) {
+                current.delete(trait)
+              } else {
+                current.add(trait)
+              }
+              updateEndgameTraitSelection(
+                previewOpening.id,
+                previewVariation?.id ?? null,
+                Array.from(current),
+              )
+            }}
           />
           <SelectedPanel
             activeTab={activeTab}
             selections={selections}
             removeSelection={removeSelection}
-            drillCount={drillCount}
-            setDrillCount={setDrillCount}
             handleStartDrilling={handleStartDrilling}
             selectedMaiaVersion={selectedMaiaVersion}
             setSelectedMaiaVersion={setSelectedMaiaVersion}
             targetMoveNumber={targetMoveNumber}
             setTargetMoveNumber={setTargetMoveNumber}
+            categoryLabel={categoryLabel}
+            categoryLabelPlural={categoryLabelPlural}
+            showTargetSlider={browseCategory === 'openings'}
           />
         </div>
 
@@ -1240,12 +2520,40 @@ export const OpeningSelectionModal: React.FC<Props> = ({
               setMobilePopupOpening(null)
               setMobilePopupVariation(null)
             }}
-            onAdd={handleMobilePopupAdd}
+            previewFen={mobilePreviewFen}
+            onAddOpening={handleMobilePopupAddOpening}
+            onAddEndgame={handleMobilePopupAddEndgame}
             onRemove={handleMobilePopupRemove}
             isSelected={isOpeningSelected(
               mobilePopupOpening,
               mobilePopupVariation,
             )}
+            isEndgame={mobilePopupOpening.categoryType === 'endgame'}
+            selectedTraits={mobileSelectedTraits}
+            availableTraits={mobileAvailableTraits}
+            onToggleTrait={(trait) => {
+              if (!mobilePopupOpening) return
+              const key = getTraitSelectionKey(
+                mobilePopupOpening.id,
+                mobilePopupVariation?.id ?? null,
+              )
+              const current = new Set(mobileSelectedTraits)
+              if (current.has(trait)) {
+                current.delete(trait)
+              } else {
+                current.add(trait)
+              }
+              updateEndgameTraitSelection(
+                mobilePopupOpening.id,
+                mobilePopupVariation?.id ?? null,
+                Array.from(current),
+              )
+            }}
+            isDuplicate={mobileIsDuplicate}
+            isAddDisabled={mobileAddDisabled}
+            disabledReason={mobileDisabledReason}
+            selectedColor={selectedColor}
+            setSelectedColor={setSelectedColor}
           />
         )}
       </motion.div>

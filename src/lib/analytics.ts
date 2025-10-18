@@ -228,13 +228,9 @@ export const trackDrillSessionCompleted = (
 // Analysis Page Events
 export const trackAnalysisGameLoaded = (
   gameSource: 'lichess' | 'custom_pgn' | 'custom_fen' | 'url_import',
-  gameLengthMoves: number,
-  hasExistingAnalysis: boolean,
 ) => {
   safeTrack('analysis_game_loaded', {
     game_source: gameSource,
-    game_length_moves: gameLengthMoves,
-    has_existing_analysis: hasExistingAnalysis,
   })
 }
 

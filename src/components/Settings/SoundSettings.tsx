@@ -1,10 +1,10 @@
 import React from 'react'
 import { useSettings } from 'src/contexts/SettingsContext'
-import { useChessSoundManager } from 'src/lib/chessSoundManager'
+import { useSound } from 'src/hooks/useSound'
 
 export const SoundSettings: React.FC = () => {
   const { settings, updateSetting } = useSettings()
-  const { playMoveSound } = useChessSoundManager()
+  const { playMoveSound } = useSound()
 
   const handleToggleSound = () => {
     const newValue = !settings.soundEnabled
@@ -24,17 +24,19 @@ export const SoundSettings: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg bg-background-1 p-6">
+    <div className="group flex flex-col gap-4 rounded-lg border border-glass-border bg-glass p-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Sound Settings</h3>
+        <h3 className="text-lg font-semibold text-white/95">Sound Settings</h3>
       </div>
 
       <div className="flex flex-col gap-4">
         {/* Sound Toggle */}
         <div className="flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="text-sm font-medium">Enable Move Sounds</span>
-            <p className="text-xs text-secondary">
+            <span className="text-sm font-medium text-white/90">
+              Enable Move Sounds
+            </span>
+            <p className="text-xs text-white/70">
               Play sounds when chess pieces are moved or captured
             </p>
           </div>
@@ -49,37 +51,37 @@ export const SoundSettings: React.FC = () => {
               onChange={handleToggleSound}
               className="peer sr-only"
             />
-            <div className="peer h-6 w-11 rounded-full border-0 bg-background-3 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-human-4/50 peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:after:bg-human-3 peer-focus:outline-none"></div>
+            <div className="peer h-6 w-11 rounded-full bg-white/10 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-white/20 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500/40 peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:after:bg-red-400 peer-focus:outline-none"></div>
             <span className="sr-only">Toggle move sounds</span>
           </label>
         </div>
 
-        {/* Test Buttons */}
-        {settings.soundEnabled && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-secondary">Test sounds:</p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleTestSound}
-                className="flex items-center gap-2 rounded bg-background-2 px-3 py-2 text-sm hover:bg-background-3"
-              >
-                <span className="material-symbols-outlined text-base">
-                  volume_up
-                </span>
-                Move Sound
-              </button>
-              <button
-                onClick={handleTestCaptureSound}
-                className="flex items-center gap-2 rounded bg-background-2 px-3 py-2 text-sm hover:bg-background-3"
-              >
-                <span className="material-symbols-outlined text-base">
-                  volume_up
-                </span>
-                Capture Sound
-              </button>
-            </div>
+        {/* Test Buttons (always visible) */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-white/70">Test sounds:</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleTestSound}
+              disabled={!settings.soundEnabled}
+              className="group flex items-center gap-2 rounded-md border border-glass-border bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-base text-white/80">
+                volume_up
+              </span>
+              Move Sound
+            </button>
+            <button
+              onClick={handleTestCaptureSound}
+              disabled={!settings.soundEnabled}
+              className="group flex items-center gap-2 rounded-md border border-glass-border bg-glass-strong px-3 py-2 text-sm text-white/90 transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-base text-white/80">
+                volume_up
+              </span>
+              Capture Sound
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )

@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion'
-import { useCallback, useContext, useEffect, useState } from 'react'
-
 import { TuringControllerContext } from 'src/contexts'
+import { useCallback, useContext, useEffect, useState } from 'react'
 
 export const TuringSubmission = ({ rating }: { rating: number }) => {
   const { game, submitGuess, getNewGame, commentController } = useContext(
@@ -22,7 +21,7 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
 
   if (game?.result)
     return (
-      <div className="flex flex-col gap-5 bg-background-1 p-4">
+      <div className="flex flex-col gap-5 border-t border-glass-border bg-transparent p-3">
         <h2 className="text-2xl">
           Guess {game.result.correct ? 'correct' : 'incorrect'}, <br />
           {game.result.bot} was the bot
@@ -52,7 +51,7 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
         </div>
         <button
           onClick={getNewGame}
-          className="flex w-full items-center justify-center rounded bg-engine-3 py-2 transition duration-200 hover:bg-engine-4 disabled:bg-background-3"
+          className="flex w-full items-center justify-center rounded bg-human-4 py-2 transition duration-300 hover:bg-human-3 disabled:bg-glass"
         >
           <p className="text-lg">Next</p>
         </button>
@@ -60,8 +59,8 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
     )
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col gap-1 border-t border-glass-border">
+      <div className="flex flex-col gap-3 p-3">
         <h2 className="text-2xl font-semibold">Who is the bot?</h2>
         <div className="flex flex-1 flex-row items-center justify-between">
           <button
@@ -105,7 +104,7 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
         </div>
       </div>
       <textarea
-        className="rounded bg-background-2 p-2 text-sm text-secondary outline-none placeholder:text-secondary"
+        className="border-t border-glass-border bg-transparent p-2 text-sm text-secondary outline-none placeholder:text-secondary"
         placeholder="Optional justification"
         value={comment}
         onChange={(e) => setComment(e.target.value)}
@@ -113,7 +112,7 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
       <button
         onClick={handleSubmit}
         disabled={!selected}
-        className="flex w-full items-center justify-center rounded bg-engine-3 py-2 transition duration-200 hover:bg-engine-4 disabled:bg-background-3"
+        className="flex w-full items-center justify-center border-t border-glass-border bg-human-4 py-2 transition duration-300 hover:bg-human-3 disabled:bg-glass"
       >
         <p className="text-lg">Submit</p>
       </button>

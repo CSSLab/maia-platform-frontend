@@ -1,11 +1,4 @@
-import {
-  Color,
-  Check,
-  GameNode,
-  GameTree,
-  Termination,
-  PlayGameConfig,
-} from 'src/types'
+import { Color, Check, GameTree, Termination, PlayGameConfig } from 'src/types'
 import { AllStats } from '../useStats'
 import { PlayedGame } from 'src/types/play'
 import { Chess, Piece, SQUARES } from 'chess.ts'
@@ -63,6 +56,7 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
   const [gameTree, setGameTree] = useState<GameTree>(
     () => new GameTree(config.startFen || nullFen),
   )
+
   const controller = useTreeController(gameTree, config.player)
 
   const [treeVersion, setTreeVersion] = useState<number>(0)
@@ -90,17 +84,19 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
 
   const game: PlayedGame = useMemo(() => {
     const mainLine = gameTree.getMainLine()
+
     const lastNode = mainLine[mainLine.length - 1]
+    const turn = lastNode.turn
     const chess = gameTree.toChess()
 
     const termination = resigned
       ? Math.min(whiteClock, blackClock) > 0
         ? ({
-            result: chess.turn() == 'w' ? '0-1' : '1-0',
-            winner: chess.turn() == 'w' ? 'black' : 'white',
+            result: turn == 'w' ? '0-1' : '1-0',
+            winner: turn == 'w' ? 'black' : 'white',
             type: 'resign',
           } as Termination)
-        : computeTimeTermination(chess, chess.turn() == 'w' ? 'white' : 'black')
+        : computeTimeTermination(chess, turn == 'w' ? 'white' : 'black')
       : computeTermination(chess)
 
     const moves = []
@@ -131,10 +127,9 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
 
     return {
       id,
-      moves,
-      tree: gameTree,
       termination,
-      turn: chess.turn() == 'b' ? 'black' : 'white',
+      tree: gameTree,
+      turn: turn == 'b' ? 'black' : 'white',
     }
   }, [gameTree, treeVersion, resigned, whiteClock, blackClock, id])
 
@@ -228,34 +223,35 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     whiteClock,
   ])
 
-  const addMove = useCallback(
-    (moveUci: string) => {
-      const newNode = gameTree.addMoveToMainLine(moveUci)
-      if (newNode) {
-        controller.setCurrentNode(newNode)
-        // Force re-render by incrementing tree version
-        setTreeVersion((prev) => prev + 1)
-      }
-    },
-    [gameTree, controller],
-  )
-
   const addMoveWithTime = useCallback(
     (moveUci: string, moveTime: number) => {
-      const newNode = gameTree.addMoveToMainLine(moveUci, moveTime)
-      if (newNode) {
-        controller.setCurrentNode(newNode)
-        // Force re-render by incrementing tree version
-        setTreeVersion((prev) => prev + 1)
+      const lastNode = gameTree.getLastMainlineNode()
+      const board = new Chess(lastNode.fen)
+      const result = board.move(moveUci, { sloppy: true })
+
+      if (result) {
+        const newNode = lastNode.addChild(
+          board.fen(),
+          moveUci,
+          result.san,
+          true,
+          undefined,
+          moveTime,
+        )
+
+        if (newNode) {
+          // Tree is modified in place, so we need to trigger re-renders
+          setTreeVersion((prev) => prev + 1)
+          controller.setCurrentNode(newNode)
+        }
       }
     },
-    [gameTree, controller],
+    [gameTree, controller.setCurrentNode],
   )
 
   const reset = () => {
     const newTree = new GameTree(config.startFen || nullFen)
     setGameTree(newTree)
-    controller.setCurrentNode(newTree.getRoot())
     setResigned(false)
     setLastMoveTime(0)
     setWhiteClock(initialClockValue)
@@ -278,7 +274,7 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
 
   return {
     game,
-    gameTree,
+    gameTree: controller.tree,
     currentNode: controller.currentNode,
     player: config.player,
     playType: config.playType,
@@ -305,7 +301,6 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     orientation: controller.orientation,
     setOrientation: controller.setOrientation,
 
-    addMove,
     addMoveWithTime,
     setResigned,
     reset,

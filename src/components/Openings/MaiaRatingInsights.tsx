@@ -34,7 +34,7 @@ const CustomTooltip: React.FC<{
   const avgMoveProb = (data.averageMoveProb * 100).toFixed(1)
 
   return (
-    <div className="rounded border border-white/20 bg-background-1/95 p-3 shadow-lg">
+    <div className="rounded border border-glass-border bg-backdrop p-3 shadow-lg backdrop-blur-md">
       <p className="text-sm font-medium text-primary">{data.rating} Rating</p>
       <p className="text-sm text-secondary">Likelihood: {percentage}%</p>
       <p className="text-xs text-secondary">Avg Move Prob: {avgMoveProb}%</p>
@@ -155,7 +155,7 @@ export const MaiaRatingInsights: React.FC<Props> = ({ ratingPrediction }) => {
       </div>
 
       {/* How It's Calculated */}
-      <div className="rounded border border-white/10 bg-background-2/30 p-3">
+      <div className="rounded border border-glass-border bg-glass p-3">
         <p className="text-xs text-secondary">
           <span className="font-semibold text-human-2">
             How it&apos;s calculated:{' '}

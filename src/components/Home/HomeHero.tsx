@@ -6,14 +6,6 @@ import {
   trackLichessConnectionInitiated,
 } from 'src/lib/analytics'
 
-import {
-  BrainIcon,
-  TrainIcon,
-  RegularPlayIcon,
-  ChessboardIcon,
-  StarIcon,
-  BotOrNotIcon,
-} from 'src/components/Common/Icons'
 import { PlayType } from 'src/types'
 import { getGlobalStats, getActiveUserCount } from 'src/api'
 import { AuthContext, ModalContext } from 'src/contexts'
@@ -32,7 +24,7 @@ type FeatureKey =
   | 'bot_or_not'
 
 interface FeatureCardProps {
-  icon: React.ReactNode
+  icon: string
   title: string
   description: string
   onClick?: () => void
@@ -49,7 +41,6 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
   onClick,
   href,
   external,
-  index,
   featureKey,
 }) => {
   const { user } = useContext(AuthContext)
@@ -96,20 +87,21 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 
   return (
     <CardWrapper>
-      <motion.div
-        className="flex h-full cursor-pointer select-none flex-row items-center justify-start gap-4 rounded-md border-none bg-background-2 p-4 text-center hover:bg-human-4/20 md:min-h-[140px] md:flex-col md:justify-center md:gap-3"
-        whileHover={{
-          scale: 1.03,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          transition: { duration: 0.2 },
-        }}
-      >
-        <motion.div className="w-10">{icon}</motion.div>
-        <div className="flex flex-col items-start md:items-center">
-          <motion.h2 className="text-lg font-bold">{title}</motion.h2>
-          <motion.p className="text-xs">{description}</motion.p>
+      <div className="from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex h-full cursor-pointer select-none flex-row items-center justify-start gap-4 overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br p-4 text-center backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-md hover:shadow-white/5 md:min-h-[140px] md:flex-col md:items-center md:justify-center md:gap-0">
+        <div className="text-white/60 transition-colors duration-300 group-hover:text-white/90">
+          <span className="material-symbols-outlined material-symbols-filled leading-0 text-6xl">
+            {icon}
+          </span>
         </div>
-      </motion.div>
+        <div className="flex flex-col items-start md:items-center">
+          <h2 className="text-lg font-bold text-white/95 transition-colors duration-300 group-hover:text-white">
+            {title}
+          </h2>
+          <p className="text-xs text-white/70 transition-colors duration-300 group-hover:text-white/85">
+            {description}
+          </p>
+        </div>
+      </div>
     </CardWrapper>
   )
 }
@@ -166,45 +158,62 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
   return (
     <Fragment>
       <BetaBlurb />
-      <div className="relative flex flex-col items-center justify-center gap-4 overflow-hidden pb-12 pt-4 md:gap-14 md:pb-16 md:pt-20">
+      <div className="relative flex flex-col items-center justify-center gap-4 overflow-hidden pb-6 pt-4 md:gap-14 md:pt-16">
         <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">
           <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[45%] md:gap-8">
             <div className="flex flex-col gap-3 md:gap-4">
-              <motion.h1 className="whitespace-nowrap text-4xl font-bold leading-tight md:text-5xl">
+              <motion.h1 className="whitespace-nowrap text-4xl font-bold leading-tight text-white md:text-5xl">
                 The human chess AI
               </motion.h1>
-              <motion.p className="text-xl text-primary/80 md:text-2xl">
+              <motion.p className="text-xl text-white/80 md:text-2xl">
                 Maia is a neural network chess model that captures human style.
                 Enjoy realistic games, insightful analysis, and a new way of
                 seeing chess.
               </motion.p>
             </div>
-            <motion.div className="flex flex-col gap-4 sm:flex-row">
-              <motion.button
-                className="flex items-center justify-center gap-2 rounded-md border border-human-4 bg-human-4/80 px-6 py-3 text-white transition duration-200 hover:bg-human-4"
-                onClick={scrollHandler}
-              >
-                <p>Learn More</p>
-                <span className="material-symbols-outlined text-base text-primary">
-                  keyboard_double_arrow_down
-                </span>
-              </motion.button>
-              {!user?.lichessId && (
+            {!user?.lichessId && (
+              <motion.div className="flex flex-wrap items-center gap-3 sm:gap-3">
+                <p className="text-sm tracking-wider text-white/80">
+                  Sign in with:
+                </p>
                 <motion.button
-                  className="flex items-center justify-center gap-2 rounded-md border border-background-2 bg-background-1/60 px-6 py-3 transition duration-200 hover:bg-background-1"
+                  className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
                   onClick={() => {
                     trackLichessConnectionInitiated('homepage')
                     connectLichess()
                   }}
                 >
-                  Connect with Lichess
+                  <img
+                    src="/assets/icons/lichess.svg"
+                    className="h-4 w-4 transition-opacity duration-200 group-hover:opacity-100"
+                    alt="Lichess"
+                  />
+                  <span className="text-sm font-medium text-white/90 transition-colors duration-200 group-hover:text-white">
+                    Lichess
+                  </span>
                 </motion.button>
-              )}
-            </motion.div>
+                {/* <motion.button
+                  className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
+                  onClick={() => {
+                    trackLichessConnectionInitiated('homepage')
+                    connectLichess()
+                  }}
+                >
+                  <img
+                    src="/assets/icons/chessdotcom.svg"
+                    className="h-4 w-4 transition-opacity duration-200 group-hover:opacity-100"
+                    alt="Chess.com"
+                  />
+                  <span className="text-sm font-medium text-white/90 transition-colors duration-200 group-hover:text-white">
+                    Chess.com
+                  </span>
+                </motion.button> */}
+              </motion.div>
+            )}
           </div>
           <div className="grid w-full flex-1 grid-cols-1 gap-2 md:grid-cols-3 md:gap-4">
             <FeatureCard
-              icon={<RegularPlayIcon />}
+              icon="chess_knight"
               title="Play Maia"
               description="Play chess against the human-like Maia engine"
               onClick={() => startGame('againstMaia')}
@@ -212,7 +221,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="play_maia"
             />
             <FeatureCard
-              icon={<ChessboardIcon />}
+              icon="network_intelligence"
               title="Analysis"
               description="Analyze games with Maia's human insights"
               href="/analysis"
@@ -220,7 +229,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="analysis"
             />
             <FeatureCard
-              icon={<TrainIcon />}
+              icon="toys_and_games"
               title="Puzzles"
               description="Improve your skills with Maia's training puzzles"
               href="/puzzles"
@@ -228,7 +237,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="puzzles"
             />
             <FeatureCard
-              icon={<BrainIcon />}
+              icon="network_intel_node"
               title="Hand & Brain"
               description="Play a collaborative chess variant with Maia"
               onClick={() => startGame('handAndBrain')}
@@ -236,7 +245,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="hand_brain"
             />
             <FeatureCard
-              icon={<StarIcon />}
+              icon="play_lesson"
               title="Openings"
               description="Learn and practice chess openings with Maia"
               href="/openings"
@@ -244,8 +253,8 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               featureKey="openings"
             />
             <FeatureCard
-              icon={<BotOrNotIcon />}
-              title="Bot-or-Not"
+              icon="mystery"
+              title="Bot or Not"
               description="Distinguish between human and AI play"
               href="/turing"
               index={5}
@@ -255,35 +264,35 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
         </div>
         <motion.div className="grid grid-cols-2 gap-6 px-2 md:flex md:gap-6">
           {activeUsers > 0 ? (
-            <p className="text-center text-base text-primary/80">
+            <p className="text-center text-base text-white/80">
               <AnimatedNumber
                 value={activeUsers}
-                className="font-bold text-human-2"
+                className="font-bold text-white"
               />{' '}
               recent users
             </p>
           ) : (
             <></>
           )}
-          <p className="text-center text-base text-primary/80">
+          <p className="text-center text-base text-white/80">
             <AnimatedNumber
               value={globalStats?.play_moves_total || 0}
-              className="font-bold text-human-2"
+              className="font-bold text-white"
             />{' '}
             moves played
           </p>
-          <p className="text-center text-base text-primary/80">
+          <p className="text-center text-base text-white/80">
             <AnimatedNumber
               value={globalStats?.puzzle_games_total || 0}
-              className="font-bold text-human-2"
+              className="font-bold text-white"
             />{' '}
             puzzles solved
           </p>
           {activeUsers <= 0 ? (
-            <p className="text-center text-base text-primary/80">
+            <p className="text-center text-base text-white/80">
               <AnimatedNumber
                 value={globalStats?.turing_games_total || 0}
-                className="font-bold text-human-2"
+                className="font-bold text-white"
               />{' '}
               turing games played
             </p>
@@ -298,15 +307,18 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
 
 function BetaBlurb() {
   return (
-    <div className="mt-2 flex items-center justify-center md:mt-8">
-      <motion.div className="flex flex-row items-center gap-3 bg-engine-3 p-2 px-6 transition md:mt-0 md:rounded-full">
-        <span className="material-symbols-outlined material-symbols-filled text-lg">
-          favorite
-        </span>
-        <p>
-          Maia Chess is in open beta. You now have full access to the platform!
-        </p>
-      </motion.div>
+    <div className="mt-2 flex items-center justify-center md:mt-10">
+      <div className="select-none rounded-full border border-glass-border bg-black/20 px-6 py-2.5 backdrop-blur-sm transition-all duration-200 hover:border-white/15">
+        <div className="flex flex-row items-center gap-2">
+          <span className="material-symbols-outlined material-symbols-filled text-sm text-white/90">
+            favorite
+          </span>
+          <p className="text-sm text-white/90">
+            Maia Chess is in open beta. You now have full access to the
+            platform!
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

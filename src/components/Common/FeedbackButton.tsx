@@ -11,9 +11,11 @@ export const FeedbackButton: React.FC = () => {
   return (
     <button
       id="feedback-button"
-      className="fixed bottom-6 right-6 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-human-4 transition-all duration-200 hover:scale-105 hover:bg-human-3"
+      className="fixed bottom-8 right-8 z-20 flex h-12 w-12 items-center justify-center rounded-full border border-glass-border bg-glass-strong backdrop-blur-md transition-all duration-200 hover:bg-glass-stronger"
     >
-      <span className="material-symbols-outlined text-white">feedback</span>
+      <span className="material-symbols-outlined material-symbols-filled text-primary">
+        feedback
+      </span>
     </button>
   )
 }

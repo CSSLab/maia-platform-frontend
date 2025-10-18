@@ -1,5 +1,5 @@
+import { cpToWinrate } from 'src/lib'
 import { Chess, PieceSymbol } from 'chess.ts'
-import { cpToWinrate } from 'src/lib/stockfish'
 
 type StockfishEvals = Record<string, number>
 type MaiaEvals = Record<string, number[]>

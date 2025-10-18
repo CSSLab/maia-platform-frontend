@@ -22,19 +22,18 @@ import {
   Tooltip,
 } from 'recharts'
 import { ModalContainer, MovesContainer } from 'src/components'
+import { BoardController } from 'src/components/Board/BoardController'
 import { DrillPerformanceData, MoveAnalysis } from 'src/types/openings'
 import { MaiaRatingInsights } from './MaiaRatingInsights'
 import { WindowSizeContext, TreeControllerContext } from 'src/contexts'
 import {
+  BlunderIcon,
   ExcellentIcon,
   InaccuracyIcon,
-  BlunderIcon,
-  MoveClassificationIcon,
 } from 'src/components/Common/MoveIcons'
-import { MOVE_CLASSIFICATION_THRESHOLDS } from 'src/constants/analysis'
 import { useTreeController } from 'src/hooks'
 import { generateColorSanMapping } from 'src/hooks/useAnalysisController/utils'
-import { GameNode, GameTree } from 'src/types/base/tree'
+import { GameNode, GameTree } from 'src/types'
 
 interface Props {
   performanceData: DrillPerformanceData
@@ -90,9 +89,11 @@ const AnimatedGameReplay: React.FC<{
   openingFen: string
   playerColor: 'white' | 'black'
   gameTree: GameTree
-}> = ({ openingFen, playerColor, gameTree }) => {
+  openingEndNode: GameNode
+}> = ({ openingFen, playerColor, gameTree, openingEndNode }) => {
   const [currentFen, setCurrentFen] = useState(openingFen)
   const [currentNode, setCurrentNode] = useState<GameNode | null>(null)
+  const [orientation, setOrientation] = useState<'white' | 'black'>(playerColor)
 
   const treeController = useContext(TreeControllerContext)
 
@@ -109,6 +110,25 @@ const AnimatedGameReplay: React.FC<{
       setCurrentNode(treeController.currentNode)
     }
   }, [treeController.currentNode])
+
+  // Ensure we don't navigate before the opening end as the "root" for this view
+  const goToPreviousNode = useCallback(() => {
+    if (!treeController.currentNode) return
+    if (treeController.currentNode.fen === openingEndNode.fen) return
+    if (treeController.currentNode.parent) {
+      treeController.goToNode(treeController.currentNode.parent)
+    }
+  }, [treeController, openingEndNode.fen])
+
+  const goToNextNode = useCallback(() => {
+    if (!treeController.currentNode?.mainChild) return
+    treeController.goToNode(treeController.currentNode.mainChild)
+  }, [treeController])
+
+  const goToRootNode = useCallback(() => {
+    // Treat the opening end node as the root for this modal
+    treeController.goToNode(openingEndNode)
+  }, [treeController, openingEndNode])
 
   // Get arrows for optimal moves from the current position
   const getArrowsForCurrentMove = useCallback((): DrawShape[] => {
@@ -202,7 +222,7 @@ const AnimatedGameReplay: React.FC<{
             config={{
               viewOnly: true,
               fen: currentFen,
-              orientation: playerColor,
+              orientation,
               coordinates: true,
               animation: { enabled: true, duration: 200 },
               drawable: {
@@ -230,20 +250,31 @@ const AnimatedGameReplay: React.FC<{
         </div>
       </div>
 
-      {/* Move History - Use MovesContainer for consistency */}
-      <div className="flex min-h-0 flex-1 flex-col border-t border-white/10">
-        <TreeControllerContext.Provider value={treeController}>
-          <MovesContainer
-            game={{
-              id: 'drill-performance',
-              tree: gameTree,
-              moves: [], // Not used when tree is provided
-            }}
-            type="analysis"
-            showAnnotations={true}
-            showVariations={false}
-          />
-        </TreeControllerContext.Provider>
+      <div className="flex min-h-0 flex-1 flex-col border-t border-glass-border">
+        <MovesContainer
+          game={{
+            id: 'drill-performance',
+            tree: gameTree,
+          }}
+          startFromNode={openingEndNode}
+          restrictNavigationBefore={openingEndNode}
+          showAnnotations={true}
+          showVariations={false}
+        />
+        <BoardController
+          orientation={orientation}
+          setOrientation={setOrientation}
+          currentNode={currentNode}
+          plyCount={0}
+          goToNode={treeController.goToNode}
+          goToNextNode={goToNextNode}
+          goToPreviousNode={goToPreviousNode}
+          goToRootNode={goToRootNode}
+          gameTree={gameTree}
+          disablePrevious={currentNode?.fen === openingEndNode.fen}
+          disableKeyboardNavigation={true}
+          embedded
+        />
       </div>
     </div>
   )
@@ -350,7 +381,7 @@ const CustomTooltip: React.FC<{
   }
 
   return (
-    <div className="rounded border border-white/20 bg-background-1/95 p-3 shadow-lg">
+    <div className="rounded border border-glass-border bg-gradient-to-br from-white/10 to-white/5 p-3 backdrop-blur-md">
       <p className="text-sm font-medium text-primary">
         {data.san ? `${moveNotation} ${data.san}` : `${moveNotation}`}
       </p>
@@ -409,7 +440,7 @@ const EvaluationChart: React.FC<{
 
   if (evaluationChart.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded bg-background-2 p-3 text-secondary">
+      <div className="flex h-64 items-center justify-center rounded border border-glass-border bg-white/5 p-3 text-secondary backdrop-blur-sm">
         <p>Evaluation chart unavailable</p>
       </div>
     )
@@ -732,6 +763,7 @@ const DesktopLayout: React.FC<{
   onNextDrill: () => void
   isLastDrill: boolean
   gameTree: GameTree
+  openingEndNode: GameNode
   playerMoveCount: number
   treeController: ReturnType<typeof useTreeController>
   gameNodesMap: Map<string, GameNode>
@@ -749,15 +781,26 @@ const DesktopLayout: React.FC<{
   onNextDrill,
   isLastDrill,
   gameTree,
+  openingEndNode,
   playerMoveCount,
   treeController,
   gameNodesMap,
   currentMoveIndex,
   getChartClassification,
 }) => (
-  <div className="relative flex h-[90vh] max-h-[800px] w-[95vw] max-w-[1200px] flex-col overflow-hidden rounded-lg bg-background-1 shadow-2xl">
+  <div className="from-white/8 to-white/4 relative flex h-[90vh] max-h-[800px] w-[95vw] max-w-[1200px] flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md">
+    <div
+      className="pointer-events-none absolute inset-0"
+      style={{
+        background: [
+          'radial-gradient(ellipse 130% 110% at 0% 0%, rgba(239, 68, 68, 0.14) 0%, transparent 75%)',
+          'radial-gradient(ellipse 130% 110% at 100% 100%, rgba(239, 68, 68, 0.12) 0%, transparent 75%)',
+        ].join(', '),
+        filter: 'blur(8px)',
+      }}
+    />
     {/* Header */}
-    <div className="flex items-center justify-between border-b border-white/10 p-4">
+    <div className="flex items-center justify-between border-b border-glass-border p-4">
       <div>
         <h2 className="text-xl font-bold text-primary">
           Opening Analysis Complete
@@ -786,18 +829,24 @@ const DesktopLayout: React.FC<{
     {/* Content */}
     <div className="flex flex-1 overflow-hidden">
       {/* Left Panel - Animated Game Replay */}
-      <div className="flex w-1/3 flex-col border-r border-white/10">
-        <TreeControllerContext.Provider value={treeController}>
+      <div className="flex w-1/3 flex-col border-r border-glass-border">
+        <TreeControllerContext.Provider
+          value={{
+            gameTree: gameTree,
+            ...treeController,
+          }}
+        >
           <AnimatedGameReplay
             openingFen={openingFen}
             playerColor={drill.selection.playerColor}
             gameTree={gameTree}
+            openingEndNode={openingEndNode}
           />
         </TreeControllerContext.Provider>
       </div>
 
       {/* Center Panel - Evaluation Chart & Critical Decisions */}
-      <div className="red-scrollbar flex w-1/3 flex-col overflow-y-auto border-r border-white/10">
+      <div className="red-scrollbar flex w-1/3 flex-col overflow-y-auto border-r border-glass-border">
         <EvaluationChart
           evaluationChart={filteredEvaluationChart}
           moveAnalyses={performanceData.moveAnalyses}
@@ -850,7 +899,7 @@ const DesktopLayout: React.FC<{
         />
 
         {/* Critical Decisions Section */}
-        <div className="flex w-full flex-col gap-2 border-t border-white/10">
+        <div className="flex w-full flex-col gap-2 border-t border-glass-border">
           <div className="flex flex-col px-3 pt-3">
             <h3 className="text-lg font-semibold">Critical Decisions</h3>
             <p className="text-xs text-secondary">
@@ -859,43 +908,36 @@ const DesktopLayout: React.FC<{
           </div>
           <div className="flex flex-col gap-2 px-3 pb-3">
             {(() => {
-              // Get critical moves directly from game tree (like MovesContainer)
-              const mainLineNodes = gameTree.getMainLine().slice(1) // Skip root
-              const criticalMoves = mainLineNodes
-                .filter((node, index) => {
-                  // Determine if this is a player move
-                  const chess = new Chess(node.fen)
+              // Get critical moves from moveAnalyses instead of relying on GameNode properties
+              const criticalMoves = performanceData.moveAnalyses
+                .filter((move) => {
+                  // Determine if this is a player move using the same logic as elsewhere
+                  const isWhiteMove = isMoveByWhite(move.fen)
                   const isPlayerMove =
                     drill.selection.playerColor === 'white'
-                      ? chess.turn() === 'b' // If black to move, white just played
-                      : chess.turn() === 'w' // If white to move, black just played
+                      ? isWhiteMove
+                      : !isWhiteMove
                   return isPlayerMove
                 })
-                .filter((node) => {
-                  // Filter for critical moves (same logic as MovesContainer)
-                  return node.blunder || node.inaccuracy || node.excellentMove
-                })
-                .map((node) => {
-                  // Convert to MoveAnalysis format for display
-                  let classification: 'blunder' | 'inaccuracy' | 'excellent' =
-                    'excellent'
-                  if (node.blunder) {
-                    classification = 'blunder'
-                  } else if (node.inaccuracy) {
-                    classification = 'inaccuracy'
-                  }
-
+                .map((move) => {
+                  // Get classification from our helper function
+                  const classification = getChartClassification(
+                    move,
+                    gameNodesMap,
+                  )
+                  // Get the correct move number from the FEN
+                  const actualMoveNumber = getMoveNumberFromFen(move.fen)
                   return {
-                    move: node.move || '',
-                    san: node.san || '',
-                    fen: node.fen,
-                    fenBeforeMove: node.parent?.fen,
-                    moveNumber: node.moveNumber,
-                    isPlayerMove: true,
-                    evaluation: 0, // Will be filled if needed
+                    ...move,
                     classification,
-                    evaluationLoss: 0,
+                    moveNumber: actualMoveNumber,
                   }
+                })
+                .filter((move) => {
+                  // Filter for critical moves (not just 'good')
+                  return ['excellent', 'inaccuracy', 'blunder'].includes(
+                    move.classification,
+                  )
                 })
                 .sort((a, b) => {
                   // Sort by move number (chronological order)
@@ -953,7 +995,7 @@ const DesktopLayout: React.FC<{
               return criticalMoves.map((move, index) => (
                 <button
                   key={index}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded bg-background-2/50 p-2 text-left transition-colors hover:bg-background-2"
+                  className="flex w-full cursor-pointer items-center gap-2 rounded border border-glass-border bg-white/5 p-2 text-left transition-colors hover:bg-white/10"
                   onClick={() => navigateToMove(move)}
                   type="button"
                 >
@@ -1011,19 +1053,23 @@ const DesktopLayout: React.FC<{
     </div>
 
     {/* Action Buttons */}
-    <div className="flex gap-3 border-t border-white/10 p-4">
+    <div className="flex gap-3 border-t border-glass-border p-4">
       <button
         onClick={onContinueAnalyzing}
-        className="flex-1 rounded bg-background-2 py-2 font-medium transition-colors hover:bg-background-3"
+        className={`${
+          isLastDrill ? 'w-full' : 'flex-1'
+        } rounded border border-glass-border bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10`}
       >
         Analyze
       </button>
-      <button
-        onClick={onNextDrill}
-        className="flex-1 rounded bg-human-4 py-2 font-medium transition-colors hover:bg-human-4/80"
-      >
-        {isLastDrill ? 'View Summary' : 'Next Drill'}
-      </button>
+      {!isLastDrill && (
+        <button
+          onClick={onNextDrill}
+          className="flex-1 rounded bg-human-4 py-2 font-medium transition-colors hover:bg-human-4/80"
+        >
+          Next Drill
+        </button>
+      )}
     </div>
   </div>
 )
@@ -1040,6 +1086,7 @@ const MobileLayout: React.FC<{
   activeTab: 'replay' | 'analysis' | 'insights'
   setActiveTab: (tab: 'replay' | 'analysis' | 'insights') => void
   gameTree: GameTree
+  openingEndNode: GameNode
   playerMoveCount: number
   treeController: ReturnType<typeof useTreeController>
   gameNodesMap: Map<string, GameNode>
@@ -1059,15 +1106,26 @@ const MobileLayout: React.FC<{
   activeTab,
   setActiveTab,
   gameTree,
+  openingEndNode,
   playerMoveCount,
   treeController,
   gameNodesMap,
   currentMoveIndex,
   getChartClassification,
 }) => (
-  <div className="relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-lg bg-background-1 shadow-2xl">
+  <div className="from-white/8 to-white/4 relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md">
+    <div
+      className="pointer-events-none absolute inset-0"
+      style={{
+        background: [
+          'radial-gradient(ellipse 130% 110% at 0% 0%, rgba(239, 68, 68, 0.14) 0%, transparent 75%)',
+          'radial-gradient(ellipse 130% 110% at 100% 100%, rgba(239, 68, 68, 0.12) 0%, transparent 75%)',
+        ].join(', '),
+        filter: 'blur(8px)',
+      }}
+    />
     {/* Header */}
-    <div className="flex items-center justify-between border-b border-white/10 p-4">
+    <div className="flex items-center justify-between border-b border-glass-border p-4">
       <div className="min-w-0 flex-1">
         <h2 className="text-lg font-bold text-primary">Analysis Complete</h2>
         <div className="mt-1">
@@ -1091,12 +1149,12 @@ const MobileLayout: React.FC<{
     </div>
 
     {/* Mobile Tab Navigation */}
-    <div className="flex w-full border-b border-white/10 bg-background-1">
+    <div className="flex w-full border-b border-glass-border">
       <button
         onClick={() => setActiveTab('replay')}
         className={`flex-1 py-3 text-sm font-medium transition-colors ${
           activeTab === 'replay'
-            ? 'border-b-2 border-human-4 bg-background-2 text-primary'
+            ? 'border-b-2 border-human-4 text-primary'
             : 'text-secondary hover:text-primary'
         }`}
       >
@@ -1106,7 +1164,7 @@ const MobileLayout: React.FC<{
         onClick={() => setActiveTab('analysis')}
         className={`flex-1 py-3 text-sm font-medium transition-colors ${
           activeTab === 'analysis'
-            ? 'border-b-2 border-human-4 bg-background-2 text-primary'
+            ? 'border-b-2 border-human-4 text-primary'
             : 'text-secondary hover:text-primary'
         }`}
       >
@@ -1116,7 +1174,7 @@ const MobileLayout: React.FC<{
         onClick={() => setActiveTab('insights')}
         className={`flex-1 py-3 text-sm font-medium transition-colors ${
           activeTab === 'insights'
-            ? 'border-b-2 border-human-4 bg-background-2 text-primary'
+            ? 'border-b-2 border-human-4 text-primary'
             : 'text-secondary hover:text-primary'
         }`}
       >
@@ -1127,11 +1185,17 @@ const MobileLayout: React.FC<{
     {/* Tab Content */}
     <div className="flex-1 overflow-hidden">
       {activeTab === 'replay' && (
-        <TreeControllerContext.Provider value={treeController}>
+        <TreeControllerContext.Provider
+          value={{
+            gameTree: gameTree,
+            ...treeController,
+          }}
+        >
           <AnimatedGameReplay
             openingFen={openingFen}
             playerColor={drill.selection.playerColor}
             gameTree={gameTree}
+            openingEndNode={openingEndNode}
           />
         </TreeControllerContext.Provider>
       )}
@@ -1202,10 +1266,10 @@ const MobileLayout: React.FC<{
     </div>
 
     {/* Action Buttons */}
-    <div className="flex gap-3 border-t border-white/10 p-4">
+    <div className="flex gap-3 border-t border-glass-border p-4">
       <button
         onClick={onContinueAnalyzing}
-        className="flex-1 rounded bg-background-2 py-2 font-medium transition-colors hover:bg-background-3"
+        className="flex-1 rounded border border-glass-border bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
       >
         Analyze
       </button>
@@ -1235,62 +1299,82 @@ export const DrillPerformanceModal: React.FC<Props> = ({
   // For now, let's work directly with the nodes instead of trying to recreate the full tree
   // This is a temporary solution until we can properly access the GameTree
 
-  // Create a proper GameTree starting from the opening end node
-  const gameTree = useMemo(() => {
-    // Get the root node and build the tree from there
-    let root = drill.finalNode
-    while (root.parent) {
-      root = root.parent
+  // Get the original game tree and opening end node for the drill context
+  const { gameTree, openingEndNode } = useMemo(() => {
+    // Get the original game tree from the drill
+    const originalRoot = (() => {
+      let root = drill.finalNode
+      while (root.parent) {
+        root = root.parent
+      }
+      return root
+    })()
+
+    // Create the original GameTree from root
+    const originalGameTree = new GameTree(originalRoot.fen)
+    // Set the root to be the actual root node
+    Object.defineProperty(originalGameTree, 'root', { value: originalRoot })
+
+    // Find the opening end node by working backwards from the final node
+    // The opening end should be the first move analysis that is NOT a player move
+    const firstPlayerMoveAnalysis = moveAnalyses.find(
+      (move) => move.isPlayerMove,
+    )
+    if (firstPlayerMoveAnalysis && firstPlayerMoveAnalysis.fenBeforeMove) {
+      // Find the node that represents the position before the first player move
+      const findNodeByFen = (
+        node: GameNode,
+        targetFen: string,
+      ): GameNode | null => {
+        if (node.fen === targetFen) {
+          return node
+        }
+        // Check main child
+        if (node.mainChild) {
+          const found = findNodeByFen(node.mainChild, targetFen)
+          if (found) return found
+        }
+        // Check all children
+        for (const child of node.children) {
+          const found = findNodeByFen(child, targetFen)
+          if (found) return found
+        }
+        return null
+      }
+
+      const foundOpeningEndNode = findNodeByFen(
+        originalRoot,
+        firstPlayerMoveAnalysis.fenBeforeMove,
+      )
+      if (foundOpeningEndNode) {
+        return {
+          gameTree: originalGameTree,
+          openingEndNode: foundOpeningEndNode,
+        }
+      }
     }
 
-    // Find the opening end node from the drill selection
+    // Fallback: use the selection-based approach
     const openingEndFen = drill.selection.variation
       ? drill.selection.variation.fen
       : drill.selection.opening.fen
 
     // Find the actual opening end node in the tree
-    let openingEndTreeNode = root
-    let current: GameNode | null = root
+    let foundOpeningEndNode = originalRoot
+    let current: GameNode | null = originalRoot
     while (current) {
       if (current.fen === openingEndFen) {
-        openingEndTreeNode = current
+        foundOpeningEndNode = current
         break
       }
       current = current.mainChild
     }
 
-    // Create a new GameTree starting from the opening end node
-    const newTree = new (class extends GameTree {
-      constructor(startNode: GameNode) {
-        super(startNode.fen)
-        // Replace the root with our opening end node
-        this.setRoot(startNode)
-      }
-
-      private setRoot(node: GameNode) {
-        // Use reflection to set the private root field
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(this as any).root = node
-      }
-
-      getRoot(): GameNode {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return (this as any).root
-      }
-
-      getMainLine(): GameNode[] {
-        const mainLine = []
-        let current: GameNode | null = this.getRoot()
-        while (current) {
-          mainLine.push(current)
-          current = current.mainChild
-        }
-        return mainLine
-      }
-    })(openingEndTreeNode)
-
-    return newTree
-  }, [drill.finalNode, drill.selection])
+    return {
+      gameTree: originalGameTree,
+      openingEndNode: foundOpeningEndNode,
+    }
+  }, [drill.finalNode, drill.selection, moveAnalyses])
 
   // Create tree controller for navigation
   const treeController = useTreeController(
@@ -1371,10 +1455,8 @@ export const DrillPerformanceModal: React.FC<Props> = ({
     return evaluationChart.slice(startIndex)
   }, [evaluationChart, moveAnalyses])
 
-  // Get opening FEN from the drill
-  const openingFen = drill.selection.variation
-    ? drill.selection.variation.fen
-    : drill.selection.opening.fen
+  // Get opening FEN from the opening end node
+  const openingFen = openingEndNode.fen
 
   return (
     <ModalContainer dismiss={onContinueAnalyzing}>
@@ -1390,6 +1472,7 @@ export const DrillPerformanceModal: React.FC<Props> = ({
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           gameTree={gameTree}
+          openingEndNode={openingEndNode}
           playerMoveCount={playerMoveCount}
           treeController={treeController}
           gameNodesMap={gameNodesMap}
@@ -1406,6 +1489,7 @@ export const DrillPerformanceModal: React.FC<Props> = ({
           onNextDrill={onNextDrill}
           isLastDrill={isLastDrill}
           gameTree={gameTree}
+          openingEndNode={openingEndNode}
           playerMoveCount={playerMoveCount}
           treeController={treeController}
           gameNodesMap={gameNodesMap}

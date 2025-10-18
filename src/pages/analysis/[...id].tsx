@@ -8,14 +8,12 @@ import React, {
   SetStateAction,
 } from 'react'
 import {
-  getLichessGamePGN,
-  getAnalyzedUserGame,
-  getAnalyzedLichessGame,
-  getAnalyzedTournamentGame,
-  getAnalyzedCustomPGN,
-  getAnalyzedCustomFEN,
-  getAnalyzedCustomGame,
-  getEngineAnalysis,
+  fetchPgnOfLichessGame,
+  fetchAnalyzedMaiaGame,
+  fetchAnalyzedPgnGame,
+  fetchAnalyzedWorldChampionshipGame,
+  retrieveGameAnalysisCache,
+  storeCustomGame,
 } from 'src/api'
 import {
   AnalyzedGame,
@@ -24,7 +22,7 @@ import {
   GameNode,
 } from 'src/types'
 import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
-import { DelayedLoading } from 'src/components/Common/DelayedLoading'
+import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { PlayerInfo } from 'src/components/Common/PlayerInfo'
 import { MoveMap } from 'src/components/Analysis/MoveMap'
@@ -57,7 +55,7 @@ import { useAnalysisController } from 'src/hooks'
 import { tourConfigs } from 'src/constants/tours'
 import type { DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
-import { applyEngineAnalysisData } from 'src/lib/analysisStorage'
+import { applyEngineAnalysisData } from 'src/lib/analysis'
 
 const AnalysisPage: NextPage = () => {
   const { startTour, tourState } = useTour()
@@ -80,32 +78,22 @@ const AnalysisPage: NextPage = () => {
   }, [initialTourCheck, startTour, tourState.ready])
   const [currentId, setCurrentId] = useState<string[]>(id as string[])
 
-  const loadStoredAnalysis = useCallback(async (game: AnalyzedGame) => {
-    if (
-      !game.id ||
-      game.type === 'custom-pgn' ||
-      game.type === 'custom-fen' ||
-      game.type === 'tournament'
-    ) {
+  const loadGameAnalysisCache = useCallback(async (game: AnalyzedGame) => {
+    if (!game.id || game.type === 'tournament') {
       return
     }
 
     try {
-      const storedAnalysis = await getEngineAnalysis(game.id)
+      const storedAnalysis = await retrieveGameAnalysisCache(game.id)
       if (storedAnalysis && storedAnalysis.positions.length > 0) {
         applyEngineAnalysisData(game.tree, storedAnalysis.positions)
-        console.log(
-          'Loaded stored analysis:',
-          storedAnalysis.positions.length,
-          'positions',
-        )
       }
     } catch (error) {
       console.warn('Failed to load stored analysis:', error)
     }
   }, [])
 
-  const getAndSetTournamentGame = useCallback(
+  const getAndSetWorldChampionshipGame = useCallback(
     async (
       newId: string[],
       setCurrentMove?: Dispatch<SetStateAction<number>>,
@@ -113,26 +101,16 @@ const AnalysisPage: NextPage = () => {
     ) => {
       let game
       try {
-        game = await getAnalyzedTournamentGame(newId)
+        game = await fetchAnalyzedWorldChampionshipGame(newId)
       } catch (e) {
         router.push('/401')
         return
       }
       if (setCurrentMove) setCurrentMove(0)
 
-      // Track game loaded
-      trackAnalysisGameLoaded(
-        'lichess',
-        game.moves?.length || 0,
-        game.maiaEvaluations?.length > 0 ||
-          game.stockfishEvaluations?.length > 0,
-      )
-
+      trackAnalysisGameLoaded('lichess')
       setAnalyzedGame({ ...game, type: 'tournament' })
       setCurrentId(newId)
-
-      // Load stored analysis
-      await loadStoredAnalysis({ ...game, type: 'tournament' })
 
       if (updateUrl) {
         router.push(`/analysis/${newId.join('/')}`, undefined, {
@@ -140,7 +118,7 @@ const AnalysisPage: NextPage = () => {
         })
       }
     },
-    [router, loadStoredAnalysis],
+    [router, loadGameAnalysisCache],
   )
 
   const getAndSetLichessGame = useCallback(
@@ -150,52 +128,39 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
-      let game
-      try {
-        game = await getAnalyzedLichessGame(id, pgn)
-      } catch (e) {
-        router.push('/401')
-        return
-      }
+      const game = await fetchAnalyzedPgnGame(id, pgn)
+
       if (setCurrentMove) setCurrentMove(0)
 
       setAnalyzedGame({
         ...game,
-        type: 'pgn',
+        type: 'lichess',
       })
-      setCurrentId([id, 'pgn'])
+      setCurrentId([id, 'lichess'])
 
-      // Load stored analysis
-      await loadStoredAnalysis({ ...game, type: 'pgn' })
+      await loadGameAnalysisCache({ ...game, type: 'lichess' })
 
       if (updateUrl) {
-        router.push(`/analysis/${id}/pgn`, undefined, { shallow: true })
+        router.push(`/analysis/${id}/lichess`, undefined, { shallow: true })
       }
     },
-    [router, loadStoredAnalysis],
+    [router, loadGameAnalysisCache],
   )
 
   const getAndSetUserGame = useCallback(
     async (
       id: string,
-      type: 'play' | 'hand' | 'brain',
+      type: 'play' | 'hand' | 'brain' | 'custom',
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
-      let game
-      try {
-        game = await getAnalyzedUserGame(id, type)
-      } catch (e) {
-        router.push('/401')
-        return
-      }
+      const game = await fetchAnalyzedMaiaGame(id, type)
+
       if (setCurrentMove) setCurrentMove(0)
 
       setAnalyzedGame({ ...game, type })
       setCurrentId([id, type])
-
-      // Load stored analysis
-      await loadStoredAnalysis({ ...game, type })
+      await loadGameAnalysisCache({ ...game, type })
 
       if (updateUrl) {
         router.push(`/analysis/${id}/${type}`, undefined, {
@@ -203,58 +168,7 @@ const AnalysisPage: NextPage = () => {
         })
       }
     },
-    [router, loadStoredAnalysis],
-  )
-
-  const getAndSetCustomGame = useCallback(
-    async (
-      id: string,
-      setCurrentMove?: Dispatch<SetStateAction<number>>,
-      updateUrl = true,
-    ) => {
-      let game
-      try {
-        game = await getAnalyzedCustomGame(id)
-      } catch (e) {
-        toast.error((e as Error).message)
-        return
-      }
-      if (setCurrentMove) setCurrentMove(0)
-
-      setAnalyzedGame(game)
-      setCurrentId([id, 'custom'])
-
-      if (updateUrl) {
-        router.push(`/analysis/${id}/custom`, undefined, {
-          shallow: true,
-        })
-      }
-    },
-    [router],
-  )
-
-  const getAndSetCustomAnalysis = useCallback(
-    async (type: 'pgn' | 'fen', data: string, name?: string) => {
-      let game: AnalyzedGame
-      try {
-        if (type === 'pgn') {
-          game = await getAnalyzedCustomPGN(data, name)
-        } else {
-          game = await getAnalyzedCustomFEN(data, name)
-        }
-      } catch (e) {
-        toast.error((e as Error).message)
-        return
-      }
-
-      setAnalyzedGame(game)
-      setCurrentId([game.id, 'custom'])
-
-      router.push(`/analysis/${game.id}/custom`, undefined, {
-        shallow: true,
-      })
-    },
-    [router],
+    [router, loadGameAnalysisCache],
   )
 
   useEffect(() => {
@@ -266,30 +180,27 @@ const AnalysisPage: NextPage = () => {
         !analyzedGame || currentId.join('/') !== queryId.join('/')
 
       if (needsNewGame) {
-        if (queryId[1] === 'custom') {
-          getAndSetCustomGame(queryId[0], undefined, false)
-        } else if (queryId[1] === 'pgn') {
-          const pgn = await getLichessGamePGN(queryId[0])
+        if (queryId[1] === 'lichess') {
+          const pgn = await fetchPgnOfLichessGame(queryId[0])
           getAndSetLichessGame(queryId[0], pgn, undefined, false)
-        } else if (['play', 'hand', 'brain'].includes(queryId[1])) {
+        } else if (['play', 'hand', 'brain', 'custom'].includes(queryId[1])) {
           getAndSetUserGame(
             queryId[0],
-            queryId[1] as 'play' | 'hand' | 'brain',
+            queryId[1] as 'play' | 'hand' | 'brain' | 'custom',
             undefined,
             false,
           )
         } else {
-          getAndSetTournamentGame(queryId, undefined, false)
+          getAndSetWorldChampionshipGame(queryId, undefined, false)
         }
       }
     })()
   }, [
     id,
     analyzedGame,
-    getAndSetTournamentGame,
+    getAndSetWorldChampionshipGame,
     getAndSetLichessGame,
     getAndSetUserGame,
-    getAndSetCustomGame,
   ])
 
   return (
@@ -298,17 +209,15 @@ const AnalysisPage: NextPage = () => {
         <Analysis
           currentId={currentId}
           analyzedGame={analyzedGame}
-          getAndSetTournamentGame={getAndSetTournamentGame}
+          getAndSetTournamentGame={getAndSetWorldChampionshipGame}
           getAndSetLichessGame={getAndSetLichessGame}
           getAndSetUserGame={getAndSetUserGame}
-          getAndSetCustomGame={getAndSetCustomGame}
-          getAndSetCustomAnalysis={getAndSetCustomAnalysis}
           router={router}
         />
       ) : (
-        <DelayedLoading isLoading={true}>
+        <Loading isLoading={true}>
           <div></div>
-        </DelayedLoading>
+        </Loading>
       )}
     </>
   )
@@ -331,19 +240,9 @@ interface Props {
   ) => Promise<void>
   getAndSetUserGame: (
     id: string,
-    type: 'play' | 'hand' | 'brain',
+    type: 'play' | 'hand' | 'brain' | 'custom',
     setCurrentMove?: Dispatch<SetStateAction<number>>,
     updateUrl?: boolean,
-  ) => Promise<void>
-  getAndSetCustomGame: (
-    id: string,
-    setCurrentMove?: Dispatch<SetStateAction<number>>,
-    updateUrl?: boolean,
-  ) => Promise<void>
-  getAndSetCustomAnalysis: (
-    type: 'pgn' | 'fen',
-    data: string,
-    name?: string,
   ) => Promise<void>
   router: ReturnType<typeof useRouter>
 }
@@ -354,21 +253,9 @@ const Analysis: React.FC<Props> = ({
   getAndSetTournamentGame,
   getAndSetLichessGame,
   getAndSetUserGame,
-  getAndSetCustomGame,
-  getAndSetCustomAnalysis,
+
   router,
 }: Props) => {
-  const screens = [
-    {
-      id: 'configure',
-      name: 'Configure',
-    },
-    {
-      id: 'export',
-      name: 'Export',
-    },
-  ]
-
   const { width } = useContext(WindowSizeContext)
   const isMobile = useMemo(() => width > 0 && width <= 670, [width])
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
@@ -379,7 +266,7 @@ const Analysis: React.FC<Props> = ({
   const [showCustomModal, setShowCustomModal] = useState(false)
   const [showAnalysisConfigModal, setShowAnalysisConfigModal] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [analysisEnabled, setAnalysisEnabled] = useState(true) // Analysis enabled by default
+  const [analysisEnabled, setAnalysisEnabled] = useState(true)
   const [lastMoveResult, setLastMoveResult] = useState<
     'correct' | 'incorrect' | 'not-learning'
   >('not-learning')
@@ -410,34 +297,12 @@ const Analysis: React.FC<Props> = ({
     window.open(url)
   }, [controller.currentNode])
 
-  const handleCustomAnalysis = useCallback(
-    async (type: 'pgn' | 'fen', data: string, name?: string) => {
-      setShowCustomModal(false)
-      await getAndSetCustomAnalysis(type, data, name)
-      setRefreshTrigger((prev) => prev + 1)
-    },
-    [getAndSetCustomAnalysis],
-  )
-
-  const handleDeleteCustomGame = useCallback(async () => {
-    if (
-      analyzedGame.type === 'custom-pgn' ||
-      analyzedGame.type === 'custom-fen'
-    ) {
-      const { deleteCustomAnalysis } = await import('src/lib/customAnalysis')
-      deleteCustomAnalysis(analyzedGame.id)
-      toast.success('Custom analysis deleted')
-      router.push('/analysis')
-    }
-  }, [analyzedGame, router])
-
   const handleAnalyzeEntireGame = useCallback(() => {
     setShowAnalysisConfigModal(true)
   }, [])
 
   const handleAnalysisConfigConfirm = useCallback(
     (depth: number) => {
-      // Reset any previous analysis state before starting new one
       controller.gameAnalysis.resetProgress()
       controller.gameAnalysis.startAnalysis(depth)
     },
@@ -451,6 +316,22 @@ const Analysis: React.FC<Props> = ({
   const handleToggleAnalysis = useCallback(() => {
     setAnalysisEnabled((prev) => !prev)
   }, [])
+
+  const handleCustomAnalysis = useCallback(
+    (type: 'fen' | 'pgn', data: string, name?: string) => {
+      ;(async () => {
+        const { game_id } = await storeCustomGame({
+          name: name,
+          pgn: type === 'pgn' ? data : undefined,
+          fen: type === 'fen' ? data : undefined,
+        })
+
+        setShowCustomModal(false)
+        router.push(`/analysis/${game_id}/custom`)
+      })()
+    },
+    [],
+  )
 
   const handleLearnFromMistakes = useCallback(() => {
     controller.learnFromMistakes.start()
@@ -477,12 +358,11 @@ const Analysis: React.FC<Props> = ({
   const handleSelectPlayer = useCallback(
     (color: 'white' | 'black') => {
       controller.learnFromMistakes.startWithColor(color)
-      setAnalysisEnabled(false) // Auto-disable analysis when starting learn mode
+      setAnalysisEnabled(false)
     },
     [controller.learnFromMistakes],
   )
 
-  // Create empty data structures for when analysis is disabled
   const emptyBlunderMeterData = useMemo(
     () => ({
       goodMoves: { moves: [], probability: 0 },
@@ -515,14 +395,8 @@ const Analysis: React.FC<Props> = ({
     }
   }
 
-  // Mock handlers for when analysis is disabled
-  const mockHover = useCallback(() => {
-    // Intentionally empty - no interaction when analysis disabled
-  }, [])
-
-  const mockSetHoverArrow = useCallback(() => {
-    // Intentionally empty - no hover arrows when analysis disabled
-  }, [])
+  const mockHover = useCallback(() => void 0, [])
+  const mockSetHoverArrow = useCallback(() => void 0, [])
 
   const makeMove = (move: string) => {
     if (!controller.currentNode || !analyzedGame.tree) return
@@ -573,17 +447,13 @@ const Analysis: React.FC<Props> = ({
         controller.currentNode.isMainline
       ) {
         // No main child exists AND we're on main line - create main line move
-        const newMainMove = analyzedGame.tree.addMainMove(
-          controller.currentNode,
-          newFen,
-          moveString,
-          san,
-          controller.currentMaiaModel,
-        )
+        const newMainMove = analyzedGame.tree
+          .getLastMainlineNode()
+          .addChild(newFen, moveString, san, true, controller.currentMaiaModel)
         controller.goToNode(newMainMove)
       } else {
         // Either main child exists but different move, OR we're in a variation - create variation
-        const newVariation = analyzedGame.tree.addVariation(
+        const newVariation = analyzedGame.tree.addVariationNode(
           controller.currentNode,
           newFen,
           moveString,
@@ -660,10 +530,10 @@ const Analysis: React.FC<Props> = ({
                   {player.rating ? <>({player.rating})</> : null}
                 </span>
               </div>
-              {analyzedGame.termination.winner ===
+              {analyzedGame.termination?.winner ===
               (index == 0 ? 'white' : 'black') ? (
                 <p className="text-xs text-engine-3">1</p>
-              ) : analyzedGame.termination.winner !== 'none' ? (
+              ) : analyzedGame.termination?.winner !== 'none' ? (
                 <p className="text-xs text-human-3">0</p>
               ) : analyzedGame.termination === undefined ? (
                 <></>
@@ -685,16 +555,16 @@ const Analysis: React.FC<Props> = ({
           )}
         </div>
         <div className="flex items-center gap-1">
-          {analyzedGame.termination.winner === 'none' ? (
+          {analyzedGame.termination?.winner === 'none' ? (
             <span className="font-medium text-primary/80">½-½</span>
           ) : (
             <span className="font-medium">
               <span className="text-primary/70">
-                {analyzedGame.termination.winner === 'white' ? '1' : '0'}
+                {analyzedGame.termination?.winner === 'white' ? '1' : '0'}
               </span>
               <span className="text-primary/70">-</span>
               <span className="text-primary/70">
-                {analyzedGame.termination.winner === 'black' ? '1' : '0'}
+                {analyzedGame.termination?.winner === 'black' ? '1' : '0'}
               </span>
             </span>
           )}
@@ -757,41 +627,50 @@ const Analysis: React.FC<Props> = ({
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full w-[90%] flex-row gap-2">
+      <div className="flex h-full w-[90%] flex-row gap-3">
         <motion.div
           id="navigation"
-          className="desktop-left-column-container flex flex-col gap-2 overflow-hidden"
+          className="desktop-left-column-container flex flex-col overflow-hidden"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <GameInfo title="Analysis" icon="bar_chart" type="analysis">
-            <NestedGameInfo />
-          </GameInfo>
-          <div className="flex max-h-[25vh] min-h-[25vh] flex-col bg-backdrop/30">
-            <AnalysisGameList
-              currentId={currentId}
-              loadNewTournamentGame={(newId, setCurrentMove) =>
-                getAndSetTournamentGame(newId, setCurrentMove)
-              }
-              loadNewLichessGames={(id, pgn, setCurrentMove) =>
-                getAndSetLichessGame(id, pgn, setCurrentMove)
-              }
-              loadNewUserGames={(id, type, setCurrentMove) =>
-                getAndSetUserGame(id, type, setCurrentMove)
-              }
-              loadNewCustomGame={(id, setCurrentMove) =>
-                getAndSetCustomGame(id, setCurrentMove)
-              }
-              onCustomAnalysis={() => setShowCustomModal(true)}
-              refreshTrigger={refreshTrigger}
-            />
-          </div>
-          <div className="flex h-1/2 w-full flex-1 flex-col gap-2">
-            <div className="flex h-full flex-col overflow-y-scroll">
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+            {/* Game info header */}
+            <GameInfo
+              title="Analysis"
+              icon="bar_chart"
+              type="analysis"
+              embedded
+            >
+              <NestedGameInfo />
+            </GameInfo>
+            {/* Game list */}
+            <div className="flex flex-col overflow-hidden">
+              <div className="h-3" />
+              <div className="max-h-[32vh] min-h-[32vh]">
+                <AnalysisGameList
+                  currentId={currentId}
+                  loadNewWorldChampionshipGame={(newId, setCurrentMove) =>
+                    getAndSetTournamentGame(newId, setCurrentMove)
+                  }
+                  loadNewLichessGame={(id, pgn, setCurrentMove) =>
+                    getAndSetLichessGame(id, pgn, setCurrentMove)
+                  }
+                  loadNewMaiaGame={(id, type, setCurrentMove) =>
+                    getAndSetUserGame(id, type, setCurrentMove)
+                  }
+                  onCustomAnalysis={() => setShowCustomModal(true)}
+                  refreshTrigger={refreshTrigger}
+                  embedded
+                />
+              </div>
+            </div>
+            {/* Moves + controller */}
+            <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
+              <div className="h-3 border-b border-glass-border" />
               <MovesContainer
                 game={analyzedGame}
                 termination={analyzedGame.termination}
-                type="analysis"
                 showAnnotations={true}
                 disableKeyboardNavigation={
                   controller.gameAnalysis.progress.isAnalyzing ||
@@ -800,7 +679,10 @@ const Analysis: React.FC<Props> = ({
                 disableMoveClicking={
                   controller.learnFromMistakes.state.isActive
                 }
+                embedded
+                heightClass="h-40"
               />
+              {/* No spacer here to keep controller tight to moves */}
               <BoardController
                 gameTree={controller.gameTree}
                 orientation={controller.orientation}
@@ -816,17 +698,19 @@ const Analysis: React.FC<Props> = ({
                   controller.learnFromMistakes.state.isActive
                 }
                 disableNavigation={controller.learnFromMistakes.state.isActive}
+                embedded
               />
             </div>
           </div>
         </motion.div>
         <motion.div
-          className="desktop-middle-column-container flex flex-col gap-2"
+          className="desktop-middle-column-container flex flex-col gap-3"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="flex w-full flex-col overflow-hidden rounded">
+          <div className="flex w-full flex-col overflow-hidden">
             <PlayerInfo
+              rounded="top"
               name={
                 controller.orientation === 'white'
                   ? analyzedGame.blackPlayer.name
@@ -838,7 +722,9 @@ const Analysis: React.FC<Props> = ({
                   : analyzedGame.whitePlayer.rating
               }
               color={controller.orientation === 'white' ? 'black' : 'white'}
-              termination={analyzedGame.termination.winner}
+              termination={analyzedGame.termination?.winner}
+              currentFen={controller.currentNode?.fen}
+              orientation={controller.orientation}
             />
             <div className="desktop-board-container relative flex aspect-square">
               <GameBoard
@@ -897,6 +783,7 @@ const Analysis: React.FC<Props> = ({
               ) : null}
             </div>
             <PlayerInfo
+              rounded="bottom"
               name={
                 controller.orientation === 'white'
                   ? analyzedGame.whitePlayer.name
@@ -908,8 +795,10 @@ const Analysis: React.FC<Props> = ({
                   : analyzedGame.blackPlayer.rating
               }
               color={controller.orientation === 'white' ? 'white' : 'black'}
-              termination={analyzedGame.termination.winner}
+              termination={analyzedGame.termination?.winner}
               showArrowLegend={true}
+              currentFen={controller.currentNode?.fen}
+              orientation={controller.orientation}
             />
           </div>
           <ConfigurableScreens
@@ -919,7 +808,6 @@ const Analysis: React.FC<Props> = ({
             MAIA_MODELS={MAIA_MODELS}
             game={analyzedGame}
             currentNode={controller.currentNode as GameNode}
-            onDeleteCustomGame={handleDeleteCustomGame}
             onAnalyzeEntireGame={handleAnalyzeEntireGame}
             onLearnFromMistakes={handleLearnFromMistakes}
             isAnalysisInProgress={controller.gameAnalysis.progress.isAnalyzing}
@@ -961,8 +849,8 @@ const Analysis: React.FC<Props> = ({
     >
       <div className="flex h-full flex-1 flex-col justify-center gap-1">
         {showGameListMobile ? (
-          <div className="flex w-full flex-col items-start justify-start gap-1">
-            <div className="flex w-full flex-col items-start justify-start overflow-hidden bg-background-1 p-3">
+          <div className="flex w-full flex-col items-start justify-start">
+            <div className="flex w-full flex-col items-start justify-start overflow-hidden p-3">
               <div className="flex w-full items-center justify-between">
                 <div className="flex items-center justify-start gap-1.5">
                   <span className="material-symbols-outlined text-xl">
@@ -971,7 +859,7 @@ const Analysis: React.FC<Props> = ({
                   <h2 className="text-xl font-semibold">Switch Game</h2>
                 </div>
                 <button
-                  className="flex items-center gap-1 rounded bg-background-2 px-2 py-1 text-sm duration-200 hover:bg-background-3"
+                  className="flex items-center gap-1 rounded bg-glass-strong px-2 py-1 text-sm duration-200 hover:bg-glass-stronger"
                   onClick={() => setShowGameListMobile(false)}
                 >
                   <span className="material-symbols-outlined text-sm">
@@ -984,26 +872,23 @@ const Analysis: React.FC<Props> = ({
                 Select a game to analyze
               </p>
             </div>
-            <div className="flex h-[calc(100vh-10rem)] w-full flex-col overflow-hidden rounded bg-backdrop/30">
+            <div className="flex h-[calc(100vh-10rem)] w-full flex-col overflow-hidden bg-backdrop/30">
               <AnalysisGameList
                 currentId={currentId}
-                loadNewTournamentGame={(newId, setCurrentMove) =>
+                loadNewWorldChampionshipGame={(newId, setCurrentMove) =>
                   loadGameAndCloseList(
                     getAndSetTournamentGame(newId, setCurrentMove),
                   )
                 }
-                loadNewLichessGames={(id, pgn, setCurrentMove) =>
+                loadNewLichessGame={(id, pgn, setCurrentMove) =>
                   loadGameAndCloseList(
                     getAndSetLichessGame(id, pgn, setCurrentMove),
                   )
                 }
-                loadNewUserGames={(id, type, setCurrentMove) =>
+                loadNewMaiaGame={(id, type, setCurrentMove) =>
                   loadGameAndCloseList(
                     getAndSetUserGame(id, type, setCurrentMove),
                   )
-                }
-                loadNewCustomGame={(id, setCurrentMove) =>
-                  loadGameAndCloseList(getAndSetCustomGame(id, setCurrentMove))
                 }
                 onCustomAnalysis={() => {
                   setShowCustomModal(true)
@@ -1016,7 +901,7 @@ const Analysis: React.FC<Props> = ({
           </div>
         ) : (
           <motion.div
-            className="flex w-full flex-col items-start justify-start gap-1"
+            className="flex w-full flex-col items-start justify-start"
             variants={itemVariants}
             style={{ willChange: 'transform, opacity' }}
           >
@@ -1037,19 +922,17 @@ const Analysis: React.FC<Props> = ({
                 game={analyzedGame}
                 availableMoves={
                   controller.learnFromMistakes.state.isActive && analysisEnabled
-                    ? new Map() // Empty moves when puzzle is solved
+                    ? new Map()
                     : controller.availableMoves
                 }
                 setCurrentSquare={setCurrentSquare}
                 shapes={(() => {
                   const baseShapes = []
 
-                  // Add analysis arrows only when analysis is enabled
                   if (analysisEnabled) {
                     baseShapes.push(...controller.arrows)
                   }
 
-                  // Add mistake arrow during learn mode when analysis is disabled
                   if (
                     controller.learnFromMistakes.state.isActive &&
                     !analysisEnabled
@@ -1067,7 +950,6 @@ const Analysis: React.FC<Props> = ({
                     }
                   }
 
-                  // Add hover arrow if present
                   if (hoverArrow) {
                     baseShapes.push(hoverArrow)
                   }
@@ -1091,6 +973,7 @@ const Analysis: React.FC<Props> = ({
             <div className="flex w-full flex-col gap-0">
               <div className="w-full !flex-grow-0">
                 <BoardController
+                  embedded
                   gameTree={controller.gameTree}
                   orientation={controller.orientation}
                   setOrientation={controller.setOrientation}
@@ -1113,7 +996,6 @@ const Analysis: React.FC<Props> = ({
                 <MovesContainer
                   game={analyzedGame}
                   termination={analyzedGame.termination}
-                  type="analysis"
                   showAnnotations={true}
                   disableKeyboardNavigation={
                     controller.gameAnalysis.progress.isAnalyzing ||
@@ -1125,31 +1007,8 @@ const Analysis: React.FC<Props> = ({
                 />
               </div>
             </div>
-            <div className="flex w-full flex-col gap-1 overflow-hidden">
-              {/* Analysis Toggle Bar */}
-              <div className="flex items-center justify-between rounded bg-background-1 px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-xl">
-                    analytics
-                  </span>
-                  <h3 className="font-semibold">Analysis</h3>
-                </div>
-                <button
-                  onClick={handleToggleAnalysis}
-                  className={`flex items-center gap-2 rounded px-3 py-1 text-sm transition-colors ${
-                    analysisEnabled
-                      ? 'bg-human-4 text-white hover:bg-human-4/80'
-                      : 'bg-background-2 text-secondary hover:bg-background-3'
-                  }`}
-                >
-                  <span className="material-symbols-outlined !text-sm">
-                    {analysisEnabled ? 'visibility' : 'visibility_off'}
-                  </span>
-                  {analysisEnabled ? 'Visible' : 'Hidden'}
-                </button>
-              </div>
-
-              <div className="relative">
+            <div className="flex w-full flex-col overflow-hidden">
+              <div className="relative border-t border-glass-border bg-glass backdrop-blur-md">
                 <Highlight
                   hover={
                     analysisEnabled &&
@@ -1209,8 +1068,8 @@ const Analysis: React.FC<Props> = ({
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1256,11 +1115,17 @@ const Analysis: React.FC<Props> = ({
                       ? controller.moveEvaluation
                       : undefined
                   }
+                  playerToMove={
+                    analysisEnabled &&
+                    !controller.learnFromMistakes.state.isActive
+                      ? (controller.currentNode?.turn ?? 'w')
+                      : 'w'
+                  }
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1291,8 +1156,8 @@ const Analysis: React.FC<Props> = ({
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1332,11 +1197,17 @@ const Analysis: React.FC<Props> = ({
                       ? makeMove
                       : mockMakeMove
                   }
+                  playerToMove={
+                    analysisEnabled &&
+                    !controller.learnFromMistakes.state.isActive
+                      ? (controller.currentNode?.turn ?? 'w')
+                      : 'w'
+                  }
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1356,7 +1227,6 @@ const Analysis: React.FC<Props> = ({
               launchContinue={launchContinue}
               MAIA_MODELS={MAIA_MODELS}
               game={analyzedGame}
-              onDeleteCustomGame={handleDeleteCustomGame}
               onAnalyzeEntireGame={handleAnalyzeEntireGame}
               onLearnFromMistakes={handleLearnFromMistakes}
               isAnalysisInProgress={

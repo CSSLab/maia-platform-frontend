@@ -55,7 +55,7 @@ export const AnalysisConfigModal: React.FC<Props> = ({
 
   return (
     <motion.div
-      className="absolute left-0 top-0 z-20 flex h-screen w-screen flex-col items-center justify-center bg-black/70 px-4 backdrop-blur-sm md:px-0"
+      className="fixed inset-0 z-50 flex h-screen w-screen flex-col items-center justify-center bg-backdrop/90 px-4 md:px-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -66,22 +66,24 @@ export const AnalysisConfigModal: React.FC<Props> = ({
       }}
     >
       <motion.div
-        className="flex w-full flex-col gap-4 rounded-md border border-white/10 bg-background-1 p-5 md:w-[min(500px,40vw)] md:p-6"
+        className="flex w-full flex-col gap-2 rounded-lg border border-glass-border bg-glass p-6 shadow-none backdrop-blur-md md:w-[min(500px,40vw)]"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 20, opacity: 0 }}
         transition={{ duration: 0.3 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-2xl text-human-3">
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-2xl text-white/80">
             network_intelligence
           </span>
-          <h2 className="text-xl font-semibold">Analyze Entire Game</h2>
+          <h2 className="text-xl font-semibold text-white">
+            Analyze Entire Game
+          </h2>
         </div>
 
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-primary/80">
+          <p className="text-sm text-white/75">
             Choose the Stockfish analysis depth for all positions in the game:
           </p>
 
@@ -89,10 +91,10 @@ export const AnalysisConfigModal: React.FC<Props> = ({
             {depthOptions.map((option) => (
               <label
                 key={option.value}
-                className={`flex cursor-pointer items-center gap-3 rounded border p-3 transition duration-200 ${
+                className={`flex cursor-pointer items-center gap-3 rounded-md border border-glass-border p-3 transition duration-200 ${
                   selectedDepth === option.value
-                    ? 'border-human-4 bg-human-4/10'
-                    : 'border-white/10 hover:border-white/20 hover:bg-white/5'
+                    ? 'border-glass-border bg-glass-stronger text-white'
+                    : 'border-glass-border bg-glass text-white/80 hover:bg-glass-stronger hover:text-white'
                 }`}
                 htmlFor={`depth-${option.value}`}
                 aria-label={`Select ${option.label}`}
@@ -104,11 +106,13 @@ export const AnalysisConfigModal: React.FC<Props> = ({
                   value={option.value}
                   checked={selectedDepth === option.value}
                   onChange={(e) => setSelectedDepth(Number(e.target.value))}
-                  className="h-4 w-4 text-human-4"
+                  className="h-4 w-4 border-white/30 text-human-4 focus:ring-human-4"
                 />
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">{option.label}</span>
-                  <span className="text-xs text-secondary">
+                  <span className="text-sm font-medium text-white">
+                    {option.label}
+                  </span>
+                  <span className="text-xs text-white/70">
                     {option.description}
                   </span>
                 </div>
@@ -116,29 +120,29 @@ export const AnalysisConfigModal: React.FC<Props> = ({
             ))}
           </div>
 
-          <div className="mt-2 flex items-start gap-2 rounded bg-background-2/60 p-3">
-            <span className="material-symbols-outlined !text-base text-secondary">
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-glass-border bg-white/5 p-3 backdrop-blur-sm">
+            <span className="material-symbols-outlined !text-base text-white/70">
               info
             </span>
-            <p className="text-xs text-secondary">
+            <p className="text-xs text-white/70">
               Higher depths provide more accurate analysis but take longer to
-              complete. You can cancel the analysis at any time. Currently,
-              analysis only persists until you close the tab, but we are working
-              on a persistent analysis feature!
+              complete. You can cancel the analysis at any time. Analysis will
+              persist even after you close the tab,
             </p>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="flex h-9 items-center gap-1 rounded bg-background-2 px-4 text-sm transition duration-200 hover:bg-background-3"
+            className="flex items-center gap-2 rounded border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-white/80 transition duration-200 hover:bg-glass-strong hover:text-white"
           >
+            <span className="material-symbols-outlined text-sm">close</span>
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className="flex h-9 items-center gap-1 rounded bg-human-4 px-4 text-sm font-medium text-white transition duration-200 hover:bg-human-4/90"
+            className="flex items-center gap-2 rounded border border-human-4/50 bg-human-4/80 px-4 py-2 text-sm text-white transition duration-200 hover:bg-human-4"
           >
             <span className="material-symbols-outlined text-sm">
               play_arrow

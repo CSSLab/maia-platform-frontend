@@ -1,16 +1,9 @@
 import Head from 'next/head'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-import {
-  BrainIcon,
-  HandIcon,
-  RegularPlayIcon,
-  TrainIcon,
-  BotOrNotIcon,
-} from 'src/components/Common/Icons'
-import { getLeaderboard } from 'src/api'
-import { LeaderboardColumn, DelayedLoading } from 'src/components'
+import { fetchLeaderboard } from 'src/api'
+import { LeaderboardColumn, Loading } from 'src/components'
 import { LeaderboardProvider } from 'src/components/Leaderboard/LeaderboardContext'
 
 const Leaderboard: React.FC = () => {
@@ -18,7 +11,6 @@ const Leaderboard: React.FC = () => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [leaderboard, setLeaderboard] = useState<
     {
-      icon: React.JSX.Element
       ranking: { display_name: string; elo: number }[]
       name: 'Regular' | 'Puzzles' | 'Bot/Not' | 'Hand' | 'Brain'
       id: 'regular' | 'puzzles' | 'turing' | 'hand' | 'brain'
@@ -43,47 +35,43 @@ const Leaderboard: React.FC = () => {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
   }
 
-  const fetchLeaderboard = useCallback(async () => {
-    setLoading(true)
-    const lb = await getLeaderboard()
-    setLastUpdated(new Date(lb.last_updated + 'Z'))
-    setLeaderboard([
-      {
-        id: 'regular',
-        icon: <RegularPlayIcon />,
-        name: 'Regular',
-        ranking: lb.play_leaders,
-      },
-      {
-        id: 'puzzles',
-        icon: <TrainIcon />,
-        name: 'Puzzles',
-        ranking: lb.puzzles_leaders,
-      },
-      {
-        id: 'turing',
-        icon: <BotOrNotIcon />,
-        name: 'Bot/Not',
-        ranking: lb.turing_leaders,
-      },
-      {
-        id: 'hand',
-        icon: <HandIcon />,
-        name: 'Hand',
-        ranking: lb.hand_leaders,
-      },
-      {
-        id: 'brain',
-        icon: <BrainIcon />,
-        name: 'Brain',
-        ranking: lb.brain_leaders,
-      },
-    ])
-    setLoading(false)
-  }, [])
-
   useEffect(() => {
-    fetchLeaderboard()
+    ;(async () => {
+      setLoading(true)
+      const lb = await fetchLeaderboard()
+      setLastUpdated(new Date(lb.last_updated + 'Z'))
+      setLeaderboard([
+        {
+          id: 'regular',
+          name: 'Regular',
+          ranking: lb.play_leaders,
+        },
+        {
+          id: 'puzzles',
+          name: 'Puzzles',
+          ranking: lb.puzzles_leaders,
+        },
+        {
+          id: 'turing',
+
+          name: 'Bot/Not',
+          ranking: lb.turing_leaders,
+        },
+        {
+          id: 'hand',
+
+          name: 'Hand',
+          ranking: lb.hand_leaders,
+        },
+        {
+          id: 'brain',
+
+          name: 'Brain',
+          ranking: lb.brain_leaders,
+        },
+      ])
+      setLoading(false)
+    })()
   }, [fetchLeaderboard])
 
   const containerVariants = {
@@ -125,51 +113,57 @@ const Leaderboard: React.FC = () => {
 
   return (
     <LeaderboardProvider>
-      <DelayedLoading isLoading={loading}>
+      <Loading isLoading={loading}>
         <AnimatePresence mode="wait">
-          <motion.div
-            key="leaderboard-content"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            style={{ willChange: 'transform, opacity' }}
-            className="mx-auto flex h-full w-[90%] flex-col items-start justify-center gap-3 py-[1%]"
-          >
-            <Head>
-              <title>Leaderboard – Maia Chess</title>
-              <meta
-                name="description"
-                content="View top-ranked players across all Maia Chess game modes. Competitive leaderboards for regular play, puzzles, bot detection, hand & brain chess with live ratings and statistics."
-              />
-            </Head>
+          <>
             <motion.div
-              variants={itemVariants}
-              className="flex w-full flex-col items-start justify-between md:flex-row md:items-end"
+              key="leaderboard-content"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{ willChange: 'transform, opacity' }}
+              className="relative mx-auto w-full px-4 py-8 md:w-[90%] md:px-0"
             >
-              <h1 className="text-2xl font-bold">Rating Leaderboards</h1>
-              <p className="text-sm text-secondary">
-                Last updated: {lastUpdated ? getTimeAgo(lastUpdated) : '...'}
-              </p>
+              <Head>
+                <title>Leaderboard – Maia Chess</title>
+                <meta
+                  name="description"
+                  content="View top-ranked players across all Maia Chess game modes. Competitive leaderboards for regular play, puzzles, bot detection, hand & brain chess with live ratings and statistics."
+                />
+              </Head>
+              <motion.div
+                variants={itemVariants}
+                className="mb-2 flex w-full flex-col items-start justify-between md:flex-row md:items-center"
+              >
+                <h1 className="mb-2 text-3xl font-bold text-white">
+                  Rating Leaderboards
+                </h1>
+
+                <p className="mt-4 text-sm text-white/60 md:mt-0">
+                  Last updated: {lastUpdated ? getTimeAgo(lastUpdated) : '...'}
+                </p>
+              </motion.div>
+              <motion.div
+                variants={itemVariants}
+                className="grid w-full grid-cols-1 justify-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+              >
+                {leaderboard?.map((column, index) => (
+                  <LeaderboardColumn key={index} {...column} />
+                ))}
+              </motion.div>
+              <motion.div variants={itemVariants} className="mt-3 w-full">
+                <p className="text-xs text-white/60">
+                  <span className="font-medium text-white/80">Note:</span> Each
+                  leaderboard column only features players who have played at
+                  least one game of the corresponding type within the last 7
+                  days.
+                </p>
+              </motion.div>
             </motion.div>
-            <motion.div
-              variants={itemVariants}
-              className="grid h-full w-full grid-cols-1 justify-start gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-            >
-              {leaderboard?.map((column, index) => (
-                <LeaderboardColumn key={index} {...column} />
-              ))}
-            </motion.div>
-            <motion.div variants={itemVariants} className="my-2 w-full">
-              <p className="text-xs text-secondary">
-                <span className="font-medium">Note:</span> Each leaderboard
-                column only features players who have played atleast one game of
-                the corresponding type within the last 7 days.
-              </p>
-            </motion.div>
-          </motion.div>
+          </>
         </AnimatePresence>
-      </DelayedLoading>
+      </Loading>
     </LeaderboardProvider>
   )
 }

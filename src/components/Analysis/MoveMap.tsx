@@ -27,6 +27,7 @@ interface MoveMapEntry {
   winrate?: number
   rawMaiaProb?: number
   relativeCp?: number
+  mate?: number
 }
 
 interface Props {
@@ -35,9 +36,9 @@ interface Props {
   setHoverArrow: React.Dispatch<React.SetStateAction<DrawShape | null>>
   makeMove: (move: string) => void
   isHomePage?: boolean
+  playerToMove?: 'w' | 'b'
 }
 
-// Helper function to convert hex color to rgba with alpha
 const hexToRgba = (hex: string, alpha: number): string => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
   if (!result) return hex
@@ -55,6 +56,7 @@ export const MoveMap: React.FC<Props> = ({
   setHoverArrow,
   makeMove,
   isHomePage = false,
+  playerToMove = 'w',
 }: Props) => {
   const { isMobile, width } = useContext(WindowSizeContext)
   const [hoveredMove, setHoveredMove] = useState<string | null>(null)
@@ -250,6 +252,8 @@ export const MoveMap: React.FC<Props> = ({
         stockfishCp={hoveredMoveData.rawCp}
         stockfishWinrate={hoveredMoveData.winrate}
         stockfishCpRelative={hoveredMoveData.relativeCp}
+        stockfishMate={hoveredMoveData.mate}
+        playerToMove={playerToMove}
         position={mousePosition}
         onClickMove={isMobile ? onTooltipClick : undefined}
       />
@@ -259,7 +263,7 @@ export const MoveMap: React.FC<Props> = ({
   return (
     <div
       id="analysis-move-map"
-      className="flex h-64 max-h-full w-full flex-col overflow-hidden bg-background-1/60 md:h-full md:rounded"
+      className={`flex h-64 max-h-full w-full flex-col overflow-hidden border border-glass-border md:h-full md:rounded-md ${isHomePage ? '' : 'md:bg-glass md:backdrop-blur-md'}`}
       onMouseLeave={onContainerMouseLeave}
     >
       <h2 className="p-3 text-base text-primary md:text-sm xl:text-base">
@@ -330,7 +334,10 @@ export const MoveMap: React.FC<Props> = ({
               tickMargin={0}
               tickLine={false}
               tickFormatter={(value) => `${value}%`}
-              domain={([dataMin, dataMax]) => [0, dataMax > 40 ? 100 : 40]}
+              domain={([, dataMax]) => {
+                const cappedMax = dataMax > 60 ? 100 : dataMax > 40 ? 60 : 40
+                return [0, cappedMax]
+              }}
             >
               <Label
                 value="← Unlikely"

@@ -18,9 +18,9 @@ import type { DrawShape } from 'chessground/draw'
 import { Chess, PieceSymbol } from 'chess.ts'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  getTrainingGame,
+  fetchPuzzle,
   logPuzzleGuesses,
-  getTrainingPlayerStats,
+  fetchTrainingPlayerStats,
 } from 'src/api'
 import {
   trackPuzzleStarted,
@@ -28,13 +28,12 @@ import {
   trackPuzzleCompleted,
 } from 'src/lib/analytics'
 import {
-  DelayedLoading,
+  Loading,
   GameInfo,
   Feedback,
   PuzzleLog,
   StatsDisplay,
   BoardController,
-  ContinueAgainstMaia,
   AuthenticatedWrapper,
   GameBoard,
   PromotionOverlay,
@@ -42,27 +41,24 @@ import {
   Highlight,
   MoveMap,
   BlunderMeter,
-  MovesByRating,
   AnalysisSidebar,
 } from 'src/components'
 import { useTrainingController } from 'src/hooks/useTrainingController'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
 import { AllStats, useStats } from 'src/hooks/useStats'
-import { TrainingGame, Status } from 'src/types/training'
-import { MaiaEvaluation, StockfishEvaluation } from 'src/types'
-import { ModalContext, WindowSizeContext, useTour } from 'src/contexts'
+import { PuzzleGame, Status } from 'src/types/puzzle'
+import { AnalyzedGame, MaiaEvaluation, StockfishEvaluation } from 'src/types'
+import { WindowSizeContext, useTour } from 'src/contexts'
 import { TrainingControllerContext } from 'src/contexts/TrainingControllerContext'
 import {
-  convertTrainingGameToAnalyzedGame,
   getCurrentPlayer,
   getAvailableMovesArray,
   requiresPromotion,
-} from 'src/lib/train/utils'
-import { mockAnalysisData } from 'src/lib/analysis/mockAnalysisData'
+} from 'src/lib/puzzle'
 import { tourConfigs } from 'src/constants/tours'
 
 const statsLoader = async () => {
-  const stats = await getTrainingPlayerStats()
+  const stats = await fetchTrainingPlayerStats()
   return {
     gamesPlayed: Math.max(0, stats.totalPuzzles),
     gamesWon: stats.puzzlesSolved,
@@ -74,13 +70,13 @@ const TrainPage: NextPage = () => {
   const router = useRouter()
   const { startTour, tourState } = useTour()
 
-  const [trainingGames, setTrainingGames] = useState<TrainingGame[]>([])
+  const [trainingGames, setTrainingGames] = useState<PuzzleGame[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [status, setStatus] = useState<Status>('default')
   const [stats, incrementStats, updateRating] = useStats(statsLoader)
   const [userGuesses, setUserGuesses] = useState<string[]>([])
   const [previousGameResults, setPreviousGameResults] = useState<
-    (TrainingGame & { result?: boolean; ratingDiff?: number })[]
+    (PuzzleGame & { result?: boolean; ratingDiff?: number })[]
   >([])
   const [initialTourCheck, setInitialTourCheck] = useState(false)
   const [loadingGame, setLoadingGame] = useState(false)
@@ -100,7 +96,7 @@ const TrainPage: NextPage = () => {
     setLoadingGame(true)
     let game
     try {
-      game = await getTrainingGame()
+      game = await fetchPuzzle()
     } catch (e) {
       router.push('/401')
       return
@@ -229,9 +225,9 @@ const TrainPage: NextPage = () => {
 
   if (loadingGame || trainingGames.length === 0) {
     return (
-      <DelayedLoading isLoading={true}>
+      <Loading isLoading={true}>
         <div></div>
-      </DelayedLoading>
+      </Loading>
     )
   }
 
@@ -250,11 +246,20 @@ const TrainPage: NextPage = () => {
         setLastAttemptedMove={setLastAttemptedMove}
         gamesController={
           <>
-            <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-end overflow-auto">
-              <PuzzleLog
-                previousGameResults={previousGameResults}
-                setCurrentIndex={setCurrentIndex}
-              />
+            <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-start overflow-auto">
+              <div className="hidden md:block">
+                <PuzzleLog
+                  previousGameResults={previousGameResults}
+                  setCurrentIndex={setCurrentIndex}
+                  embedded
+                />
+              </div>
+              <div className="md:hidden">
+                <PuzzleLog
+                  previousGameResults={previousGameResults}
+                  setCurrentIndex={setCurrentIndex}
+                />
+              </div>
             </div>
           </>
         }
@@ -262,14 +267,14 @@ const TrainPage: NextPage = () => {
     )
 
   return (
-    <DelayedLoading isLoading={true}>
+    <Loading isLoading={true}>
       <div></div>
-    </DelayedLoading>
+    </Loading>
   )
 }
 
 interface Props {
-  trainingGame: TrainingGame
+  trainingGame: PuzzleGame
   gamesController: React.ReactNode
   stats: AllStats
   status: Status
@@ -301,7 +306,7 @@ const Train: React.FC<Props> = ({
   const controller = useTrainingController(trainingGame)
 
   const analyzedGame = useMemo(() => {
-    return convertTrainingGameToAnalyzedGame(trainingGame)
+    return { ...trainingGame, type: 'play', availableMoves: [] } as AnalyzedGame
   }, [trainingGame])
 
   const analysisController = useAnalysisController(
@@ -438,7 +443,7 @@ const Train: React.FC<Props> = ({
               analysisController.currentNode.mainChild,
             )
           } else {
-            const newVariation = analyzedGame.tree.addVariation(
+            const newVariation = analyzedGame.tree.addVariationNode(
               analysisController.currentNode,
               newFen,
               moveString,
@@ -528,7 +533,7 @@ const Train: React.FC<Props> = ({
               analysisController.currentNode.mainChild,
             )
           } else {
-            const newVariation = analyzedGame.tree.addVariation(
+            const newVariation = analyzedGame.tree.addVariationNode(
               analysisController.currentNode,
               newFen,
               moveString,
@@ -586,14 +591,7 @@ const Train: React.FC<Props> = ({
     setStatus('forfeit')
   }, [trainingGame.id, logGuess, setStatus, stats.rating])
 
-  const launchContinue = useCallback(() => {
-    const currentNode =
-      analysisEnabled && showAnalysis
-        ? analysisController.currentNode
-        : controller.currentNode
-    const url = '/play' + '?fen=' + encodeURIComponent(currentNode.fen)
-    window.open(url)
-  }, [controller, analysisController, analysisEnabled, showAnalysis])
+  // Removed "Continue Against Maia" from puzzles page; no need for launcher
 
   const hover = useCallback(
     (move?: string) => {
@@ -639,7 +637,7 @@ const Train: React.FC<Props> = ({
         if (analysisController.currentNode.mainChild?.move === moveString) {
           analysisController.goToNode(analysisController.currentNode.mainChild)
         } else {
-          const newVariation = analyzedGame.tree.addVariation(
+          const newVariation = analyzedGame.tree.addVariationNode(
             analysisController.currentNode,
             newFen,
             moveString,
@@ -711,37 +709,45 @@ const Train: React.FC<Props> = ({
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full w-[90%] flex-row gap-2">
+      <div className="flex h-full w-[90%] flex-row gap-3">
         <motion.div
-          className="desktop-left-column-container flex flex-col gap-2 overflow-hidden"
+          className="desktop-left-column-container flex flex-col overflow-hidden"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <GameInfo title="Puzzles" icon="target" type="train">
-            <div className="flex w-full flex-col justify-start text-sm text-secondary 2xl:text-base">
-              <span>
-                Puzzle{' '}
-                <span className="text-secondary/60">#{trainingGame.id}</span>
-              </span>
-              <span>
-                Rating:{' '}
-                {status !== 'correct' && status !== 'forfeit' ? (
-                  <span className="text-secondary/60">hidden</span>
-                ) : (
-                  <span className="text-human-2">
-                    {trainingGame.puzzle_elo}
-                  </span>
-                )}
-              </span>
+          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+            {/* Header */}
+            <GameInfo title="Puzzles" icon="target" type="train" embedded>
+              <div className="flex w-full flex-col justify-start text-sm text-secondary 2xl:text-base">
+                <span>
+                  Puzzle{' '}
+                  <span className="text-secondary/60">#{trainingGame.id}</span>
+                </span>
+                <span>
+                  Rating:{' '}
+                  {status !== 'correct' && status !== 'forfeit' ? (
+                    <span className="text-secondary/60">hidden</span>
+                  ) : (
+                    <span className="text-human-2">
+                      {trainingGame.puzzle_elo}
+                    </span>
+                  )}
+                </span>
+              </div>
+            </GameInfo>
+
+            {/* Puzzle log */}
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="h-3" />
+              {gamesController}
             </div>
-          </GameInfo>
-          <ContinueAgainstMaia
-            launchContinue={launchContinue}
-            sourcePage="puzzles"
-            currentFen={controller.currentNode?.fen || ''}
-          />
-          {gamesController}
-          <StatsDisplay stats={stats} />
+
+            {/* Stats */}
+            <div className="flex flex-col">
+              <div className="h-3" />
+              <StatsDisplay stats={stats} embedded />
+            </div>
+          </div>
         </motion.div>
 
         <motion.div
@@ -844,6 +850,7 @@ const Train: React.FC<Props> = ({
                 ? analysisController.gameTree
                 : controller.gameTree
             }
+            embedded
           />
           <div className="flex w-full flex-1">
             <Feedback
@@ -1002,6 +1009,7 @@ const Train: React.FC<Props> = ({
                     ? analysisController.gameTree
                     : controller.gameTree
                 }
+                embedded
               />
             </div>
             <div className="flex w-full">
@@ -1017,18 +1025,13 @@ const Train: React.FC<Props> = ({
               />
             </div>
             <StatsDisplay stats={stats} />
-            <ContinueAgainstMaia
-              launchContinue={launchContinue}
-              sourcePage="puzzles"
-              currentFen={controller.currentNode?.fen || ''}
-            />
             <div
               id="analysis"
               className="flex w-full flex-col gap-1 overflow-hidden"
             >
               {/* Analysis Toggle Bar - only show when puzzle is complete */}
               {showAnalysis && (
-                <div className="flex items-center justify-between rounded bg-background-1 px-4 py-2">
+                <div className="flex items-center justify-between rounded bg-glass px-4 py-2">
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-xl">
                       analytics
@@ -1040,13 +1043,13 @@ const Train: React.FC<Props> = ({
                     className={`flex items-center gap-2 rounded px-3 py-1 text-sm transition-colors ${
                       analysisEnabled
                         ? 'bg-human-4 text-white hover:bg-human-4/80'
-                        : 'bg-background-2 text-secondary hover:bg-background-3'
+                        : 'bg-glass text-secondary hover:bg-glass-strong'
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">
                       {analysisEnabled ? 'visibility' : 'visibility_off'}
                     </span>
-                    {analysisEnabled ? 'Visible' : 'Hidden'}
+                    {analysisEnabled ? 'Hide' : 'Show'}
                   </button>
                 </div>
               )}
@@ -1103,8 +1106,8 @@ const Train: React.FC<Props> = ({
                   }
                 />
                 {!analysisEnabled && showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1115,8 +1118,8 @@ const Train: React.FC<Props> = ({
                   </div>
                 )}
                 {!showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1149,10 +1152,15 @@ const Train: React.FC<Props> = ({
                       ? analysisController.moveEvaluation
                       : undefined
                   }
+                  playerToMove={
+                    analysisEnabled && showAnalysis
+                      ? (analysisController.currentNode?.turn ?? 'w')
+                      : 'w'
+                  }
                 />
                 {!analysisEnabled && showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1163,8 +1171,8 @@ const Train: React.FC<Props> = ({
                   </div>
                 )}
                 {!showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1196,10 +1204,15 @@ const Train: React.FC<Props> = ({
                   makeMove={
                     analysisEnabled && showAnalysis ? makeMove : mockMakeMove
                   }
+                  playerToMove={
+                    analysisEnabled && showAnalysis
+                      ? (analysisController.currentNode?.turn ?? 'w')
+                      : 'w'
+                  }
                 />
                 {!analysisEnabled && showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
@@ -1210,13 +1223,13 @@ const Train: React.FC<Props> = ({
                   </div>
                 )}
                 {!showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-1/80 backdrop-blur-sm">
-                    <div className="rounded bg-background-2/90 p-2 text-center shadow-lg">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
                       </span>
                       <p className="text-xs font-medium text-primary">
-                        Analysis Disabled
+                        Analysis Locked
                       </p>
                     </div>
                   </div>

@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useContext } from 'react'
 
 import { PlayerStats } from 'src/types'
-import { getPlayerStats } from 'src/api'
+import { fetchPlayerStats } from 'src/api'
 import { useLeaderboardContext } from './LeaderboardContext'
+import { AuthContext } from 'src/contexts'
 
 interface Props {
   index: number
@@ -24,9 +25,12 @@ export const LeaderboardEntry = ({
   const [stats, setStats] = useState<PlayerStats | null>(null)
   const shouldShowPopupRef = useRef(false)
   const { activePopup, setActivePopup } = useLeaderboardContext()
+  const { user } = useContext(AuthContext)
 
   const entryKey = `${typeId}-${display_name}-${index}`
   const isPopupVisible = activePopup === entryKey
+  const isCurrentUser =
+    user?.lichessId?.toLowerCase() === display_name.toLowerCase()
 
   let ratingKey:
     | 'regularRating'
@@ -97,7 +101,7 @@ export const LeaderboardEntry = ({
 
   const fetchStats = useCallback(async () => {
     try {
-      const playerStats = await getPlayerStats(display_name)
+      const playerStats = await fetchPlayerStats(display_name)
       setStats(playerStats)
       // Only show popup if we're still supposed to (user still hovering)
       if (shouldShowPopupRef.current && hover) {
@@ -129,58 +133,62 @@ export const LeaderboardEntry = ({
   }, [hover, setActivePopup, entryKey, fetchStats])
 
   return (
-    <div
-      className={`relative flex w-full items-center justify-between px-3 py-1 text-sm ${index % 2 === 0 ? 'bg-opacity-0' : 'bg-white bg-opacity-[0.015]'}`}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+    <Link
+      href={`/profile/${display_name}`}
+      className="flex items-center gap-1.5 text-white/90 transition-colors duration-200 hover:text-white"
     >
-      <div className="flex items-center gap-1.5">
-        <p className="w-4 text-xs">{index + 1}</p>
-        <Link
-          href={`/profile/${display_name}`}
-          className="flex items-center gap-1.5 hover:underline"
-        >
-          <p>
+      <div
+        className={`group relative flex w-full items-center justify-between px-3 py-1 text-sm transition-colors duration-200 hover:bg-white/[3%] ${
+          isCurrentUser ? 'bg-yellow-400/5 hover:bg-yellow-400/10' : ''
+        }`}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+      >
+        <div className="flex items-center gap-1.5">
+          <p className="w-4 text-xs text-white/60">{index + 1}</p>
+          <p className="group-hover:underline">
             {display_name} {index == 0 && '👑'}
           </p>
-        </Link>
-      </div>
-      <p className="text-sm font-medium">{elo}</p>
-      {isPopupVisible && stats && (
-        <div className="absolute left-0 top-[100%] z-20 flex w-full max-w-[24rem] flex-col overflow-hidden rounded-lg border-2 border-white/20 bg-background-1 outline outline-1 outline-white/5 backdrop-blur-sm">
-          <div className="flex w-full justify-between border-b border-white/10 bg-gradient-to-r from-background-2/80 to-background-2/60 px-3 py-1.5">
-            <p className="text-sm">
-              <span className="font-bold">{display_name}</span>&apos;s {type}{' '}
-              Statistics
-            </p>
-            <Link href={`/profile/${display_name}`}>
-              <i className="material-symbols-outlined select-none text-base text-primary transition-colors hover:text-human-1">
-                open_in_new
-              </i>
-            </Link>
-          </div>
-          <div className="flex items-center justify-between bg-gradient-to-b from-background-1 to-background-1/95 px-3 py-2">
-            <div className="flex flex-col items-center justify-center gap-0.5 text-human-1">
-              <p className="text-xs">Rating</p>
-              <b className="text-xl">{stats[ratingKey]}</b>
-            </div>
-            <div className="flex flex-col items-center justify-center gap-0.5">
-              <p className="text-xs">Highest</p>
-              <b className="text-xl">{stats[highestRatingKey]}</b>
-            </div>
-            <div className="flex flex-col items-center justify-center gap-0.5">
-              <p className="text-xs">Games</p>
-              <b className="text-xl">{stats[gamesKey]}</b>
-            </div>
-            <div className="flex flex-col items-center justify-center gap-0.5">
-              <p className="text-xs">Win %</p>
-              <b className="text-xl">
-                {((stats[gamesWonKey] / stats[gamesKey]) * 100).toFixed(0)}%
-              </b>
-            </div>
-          </div>
         </div>
-      )}
-    </div>
+        <p className="text-sm font-medium text-white/95">{elo}</p>
+        {isPopupVisible && stats && (
+          <div className="absolute left-0 top-[100%] z-50 flex w-full max-w-[24rem] flex-col overflow-hidden rounded border border-white/20 bg-backdrop">
+            <div className="flex w-full justify-between border-b border-glass-border bg-backdrop px-3 py-2">
+              <p className="text-sm text-white/95">
+                <span className="font-bold">{display_name}</span>&apos;s {type}{' '}
+                Statistics
+              </p>
+              <Link href={`/profile/${display_name}`}>
+                <i className="material-symbols-outlined select-none text-base text-white/70 transition-colors hover:text-white">
+                  open_in_new
+                </i>
+              </Link>
+            </div>
+            <div className="flex items-center justify-between px-3 py-3">
+              <div className="flex flex-col items-center justify-center gap-0.5">
+                <p className="text-xs text-white/70">Rating</p>
+                <b className="text-xl text-white/95">{stats[ratingKey]}</b>
+              </div>
+              <div className="flex flex-col items-center justify-center gap-0.5">
+                <p className="text-xs text-white/70">Highest</p>
+                <b className="text-xl text-white/95">
+                  {stats[highestRatingKey]}
+                </b>
+              </div>
+              <div className="flex flex-col items-center justify-center gap-0.5">
+                <p className="text-xs text-white/70">Games</p>
+                <b className="text-xl text-white/95">{stats[gamesKey]}</b>
+              </div>
+              <div className="flex flex-col items-center justify-center gap-0.5">
+                <p className="text-xs text-white/70">Win %</p>
+                <b className="text-xl text-white/95">
+                  {((stats[gamesWonKey] / stats[gamesKey]) * 100).toFixed(0)}%
+                </b>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </Link>
   )
 }

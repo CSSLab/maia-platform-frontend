@@ -12,16 +12,11 @@ module.exports = {
         backdrop: 'rgb(var(--color-backdrop))',
         primary: 'rgb(var(--color-text-primary))',
         secondary: 'rgb(var(--color-text-secondary))',
-        button: {
-          primary: 'rgb(var(--color-button-primary))',
-          secondary: 'rgb(var(--color-button-secondary))',
-        },
-        background: {
-          1: 'rgb(var(--color-background1))',
-          2: 'rgb(var(--color-background2))',
-          3: 'rgb(var(--color-background3))',
-          4: 'rgb(var(--color-background4))',
-          5: 'rgb(var(--color-background5))',
+        glass: {
+          DEFAULT: 'rgb(var(--glass-bg) / var(--glass-bg-opacity))',
+          border: 'rgb(var(--glass-border) / var(--glass-border-opacity))',
+          strong: 'rgb(var(--glass-bg) / var(--glass-bg-strong-opacity))',
+          stronger: 'rgb(var(--glass-bg) / var(--glass-bg-stronger-opacity))',
         },
         human: {
           1: 'rgb(var(--color-human-accent1))',
@@ -38,6 +33,9 @@ module.exports = {
       },
       fontSize: {
         xxs: ['0.625rem', { lineHeight: '0.875rem' }],
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
       },
     },
   },
