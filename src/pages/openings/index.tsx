@@ -28,6 +28,8 @@ import {
   AnalysisOverlay,
 } from 'src/components'
 import openings from 'src/constants/openings.json'
+import endgamesRaw from 'src/constants/endgames.json'
+import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
 import { OpeningDrillAnalysis } from 'src/components/Openings/OpeningDrillAnalysis'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
@@ -40,6 +42,12 @@ import {
 const OpeningsPage: NextPage = () => {
   const router = useRouter()
   const [showSelectionModal, setShowSelectionModal] = useState(true)
+
+  const endgameDataset = useMemo(() => buildEndgameDataset(endgamesRaw), [])
+  const endgameOpenings = useMemo(
+    () => createEndgameOpenings(endgameDataset),
+    [endgameDataset],
+  )
 
   const handleCloseModal = () => {
     router.push('/')
@@ -452,6 +460,8 @@ const OpeningsPage: NextPage = () => {
         <AnimatePresence>
           <OpeningSelectionModal
             openings={openings}
+            endgames={endgameOpenings}
+            endgameDataset={endgameDataset}
             initialSelections={drillConfiguration?.selections || []}
             onComplete={handleCompleteSelection}
             onClose={handleCloseModal}

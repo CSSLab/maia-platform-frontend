@@ -1,4 +1,10 @@
-import React, { useState, useMemo, useEffect, useContext } from 'react'
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useContext,
+  useCallback,
+} from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import Chessground from '@react-chess/chessground'
@@ -8,6 +14,8 @@ import {
   OpeningVariation,
   OpeningSelection,
   DrillConfiguration,
+  EndgameTrait,
+  DrillCategoryType,
 } from 'src/types'
 import { ModalContainer } from '../Common/ModalContainer'
 import { useTour } from 'src/contexts'
@@ -23,6 +31,15 @@ import {
   trackDrillConfigurationCompleted,
 } from 'src/lib/analytics'
 import { MAIA_MODELS_WITH_NAMES } from 'src/constants/common'
+import {
+  ENDGAME_TRAITS,
+  ENDGAME_TRAIT_LABELS,
+  collectEndgamePositions,
+  EndgameDataset,
+  EndgamePositionDetail,
+  EndgameCategoryData,
+  EndgameMotifData,
+} from 'src/lib/endgames'
 
 type MobileTab = 'browse' | 'selected'
 
@@ -30,9 +47,34 @@ const DEFAULT_START_FEN =
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 const PGN_RESULT_TOKENS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
 
+const getTraitSelectionKey = (
+  openingId: string,
+  variationId: string | null | undefined,
+) => (variationId ? `${openingId}__${variationId}` : openingId)
+
+const getOpeningCategory = (opening: Opening): DrillCategoryType => {
+  if (opening.categoryType === 'endgame') return 'endgame'
+  if (opening.categoryType === 'custom' || opening.isCustom) return 'custom'
+  return 'opening'
+}
+
+const formatCategoryLabel = (category: DrillCategoryType) => {
+  switch (category) {
+    case 'opening':
+      return 'opening'
+    case 'endgame':
+      return 'endgame'
+    case 'custom':
+      return 'custom position'
+    default:
+      return category
+  }
+}
+
 interface Props {
   openings: Opening[]
   endgames?: Opening[]
+  endgameDataset?: EndgameDataset
   initialSelections?: OpeningSelection[]
   onComplete: (configuration: DrillConfiguration) => void
   onClose: () => void
@@ -43,9 +85,20 @@ interface MobileOpeningPopupProps {
   variation: OpeningVariation | null
   isOpen: boolean
   onClose: () => void
-  onAdd: (color: 'white' | 'black') => void
+  previewFen: string
+  onAddOpening: (color: 'white' | 'black') => void
+  onAddEndgame: () => void
   onRemove: () => void
   isSelected: boolean
+  isEndgame: boolean
+  selectedTraits: EndgameTrait[]
+  availableTraits: EndgameTrait[]
+  onToggleTrait: (trait: EndgameTrait) => void
+  isDuplicate: boolean
+  isAddDisabled: boolean
+  disabledReason?: string
+  selectedColor: 'white' | 'black'
+  setSelectedColor: (color: 'white' | 'black') => void
 }
 
 const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
@@ -53,14 +106,33 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
   variation,
   isOpen,
   onClose,
-  onAdd,
+  previewFen,
+  onAddOpening,
+  onAddEndgame,
   onRemove,
   isSelected,
+  isEndgame,
+  selectedTraits,
+  availableTraits,
+  onToggleTrait,
+  isDuplicate,
+  isAddDisabled,
+  disabledReason,
+  selectedColor,
+  setSelectedColor,
 }) => {
-  const [selectedColor, setSelectedColor] = useState<'white' | 'black'>('white')
-  const previewFen = useMemo(() => {
-    return variation ? variation.fen : opening.fen
-  }, [opening, variation])
+  const addDisabled = isDuplicate || isAddDisabled
+  const addTitle = isDuplicate
+    ? 'Already added with same settings'
+    : disabledReason || undefined
+
+  const handleAdd = () => {
+    if (isEndgame) {
+      onAddEndgame()
+    } else {
+      onAddOpening(selectedColor)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -83,53 +155,92 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
                 fen: previewFen,
                 coordinates: true,
                 animation: { enabled: true, duration: 200 },
-                orientation: selectedColor,
+                orientation: isEndgame ? 'white' : selectedColor,
               }}
             />
           </div>
         </div>
 
-        {!isSelected && (
-          <div className="mb-4">
-            <p className="mb-2 text-sm font-medium">Play as:</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedColor('white')}
-                className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
-                  selectedColor === 'white'
-                    ? 'border-glass-border bg-white/10 text-white'
-                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
-                }`}
-              >
-                <div className="relative h-4 w-4">
-                  <Image
-                    src="/assets/pieces/white king.svg"
-                    fill={true}
-                    alt="white king"
-                  />
+        {!isSelected &&
+          (isEndgame ? (
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-medium">Include traits:</p>
+              {availableTraits.length === 0 ? (
+                <p className="text-xs text-secondary">
+                  No positions available for this selection.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {availableTraits.map((trait) => {
+                    const checked = selectedTraits.includes(trait)
+                    return (
+                      <label
+                        key={trait}
+                        className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                          checked
+                            ? 'border-human-4 bg-human-4/20 text-white'
+                            : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-human-4"
+                          checked={checked}
+                          onChange={() => onToggleTrait(trait)}
+                        />
+                        {ENDGAME_TRAIT_LABELS[trait]}
+                      </label>
+                    )
+                  })}
                 </div>
-                White
-              </button>
-              <button
-                onClick={() => setSelectedColor('black')}
-                className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
-                  selectedColor === 'black'
-                    ? 'border-glass-border bg-white/10 text-white'
-                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
-                }`}
-              >
-                <div className="relative h-4 w-4">
-                  <Image
-                    src="/assets/pieces/black king.svg"
-                    fill={true}
-                    alt="black king"
-                  />
-                </div>
-                Black
-              </button>
+              )}
+              {selectedTraits.length === 0 && availableTraits.length > 0 && (
+                <p className="mt-2 text-xs text-red-400">
+                  Select at least one trait to add this endgame drill.
+                </p>
+              )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="mb-4">
+              <p className="mb-2 text-sm font-medium">Play as:</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedColor('white')}
+                  className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                    selectedColor === 'white'
+                      ? 'border-glass-border bg-white/10 text-white'
+                      : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="relative h-4 w-4">
+                    <Image
+                      src="/assets/pieces/white king.svg"
+                      fill={true}
+                      alt="white king"
+                    />
+                  </div>
+                  White
+                </button>
+                <button
+                  onClick={() => setSelectedColor('black')}
+                  className={`flex items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                    selectedColor === 'black'
+                      ? 'border-glass-border bg-white/10 text-white'
+                      : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="relative h-4 w-4">
+                    <Image
+                      src="/assets/pieces/black king.svg"
+                      fill={true}
+                      alt="black king"
+                    />
+                  </div>
+                  Black
+                </button>
+              </div>
+            </div>
+          ))}
 
         <div className="flex gap-2">
           <button
@@ -147,10 +258,12 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
             </button>
           ) : (
             <button
-              onClick={() => onAdd(selectedColor)}
-              className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10"
+              onClick={handleAdd}
+              disabled={addDisabled}
+              className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              title={addTitle}
             >
-              Add Drill
+              {isDuplicate ? 'Drill Already Added' : 'Add Drill'}
             </button>
           )}
         </div>
@@ -210,6 +323,7 @@ const BrowsePanel: React.FC<{
   isDuplicateSelection: (
     opening: Opening,
     variation: OpeningVariation | null,
+    traits?: EndgameTrait[],
   ) => boolean
   searchTerm: string
   setSearchTerm: (term: string) => void
@@ -218,7 +332,7 @@ const BrowsePanel: React.FC<{
   removeSelection: (id: string) => void
   onRemoveCustomOpening: (openingId: string) => void
   browseCategory: 'openings' | 'endgames' | 'custom'
-  setBrowseCategory: (category: 'openings' | 'endgames' | 'custom') => void
+  onBrowseCategoryChange: (category: 'openings' | 'endgames' | 'custom') => void
   customInput: string
   setCustomInput: (value: string) => void
   customError: string | null
@@ -242,7 +356,7 @@ const BrowsePanel: React.FC<{
   removeSelection,
   onRemoveCustomOpening,
   browseCategory,
-  setBrowseCategory,
+  onBrowseCategoryChange,
   customInput,
   setCustomInput,
   customError,
@@ -282,7 +396,7 @@ const BrowsePanel: React.FC<{
             key={value}
             type="button"
             onClick={() => {
-              setBrowseCategory(value)
+              onBrowseCategoryChange(value)
               setActiveTab('browse')
             }}
             aria-pressed={isSelected}
@@ -718,7 +832,6 @@ const BrowsePanel: React.FC<{
   )
 }
 const PreviewPanel: React.FC<{
-  selections: OpeningSelection[]
   previewOpening: Opening
   previewVariation: OpeningVariation | null
   previewFen: string
@@ -726,8 +839,14 @@ const PreviewPanel: React.FC<{
   setSelectedColor: (color: 'white' | 'black') => void
   addSelection: () => void
   panelLabel: string
+  isDuplicate: boolean
+  isAddDisabled: boolean
+  disabledReason?: string
+  isEndgame: boolean
+  selectedTraits: EndgameTrait[]
+  availableTraits: EndgameTrait[]
+  onToggleTrait: (trait: EndgameTrait) => void
 }> = ({
-  selections,
   previewOpening,
   previewVariation,
   previewFen,
@@ -735,17 +854,59 @@ const PreviewPanel: React.FC<{
   setSelectedColor,
   addSelection,
   panelLabel,
+  isDuplicate,
+  isAddDisabled,
+  disabledReason,
+  isEndgame,
+  selectedTraits,
+  availableTraits,
+  onToggleTrait,
 }) => {
-  const isDuplicateSelection = (
-    opening: Opening,
-    variation: OpeningVariation | null,
-  ) => {
-    return selections.some(
-      (selection) =>
-        selection.opening.id === opening.id &&
-        selection.variation?.id === variation?.id,
-    )
-  }
+  const addDisabled = isDuplicate || isAddDisabled
+  const addButtonLabel = isDuplicate ? 'Drill Already Added' : 'Add to Drill'
+  const addButtonTitle = isDuplicate
+    ? 'Already added with same settings'
+    : disabledReason || undefined
+
+  const renderEndgameTraitControls = () => (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-medium md:text-sm">Include traits:</p>
+      {availableTraits.length === 0 ? (
+        <p className="text-xs text-secondary">
+          No positions available for this selection.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {availableTraits.map((trait) => {
+            const checked = selectedTraits.includes(trait)
+            return (
+              <label
+                key={trait}
+                className={`flex cursor-pointer items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
+                  checked
+                    ? 'border-human-4 bg-human-4/20 text-white'
+                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="h-3 w-3 accent-human-4 md:h-4 md:w-4"
+                  checked={checked}
+                  onChange={() => onToggleTrait(trait)}
+                />
+                {ENDGAME_TRAIT_LABELS[trait]}
+              </label>
+            )
+          })}
+        </div>
+      )}
+      {selectedTraits.length === 0 && availableTraits.length > 0 && (
+        <p className="text-xs text-red-400">
+          Select at least one trait to add this endgame drill.
+        </p>
+      )}
+    </div>
+  )
 
   return (
     <div
@@ -768,45 +929,49 @@ const PreviewPanel: React.FC<{
           <p className="text-xs text-secondary">{previewOpening.description}</p>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium md:text-sm">Play as:</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSelectedColor('white')}
-              className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
-                selectedColor === 'white'
-                  ? 'border-glass-border bg-white/10 text-white'
-                  : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
-              }`}
-            >
-              <div className="relative h-4 w-4 md:h-5 md:w-5">
-                <Image
-                  src="/assets/pieces/white king.svg"
-                  fill={true}
-                  alt="white king"
-                />
-              </div>
-              White
-            </button>
-            <button
-              onClick={() => setSelectedColor('black')}
-              className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
-                selectedColor === 'black'
-                  ? 'border-glass-border bg-white/10 text-white'
-                  : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
-              }`}
-            >
-              <div className="relative h-4 w-4 md:h-5 md:w-5">
-                <Image
-                  src="/assets/pieces/black king.svg"
-                  fill={true}
-                  alt="black king"
-                />
-              </div>
-              Black
-            </button>
+        {isEndgame ? (
+          renderEndgameTraitControls()
+        ) : (
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-medium md:text-sm">Play as:</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedColor('white')}
+                className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
+                  selectedColor === 'white'
+                    ? 'border-glass-border bg-white/10 text-white'
+                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                }`}
+              >
+                <div className="relative h-4 w-4 md:h-5 md:w-5">
+                  <Image
+                    src="/assets/pieces/white king.svg"
+                    fill={true}
+                    alt="white king"
+                  />
+                </div>
+                White
+              </button>
+              <button
+                onClick={() => setSelectedColor('black')}
+                className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
+                  selectedColor === 'black'
+                    ? 'border-glass-border bg-white/10 text-white'
+                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
+                }`}
+              >
+                <div className="relative h-4 w-4 md:h-5 md:w-5">
+                  <Image
+                    src="/assets/pieces/black king.svg"
+                    fill={true}
+                    alt="black king"
+                  />
+                </div>
+                Black
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex w-full flex-col items-start justify-center gap-1">
           <p className="text-xs font-medium md:text-sm">Preview:</p>
@@ -818,7 +983,7 @@ const PreviewPanel: React.FC<{
                 fen: previewFen,
                 coordinates: true,
                 animation: { enabled: true, duration: 200 },
-                orientation: selectedColor,
+                orientation: isEndgame ? 'white' : selectedColor,
               }}
             />
           </div>
@@ -828,17 +993,11 @@ const PreviewPanel: React.FC<{
       <div className="flex-shrink-0 border-t border-glass-border p-3 md:p-4">
         <button
           onClick={addSelection}
-          disabled={isDuplicateSelection(previewOpening, previewVariation)}
+          disabled={addDisabled}
           className="w-full rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-          title={
-            isDuplicateSelection(previewOpening, previewVariation)
-              ? 'Already added with same settings'
-              : 'Add to Drill'
-          }
+          title={addButtonTitle}
         >
-          {isDuplicateSelection(previewOpening, previewVariation)
-            ? 'Drill Already Added'
-            : 'Add to Drill'}
+          {addButtonLabel}
         </button>
       </div>
     </div>
@@ -856,6 +1015,7 @@ const SelectedPanel: React.FC<{
   setTargetMoveNumber: (number: number) => void
   categoryLabel: string
   categoryLabelPlural: string
+  showTargetSlider: boolean
 }> = ({
   activeTab,
   selections,
@@ -867,6 +1027,7 @@ const SelectedPanel: React.FC<{
   setTargetMoveNumber,
   categoryLabel,
   categoryLabelPlural,
+  showTargetSlider,
 }) => (
   <div
     id="opening-drill-selected"
@@ -899,56 +1060,88 @@ const SelectedPanel: React.FC<{
       ) : (
         <div className="red-scrollbar flex-1 overflow-y-auto">
           <div className="flex w-full flex-col">
-            {selections.map((selection) => (
-              <div
-                key={selection.id}
-                className="flex items-center justify-between border-b border-white/5 p-3 transition-colors md:px-4"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <div className="relative h-4 w-4 flex-shrink-0 md:h-5 md:w-5">
-                      <Image
-                        src={
-                          selection.playerColor === 'white'
-                            ? '/assets/pieces/white king.svg'
-                            : '/assets/pieces/black king.svg'
-                        }
-                        fill={true}
-                        alt={`${selection.playerColor} king`}
-                      />
-                    </div>
-                    <div className="flex min-w-0 flex-1 flex-row items-center gap-2">
-                      <span className="truncate text-xs font-medium text-primary md:text-sm">
-                        {selection.opening.name}
-                      </span>
-                      {selection.opening.isCustom && (
-                        <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
-                          Custom
+            {selections.map((selection) => {
+              const isEndgameSelection =
+                getOpeningCategory(selection.opening) === 'endgame'
+
+              return (
+                <div
+                  key={selection.id}
+                  className="flex items-center justify-between border-b border-white/5 p-3 transition-colors md:px-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-2">
+                      {isEndgameSelection ? (
+                        <span className="material-symbols-outlined text-base text-human-3 md:text-lg">
+                          trophy
                         </span>
+                      ) : (
+                        <div className="relative h-4 w-4 flex-shrink-0 md:h-5 md:w-5">
+                          <Image
+                            src={
+                              selection.playerColor === 'white'
+                                ? '/assets/pieces/white king.svg'
+                                : '/assets/pieces/black king.svg'
+                            }
+                            fill={true}
+                            alt={`${selection.playerColor} king`}
+                          />
+                        </div>
                       )}
-                      {selection.variation && (
-                        <span className="mt-1 truncate text-xxs text-secondary">
-                          {selection.variation.name}
-                        </span>
-                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-xs font-medium text-primary md:text-sm">
+                            {selection.opening.name}
+                          </span>
+                          {selection.opening.isCustom && (
+                            <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                              Custom
+                            </span>
+                          )}
+                        </div>
+                        {selection.variation && (
+                          <p className="text-xs text-white/70">
+                            {selection.variation.name}
+                          </p>
+                        )}
+                        {isEndgameSelection &&
+                        selection.endgameTraits?.length ? (
+                          <div className="mt-1 flex flex-col items-start gap-1">
+                            <span className="text-xxs text-secondary">
+                              {selection.endgameTraits
+                                .map((trait) => ENDGAME_TRAIT_LABELS[trait])
+                                .join(', ')}
+                            </span>
+                            <span className="text-xxs text-secondary">
+                              {(
+                                selection.endgamePositions?.length ?? 0
+                              ).toLocaleString()}{' '}
+                              positions ·{' '}
+                              {selection.playerColor === 'white'
+                                ? 'White to move'
+                                : 'Black to move'}
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        removeSelection(selection.id)
+                      }
+                    }}
+                    onClick={() => removeSelection(selection.id)}
+                    className="ml-2 text-secondary transition-colors hover:text-white"
+                  >
+                    <span className="material-symbols-outlined !text-lg">
+                      close
+                    </span>
+                  </button>
                 </div>
-                <button
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      removeSelection(selection.id)
-                    }
-                  }}
-                  onClick={() => removeSelection(selection.id)}
-                  className="ml-2 text-secondary transition-colors hover:text-white"
-                >
-                  <span className="material-symbols-outlined !text-lg">
-                    close
-                  </span>
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -980,23 +1173,27 @@ const SelectedPanel: React.FC<{
       </div>
 
       {/* Target Move Count Configuration */}
-      <div className="mb-3 md:mb-4">
-        <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">
-          Target Move Count: {targetMoveNumber}
-        </p>
-        <input
-          type="range"
-          min="5"
-          max="20"
-          value={targetMoveNumber}
-          onChange={(e) => setTargetMoveNumber(parseInt(e.target.value) || 10)}
-          className="w-full accent-human-4"
-        />
-        <div className="mt-1 flex justify-between text-xs text-secondary">
-          <span>5</span>
-          <span>20</span>
+      {showTargetSlider && (
+        <div className="mb-3 md:mb-4">
+          <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">
+            Target Move Count: {targetMoveNumber}
+          </p>
+          <input
+            type="range"
+            min="5"
+            max="20"
+            value={targetMoveNumber}
+            onChange={(e) =>
+              setTargetMoveNumber(parseInt(e.target.value) || 10)
+            }
+            className="w-full accent-human-4"
+          />
+          <div className="mt-1 flex justify-between text-xs text-secondary">
+            <span>5</span>
+            <span>20</span>
+          </div>
         </div>
-      </div>
+      )}
 
       <button
         onClick={handleStartDrilling}
@@ -1013,6 +1210,7 @@ const SelectedPanel: React.FC<{
 export const OpeningSelectionModal: React.FC<Props> = ({
   openings,
   endgames = [],
+  endgameDataset,
   initialSelections = [],
   onComplete,
   onClose,
@@ -1037,6 +1235,11 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       })),
     [endgames],
   )
+
+  const firstInitialSelection = initialSelections[0] ?? null
+  const initialSelectionCategory = firstInitialSelection
+    ? getOpeningCategory(firstInitialSelection.opening)
+    : null
 
   const initialCustomOpenings = useMemo(() => {
     const builtInIds = new Set([
@@ -1064,44 +1267,109 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     return Array.from(unique.values())
   }, [initialSelections, normalizedEndgames, normalizedOpenings])
 
-  const fallbackOpening: Opening = {
-    id: 'custom-fallback-position',
-    name: 'Custom Position',
-    description: 'Create a custom drill to get started.',
-    fen: DEFAULT_START_FEN,
-    pgn: '',
-    variations: [],
-    isCustom: true,
-    categoryType: 'custom',
-  }
+  const fallbackOpening = useMemo<Opening>(
+    () => ({
+      id: 'custom-fallback-position',
+      name: 'Custom Position',
+      description: 'Create a custom drill to get started.',
+      fen: DEFAULT_START_FEN,
+      pgn: '',
+      variations: [],
+      isCustom: true,
+      categoryType: 'custom',
+    }),
+    [],
+  )
 
   const [customOpenings, setCustomOpenings] = useState<Opening[]>(
     initialCustomOpenings,
   )
   const [selections, setSelections] =
     useState<OpeningSelection[]>(initialSelections)
+  const [endgameTraitSelections, setEndgameTraitSelections] = useState<
+    Record<string, EndgameTrait[]>
+  >(() => {
+    const initial: Record<string, EndgameTrait[]> = {}
+    initialSelections.forEach((selection) => {
+      if (
+        (selection.opening.categoryType ?? 'opening') === 'endgame' &&
+        selection.endgameTraits
+      ) {
+        const key = getTraitSelectionKey(
+          selection.opening.id,
+          selection.variation?.id ?? null,
+        )
+        initial[key] = selection.endgameTraits
+      }
+    })
+    return initial
+  })
 
   const hasOpenings = normalizedOpenings.length > 0
   const hasEndgames = normalizedEndgames.length > 0
 
+  const initialBrowseCategory: 'openings' | 'endgames' | 'custom' =
+    initialSelectionCategory ??
+    (hasOpenings ? 'openings' : hasEndgames ? 'endgames' : 'custom')
+
   const [browseCategory, setBrowseCategory] = useState<
     'openings' | 'endgames' | 'custom'
-  >(hasOpenings ? 'openings' : hasEndgames ? 'endgames' : 'custom')
+  >(initialBrowseCategory)
 
-  const initialPreview =
-    initialCustomOpenings[0] ||
-    (hasOpenings ? normalizedOpenings[0] : undefined) ||
-    (hasEndgames ? normalizedEndgames[0] : undefined) ||
-    fallbackOpening
+  const initialPreview = useMemo(() => {
+    if (firstInitialSelection) {
+      const selectionOpening = firstInitialSelection.opening
+      const selectionIsUsable =
+        selectionOpening.categoryType !== 'endgame' ||
+        selectionOpening.endgameMeta
+
+      if (selectionIsUsable) {
+        return selectionOpening
+      }
+    }
+
+    if (initialBrowseCategory === 'custom') {
+      return initialCustomOpenings[0] ?? fallbackOpening
+    }
+
+    if (initialBrowseCategory === 'endgames') {
+      return normalizedEndgames[0] ?? fallbackOpening
+    }
+
+    return normalizedOpenings[0] ?? fallbackOpening
+  }, [
+    fallbackOpening,
+    firstInitialSelection,
+    initialBrowseCategory,
+    initialCustomOpenings,
+    normalizedEndgames,
+    normalizedOpenings,
+  ])
+
+  const initialPreviewVariation =
+    firstInitialSelection && initialPreview === firstInitialSelection.opening
+      ? (firstInitialSelection.variation ?? null)
+      : null
+  const defaultMaiaVersion =
+    MAIA_MODELS_WITH_NAMES[4] ?? MAIA_MODELS_WITH_NAMES[0]
+  const initialMaiaVersion = firstInitialSelection?.maiaVersion
+    ? (MAIA_MODELS_WITH_NAMES.find(
+        (model) => model.id === firstInitialSelection.maiaVersion,
+      ) ?? defaultMaiaVersion)
+    : defaultMaiaVersion
+  const initialTargetMoves = firstInitialSelection?.targetMoveNumber ?? 10
+  const initialSelectedColor: 'white' | 'black' =
+    firstInitialSelection?.playerColor ?? 'white'
 
   const [previewOpening, setPreviewOpening] = useState<Opening>(initialPreview)
   const [previewVariation, setPreviewVariation] =
-    useState<OpeningVariation | null>(null)
-  const [selectedMaiaVersion, setSelectedMaiaVersion] = useState(
-    MAIA_MODELS_WITH_NAMES[4],
+    useState<OpeningVariation | null>(initialPreviewVariation)
+  const [selectedMaiaVersion, setSelectedMaiaVersion] =
+    useState(initialMaiaVersion)
+  const [selectedColor, setSelectedColor] = useState<'white' | 'black'>(
+    initialBrowseCategory === 'endgames' ? 'white' : initialSelectedColor,
   )
-  const [selectedColor, setSelectedColor] = useState<'white' | 'black'>('white')
-  const [targetMoveNumber, setTargetMoveNumber] = useState(10)
+  const [targetMoveNumber, setTargetMoveNumber] = useState(initialTargetMoves)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState<MobileTab>('browse')
   const [initialTourCheck, setInitialTourCheck] = useState(false)
@@ -1114,6 +1382,224 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   const [mobilePopupOpen, setMobilePopupOpen] = useState(false)
   const [customInput, setCustomInput] = useState('')
   const [customError, setCustomError] = useState<string | null>(null)
+  const getDefaultPreviewByCategory = useCallback(
+    (category: 'openings' | 'endgames' | 'custom'): Opening => {
+      if (category === 'openings') {
+        return normalizedOpenings[0] ?? fallbackOpening
+      }
+      if (category === 'endgames') {
+        return normalizedEndgames[0] ?? fallbackOpening
+      }
+      return customOpenings[0] ?? fallbackOpening
+    },
+    [customOpenings, normalizedEndgames, normalizedOpenings, fallbackOpening],
+  )
+
+  const handleBrowseCategoryChange = useCallback(
+    (
+      category: 'openings' | 'endgames' | 'custom',
+      options: { preservePreview?: boolean } = {},
+    ) => {
+      const { preservePreview = false } = options
+
+      setBrowseCategory(category)
+      setSearchTerm('')
+      setMobilePopupOpen(false)
+      setMobilePopupOpening(null)
+      setMobilePopupVariation(null)
+
+      if (!preservePreview) {
+        const nextPreview = getDefaultPreviewByCategory(category)
+        setPreviewOpening(nextPreview)
+        setPreviewVariation(null)
+        if (category === 'endgames') {
+          setSelectedColor('white')
+        }
+      }
+
+      if (category !== 'endgames') {
+        setEndgameTraitSelections({})
+      }
+
+      setSelections((prevSelections) => {
+        if (!prevSelections.length) return prevSelections
+        const selectionCategory = getOpeningCategory(prevSelections[0].opening)
+        return selectionCategory === category ? prevSelections : []
+      })
+    },
+    [
+      getDefaultPreviewByCategory,
+      setPreviewOpening,
+      setPreviewVariation,
+      setBrowseCategory,
+      setSearchTerm,
+      setSelectedColor,
+      setMobilePopupOpen,
+      setMobilePopupOpening,
+      setMobilePopupVariation,
+      setEndgameTraitSelections,
+      setSelections,
+    ],
+  )
+
+  const activeSelectionCategory = useMemo<DrillCategoryType | null>(() => {
+    if (selections.length === 0) {
+      return null
+    }
+
+    const first = selections[0]
+    return getOpeningCategory(first.opening)
+  }, [selections])
+
+  const resolveCategoryData = useCallback(
+    (opening: Opening): EndgameCategoryData | null => {
+      if (opening.categoryType !== 'endgame' || !opening.endgameMeta) {
+        return null
+      }
+
+      const fromDataset =
+        endgameDataset?.categoryMap[opening.endgameMeta.categorySlug]
+      if (fromDataset) {
+        return fromDataset
+      }
+
+      return {
+        slug: opening.endgameMeta.categorySlug,
+        name: opening.endgameMeta.categoryName,
+        traits: opening.endgameMeta.traits ?? {},
+        motifs:
+          opening.endgameMeta.motifs?.map((motif) => ({
+            slug: motif.subcategorySlug,
+            name: motif.subcategoryName,
+            traits: motif.traits ?? {},
+          })) ?? [],
+      }
+    },
+    [endgameDataset],
+  )
+
+  const resolveMotifData = useCallback(
+    (
+      opening: Opening,
+      variation: OpeningVariation | null,
+    ): EndgameMotifData | null => {
+      if (opening.categoryType !== 'endgame' || !variation?.endgameMeta) {
+        return null
+      }
+
+      const categoryFromDataset =
+        endgameDataset?.categoryMap[variation.endgameMeta.categorySlug]
+      if (categoryFromDataset) {
+        const fromMap =
+          endgameDataset?.motifMap[
+            `${variation.endgameMeta.categorySlug}/${variation.endgameMeta.subcategorySlug}`
+          ]
+        if (fromMap) {
+          return fromMap
+        }
+      }
+
+      const category = resolveCategoryData(opening)
+      if (!category) return null
+
+      const fallback =
+        category.motifs.find(
+          (motif) => motif.slug === variation.endgameMeta?.subcategorySlug,
+        ) ??
+        (variation.endgameMeta
+          ? {
+              slug: variation.endgameMeta.subcategorySlug,
+              name: variation.endgameMeta.subcategoryName,
+              traits: variation.endgameMeta.traits ?? {},
+            }
+          : null)
+
+      return fallback ? { ...fallback } : null
+    },
+    [endgameDataset, resolveCategoryData],
+  )
+
+  const getAvailableEndgameTraits = useCallback(
+    (opening: Opening, variation: OpeningVariation | null): EndgameTrait[] => {
+      if (opening.categoryType !== 'endgame') return []
+
+      const category = resolveCategoryData(opening)
+      if (!category) return []
+
+      const motif = variation ? resolveMotifData(opening, variation) : null
+      const sourceTraits = motif ? motif.traits : category.traits
+
+      return ENDGAME_TRAITS.filter(
+        (trait) => (sourceTraits[trait]?.length ?? 0) > 0,
+      )
+    },
+    [resolveCategoryData, resolveMotifData],
+  )
+
+  const getSelectedEndgameTraits = useCallback(
+    (opening: Opening, variation: OpeningVariation | null): EndgameTrait[] => {
+      const available = getAvailableEndgameTraits(opening, variation)
+      if (!available.length) return []
+
+      const key = getTraitSelectionKey(opening.id, variation?.id ?? null)
+      const stored = endgameTraitSelections[key]
+
+      if (stored === undefined) {
+        return available
+      }
+
+      const filtered = stored.filter((trait) => available.includes(trait))
+      if (filtered.length === 0) {
+        return stored.length === 0 ? [] : available
+      }
+      return filtered
+    },
+    [endgameTraitSelections, getAvailableEndgameTraits],
+  )
+
+  const updateEndgameTraitSelection = useCallback(
+    (
+      openingId: string,
+      variationId: string | null,
+      nextTraits: EndgameTrait[],
+    ) => {
+      setEndgameTraitSelections((prev) => ({
+        ...prev,
+        [getTraitSelectionKey(openingId, variationId)]: nextTraits,
+      }))
+    },
+    [],
+  )
+
+  const buildEndgamePositions = useCallback(
+    (
+      opening: Opening,
+      variation: OpeningVariation | null,
+      traits: EndgameTrait[],
+    ): EndgamePositionDetail[] => {
+      const category = resolveCategoryData(opening)
+      if (!category || !traits.length) return []
+
+      const motif = variation ? resolveMotifData(opening, variation) : null
+      return collectEndgamePositions(category, motif, traits)
+    },
+    [resolveCategoryData, resolveMotifData],
+  )
+
+  const getEndgamePreviewFen = useCallback(
+    (
+      opening: Opening,
+      variation: OpeningVariation | null,
+      traits: EndgameTrait[],
+    ): string => {
+      const positions = buildEndgamePositions(opening, variation, traits)
+      if (positions.length > 0) {
+        return positions[0].fen
+      }
+      return variation?.fen ?? opening.fen
+    },
+    [buildEndgamePositions],
+  )
 
   const handleAddCustomPosition = () => {
     const rawInput = customInput.trim()
@@ -1238,7 +1724,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     setPreviewVariation(null)
     setCustomInput('')
     setCustomError(null)
-    setBrowseCategory('custom')
+    handleBrowseCategoryChange('custom', { preservePreview: true })
     setActiveTab('browse')
   }
 
@@ -1263,14 +1749,21 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     )
 
     if (remainingCustom.length === 0 && browseCategory === 'custom') {
-      setBrowseCategory(
-        hasOpenings ? 'openings' : hasEndgames ? 'endgames' : 'custom',
-      )
+      const fallbackCategory = hasOpenings
+        ? 'openings'
+        : hasEndgames
+          ? 'endgames'
+          : 'custom'
+      handleBrowseCategoryChange(fallbackCategory, { preservePreview: true })
     }
 
     if (previewOpening.id === openingId) {
-      setPreviewOpening(nextPreview || fallbackOpening)
+      const updatedPreview = nextPreview || fallbackOpening
+      setPreviewOpening(updatedPreview)
       setPreviewVariation(null)
+      if ((updatedPreview.categoryType ?? 'opening') === 'endgame') {
+        setSelectedColor('white')
+      }
     }
 
     if (mobilePopupOpening?.id === openingId) {
@@ -1338,7 +1831,10 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       prevSelections.map((selection) => ({
         ...selection,
         maiaVersion: selectedMaiaVersion.id,
-        targetMoveNumber,
+        targetMoveNumber:
+          getOpeningCategory(selection.opening) === 'endgame'
+            ? null
+            : targetMoveNumber,
       })),
     )
   }, [selectedMaiaVersion.id, targetMoveNumber])
@@ -1348,8 +1844,18 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   }
 
   const previewFen = useMemo(() => {
+    if (previewOpening.categoryType === 'endgame') {
+      const traits = getSelectedEndgameTraits(previewOpening, previewVariation)
+      return getEndgamePreviewFen(previewOpening, previewVariation, traits)
+    }
+
     return previewVariation ? previewVariation.fen : previewOpening.fen
-  }, [previewOpening, previewVariation])
+  }, [
+    getEndgamePreviewFen,
+    getSelectedEndgameTraits,
+    previewOpening,
+    previewVariation,
+  ])
 
   const basePositions = useMemo(() => {
     if (browseCategory === 'custom') return customOpenings
@@ -1400,20 +1906,93 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     previewOpening.id,
   ])
 
-  const isDuplicateSelection = (
-    opening: Opening,
-    variation: OpeningVariation | null,
-  ) => {
-    return selections.some(
-      (s) =>
-        s.opening.id === opening.id &&
-        s.variation?.id === variation?.id &&
-        s.playerColor === selectedColor &&
-        s.maiaVersion === selectedMaiaVersion.id,
-    )
-  }
+  const isDuplicateSelection = useCallback(
+    (
+      opening: Opening,
+      variation: OpeningVariation | null,
+      traits: EndgameTrait[] = [],
+    ) => {
+      const category = getOpeningCategory(opening)
+      if (category === 'endgame') {
+        const normalizedTraits = [...traits].sort().join('|')
+        return selections.some((selection) => {
+          if (getOpeningCategory(selection.opening) !== 'endgame') {
+            return false
+          }
+          if (selection.opening.id !== opening.id) return false
+          if ((selection.variation?.id ?? null) !== (variation?.id ?? null)) {
+            return false
+          }
+          const existingTraits = [...(selection.endgameTraits ?? [])]
+            .sort()
+            .join('|')
+          return existingTraits === normalizedTraits
+        })
+      }
+
+      return selections.some(
+        (selection) =>
+          selection.opening.id === opening.id &&
+          selection.variation?.id === variation?.id &&
+          selection.playerColor === selectedColor &&
+          selection.maiaVersion === selectedMaiaVersion.id,
+      )
+    },
+    [selectedColor, selectedMaiaVersion.id, selections],
+  )
 
   const addSelection = () => {
+    const category = getOpeningCategory(previewOpening)
+    if (
+      activeSelectionCategory &&
+      activeSelectionCategory !== category &&
+      selections.length > 0
+    ) {
+      return
+    }
+
+    if (category === 'endgame') {
+      const selectedTraits = getSelectedEndgameTraits(
+        previewOpening,
+        previewVariation,
+      )
+      if (!selectedTraits.length) return
+
+      if (
+        isDuplicateSelection(previewOpening, previewVariation, selectedTraits)
+      )
+        return
+
+      const positions = buildEndgamePositions(
+        previewOpening,
+        previewVariation,
+        selectedTraits,
+      )
+      if (!positions.length) return
+
+      const scope = previewVariation ? 'motif' : 'category'
+
+      const newSelection: OpeningSelection = {
+        id: `endgame-${previewOpening.id}-${previewVariation?.id || 'all'}-${selectedTraits.slice().sort().join('-')}-${
+          positions.length
+        }-${Date.now()}`,
+        opening: previewOpening,
+        variation: previewVariation,
+        playerColor: 'white',
+        maiaVersion: selectedMaiaVersion.id,
+        targetMoveNumber: null,
+        endgameTraits: selectedTraits,
+        endgamePositions: positions,
+        endgameScope: scope,
+      }
+
+      setSelections([...selections, newSelection])
+      if (isMobile) {
+        setActiveTab('selected')
+      }
+      return
+    }
+
     if (isDuplicateSelection(previewOpening, previewVariation)) return
 
     const newSelection: OpeningSelection = {
@@ -1436,7 +2015,6 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     }
 
     setSelections([...selections, newSelection])
-    // Switch to selected tab on mobile after adding
     if (isMobile) {
       setActiveTab('selected')
     }
@@ -1462,8 +2040,20 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     setMobilePopupOpen(true)
   }
 
-  const handleMobilePopupAdd = (color: 'white' | 'black') => {
+  const handleMobilePopupAddOpening = (color: 'white' | 'black') => {
     if (!mobilePopupOpening) return
+
+    if (
+      activeSelectionCategory &&
+      activeSelectionCategory !== getOpeningCategory(mobilePopupOpening) &&
+      selections.length > 0
+    ) {
+      return
+    }
+
+    if (isDuplicateSelection(mobilePopupOpening, mobilePopupVariation)) {
+      return
+    }
 
     const newSelection: OpeningSelection = {
       id: `${mobilePopupOpening.id}-${mobilePopupVariation?.id || 'main'}-${color}-${selectedMaiaVersion.id}-${targetMoveNumber}`,
@@ -1478,6 +2068,64 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     setMobilePopupOpen(false)
     setMobilePopupOpening(null)
     setMobilePopupVariation(null)
+    if (isMobile) {
+      setActiveTab('selected')
+    }
+  }
+
+  const handleMobilePopupAddEndgame = () => {
+    if (!mobilePopupOpening) return
+
+    if (
+      activeSelectionCategory &&
+      activeSelectionCategory !== getOpeningCategory(mobilePopupOpening) &&
+      selections.length > 0
+    ) {
+      return
+    }
+
+    const traits = getSelectedEndgameTraits(
+      mobilePopupOpening,
+      mobilePopupVariation,
+    )
+    if (!traits.length) return
+
+    if (
+      isDuplicateSelection(mobilePopupOpening, mobilePopupVariation, traits)
+    ) {
+      return
+    }
+
+    const positions = buildEndgamePositions(
+      mobilePopupOpening,
+      mobilePopupVariation,
+      traits,
+    )
+    if (!positions.length) return
+
+    const scope = mobilePopupVariation ? 'motif' : 'category'
+
+    const newSelection: OpeningSelection = {
+      id: `endgame-${mobilePopupOpening.id}-${mobilePopupVariation?.id || 'all'}-${traits.slice().sort().join('-')}-${
+        positions.length
+      }-${Date.now()}`,
+      opening: mobilePopupOpening,
+      variation: mobilePopupVariation,
+      playerColor: 'white',
+      maiaVersion: selectedMaiaVersion.id,
+      targetMoveNumber: null,
+      endgameTraits: traits,
+      endgamePositions: positions,
+      endgameScope: scope,
+    }
+
+    setSelections([...selections, newSelection])
+    setMobilePopupOpen(false)
+    setMobilePopupOpening(null)
+    setMobilePopupVariation(null)
+    if (isMobile) {
+      setActiveTab('selected')
+    }
   }
 
   const handleMobilePopupRemove = () => {
@@ -1511,6 +2159,51 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     opening: Opening,
     variation: OpeningVariation | null,
   ) => {
+    const category = getOpeningCategory(opening)
+    if (
+      activeSelectionCategory &&
+      activeSelectionCategory !== category &&
+      selections.length > 0
+    ) {
+      return
+    }
+
+    if (category === 'endgame') {
+      const selectedTraits = getSelectedEndgameTraits(opening, variation)
+      if (!selectedTraits.length) return
+      if (isDuplicateSelection(opening, variation, selectedTraits)) return
+
+      const positions = buildEndgamePositions(
+        opening,
+        variation,
+        selectedTraits,
+      )
+      if (!positions.length) return
+
+      const scope = variation ? 'motif' : 'category'
+      const newSelection: OpeningSelection = {
+        id: `endgame-${opening.id}-${variation?.id || 'all'}-${selectedTraits.slice().sort().join('-')}-${
+          positions.length
+        }-${Date.now()}`,
+        opening,
+        variation,
+        playerColor: 'white',
+        maiaVersion: selectedMaiaVersion.id,
+        targetMoveNumber: null,
+        endgameTraits: selectedTraits,
+        endgamePositions: positions,
+        endgameScope: scope,
+      }
+
+      setSelections([...selections, newSelection])
+      setPreviewOpening(opening)
+      setPreviewVariation(variation)
+      if (isMobile) {
+        setActiveTab('selected')
+      }
+      return
+    }
+
     if (isDuplicateSelection(opening, variation)) return
 
     if (!opening.isCustom) {
@@ -1550,9 +2243,18 @@ export const OpeningSelectionModal: React.FC<Props> = ({
 
     // Track drill configuration completion
     const uniqueOpenings = new Set(selections.map((s) => s.opening.id)).size
+    const numericTargets = selections
+      .map((selection) =>
+        typeof selection.targetMoveNumber === 'number'
+          ? selection.targetMoveNumber
+          : null,
+      )
+      .filter((value): value is number => value !== null)
     const averageTargetMoves =
-      selections.reduce((sum, s) => sum + s.targetMoveNumber, 0) /
-      selections.length
+      numericTargets.length > 0
+        ? numericTargets.reduce((sum, value) => sum + value, 0) /
+          numericTargets.length
+        : 0
     const maiaVersionsUsed = [...new Set(selections.map((s) => s.maiaVersion))]
     const colorDistribution = selections.reduce(
       (acc, s) => {
@@ -1573,6 +2275,97 @@ export const OpeningSelectionModal: React.FC<Props> = ({
 
     onComplete(configuration)
   }
+
+  const previewCategoryType = getOpeningCategory(previewOpening)
+  const previewAvailableTraits =
+    previewOpening.categoryType === 'endgame'
+      ? getAvailableEndgameTraits(previewOpening, previewVariation)
+      : []
+  const previewSelectedTraits =
+    previewOpening.categoryType === 'endgame'
+      ? getSelectedEndgameTraits(previewOpening, previewVariation)
+      : []
+  const categoryMismatch =
+    selections.length > 0 &&
+    activeSelectionCategory !== null &&
+    activeSelectionCategory !== previewCategoryType
+  const previewIsDuplicate =
+    previewOpening.categoryType === 'endgame'
+      ? isDuplicateSelection(
+          previewOpening,
+          previewVariation,
+          previewSelectedTraits,
+        )
+      : isDuplicateSelection(previewOpening, previewVariation)
+  const previewAddDisabled =
+    categoryMismatch ||
+    (previewOpening.categoryType === 'endgame' &&
+      (previewSelectedTraits.length === 0 ||
+        previewAvailableTraits.length === 0))
+  const previewDisabledReason = categoryMismatch
+    ? `Cannot mix ${formatCategoryLabel(
+        activeSelectionCategory,
+      )} drills with ${formatCategoryLabel(previewCategoryType)} drills.`
+    : previewOpening.categoryType === 'endgame' &&
+        previewSelectedTraits.length === 0
+      ? 'Select at least one trait.'
+      : previewOpening.categoryType === 'endgame' &&
+          previewAvailableTraits.length === 0
+        ? 'No positions available for this selection.'
+        : undefined
+
+  const mobileCategory = mobilePopupOpening
+    ? getOpeningCategory(mobilePopupOpening)
+    : null
+  const mobileAvailableTraits =
+    mobilePopupOpening && mobilePopupOpening.categoryType === 'endgame'
+      ? getAvailableEndgameTraits(mobilePopupOpening, mobilePopupVariation)
+      : []
+  const mobileSelectedTraits =
+    mobilePopupOpening && mobilePopupOpening.categoryType === 'endgame'
+      ? getSelectedEndgameTraits(mobilePopupOpening, mobilePopupVariation)
+      : []
+  const mobileCategoryMismatch =
+    !!mobilePopupOpening &&
+    selections.length > 0 &&
+    activeSelectionCategory !== null &&
+    mobileCategory !== null &&
+    activeSelectionCategory !== mobileCategory
+  const mobileIsDuplicate =
+    mobilePopupOpening && mobilePopupOpening.categoryType === 'endgame'
+      ? isDuplicateSelection(
+          mobilePopupOpening,
+          mobilePopupVariation,
+          mobileSelectedTraits,
+        )
+      : mobilePopupOpening
+        ? isDuplicateSelection(mobilePopupOpening, mobilePopupVariation)
+        : false
+  const mobileAddDisabled =
+    mobileCategoryMismatch ||
+    (mobilePopupOpening?.categoryType === 'endgame' &&
+      (mobileSelectedTraits.length === 0 || mobileAvailableTraits.length === 0))
+  const mobileDisabledReason = mobileCategoryMismatch
+    ? `Cannot mix ${formatCategoryLabel(
+        activeSelectionCategory,
+      )} drills with ${mobileCategory ? formatCategoryLabel(mobileCategory) : 'this'} drills.`
+    : mobilePopupOpening?.categoryType === 'endgame' &&
+        mobileSelectedTraits.length === 0
+      ? 'Select at least one trait.'
+      : mobilePopupOpening?.categoryType === 'endgame' &&
+          mobileAvailableTraits.length === 0
+        ? 'No positions available for this selection.'
+        : undefined
+  const mobilePreviewFen =
+    mobilePopupOpening?.categoryType === 'endgame'
+      ? getEndgamePreviewFen(
+          mobilePopupOpening,
+          mobilePopupVariation,
+          mobileSelectedTraits,
+        )
+      : mobilePopupVariation
+        ? mobilePopupVariation.fen
+        : (mobilePopupOpening?.fen ?? DEFAULT_START_FEN)
 
   return (
     <ModalContainer className="!z-10" dismiss={onClose}>
@@ -1618,8 +2411,9 @@ export const OpeningSelectionModal: React.FC<Props> = ({
               </div>
 
               <p className="text-xs text-secondary md:text-sm">
-                Practice openings against Maia. Select openings to drill, choose
-                your color and opponent strength.
+                Practice openings, endgames, or custom positions against Maia.
+                Select drills, choose your color or trait settings, and pick
+                your opponent strength.
               </p>
             </div>
           </div>
@@ -1651,7 +2445,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             removeSelection={removeSelection}
             onRemoveCustomOpening={handleRemoveCustomOpening}
             browseCategory={browseCategory}
-            setBrowseCategory={setBrowseCategory}
+            onBrowseCategoryChange={handleBrowseCategoryChange}
             customInput={customInput}
             setCustomInput={setCustomInput}
             customError={customError}
@@ -1660,7 +2454,6 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             categoryLabelPlural={categoryLabelPlural}
           />
           <PreviewPanel
-            selections={selections}
             previewOpening={previewOpening}
             previewVariation={previewVariation}
             previewFen={previewFen}
@@ -1668,6 +2461,29 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             setSelectedColor={setSelectedColor}
             addSelection={addSelection}
             panelLabel={previewPanelLabel}
+            isDuplicate={previewIsDuplicate}
+            isAddDisabled={previewAddDisabled}
+            disabledReason={previewDisabledReason}
+            isEndgame={previewOpening.categoryType === 'endgame'}
+            selectedTraits={previewSelectedTraits}
+            availableTraits={previewAvailableTraits}
+            onToggleTrait={(trait) => {
+              const key = getTraitSelectionKey(
+                previewOpening.id,
+                previewVariation?.id ?? null,
+              )
+              const current = new Set(previewSelectedTraits)
+              if (current.has(trait)) {
+                current.delete(trait)
+              } else {
+                current.add(trait)
+              }
+              updateEndgameTraitSelection(
+                previewOpening.id,
+                previewVariation?.id ?? null,
+                Array.from(current),
+              )
+            }}
           />
           <SelectedPanel
             activeTab={activeTab}
@@ -1680,6 +2496,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             setTargetMoveNumber={setTargetMoveNumber}
             categoryLabel={categoryLabel}
             categoryLabelPlural={categoryLabelPlural}
+            showTargetSlider={browseCategory === 'openings'}
           />
         </div>
 
@@ -1694,12 +2511,40 @@ export const OpeningSelectionModal: React.FC<Props> = ({
               setMobilePopupOpening(null)
               setMobilePopupVariation(null)
             }}
-            onAdd={handleMobilePopupAdd}
+            previewFen={mobilePreviewFen}
+            onAddOpening={handleMobilePopupAddOpening}
+            onAddEndgame={handleMobilePopupAddEndgame}
             onRemove={handleMobilePopupRemove}
             isSelected={isOpeningSelected(
               mobilePopupOpening,
               mobilePopupVariation,
             )}
+            isEndgame={mobilePopupOpening.categoryType === 'endgame'}
+            selectedTraits={mobileSelectedTraits}
+            availableTraits={mobileAvailableTraits}
+            onToggleTrait={(trait) => {
+              if (!mobilePopupOpening) return
+              const key = getTraitSelectionKey(
+                mobilePopupOpening.id,
+                mobilePopupVariation?.id ?? null,
+              )
+              const current = new Set(mobileSelectedTraits)
+              if (current.has(trait)) {
+                current.delete(trait)
+              } else {
+                current.add(trait)
+              }
+              updateEndgameTraitSelection(
+                mobilePopupOpening.id,
+                mobilePopupVariation?.id ?? null,
+                Array.from(current),
+              )
+            }}
+            isDuplicate={mobileIsDuplicate}
+            isAddDisabled={mobileAddDisabled}
+            disabledReason={mobileDisabledReason}
+            selectedColor={selectedColor}
+            setSelectedColor={setSelectedColor}
           />
         )}
       </motion.div>

@@ -1,5 +1,36 @@
 import { GameTree, GameNode } from '.'
 
+export type DrillCategoryType = 'opening' | 'endgame' | 'custom'
+
+export type EndgameTrait =
+  | 'multi_pawns_each'
+  | 'no_pawns'
+  | 'one_pawn_each'
+  | 'one_pawn_total'
+
+export interface EndgamePositionDetail {
+  fen: string
+  trait: EndgameTrait
+  traitLabel: string
+  categoryName: string
+  categorySlug: string
+  subcategoryName?: string
+  subcategorySlug?: string
+  index: number
+}
+
+export interface EndgameSelectionMeta {
+  categoryName: string
+  categorySlug: string
+  subcategoryName?: string
+  subcategorySlug?: string
+  trait: EndgameTrait
+  traitLabel: string
+  positionIndex: number
+  groupId: string
+  groupLabel: string
+}
+
 export interface Opening {
   id: string
   name: string
@@ -9,7 +40,17 @@ export interface Opening {
   variations: OpeningVariation[]
   isCustom?: boolean
   setupFen?: string
-  categoryType?: 'opening' | 'endgame' | 'custom'
+  categoryType?: DrillCategoryType
+  endgameMeta?: {
+    categorySlug: string
+    categoryName: string
+    traits: Partial<Record<EndgameTrait, string[]>>
+    motifs: Array<{
+      subcategorySlug: string
+      subcategoryName: string
+      traits: Partial<Record<EndgameTrait, string[]>>
+    }>
+  }
 }
 
 export interface OpeningVariation {
@@ -19,6 +60,13 @@ export interface OpeningVariation {
   pgn: string
   isCustom?: boolean
   setupFen?: string
+  endgameMeta?: {
+    categorySlug: string
+    categoryName: string
+    subcategorySlug: string
+    subcategoryName: string
+    traits: Partial<Record<EndgameTrait, string[]>>
+  }
 }
 
 export interface OpeningSelection {
@@ -26,8 +74,12 @@ export interface OpeningSelection {
   variation: OpeningVariation | null
   playerColor: 'white' | 'black'
   maiaVersion: string
-  targetMoveNumber: number
+  targetMoveNumber: number | null
   id: string
+  endgameMeta?: EndgameSelectionMeta
+  endgameTraits?: EndgameTrait[]
+  endgamePositions?: EndgamePositionDetail[]
+  endgameScope?: 'category' | 'motif'
 }
 
 export interface DrillConfiguration {
