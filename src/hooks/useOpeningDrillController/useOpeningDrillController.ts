@@ -22,6 +22,7 @@ import {
   DrillPerformanceData,
   DrillConfiguration,
   OpeningSelection,
+  Opening,
 } from 'src/types/openings'
 import { useSound } from 'src/hooks/useSound'
 import { MAIA_MODELS } from 'src/constants/common'
@@ -32,6 +33,112 @@ import { StockfishEngineContext, MaiaEngineContext } from 'src/contexts'
 const MAIA_ELO_VALUES = MAIA_MODELS.map((model) =>
   parseInt(model.replace('maia_kdd_', ''), 10),
 )
+
+const ensureValidFen = (fen: string): string => {
+  const trimmed = fen.trim()
+  if (!trimmed) return trimmed
+
+  const parts = trimmed.split(/\s+/)
+
+  if (parts.length >= 6) {
+    return parts.slice(0, 6).join(' ')
+  }
+
+  const defaults: Record<number, string> = {
+    1: 'w',
+    2: '-',
+    3: '-',
+    4: '0',
+    5: '1',
+  }
+
+  const normalized = [...parts]
+
+  for (let index = parts.length; index < 6; index += 1) {
+    normalized[index] = defaults[index] ?? '0'
+  }
+
+  if (!normalized[1]) {
+    normalized[1] = 'w'
+  }
+  if (!normalized[2]) {
+    normalized[2] = '-'
+  }
+  if (!normalized[3]) {
+    normalized[3] = '-'
+  }
+
+  return normalized.slice(0, 6).join(' ')
+}
+
+const expandDrillSelections = (
+  selections: OpeningSelection[],
+): OpeningSelection[] => {
+  const expanded: OpeningSelection[] = []
+
+  selections.forEach((selection) => {
+    if (
+      selection.opening.categoryType === 'endgame' &&
+      selection.endgamePositions?.length
+    ) {
+      const baseName = selection.variation
+        ? `${selection.opening.name} → ${selection.variation.name}`
+        : selection.opening.name
+
+      selection.endgamePositions.forEach((position) => {
+        const fen = ensureValidFen(position.fen)
+        const sideToMove = fen.split(' ')[1] === 'w' ? 'white' : 'black'
+
+        const openingForPosition: Opening = {
+          id: `${selection.id}__${position.trait}-${position.index}`,
+          name:
+            position.traitLabel && baseName
+              ? `${baseName} (${position.traitLabel})`
+              : baseName,
+          description: `${position.traitLabel} endgame drill`,
+          fen,
+          pgn: '',
+          variations: [],
+          categoryType: 'endgame',
+          isCustom: selection.opening.isCustom,
+          setupFen: fen,
+        }
+
+        const derivedSelection: OpeningSelection = {
+          ...selection,
+          id: `${selection.id}__${position.trait}-${position.index}`,
+          opening: openingForPosition,
+          variation: null,
+          playerColor: sideToMove,
+          targetMoveNumber: null,
+          endgameMeta: {
+            categoryName: position.categoryName,
+            categorySlug: position.categorySlug,
+            subcategoryName: position.subcategoryName,
+            subcategorySlug: position.subcategorySlug,
+            trait: position.trait,
+            traitLabel: position.traitLabel,
+            positionIndex: position.index,
+            groupId: selection.id,
+            groupLabel: baseName,
+          },
+          endgamePositions: undefined,
+          endgameTraits: [position.trait],
+          endgameScope: selection.endgameScope,
+        }
+
+        expanded.push(derivedSelection)
+      })
+    } else {
+      expanded.push(selection)
+    }
+  })
+
+  return expanded
+}
+
+const isEndgameSelection = (selection?: OpeningSelection | null) =>
+  selection?.opening.categoryType === 'endgame'
 
 const getInitialAnalysisProgress = (): DeepAnalysisProgress => ({
   currentMoveIndex: 0,
@@ -110,7 +217,11 @@ export const useOpeningDrillController = (
   const [completedDrills, setCompletedDrills] = useState<CompletedDrill[]>([])
   const [currentDrillNumber, setCurrentDrillNumber] = useState(0)
   const attemptCountersRef = useRef<Record<string, number>>({})
-  const baseSelectionsRef = useRef<OpeningSelection[]>(configuration.selections)
+  const expandedSelections = useMemo(
+    () => expandDrillSelections(configuration.selections),
+    [configuration.selections],
+  )
+  const baseSelectionsRef = useRef<OpeningSelection[]>(expandedSelections)
   const [initialCycleComplete, setInitialCycleComplete] = useState(false)
   const [initialDrillPointer, setInitialDrillPointer] = useState(-1)
 
@@ -187,7 +298,7 @@ export const useOpeningDrillController = (
   }, [currentMaiaModel, setCurrentMaiaModel])
 
   useEffect(() => {
-    baseSelectionsRef.current = configuration.selections
+    baseSelectionsRef.current = expandedSelections
     attemptCountersRef.current = {}
     setCompletedDrills([])
     setInitialCycleComplete(false)
@@ -199,18 +310,18 @@ export const useOpeningDrillController = (
     analysisCancellationRef.current = false
     setDrillAnalysisProgress(getInitialAnalysisProgress())
 
-    if (!configuration.selections.length) {
+    if (!expandedSelections.length) {
       setCurrentDrill(null)
       return
     }
 
-    const firstSelection = createDrillInstance(configuration.selections[0])
+    const firstSelection = createDrillInstance(expandedSelections[0])
     setCurrentDrill(firstSelection)
     setInitialDrillPointer(0)
     setCurrentDrillNumber(1)
     setWaitingForMaiaResponse(false)
     setContinueAnalyzingMode(false)
-  }, [configuration.selections, createDrillInstance])
+  }, [expandedSelections, createDrillInstance])
 
   useEffect(() => {
     if (!currentDrill) {
@@ -222,24 +333,22 @@ export const useOpeningDrillController = (
       currentDrill.variation?.setupFen ||
       currentDrill.opening.setupFen ||
       'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-    const gameTree = new GameTree(startingFen)
+    const safeStartingFen = ensureValidFen(startingFen)
+    const gameTree = new GameTree(safeStartingFen)
 
     const pgn = currentDrill.variation
       ? currentDrill.variation.pgn
       : currentDrill.opening.pgn
     const endNode = parsePgnToTree(pgn, gameTree)
+    const endNodeFen = ensureValidFen(endNode?.fen || safeStartingFen)
 
     const drillGame: OpeningDrillGame = {
       id: currentDrill.id,
       selection: currentDrill,
       moves: [],
       tree: gameTree,
-      currentFen: endNode?.fen || startingFen,
-      toPlay: endNode
-        ? new Chess(endNode.fen).turn() === 'w'
-          ? 'white'
-          : 'black'
-        : 'white',
+      currentFen: endNodeFen,
+      toPlay: new Chess(endNodeFen).turn() === 'w' ? 'white' : 'black',
       openingEndNode: endNode,
       playerMoveCount: 0,
     }
@@ -277,12 +386,24 @@ export const useOpeningDrillController = (
   }, [currentDrillGame, treeController.currentNode, currentDrill?.playerColor])
 
   const isDrillComplete = useMemo(() => {
-    if (!currentDrillGame || !currentDrill) return false
-    return (
-      currentDrillGame.playerMoveCount >= currentDrill.targetMoveNumber &&
-      !continueAnalyzingMode
-    )
-  }, [currentDrillGame, currentDrill, continueAnalyzingMode])
+    if (!currentDrillGame || !currentDrill || continueAnalyzingMode)
+      return false
+
+    if (isEndgameSelection(currentDrill)) {
+      if (!treeController.currentNode) return false
+      const chess = new Chess(treeController.currentNode.fen)
+      return chess.inCheckmate() || chess.inStalemate()
+    }
+
+    if (currentDrill.targetMoveNumber === null) return false
+
+    return currentDrillGame.playerMoveCount >= currentDrill.targetMoveNumber
+  }, [
+    continueAnalyzingMode,
+    currentDrill,
+    currentDrillGame,
+    treeController.currentNode,
+  ])
 
   const isAtOpeningEnd = useMemo(() => {
     if (!currentDrillGame || !treeController.currentNode) return false
@@ -965,23 +1086,35 @@ export const useOpeningDrillController = (
           })
 
           if (!continueAnalyzingMode) {
-            console.log(
-              'Setting waitingForMaiaResponse to true after player move',
-            )
-            setWaitingForMaiaResponse(true)
-          }
+            const endgameCompletion =
+              isEndgameSelection(currentDrill) &&
+              (() => {
+                const state = new Chess(newNode.fen)
+                return state.inCheckmate() || state.inStalemate()
+              })()
 
-          // Check if drill is complete after this move (only if not in continue analyzing mode)
-          if (
-            currentDrill &&
-            updatedGame.playerMoveCount >= currentDrill.targetMoveNumber &&
-            !continueAnalyzingMode
-          ) {
-            setIsAnalyzingDrill(true)
-
-            setTimeout(() => {
-              completeDrill(updatedGame)
-            }, 1500)
+            if (endgameCompletion) {
+              setIsAnalyzingDrill(true)
+              setWaitingForMaiaResponse(false)
+              setTimeout(() => {
+                completeDrill(updatedGame)
+              }, 1500)
+            } else if (
+              currentDrill &&
+              currentDrill.targetMoveNumber !== null &&
+              updatedGame.playerMoveCount >= currentDrill.targetMoveNumber
+            ) {
+              setIsAnalyzingDrill(true)
+              setWaitingForMaiaResponse(false)
+              setTimeout(() => {
+                completeDrill(updatedGame)
+              }, 1500)
+            } else {
+              console.log(
+                'Setting waitingForMaiaResponse to true after player move',
+              )
+              setWaitingForMaiaResponse(true)
+            }
           }
         }
       } catch (error) {
@@ -1076,6 +1209,16 @@ export const useOpeningDrillController = (
               updatedGameMovesLength: updatedGame.moves.length,
               currentNodeFen: newNode.fen,
             })
+
+            if (isEndgameSelection(currentDrill) && !continueAnalyzingMode) {
+              const state = new Chess(newNode.fen)
+              if (state.inCheckmate() || state.inStalemate()) {
+                setIsAnalyzingDrill(true)
+                setTimeout(() => {
+                  completeDrill(updatedGame)
+                }, 1500)
+              }
+            }
           }
         }
       } catch (error) {

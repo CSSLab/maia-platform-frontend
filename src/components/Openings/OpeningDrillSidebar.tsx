@@ -41,6 +41,27 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
 
   const tree = useContext(TreeControllerContext)
 
+  const currentIsEndgame = currentDrill?.opening.categoryType === 'endgame'
+  const currentTraitLabel = currentDrill?.endgameMeta?.traitLabel
+  const currentGroupLabel = currentDrill?.endgameMeta?.groupLabel
+
+  const poolCategory =
+    selectionPool[0]?.opening.categoryType ??
+    currentDrill?.opening.categoryType ??
+    'opening'
+  const poolLabel =
+    poolCategory === 'endgame'
+      ? 'Endgame'
+      : poolCategory === 'custom'
+        ? 'Position'
+        : 'Opening'
+  const poolLabelPlural =
+    poolLabel === 'Endgame'
+      ? 'Endgames'
+      : poolLabel === 'Opening'
+        ? 'Openings'
+        : 'Positions'
+
   // Navigation guards to respect opening start
   const customGoToPreviousNode = () => {
     if (!tree) return
@@ -81,31 +102,56 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
           <div className="flex flex-col gap-1">
             <div>
               <p className="text-sm font-medium text-white/95">
-                {currentDrill.opening.name}
+                {currentIsEndgame
+                  ? currentGroupLabel || currentDrill.opening.name
+                  : currentDrill.opening.name}
               </p>
-              {currentDrill.variation && (
-                <p className="text-xs text-white/70">
-                  {currentDrill.variation.name}
-                </p>
-              )}
+              {currentIsEndgame
+                ? currentTraitLabel && (
+                    <p className="text-xs text-human-3">{currentTraitLabel}</p>
+                  )
+                : currentDrill.variation && (
+                    <p className="text-xs text-white/70">
+                      {currentDrill.variation.name}
+                    </p>
+                  )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-white/70">
-              <div className="relative h-4 w-4">
-                <Image
-                  src={
-                    currentDrill.playerColor === 'white'
-                      ? '/assets/pieces/white king.svg'
-                      : '/assets/pieces/black king.svg'
-                  }
-                  fill={true}
-                  alt={`${currentDrill.playerColor} king`}
-                />
-              </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">
+              {currentIsEndgame ? (
+                <span className="material-symbols-outlined text-sm text-human-3 md:text-base">
+                  trophy
+                </span>
+              ) : (
+                <div className="relative h-4 w-4">
+                  <Image
+                    src={
+                      currentDrill.playerColor === 'white'
+                        ? '/assets/pieces/white king.svg'
+                        : '/assets/pieces/black king.svg'
+                    }
+                    fill={true}
+                    alt={`${currentDrill.playerColor} king`}
+                  />
+                </div>
+              )}
               <span>
                 vs Maia {currentDrill.maiaVersion.replace('maia_kdd_', '')}
               </span>
-              <span>•</span>
-              <span>{currentDrill.targetMoveNumber} moves</span>
+              {currentIsEndgame ? (
+                <>
+                  <span>•</span>
+                  <span>
+                    {currentDrill.playerColor === 'white'
+                      ? 'White to move'
+                      : 'Black to move'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>•</span>
+                  <span>{currentDrill.targetMoveNumber} moves</span>
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -144,17 +190,23 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                     disabled={!onLoadCompletedDrill}
                   >
                     <div className="flex items-start gap-2">
-                      <div className="relative mt-0.5 h-4 w-4 flex-shrink-0">
-                        <Image
-                          src={
-                            selection.playerColor === 'white'
-                              ? '/assets/pieces/white king.svg'
-                              : '/assets/pieces/black king.svg'
-                          }
-                          fill={true}
-                          alt={`${selection.playerColor} king`}
-                        />
-                      </div>
+                      {selection.opening.categoryType === 'endgame' ? (
+                        <span className="material-symbols-outlined mt-0.5 text-sm text-human-3 md:text-base">
+                          trophy
+                        </span>
+                      ) : (
+                        <div className="relative mt-0.5 h-4 w-4 flex-shrink-0">
+                          <Image
+                            src={
+                              selection.playerColor === 'white'
+                                ? '/assets/pieces/white king.svg'
+                                : '/assets/pieces/black king.svg'
+                            }
+                            fill={true}
+                            alt={`${selection.playerColor} king`}
+                          />
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="text-xxs text-secondary">
                           Drill #{order}
@@ -169,11 +221,17 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                             </span>
                           )}
                         </div>
-                        {selection.variation && (
-                          <p className="text-xs text-white/70">
-                            {selection.variation.name}
-                          </p>
-                        )}
+                        {selection.opening.categoryType === 'endgame'
+                          ? selection.endgameMeta?.traitLabel && (
+                              <p className="text-xs text-human-3">
+                                {selection.endgameMeta.traitLabel}
+                              </p>
+                            )
+                          : selection.variation && (
+                              <p className="text-xs text-white/70">
+                                {selection.variation.name}
+                              </p>
+                            )}
                       </div>
                     </div>
                   </button>
@@ -183,11 +241,11 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
         </div>
         <div className="flex flex-col gap-1 border-t border-glass-border px-0 py-2">
           <h3 className="px-4 text-sm font-medium text-white/90">
-            Active Opening Pool ({selectionPool.length})
+            Active {poolLabel} Pool ({selectionPool.length})
           </h3>
           {selectionPool.length === 0 ? (
             <p className="mt-2 text-xs text-white/70">
-              Add openings to begin drilling.
+              Add {poolLabelPlural.toLowerCase()} to begin drilling.
             </p>
           ) : (
             <div className="flex w-full flex-col">
@@ -196,17 +254,23 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                   key={`pool-${selection.id}-${index}`}
                   className="flex w-full items-center gap-2 px-4 py-1"
                 >
-                  <div className="relative h-4 w-4 flex-shrink-0">
-                    <Image
-                      src={
-                        selection.playerColor === 'white'
-                          ? '/assets/pieces/white king.svg'
-                          : '/assets/pieces/black king.svg'
-                      }
-                      fill={true}
-                      alt={`${selection.playerColor} king`}
-                    />
-                  </div>
+                  {selection.opening.categoryType === 'endgame' ? (
+                    <span className="material-symbols-outlined text-sm text-human-3 md:text-base">
+                      trophy
+                    </span>
+                  ) : (
+                    <div className="relative h-4 w-4 flex-shrink-0">
+                      <Image
+                        src={
+                          selection.playerColor === 'white'
+                            ? '/assets/pieces/white king.svg'
+                            : '/assets/pieces/black king.svg'
+                        }
+                        fill={true}
+                        alt={`${selection.playerColor} king`}
+                      />
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-xs font-medium text-white/90">
@@ -218,11 +282,17 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                         </span>
                       )}
                     </div>
-                    {selection.variation && (
-                      <p className="truncate text-[11px] text-white/60">
-                        {selection.variation.name}
-                      </p>
-                    )}
+                    {selection.opening.categoryType === 'endgame'
+                      ? selection.endgameMeta?.traitLabel && (
+                          <p className="text-xxs text-human-3">
+                            {selection.endgameMeta.traitLabel}
+                          </p>
+                        )
+                      : selection.variation && (
+                          <p className="truncate text-[11px] text-white/60">
+                            {selection.variation.name}
+                          </p>
+                        )}
                   </div>
                 </div>
               ))}

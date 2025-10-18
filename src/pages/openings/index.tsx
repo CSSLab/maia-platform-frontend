@@ -28,6 +28,8 @@ import {
   AnalysisOverlay,
 } from 'src/components'
 import openings from 'src/constants/openings.json'
+import endgamesRaw from 'src/constants/endgames.json'
+import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
 import { OpeningDrillAnalysis } from 'src/components/Openings/OpeningDrillAnalysis'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
@@ -40,6 +42,12 @@ import {
 const OpeningsPage: NextPage = () => {
   const router = useRouter()
   const [showSelectionModal, setShowSelectionModal] = useState(true)
+
+  const endgameDataset = useMemo(() => buildEndgameDataset(endgamesRaw), [])
+  const endgameOpenings = useMemo(
+    () => createEndgameOpenings(endgameDataset),
+    [endgameDataset],
+  )
 
   const handleCloseModal = () => {
     router.push('/')
@@ -191,6 +199,18 @@ const OpeningsPage: NextPage = () => {
       moves: [], // Not used when tree is provided
     }
   }, [controller.gameTree, controller.currentDrill?.id])
+
+  const targetMoves = controller.currentDrill?.targetMoveNumber ?? null
+  const targetMovesLabel = typeof targetMoves === 'number' ? targetMoves : '∞'
+  const moveProgressPercent =
+    controller.currentDrillGame &&
+    typeof targetMoves === 'number' &&
+    targetMoves > 0
+      ? Math.min(
+          (controller.currentDrillGame.playerMoveCount / targetMoves) * 100,
+          100,
+        )
+      : 0
 
   // Removed auto-reopen behavior so the modal can be dismissed even without configuration
 
@@ -452,6 +472,8 @@ const OpeningsPage: NextPage = () => {
         <AnimatePresence>
           <OpeningSelectionModal
             openings={openings}
+            endgames={endgameOpenings}
+            endgameDataset={endgameDataset}
             initialSelections={drillConfiguration?.selections || []}
             onComplete={handleCompleteSelection}
             onClose={handleCloseModal}
@@ -531,20 +553,14 @@ const OpeningsPage: NextPage = () => {
                   <span className="text-white/70">Move Progress</span>
                   <span className="font-medium text-white/90">
                     {controller.currentDrillGame.playerMoveCount}/
-                    {controller.currentDrill.targetMoveNumber}
+                    {targetMovesLabel}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded bg-white/10">
                   <div
                     className="h-full rounded bg-human-3 transition-all duration-300"
                     style={{
-                      width: `${
-                        controller.currentDrill.targetMoveNumber > 0
-                          ? (controller.currentDrillGame.playerMoveCount /
-                              controller.currentDrill.targetMoveNumber) *
-                            100
-                          : 0
-                      }%`,
+                      width: `${moveProgressPercent}%`,
                       maxWidth: '100%',
                     }}
                   />
@@ -726,20 +742,14 @@ const OpeningsPage: NextPage = () => {
                   <span className="text-white/70">Move Progress</span>
                   <span className="font-medium text-white/90">
                     {controller.currentDrillGame.playerMoveCount}/
-                    {controller.currentDrill.targetMoveNumber}
+                    {targetMovesLabel}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded bg-white/10">
                   <div
                     className="h-full rounded bg-human-3 transition-all duration-300"
                     style={{
-                      width: `${
-                        controller.currentDrill.targetMoveNumber > 0
-                          ? (controller.currentDrillGame.playerMoveCount /
-                              controller.currentDrill.targetMoveNumber) *
-                            100
-                          : 0
-                      }%`,
+                      width: `${moveProgressPercent}%`,
                       maxWidth: '100%',
                     }}
                   />
