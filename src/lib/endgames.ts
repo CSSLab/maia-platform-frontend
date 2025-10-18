@@ -53,10 +53,9 @@ const slugify = (value: string) =>
     .replace(/^-+/, '')
     .replace(/-+$/, '')
 
-export type EndgamesJson = Record<
-  string,
-  Record<string, Partial<Record<EndgameTrait, string[]>>>
->
+type EndgameMotifRaw = Partial<Record<EndgameTrait, string[]>> | string[]
+
+export type EndgamesJson = Record<string, Record<string, EndgameMotifRaw>>
 
 export interface EndgameMotifData {
   slug: string
@@ -90,6 +89,17 @@ const cloneTraitLists = (
   return result
 }
 
+const normalizeMotifTraits = (
+  traits: EndgameMotifRaw,
+): Partial<Record<EndgameTrait, string[]>> => {
+  if (Array.isArray(traits)) {
+    return {
+      multi_pawns_each: traits.map((fen) => normalizeFen(fen)),
+    }
+  }
+  return cloneTraitLists(traits)
+}
+
 export const buildEndgameDataset = (raw: EndgamesJson): EndgameDataset => {
   const categories: EndgameCategoryData[] = []
   const categoryMap: Record<string, EndgameCategoryData> = {}
@@ -104,7 +114,7 @@ export const buildEndgameDataset = (raw: EndgamesJson): EndgameDataset => {
     const motifList: EndgameMotifData[] = Object.entries(motifs).map(
       ([motifName, motifTraitsRaw]) => {
         const motifSlug = slugify(motifName)
-        const traitEntries = cloneTraitLists(motifTraitsRaw)
+        const traitEntries = normalizeMotifTraits(motifTraitsRaw)
 
         for (const trait of ENDGAME_TRAITS) {
           if (traitEntries[trait]?.length) {

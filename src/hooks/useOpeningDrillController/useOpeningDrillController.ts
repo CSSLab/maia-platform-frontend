@@ -1100,7 +1100,8 @@ export const useOpeningDrillController = (
                 completeDrill(updatedGame)
               }, 1500)
             } else if (
-              currentDrill?.targetMoveNumber !== null &&
+              currentDrill &&
+              currentDrill.targetMoveNumber !== null &&
               updatedGame.playerMoveCount >= currentDrill.targetMoveNumber
             ) {
               setIsAnalyzingDrill(true)

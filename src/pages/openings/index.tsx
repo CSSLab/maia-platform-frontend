@@ -200,6 +200,18 @@ const OpeningsPage: NextPage = () => {
     }
   }, [controller.gameTree, controller.currentDrill?.id])
 
+  const targetMoves = controller.currentDrill?.targetMoveNumber ?? null
+  const targetMovesLabel = typeof targetMoves === 'number' ? targetMoves : '∞'
+  const moveProgressPercent =
+    controller.currentDrillGame &&
+    typeof targetMoves === 'number' &&
+    targetMoves > 0
+      ? Math.min(
+          (controller.currentDrillGame.playerMoveCount / targetMoves) * 100,
+          100,
+        )
+      : 0
+
   // Removed auto-reopen behavior so the modal can be dismissed even without configuration
 
   const handleCompleteSelection = useCallback(
@@ -541,20 +553,14 @@ const OpeningsPage: NextPage = () => {
                   <span className="text-white/70">Move Progress</span>
                   <span className="font-medium text-white/90">
                     {controller.currentDrillGame.playerMoveCount}/
-                    {controller.currentDrill.targetMoveNumber}
+                    {targetMovesLabel}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded bg-white/10">
                   <div
                     className="h-full rounded bg-human-3 transition-all duration-300"
                     style={{
-                      width: `${
-                        controller.currentDrill.targetMoveNumber > 0
-                          ? (controller.currentDrillGame.playerMoveCount /
-                              controller.currentDrill.targetMoveNumber) *
-                            100
-                          : 0
-                      }%`,
+                      width: `${moveProgressPercent}%`,
                       maxWidth: '100%',
                     }}
                   />
@@ -736,20 +742,14 @@ const OpeningsPage: NextPage = () => {
                   <span className="text-white/70">Move Progress</span>
                   <span className="font-medium text-white/90">
                     {controller.currentDrillGame.playerMoveCount}/
-                    {controller.currentDrill.targetMoveNumber}
+                    {targetMovesLabel}
                   </span>
                 </div>
                 <div className="h-2 w-full rounded bg-white/10">
                   <div
                     className="h-full rounded bg-human-3 transition-all duration-300"
                     style={{
-                      width: `${
-                        controller.currentDrill.targetMoveNumber > 0
-                          ? (controller.currentDrillGame.playerMoveCount /
-                              controller.currentDrill.targetMoveNumber) *
-                            100
-                          : 0
-                      }%`,
+                      width: `${moveProgressPercent}%`,
                       maxWidth: '100%',
                     }}
                   />
