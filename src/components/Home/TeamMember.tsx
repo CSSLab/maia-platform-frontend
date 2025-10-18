@@ -33,7 +33,7 @@ export const TeamMember = ({
     >
       <img
         src={image}
-        className="h-32 w-32 rounded-full md:h-40 md:w-40"
+        className="h-24 w-24 rounded-full md:h-40 md:w-40"
         alt={name}
       />
       <div className="flex flex-col">
@@ -42,17 +42,17 @@ export const TeamMember = ({
             target="_blank"
             rel="noreferrer"
             href={website}
-            className="text-sm font-semibold text-human-2 transition duration-200 hover:text-human-3 md:text-xl"
+            className="text-xs font-semibold text-human-2 transition duration-200 hover:text-human-3 md:text-xl"
           >
             {name}
           </a>
         ) : (
-          <span className="text-sm text-primary md:text-xl">{name}</span>
+          <span className="text-xs text-primary md:text-xl">{name}</span>
         )}
-        <p className="text-xs text-primary md:text-base">{institution}</p>
+        <p className="text-xxs text-primary md:text-base">{institution}</p>
         <div className="mt-1 flex flex-col gap-2">
-          <p className="text-xs font-medium text-primary md:text-sm">{role}</p>
-          <div className="flex items-center justify-center gap-1">
+          <p className="text-xxs font-medium text-primary md:text-sm">{role}</p>
+          <div className="flex items-center justify-center gap-2">
             {website && (
               <a
                 target="_blank"
@@ -61,7 +61,7 @@ export const TeamMember = ({
                 className="opacity-80 transition-opacity duration-300 hover:opacity-100"
                 aria-label={`Visit ${name}'s website`}
               >
-                <span className="material-symbols-outlined text-xl leading-8">
+                <span className="material-symbols-outlined text-sm leading-8 md:text-xl">
                   language
                 </span>
               </a>
@@ -71,7 +71,7 @@ export const TeamMember = ({
                 target="_blank"
                 rel="noreferrer"
                 href={`https://github.com/${github}`}
-                className="opacity-80 transition-opacity duration-300 *:h-4 *:w-4 *:fill-primary hover:opacity-100"
+                className="opacity-80 transition-opacity duration-300 *:h-3 *:w-3 *:fill-primary hover:opacity-100 *:md:h-4 *:md:w-4"
                 aria-label={`Visit ${name}'s GitHub profile`}
               >
                 {GithubIcon}

@@ -87,7 +87,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 
   return (
     <CardWrapper>
-      <div className="from-white/8 to-white/4 hover:from-white/12 hover:to-white/6 group relative flex h-full cursor-pointer select-none flex-row items-center justify-start gap-4 overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br p-4 text-center backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-md hover:shadow-white/5 md:min-h-[140px] md:flex-col md:items-center md:justify-center md:gap-0">
+      <div className="group relative flex h-full cursor-pointer select-none flex-row items-center justify-start gap-4 overflow-hidden rounded-lg border border-glass-border p-3 text-center backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-md hover:shadow-white/5 md:min-h-[140px] md:flex-col md:items-center md:justify-center md:gap-0 md:p-4">
         <div className="text-white/60 transition-colors duration-300 group-hover:text-white/90">
           <span className="material-symbols-outlined material-symbols-filled leading-0 text-6xl">
             {icon}
@@ -97,7 +97,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
           <h2 className="text-lg font-bold text-white/95 transition-colors duration-300 group-hover:text-white">
             {title}
           </h2>
-          <p className="text-xs text-white/70 transition-colors duration-300 group-hover:text-white/85">
+          <p className="text-left text-xs text-white/70 transition-colors duration-300 group-hover:text-white/85">
             {description}
           </p>
         </div>
@@ -262,8 +262,8 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
             />
           </div>
         </div>
-        <motion.div className="grid grid-cols-2 gap-6 px-2 md:flex md:gap-6">
-          {activeUsers > 0 ? (
+        <motion.div className="flex flex-wrap justify-center gap-6 px-2">
+          {activeUsers > 0 && (
             <p className="text-center text-base text-white/80">
               <AnimatedNumber
                 value={activeUsers}
@@ -271,8 +271,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               />{' '}
               recent users
             </p>
-          ) : (
-            <></>
           )}
           <p className="text-center text-base text-white/80">
             <AnimatedNumber
@@ -288,7 +286,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
             />{' '}
             puzzles solved
           </p>
-          {activeUsers <= 0 ? (
+          {activeUsers <= 0 && (
             <p className="text-center text-base text-white/80">
               <AnimatedNumber
                 value={globalStats?.turing_games_total || 0}
@@ -296,8 +294,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               />{' '}
               turing games played
             </p>
-          ) : (
-            <></>
           )}
         </motion.div>
       </div>

@@ -85,7 +85,7 @@ export const DownloadModelModal: React.FC<Props> = ({
         }}
       />
       <motion.div
-        className="relative z-10 w-full max-w-[min(750px,50vw)]"
+        className="relative z-10 w-full md:max-w-[min(750px,50vw)]"
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 10, opacity: 0 }}
