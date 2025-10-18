@@ -11,11 +11,12 @@ import Chessground from '@react-chess/chessground'
 import { Chess } from 'chess.ts'
 import {
   Opening,
+  EndgameTrait,
   OpeningVariation,
   OpeningSelection,
   DrillConfiguration,
-  EndgameTrait,
   DrillCategoryType,
+  EndgamePositionDetail,
 } from 'src/types'
 import { ModalContainer } from '../Common/ModalContainer'
 import { useTour } from 'src/contexts'
@@ -36,7 +37,6 @@ import {
   ENDGAME_TRAIT_LABELS,
   collectEndgamePositions,
   EndgameDataset,
-  EndgamePositionDetail,
   EndgameCategoryData,
   EndgameMotifData,
 } from 'src/lib/endgames'
@@ -1309,8 +1309,17 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   const hasEndgames = normalizedEndgames.length > 0
 
   const initialBrowseCategory: 'openings' | 'endgames' | 'custom' =
-    initialSelectionCategory ??
-    (hasOpenings ? 'openings' : hasEndgames ? 'endgames' : 'custom')
+    initialSelectionCategory === 'opening'
+      ? 'openings'
+      : initialSelectionCategory === 'endgame'
+        ? 'endgames'
+        : initialSelectionCategory === 'custom'
+          ? 'custom'
+          : hasOpenings
+            ? 'openings'
+            : hasEndgames
+              ? 'endgames'
+              : 'custom'
 
   const [browseCategory, setBrowseCategory] = useState<
     'openings' | 'endgames' | 'custom'
