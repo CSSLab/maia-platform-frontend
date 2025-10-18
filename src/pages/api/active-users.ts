@@ -79,8 +79,8 @@ async function fetchActiveUsersFromPostHog(): Promise<number | null> {
   const url = `${posthogUrl}/api/projects/${projectId}/query/`
 
   const now = new Date()
-  const twentyFourHoursAgo = new Date(
-    now.getTime() - 24 * 60 * 60 * 1000,
+  const sevenDaysAgo = new Date(
+    now.getTime() - 7 * 24 * 60 * 60 * 1000, // 7 days ago
   ).toISOString()
 
   try {
@@ -97,7 +97,7 @@ async function fetchActiveUsersFromPostHog(): Promise<number | null> {
             SELECT count(DISTINCT person_id) as recent_users
             FROM events
             WHERE event = '$pageview'
-              AND timestamp > toDateTime('${twentyFourHoursAgo}')
+              AND timestamp > toDateTime('${sevenDaysAgo}')
           `,
         },
       }),
