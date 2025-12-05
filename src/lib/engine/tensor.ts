@@ -83,8 +83,7 @@ function boardToTensor(fen: string): Float32Array {
   if (enPassantTarget !== '-') {
     const file = enPassantTarget.charCodeAt(0) - 'a'.charCodeAt(0)
     const rank = parseInt(enPassantTarget[1], 10) - 1 // Adjust rank indexing
-    const row = 7 - rank // Invert rank to match tensor indexing
-    const index = epChannel + row * 8 + file
+    const index = epChannel + rank * 8 + file
     tensor[index] = 1.0
   }
 
