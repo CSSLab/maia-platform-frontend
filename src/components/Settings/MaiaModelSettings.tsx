@@ -124,7 +124,7 @@ export const MaiaModelSettings: React.FC = () => {
         </h3>
         <p className="text-sm text-white/70">
           Manage your locally stored Maia chess engine model. The model is
-          downloaded once and stored in your browser for offline use.
+          downloaded and stored in your browser&apos;s IndexedDB.
         </p>
       </div>
       <div className="flex flex-col gap-2">
