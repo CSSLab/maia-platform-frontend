@@ -1,251 +1,263 @@
+
 import { Chess, Move } from 'chess.ts'
 
-import allPossibleMovesDict from './data/all_moves.json'
-import allPossibleMovesReversedDict from './data/all_moves_reversed.json'
-
-const allPossibleMoves = allPossibleMovesDict as Record<string, number>
-const allPossibleMovesReversed = allPossibleMovesReversedDict as Record<
-  number,
-  string
->
-const eloDict = createEloDict()
 /**
- * Converts a chess board position in FEN notation to a tensor representation.
- * The tensor includes information about piece placement, active color, castling rights, and en passant target.
+ * Maia 3 tensor utilities.
  *
- * @param fen - The FEN string representing the chess board position.
- * @returns A Float32Array representing the tensor of the board position.
- */
-function boardToTensor(fen: string): Float32Array {
-  const tokens = fen.split(' ')
-  const piecePlacement = tokens[0]
-  const activeColor = tokens[1]
-  const castlingAvailability = tokens[2]
-  const enPassantTarget = tokens[3]
-
-  const pieceTypes = [
-    'P',
-    'N',
-    'B',
-    'R',
-    'Q',
-    'K',
-    'p',
-    'n',
-    'b',
-    'r',
-    'q',
-    'k',
-  ]
-  const tensor = new Float32Array((12 + 6) * 8 * 8)
-
-  const rows = piecePlacement.split('/')
-
-  // Adjust rank indexing
-  for (let rank = 0; rank < 8; rank++) {
-    const row = 7 - rank
-    let file = 0
-    for (const char of rows[rank]) {
-      if (isNaN(parseInt(char))) {
-        const index = pieceTypes.indexOf(char)
-        const tensorIndex = index * 64 + row * 8 + file
-        tensor[tensorIndex] = 1.0
-        file += 1
-      } else {
-        file += parseInt(char)
-      }
-    }
-  }
-
-  // Player's turn channel
-  const turnChannelStart = 12 * 64
-  const turnChannelEnd = turnChannelStart + 64
-  const turnValue = activeColor === 'w' ? 1.0 : 0.0
-  tensor.fill(turnValue, turnChannelStart, turnChannelEnd)
-
-  // Castling rights channels
-  const castlingRights = [
-    castlingAvailability.includes('K'),
-    castlingAvailability.includes('Q'),
-    castlingAvailability.includes('k'),
-    castlingAvailability.includes('q'),
-  ]
-  for (let i = 0; i < 4; i++) {
-    if (castlingRights[i]) {
-      const channelStart = (13 + i) * 64
-      const channelEnd = channelStart + 64
-      tensor.fill(1.0, channelStart, channelEnd)
-    }
-  }
-
-  // En passant target channel
-  const epChannel = 17 * 64
-  if (enPassantTarget !== '-') {
-    const file = enPassantTarget.charCodeAt(0) - 'a'.charCodeAt(0)
-    const rank = parseInt(enPassantTarget[1], 10) - 1 // Adjust rank indexing
-    const index = epChannel + rank * 8 + file
-    tensor[index] = 1.0
-  }
-
-  return tensor
-}
-
-/**
- * Preprocesses the input data for the model.
- * Converts the FEN string, Elo ratings, and legal moves into tensors.
+ * Matches the Maia3 Python dataset/model expectations at a practical inference level:
+ * - Always feed the model a white-to-move / white-perspective view:
+ *   if the original FEN is black to move, we mirror the position first.
+ * - Tokens are per-square (64 tokens) with 12 piece channels per position snapshot.
+ * - Policy indexing is the structured 4352 space used by the Maia3 model code you shared:
+ *     0..4095  : from*64 + to
+ *     4096..4351: promotions (from_file, to_file, promo_piece) in the order q,r,b,n
  *
- * @param fen - The FEN string representing the board position.
- * @param eloSelf - The Elo rating of the player.
- * @param eloOppo - The Elo rating of the opponent.
- * @returns An object containing the preprocessed data.
+ * Notes:
+ * - For web integration, we default to history=1 and no time features.
+ * - The API is intentionally similar to the old tensor.ts: `preprocess(...)` returns
+ *   tensors + a legal move mask, and `mirrorMove` is exported for output un-mirroring.
  */
+
+const DEFAULT_HISTORY = 1
+
 function preprocess(
   fen: string,
   eloSelf: number,
   eloOppo: number,
+  history: number = DEFAULT_HISTORY,
 ): {
-  boardInput: Float32Array
-  eloSelfCategory: number
-  eloOppoCategory: number
-  legalMoves: Float32Array
+  tokens: Float32Array
+  tokenDim: number
+  legalMask: Uint8Array
+  blackToMove: boolean
+  eloSelfValue: number
+  eloOppoValue: number
 } {
-  // Handle mirroring if it's black's turn
-  let board = new Chess(fen)
-  if (fen.split(' ')[1] === 'b') {
-    board = new Chess(mirrorFEN(board.fen()))
-  } else if (fen.split(' ')[1] !== 'w') {
-    throw new Error(`Invalid FEN: ${fen}`)
-  }
+  const side = fen.split(' ')[1]
+  const blackToMove = side === 'b'
 
-  // Convert board to tensor
-  const boardInput = boardToTensor(board.fen())
+  const fenForModel = blackToMove ? mirrorFEN(fen) : fen
+  const board = new Chess(fenForModel)
 
-  // Map Elo to categories
-  const eloSelfCategory = mapToCategory(eloSelf, eloDict)
-  const eloOppoCategory = mapToCategory(eloOppo, eloDict)
+  // Base snapshot tokens: (64,12)
+  const snap = tokenizeFenToSquareTokens(fenForModel) // length 64*12
 
-  // Generate legal moves tensor
-  const legalMoves = new Float32Array(Object.keys(allPossibleMoves).length)
+  const baseDim = 12
+  const tokenDim = baseDim * Math.max(1, Math.trunc(history))
 
-  for (const move of board.moves({ verbose: true }) as Move[]) {
-    const promotion = move.promotion ? move.promotion : ''
-    const moveIndex = allPossibleMoves[move.from + move.to + promotion]
-
-    if (moveIndex !== undefined) {
-      legalMoves[moveIndex] = 1.0
-    }
-  }
-
-  return {
-    boardInput,
-    eloSelfCategory,
-    eloOppoCategory,
-    legalMoves,
-  }
-}
-
-/**
- * Maps an Elo rating to a predefined category based on specified intervals.
- *
- * @param elo - The Elo rating to be categorized.
- * @param eloDict - A dictionary mapping Elo ranges to category indices.
- * @returns The category index corresponding to the given Elo rating.
- * @throws Will throw an error if the Elo value is out of the predefined range.
- */
-function mapToCategory(elo: number, eloDict: Record<string, number>): number {
-  const interval = 100
-  const start = 1100
-  const end = 2000
-
-  if (elo < start) {
-    return eloDict[`<${start}`]
-  } else if (elo >= end) {
-    return eloDict[`>=${end}`]
+  // For now we emulate history by repeating the current snapshot.
+  // This keeps TS/web simple and matches the model input shape when exported with history>1.
+  const tokens = new Float32Array(64 * tokenDim)
+  if (tokenDim === baseDim) {
+    tokens.set(snap)
   } else {
-    for (let lowerBound = start; lowerBound < end; lowerBound += interval) {
-      const upperBound = lowerBound + interval
-      if (elo >= lowerBound && elo < upperBound) {
-        return eloDict[`${lowerBound}-${upperBound - 1}`]
+    const reps = tokenDim / baseDim
+    for (let r = 0; r < reps; r++) {
+      for (let sq = 0; sq < 64; sq++) {
+        const srcOff = sq * baseDim
+        const dstOff = sq * tokenDim + r * baseDim
+        for (let c = 0; c < baseDim; c++) {
+          tokens[dstOff + c] = snap[srcOff + c]
+        }
       }
     }
   }
-  throw new Error('Elo value is out of range.')
-}
 
-/**
- * Creates a dictionary mapping Elo rating ranges to category indices.
- *
- * @returns A dictionary mapping Elo ranges to category indices.
- */
-function createEloDict(): { [key: string]: number } {
-  const interval = 100
-  const start = 1100
-  const end = 2000
-
-  const eloDict: { [key: string]: number } = { [`<${start}`]: 0 }
-  let rangeIndex = 1
-
-  for (let lowerBound = start; lowerBound < end; lowerBound += interval) {
-    const upperBound = lowerBound + interval
-    eloDict[`${lowerBound}-${upperBound - 1}`] = rangeIndex
-    rangeIndex += 1
+  // Legal move mask in structured 4352 indexing (white-perspective).
+  const legalMask = new Uint8Array(4352)
+  const legalMoves = board.moves({ verbose: true }) as Move[]
+  for (const m of legalMoves) {
+    const promo = m.promotion ? m.promotion : ''
+    const uci = `${m.from}${m.to}${promo}`
+    const idx = uciToPolicyIndex(uci)
+    if (idx !== null) legalMask[idx] = 1
   }
 
-  eloDict[`>=${end}`] = rangeIndex
-
-  return eloDict
+  return {
+    tokens,
+    tokenDim,
+    legalMask,
+    blackToMove,
+    eloSelfValue: eloSelf,
+    eloOppoValue: eloOppo,
+  }
 }
 
 /**
- * Mirrors a chess move in UCI notation.
- * The move is mirrored vertically (top-to-bottom flip) on the board.
+ * Converts a FEN (assumed white-to-move view already if needed) into Maia3 square tokens.
+ * Output: Float32Array length 64*12, indexed by a1=0 .. h8=63, each square has 12 channels.
  *
- * @param moveUci - The move to be mirrored in UCI notation.
- * @returns The mirrored move in UCI notation.
+ * Channels:
+ *  0..5  : white P,N,B,R,Q,K
+ *  6..11 : black p,n,b,r,q,k
+ */
+function tokenizeFenToSquareTokens(fen: string): Float32Array {
+  const [placement] = fen.split(' ')
+  const rows = placement.split('/')
+
+  const out = new Float32Array(64 * 12)
+
+  // FEN ranks go 8->1; indices are a1=0 ... h8=63.
+  for (let rankFrom8 = 0; rankFrom8 < 8; rankFrom8++) {
+    const row = rows[rankFrom8]
+    let file = 0
+    const rank = 8 - rankFrom8
+
+    for (const ch of row) {
+      const n = parseInt(ch, 10)
+      if (!Number.isNaN(n)) {
+        file += n
+        continue
+      }
+
+      const sqIdx = (rank - 1) * 8 + file
+      const channel = pieceCharToChannel(ch)
+      if (channel !== null) {
+        out[sqIdx * 12 + channel] = 1.0
+      }
+      file += 1
+    }
+  }
+
+  return out
+}
+
+function pieceCharToChannel(ch: string): number | null {
+  switch (ch) {
+    case 'P':
+      return 0
+    case 'N':
+      return 1
+    case 'B':
+      return 2
+    case 'R':
+      return 3
+    case 'Q':
+      return 4
+    case 'K':
+      return 5
+    case 'p':
+      return 6
+    case 'n':
+      return 7
+    case 'b':
+      return 8
+    case 'r':
+      return 9
+    case 'q':
+      return 10
+    case 'k':
+      return 11
+    default:
+      return null
+  }
+}
+
+/* =========================
+   4352 policy indexing
+   ========================= */
+
+function algebraicToIndex(sq: string): number | null {
+  if (sq.length !== 2) return null
+  const file = sq.charCodeAt(0) - 'a'.charCodeAt(0)
+  const rank = parseInt(sq[1], 10)
+  if (file < 0 || file > 7 || rank < 1 || rank > 8) return null
+  return (rank - 1) * 8 + file
+}
+
+function indexToSquare(idx: number): string {
+  const file = idx % 8
+  const rank = Math.floor(idx / 8) + 1
+  return String.fromCharCode('a'.charCodeAt(0) + file) + String(rank)
+}
+
+function promoPieceToIdx(p: string): number | null {
+  // Maia3 models.py order: q=0, r=1, b=2, n=3
+  if (p === 'q') return 0
+  if (p === 'r') return 1
+  if (p === 'b') return 2
+  if (p === 'n') return 3
+  return null
+}
+
+function uciToPolicyIndex(uci: string): number | null {
+  if (uci.length < 4) return null
+  const from = uci.substring(0, 2)
+  const to = uci.substring(2, 4)
+  const promo = uci.length > 4 ? uci.substring(4) : ''
+
+  const fromIdx = algebraicToIndex(from)
+  const toIdx = algebraicToIndex(to)
+  if (fromIdx === null || toIdx === null) return null
+
+  if (!promo) {
+    return fromIdx * 64 + toIdx
+  }
+
+  // Promotion indexing matches models.py:
+  // idx = 4096 + ((from_file*8 + to_file)*4 + promoIdx)
+  // and is defined for white-perspective promotions 7->8.
+  const fromRank = parseInt(from[1], 10)
+  const toRank = parseInt(to[1], 10)
+  if (fromRank !== 7 || toRank !== 8) return null
+
+  const fromFile = from.charCodeAt(0) - 'a'.charCodeAt(0)
+  const toFile = to.charCodeAt(0) - 'a'.charCodeAt(0)
+  const promoIdx = promoPieceToIdx(promo)
+  if (promoIdx === null) return null
+
+  return 4096 + ((fromFile * 8 + toFile) * 4 + promoIdx)
+}
+
+function policyIndexToUci(idx: number): string {
+  if (idx < 4096) {
+    const from = Math.floor(idx / 64)
+    const to = idx % 64
+    return indexToSquare(from) + indexToSquare(to)
+  }
+
+  const j = idx - 4096
+  const fromFile = Math.floor(j / (8 * 4))
+  const rem = j % (8 * 4)
+  const toFile = Math.floor(rem / 4)
+  const promoIdx = rem % 4
+
+  const fromSq = String.fromCharCode('a'.charCodeAt(0) + fromFile) + '7'
+  const toSq = String.fromCharCode('a'.charCodeAt(0) + toFile) + '8'
+  const promo = ['q', 'r', 'b', 'n'][promoIdx]!
+  return fromSq + toSq + promo
+}
+
+/* =========================
+   Mirroring utilities
+   ========================= */
+
+/**
+ * Mirrors a chess move in UCI notation top-to-bottom (rank flip).
+ * This matches how the frontend previously un-mirrored model moves.
  */
 function mirrorMove(moveUci: string): string {
-  const isPromotion: boolean = moveUci.length > 4
+  const isPromotion = moveUci.length > 4
 
-  const startSquare: string = moveUci.substring(0, 2)
-  const endSquare: string = moveUci.substring(2, 4)
-  const promotionPiece: string = isPromotion ? moveUci.substring(4) : ''
+  const startSquare = moveUci.substring(0, 2)
+  const endSquare = moveUci.substring(2, 4)
+  const promotionPiece = isPromotion ? moveUci.substring(4) : ''
 
-  const mirroredStart: string = mirrorSquare(startSquare)
-  const mirroredEnd: string = mirrorSquare(endSquare)
-
-  return mirroredStart + mirroredEnd + promotionPiece
+  return mirrorSquare(startSquare) + mirrorSquare(endSquare) + promotionPiece
 }
 
-/**
- * Mirrors a square on the chess board vertically (top-to-bottom flip).
- * The file remains the same, while the rank is inverted.
- *
- * @param square - The square to be mirrored in algebraic notation.
- * @returns The mirrored square in algebraic notation.
- */
 function mirrorSquare(square: string): string {
-  const file: string = square.charAt(0)
-  const rank: string = (9 - parseInt(square.charAt(1))).toString()
-
+  const file = square.charAt(0)
+  const rank = (9 - parseInt(square.charAt(1))).toString()
   return file + rank
 }
 
-/**
- * Swaps the colors of pieces in a rank by changing uppercase to lowercase and vice versa.
- * @param rank The rank to be mirrored.
- * @returns The mirrored rank.
- */
 function swapColorsInRank(rank: string): string {
   let swappedRank = ''
   for (const char of rank) {
-    if (/[A-Z]/.test(char)) {
-      swappedRank += char.toLowerCase()
-    } else if (/[a-z]/.test(char)) {
-      swappedRank += char.toUpperCase()
-    } else {
-      // Numbers representing empty squares
-      swappedRank += char
-    }
+    if (/[A-Z]/.test(char)) swappedRank += char.toLowerCase()
+    else if (/[a-z]/.test(char)) swappedRank += char.toUpperCase()
+    else swappedRank += char
   }
   return swappedRank
 }
@@ -253,17 +265,14 @@ function swapColorsInRank(rank: string): string {
 function swapCastlingRights(castling: string): string {
   if (castling === '-') return '-'
 
-  // Capture the current rights in a Set.
   const rights = new Set(castling.split(''))
   const swapped = new Set<string>()
 
-  // Swap white and black castling rights.
   if (rights.has('K')) swapped.add('k')
   if (rights.has('Q')) swapped.add('q')
   if (rights.has('k')) swapped.add('K')
   if (rights.has('q')) swapped.add('Q')
 
-  // Output in canonical order: white kingside, white queenside, black kingside, black queenside.
   let output = ''
   if (swapped.has('K')) output += 'K'
   if (swapped.has('Q')) output += 'Q'
@@ -274,34 +283,29 @@ function swapCastlingRights(castling: string): string {
 }
 
 /**
- * Mirrors a FEN string vertically (top-to-bottom flip) while swapping piece colors.
- * Additionally, the active color, castling rights, and en passant target are adjusted accordingly.
- *
- * @param fen - The FEN string to be mirrored.
- * @returns The mirrored FEN string.
+ * Mirrors a FEN string vertically while swapping colors.
+ * This is the same mirroring approach used in your old TS tensor.ts and is the
+ * frontend analogue of python-chess's board.mirror() for our purposes.
  */
 function mirrorFEN(fen: string): string {
   const [position, activeColor, castling, enPassant, halfmove, fullmove] =
     fen.split(' ')
 
-  // Mirror board rows vertically and swap piece colors.
   const ranks = position.split('/')
-  const mirroredRanks = ranks
-    .slice()
-    .reverse()
-    .map((rank) => swapColorsInRank(rank))
+  const mirroredRanks = ranks.slice().reverse().map((r) => swapColorsInRank(r))
   const mirroredPosition = mirroredRanks.join('/')
 
-  // Swap active color.
   const mirroredActiveColor = activeColor === 'w' ? 'b' : 'w'
-
-  // Swap castling rights.
   const mirroredCastling = swapCastlingRights(castling)
-
-  // Mirror en passant target square.
   const mirroredEnPassant = enPassant !== '-' ? mirrorSquare(enPassant) : '-'
 
   return `${mirroredPosition} ${mirroredActiveColor} ${mirroredCastling} ${mirroredEnPassant} ${halfmove} ${fullmove}`
 }
 
-export { preprocess, mirrorMove, allPossibleMovesReversed }
+export {
+  preprocess,
+  tokenizeFenToSquareTokens,
+  uciToPolicyIndex,
+  policyIndexToUci,
+  mirrorMove,
+}
