@@ -18,10 +18,7 @@ import { Chess, Move } from 'chess.ts'
    Constants
    ========================================================= */
 
-const PIECE_ORDER = [
-  'P', 'N', 'B', 'R', 'Q', 'K',
-  'p', 'n', 'b', 'r', 'q', 'k',
-]
+const PIECE_ORDER = ['P', 'N', 'B', 'R', 'Q', 'K', 'p', 'n', 'b', 'r', 'q', 'k']
 
 export const POLICY_SIZE = 4352
 const PROMO_ORDER = ['q', 'r', 'b', 'n']

@@ -166,7 +166,11 @@ class Maia {
 
     const outs = await this.model.run(feeds)
 
-    const logitsMove = pickOutput(outs, ['logits_move', 'logits_maia', 'policy'])
+    const logitsMove = pickOutput(outs, [
+      'logits_move',
+      'logits_maia',
+      'policy',
+    ])
     const logitsValue = pickOutput(outs, ['logits_value', 'value'])
 
     if (!logitsMove || !logitsValue) {
@@ -185,7 +189,11 @@ class Maia {
     return { policy, value }
   }
 
-  async batchEvaluate(boards: string[], eloSelfs: number[], eloOppos: number[]) {
+  async batchEvaluate(
+    boards: string[],
+    eloSelfs: number[],
+    eloOppos: number[],
+  ) {
     if (!this.model) throw new Error('Maia model not initialized')
 
     const batchSize = boards.length
@@ -226,7 +234,11 @@ class Maia {
     const outs = await this.model.run(feeds)
     const end = performance.now()
 
-    const logitsMove = pickOutput(outs, ['logits_move', 'logits_maia', 'policy'])
+    const logitsMove = pickOutput(outs, [
+      'logits_move',
+      'logits_maia',
+      'policy',
+    ])
     const logitsValue = pickOutput(outs, ['logits_value', 'value'])
 
     if (!logitsMove || !logitsValue) {
@@ -353,13 +365,14 @@ function pickOutput(
     const dims = (t as any).dims as number[] | undefined
     return dims && dims.length === 2 && dims[1] === 3
   })
-  if (preferredNames.includes('logits_value') || preferredNames.includes('value')) {
+  if (
+    preferredNames.includes('logits_value') ||
+    preferredNames.includes('value')
+  ) {
     if (valueCandidate) return valueCandidate
   }
 
-  const policyCandidate = vals
-    .slice()
-    .sort((a, b) => b.size - a.size)[0]
+  const policyCandidate = vals.slice().sort((a, b) => b.size - a.size)[0]
 
   return policyCandidate ?? null
 }
@@ -381,9 +394,11 @@ function makeScalarTensor(
   if (t.includes('float')) {
     return new Tensor('float32', Float32Array.from([value]), [1])
   }
-  return new Tensor('int64', BigInt64Array.from([BigInt(Math.trunc(value))]), [
-    1,
-  ])
+  return new Tensor(
+    'int64',
+    BigInt64Array.from([BigInt(Math.trunc(value))]),
+    [1],
+  )
 }
 
 function makeVectorTensor(
