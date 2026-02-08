@@ -41,7 +41,7 @@ export class MaiaModelStorage {
       const store = transaction.objectStore(this.storeName)
 
       const modelData: ModelStorage = {
-        id: 'maia-rapid-model',
+        id: 'maia3-blitz-model',
         url: modelUrl,
         data: new Blob([buffer]),
         timestamp: Date.now(),
@@ -129,7 +129,7 @@ export class MaiaModelStorage {
       const store = transaction.objectStore(this.storeName)
 
       await new Promise<void>((resolve, reject) => {
-        const request = store.delete('maia-rapid-model')
+        const request = store.delete('maia3-blitz-model')
         request.onsuccess = () => resolve()
         request.onerror = () => reject(request.error)
       })
