@@ -16,6 +16,9 @@ import { ModalContext } from 'src/contexts'
 import { ModalContainer } from './ModalContainer'
 
 const maiaOptions = [
+  'maia_kdd_600',
+  'maia_kdd_800',
+  'maia_kdd_1000',
   'maia_kdd_1100',
   'maia_kdd_1200',
   'maia_kdd_1300',
@@ -25,6 +28,10 @@ const maiaOptions = [
   'maia_kdd_1700',
   'maia_kdd_1800',
   'maia_kdd_1900',
+  'maia_kdd_2000',
+  'maia_kdd_2200',
+  'maia_kdd_2400',
+  'maia_kdd_2600',
 ]
 
 interface OptionSelectProps<T> {
