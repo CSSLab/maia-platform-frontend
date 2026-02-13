@@ -22,7 +22,7 @@
     "gray-matter": "^4.0.3",
     "lila-stockfish-web": "^0.0.7",
     "next": "^15.2.6",
-    "next-transpile-modules": "^10.0.1",
+
     "onnxruntime-web": "^1.23.0",
     "posthog-js": "^1.257.0",
     "posthog-node": "^5.3.1",
