@@ -45,6 +45,24 @@ export const BroadcastAnalysis: React.FC<Props> = ({
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
+  const destinationBadges = useMemo(() => {
+    if (
+      !analysisController.showTopMoveBadges ||
+      !analysisController.topHumanMoveBadge
+    ) {
+      return []
+    }
+
+    return [
+      {
+        square: analysisController.topHumanMoveBadge.square,
+        classification: analysisController.topHumanMoveBadge.classification,
+      },
+    ]
+  }, [
+    analysisController.showTopMoveBadges,
+    analysisController.topHumanMoveBadge,
+  ])
 
   useEffect(() => {
     setHoverArrow(null)
@@ -379,6 +397,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 onPlayerMakeMove={onPlayerMakeMove}
                 goToNode={analysisController.goToNode}
                 gameTree={game.tree}
+                destinationBadges={destinationBadges}
               />
               {promotionFromTo ? (
                 <PromotionOverlay
@@ -416,6 +435,8 @@ export const BroadcastAnalysis: React.FC<Props> = ({
           <ConfigurableScreens
             currentMaiaModel={analysisController.currentMaiaModel}
             setCurrentMaiaModel={analysisController.setCurrentMaiaModel}
+            showTopMoveBadges={analysisController.showTopMoveBadges}
+            setShowTopMoveBadges={analysisController.setShowTopMoveBadges}
             launchContinue={launchContinue}
             MAIA_MODELS={MAIA_MODELS}
             game={game}
@@ -479,6 +500,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
               onPlayerMakeMove={onPlayerMakeMove}
               goToNode={analysisController.goToNode}
               gameTree={game.tree}
+              destinationBadges={destinationBadges}
             />
             {promotionFromTo ? (
               <PromotionOverlay
@@ -518,6 +540,8 @@ export const BroadcastAnalysis: React.FC<Props> = ({
           <ConfigurableScreens
             currentMaiaModel={analysisController.currentMaiaModel}
             setCurrentMaiaModel={analysisController.setCurrentMaiaModel}
+            showTopMoveBadges={analysisController.showTopMoveBadges}
+            setShowTopMoveBadges={analysisController.setShowTopMoveBadges}
             launchContinue={launchContinue}
             MAIA_MODELS={MAIA_MODELS}
             game={game}

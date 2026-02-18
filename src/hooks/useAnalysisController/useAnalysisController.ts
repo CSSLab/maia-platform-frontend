@@ -8,7 +8,7 @@ import {
   useCallback,
 } from 'react'
 
-import { AnalyzedGame } from 'src/types'
+import { AnalyzedGame, GameNode } from 'src/types'
 import type { DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { useTreeController, useLocalStorage } from '..'
@@ -51,6 +51,10 @@ export const useAnalysisController = (
   const [currentMaiaModel, setCurrentMaiaModel] = useLocalStorage(
     'currentMaiaModel',
     MAIA_MODELS[0],
+  )
+  const [showTopMoveBadges, setShowTopMoveBadges] = useLocalStorage<boolean>(
+    'analysis-show-top-move-badges',
+    true,
   )
 
   const deepAnalysisController = useDeepAnalysis({
@@ -187,6 +191,44 @@ export const useAnalysisController = (
     return arrows
   }, [controller.currentNode, moveEvaluation])
 
+  const topHumanMoveBadge = useMemo(() => {
+    if (!controller.currentNode || !moveEvaluation?.maia) {
+      return null
+    }
+
+    const policyEntries = Object.entries(moveEvaluation.maia.policy)
+    if (policyEntries.length === 0) {
+      return null
+    }
+
+    const [topHumanMove] = policyEntries.reduce((best, current) =>
+      current[1] > best[1] ? current : best,
+    )
+
+    if (!topHumanMove || topHumanMove.length < 4) {
+      return null
+    }
+
+    const classification = GameNode.classifyMove(
+      controller.currentNode,
+      topHumanMove,
+      currentMaiaModel,
+    )
+
+    if (!classification.blunder && !classification.inaccuracy) {
+      return null
+    }
+
+    return {
+      square: topHumanMove.slice(2, 4),
+      classification,
+    }
+  }, [
+    controller.currentNode,
+    moveEvaluation,
+    currentMaiaModel,
+  ])
+
   return {
     gameTree: controller.tree,
     currentNode: controller.currentNode,
@@ -206,6 +248,8 @@ export const useAnalysisController = (
     currentMove,
     colorSanMapping,
     setCurrentMove,
+    showTopMoveBadges,
+    setShowTopMoveBadges,
     moveEvaluation,
     movesByRating,
     moveRecommendations,
@@ -213,6 +257,7 @@ export const useAnalysisController = (
     blunderMeter,
     boardDescription,
     arrows,
+    topHumanMoveBadge,
     stockfish: stockfish,
     maia: maia,
     gameAnalysis: {

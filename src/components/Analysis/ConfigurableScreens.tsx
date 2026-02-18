@@ -13,6 +13,8 @@ import {
 interface Props {
   currentMaiaModel: string
   setCurrentMaiaModel: (model: string) => void
+  showTopMoveBadges: boolean
+  setShowTopMoveBadges: (show: boolean) => void
   launchContinue: () => void
   MAIA_MODELS: string[]
   game: AnalyzedGame
@@ -44,6 +46,8 @@ interface Props {
 export const ConfigurableScreens: React.FC<Props> = ({
   currentMaiaModel,
   setCurrentMaiaModel,
+  showTopMoveBadges,
+  setShowTopMoveBadges,
   launchContinue,
   MAIA_MODELS,
   game,
@@ -154,6 +158,8 @@ export const ConfigurableScreens: React.FC<Props> = ({
           <ConfigureAnalysis
             currentMaiaModel={currentMaiaModel}
             setCurrentMaiaModel={setCurrentMaiaModel}
+            showTopMoveBadges={showTopMoveBadges}
+            setShowTopMoveBadges={setShowTopMoveBadges}
             launchContinue={launchContinue}
             MAIA_MODELS={MAIA_MODELS}
             game={game}
