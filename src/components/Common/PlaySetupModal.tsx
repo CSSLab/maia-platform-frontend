@@ -39,6 +39,8 @@ interface OptionSelectProps<T> {
   labels: string[]
   selected: T
   onChange: (selected: T) => void
+  selectedClassName?: string
+  unselectedClassName?: string
 }
 
 function OptionSelect<T>({
@@ -46,6 +48,8 @@ function OptionSelect<T>({
   labels,
   selected,
   onChange,
+  selectedClassName = 'border border-glass-border bg-glass-stronger text-white',
+  unselectedClassName = 'border border-glass-border bg-glass text-white/90 hover:bg-glass-stronger',
 }: OptionSelectProps<T>) {
   return (
     <div className="flex overflow-hidden rounded-lg">
@@ -55,8 +59,8 @@ function OptionSelect<T>({
             key={index}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
               option === selected
-                ? 'border border-glass-border bg-glass-stronger text-white'
-                : 'border border-glass-border bg-glass text-white/90 hover:bg-glass-stronger'
+                ? selectedClassName
+                : unselectedClassName
             } ${index === 0 ? 'rounded-l-lg' : ''} ${
               index === options.length - 1 ? 'rounded-r-lg' : ''
             }`}
@@ -403,6 +407,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                     labels={['Instant', 'Human-like']}
                     selected={simulateMaiaTime}
                     onChange={setSimulateMaiaTime}
+                    selectedClassName="border-human-4 bg-human-4 text-white hover:bg-human-4/90"
                   />
                 </div>
               </div>

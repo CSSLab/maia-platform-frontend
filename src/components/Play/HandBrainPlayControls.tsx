@@ -187,7 +187,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                     <button
                       className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors duration-200 ${
                         !simulateMaiaTime
-                          ? 'bg-glass-stronger text-white'
+                          ? 'bg-human-4 text-white hover:bg-human-4/90'
                           : 'text-white/70 hover:bg-glass-strong hover:text-white'
                       }`}
                       onClick={() => setSimulateMaiaTime(false)}
@@ -197,7 +197,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
                     <button
                       className={`flex-1 px-3 py-1.5 text-xs font-medium transition-colors duration-200 ${
                         simulateMaiaTime
-                          ? 'bg-glass-stronger text-white'
+                          ? 'bg-human-4 text-white hover:bg-human-4/90'
                           : 'text-white/70 hover:bg-glass-strong hover:text-white'
                       }`}
                       onClick={() => setSimulateMaiaTime(true)}
