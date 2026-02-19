@@ -1208,8 +1208,8 @@ const Analysis: React.FC<Props> = ({
             <div className="flex w-full flex-col items-center px-3">
               <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch">
                 <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
-                  <div className="absolute left-1/2 top-2 -translate-x-1/2">
-                    <div className="flex w-12 -translate-x-0.5 flex-col items-center gap-2.5 text-[8px] font-semibold leading-none text-secondary/90">
+                  <div className="absolute left-1/2 top-2 -translate-x-[60%]">
+                    <div className="flex w-12 flex-col items-center gap-2.5 text-[8px] font-semibold leading-none text-secondary/90">
                       <span className="inline-flex w-full flex-col items-center gap-0.5">
                         <span className="relative inline-flex h-3 w-5 items-center">
                           <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-human-3" />
@@ -1295,7 +1295,7 @@ const Analysis: React.FC<Props> = ({
                   ) : null}
                 </div>
                 <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
-                  <div className="absolute inset-y-0 left-[58%] w-4 -translate-x-1/2">
+                  <div className="absolute inset-y-0 left-[68%] w-4 -translate-x-1/2">
                     <div className="relative h-full w-4">
                       <div className="absolute inset-0 overflow-hidden rounded-[5px] border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.35)]">
                         <div
