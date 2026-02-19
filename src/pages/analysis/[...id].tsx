@@ -28,7 +28,6 @@ import { PlayerInfo } from 'src/components/Common/PlayerInfo'
 import { MoveMap } from 'src/components/Analysis/MoveMap'
 import { Highlight } from 'src/components/Analysis/Highlight'
 import { AnalysisSidebar } from 'src/components/Analysis'
-import { BlunderMeter } from 'src/components/Analysis/BlunderMeter'
 import { MovesByRating } from 'src/components/Analysis/MovesByRating'
 import { AnalysisGameList } from 'src/components/Analysis/AnalysisGameList'
 import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
@@ -50,12 +49,20 @@ import { trackAnalysisGameLoaded } from 'src/lib/analytics'
 import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import { Chess, PieceSymbol } from 'chess.ts'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
 import { useAnalysisController } from 'src/hooks'
 import { tourConfigs } from 'src/constants/tours'
-import type { DrawShape } from 'chessground/draw'
+import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
+
+const EVAL_BAR_RANGE = 4
+const DEFAULT_STOCKFISH_EVAL_BAR = {
+  hasEval: false,
+  pawns: 0,
+  displayPawns: 0,
+  label: '--',
+}
 
 const AnalysisPage: NextPage = () => {
   const { startTour, tourState } = useTour()
@@ -400,6 +407,81 @@ const Analysis: React.FC<Props> = ({
     [],
   )
 
+  const mobileBlunderMeterData = useMemo(
+    () =>
+      analysisEnabled && !controller.learnFromMistakes.state.isActive
+        ? controller.blunderMeter
+        : emptyBlunderMeterData,
+    [
+      analysisEnabled,
+      controller.learnFromMistakes.state.isActive,
+      controller.blunderMeter,
+      emptyBlunderMeterData,
+    ],
+  )
+
+  const getTopCategoryMoves = useCallback(
+    (moves: { move: string; probability: number }[]) =>
+      moves
+        .filter((entry) => entry.probability >= 5)
+        .sort((a, b) => b.probability - a.probability)
+        .slice(0, 2)
+        .map((entry) => ({
+          move: entry.move,
+          probability: Math.round(entry.probability),
+          label: controller.colorSanMapping[entry.move]?.san || entry.move,
+        })),
+    [controller.colorSanMapping],
+  )
+
+  const mobileBlunderSegments = useMemo(() => {
+    return [
+      {
+        key: 'blunder',
+        label: 'Blunder',
+        probability: mobileBlunderMeterData.blunderMoves.probability,
+        topMoves: getTopCategoryMoves(
+          mobileBlunderMeterData.blunderMoves.moves,
+        ),
+        badge: '??',
+        bgClass: 'bg-[#d73027]',
+        badgeClass: 'border-[#7f1813] bg-white/95 text-[#d73027]',
+        pctClass: 'text-white/95',
+        moveClass: 'text-[#d73027]',
+      },
+      {
+        key: 'ok',
+        label: 'OK',
+        probability: mobileBlunderMeterData.okMoves.probability,
+        topMoves: getTopCategoryMoves(mobileBlunderMeterData.okMoves.moves),
+        badge: '?',
+        bgClass: 'bg-[#fee08b]',
+        badgeClass: 'border-[#8f6b00] bg-white/95 text-[#8f6b00]',
+        pctClass: 'text-black/80',
+        moveClass: 'text-[#fee08b]',
+      },
+      {
+        key: 'good',
+        label: 'Good',
+        probability: mobileBlunderMeterData.goodMoves.probability,
+        topMoves: getTopCategoryMoves(mobileBlunderMeterData.goodMoves.moves),
+        badge: '✓',
+        bgClass: 'bg-[#1a9850]',
+        badgeClass: 'border-[#0e5a2f] bg-white/95 text-[#1a9850]',
+        pctClass: 'text-white/95',
+        moveClass: 'text-[#1a9850]',
+      },
+    ]
+  }, [
+    mobileBlunderMeterData.blunderMoves.moves,
+    mobileBlunderMeterData.blunderMoves.probability,
+    mobileBlunderMeterData.okMoves.moves,
+    mobileBlunderMeterData.okMoves.probability,
+    mobileBlunderMeterData.goodMoves.moves,
+    mobileBlunderMeterData.goodMoves.probability,
+    getTopCategoryMoves,
+  ])
+
   const hover = (move?: string) => {
     if (move && analysisEnabled) {
       setHoverArrow({
@@ -534,6 +616,188 @@ const Analysis: React.FC<Props> = ({
     const chess = new Chess(controller.currentNode.fen)
     return chess.turn() === 'w' ? 'white' : 'black'
   }, [controller.currentNode])
+
+  const analysisArrowBrushes = useMemo(
+    () => ({
+      playedMoveOutline: {
+        key: 'playedMoveOutline',
+        color: '#4A8FB3',
+        opacity: 0.95,
+        lineWidth: 11,
+      },
+      playedMoveCore: {
+        key: 'playedMoveCore',
+        color: '#FFFFFF',
+        opacity: 0.98,
+        lineWidth: 8,
+      },
+    }),
+    [],
+  )
+
+  const playedMoveShapes = useMemo<DrawShape[]>(() => {
+    const playedMove = controller.currentNode?.mainChild?.move
+    if (!playedMove || playedMove.length < 4) {
+      return []
+    }
+
+    return [
+      {
+        brush: 'playedMoveOutline',
+        orig: playedMove.slice(0, 2) as Key,
+        dest: playedMove.slice(2, 4) as Key,
+      },
+      {
+        brush: 'playedMoveCore',
+        orig: playedMove.slice(0, 2) as Key,
+        dest: playedMove.slice(2, 4) as Key,
+      },
+    ] as DrawShape[]
+  }, [controller.currentNode?.mainChild?.move])
+
+  const staggerOverlappingArrows = useCallback((shapes: DrawShape[]) => {
+    const overlapGroups = new Map<string, number[]>()
+
+    shapes.forEach((shape, index) => {
+      const arrow = shape as DrawShape & { orig?: string; dest?: string }
+      if (!arrow.orig || !arrow.dest) return
+
+      const key = `${arrow.orig}-${arrow.dest}`
+      const indices = overlapGroups.get(key) ?? []
+      indices.push(index)
+      overlapGroups.set(key, indices)
+    })
+
+    const layeredShapes = shapes.map((shape) => {
+      const arrow = shape as DrawShape & {
+        modifiers?: { [key: string]: unknown; lineWidth?: number }
+      }
+
+      return {
+        ...arrow,
+        modifiers: arrow.modifiers ? { ...arrow.modifiers } : undefined,
+      } as DrawShape
+    })
+
+    overlapGroups.forEach((indices) => {
+      if (indices.length < 2) return
+
+      indices.forEach((shapeIndex, order) => {
+        const shape = layeredShapes[shapeIndex] as DrawShape & {
+          modifiers?: { [key: string]: unknown; lineWidth?: number }
+        }
+
+        const baseWidth =
+          typeof shape.modifiers?.lineWidth === 'number'
+            ? shape.modifiers.lineWidth
+            : 8
+
+        const expandedWidth = baseWidth + (indices.length - order - 1) * 1.25
+        const adjustedWidth = Math.min(13.5, Math.max(2.5, expandedWidth))
+
+        shape.modifiers = {
+          ...(shape.modifiers || {}),
+          lineWidth: adjustedWidth,
+        }
+      })
+    })
+
+    return layeredShapes
+  }, [])
+
+  const rawStockfishEvalBar = useMemo(() => {
+    const stockfish = controller.moveEvaluation?.stockfish
+
+    if (!stockfish) {
+      return {
+        ...DEFAULT_STOCKFISH_EVAL_BAR,
+        depth: 0,
+      }
+    }
+
+    const mateIn = stockfish.mate_vec?.[stockfish.model_move]
+    if (mateIn !== undefined) {
+      return {
+        hasEval: true,
+        pawns: Math.sign(mateIn) * EVAL_BAR_RANGE,
+        displayPawns: Math.sign(mateIn) * EVAL_BAR_RANGE,
+        label: `M${Math.abs(mateIn)}`,
+        depth: stockfish.depth ?? 0,
+      }
+    }
+
+    const cp =
+      stockfish.model_optimal_cp ?? Object.values(stockfish.cp_vec)[0] ?? 0
+    const rawPawns = cp / 100
+    const clampedPawns = Math.max(
+      -EVAL_BAR_RANGE,
+      Math.min(EVAL_BAR_RANGE, rawPawns),
+    )
+
+    return {
+      hasEval: true,
+      pawns: clampedPawns,
+      displayPawns: rawPawns,
+      label: `${rawPawns > 0 ? '+' : ''}${rawPawns.toFixed(2)}`,
+      depth: stockfish.depth ?? 0,
+    }
+  }, [controller.moveEvaluation?.stockfish])
+
+  const [displayedStockfishEvalBar, setDisplayedStockfishEvalBar] = useState(
+    DEFAULT_STOCKFISH_EVAL_BAR,
+  )
+
+  useEffect(() => {
+    if (!rawStockfishEvalBar.hasEval || rawStockfishEvalBar.depth <= 10) {
+      return
+    }
+
+    setDisplayedStockfishEvalBar({
+      hasEval: true,
+      pawns: rawStockfishEvalBar.pawns,
+      displayPawns: rawStockfishEvalBar.displayPawns,
+      label: rawStockfishEvalBar.label,
+    })
+  }, [rawStockfishEvalBar])
+
+  const evalPositionPercent = useMemo(() => {
+    const normalized =
+      (displayedStockfishEvalBar.pawns + EVAL_BAR_RANGE) / (EVAL_BAR_RANGE * 2)
+    return Math.max(0, Math.min(1, normalized)) * 100
+  }, [displayedStockfishEvalBar.pawns])
+
+  const displayedStockfishEvalText = useMemo(() => {
+    if (!displayedStockfishEvalBar.hasEval) {
+      return '--'
+    }
+
+    if (displayedStockfishEvalBar.label.startsWith('M')) {
+      return displayedStockfishEvalBar.label
+    }
+
+    const roundedPawns =
+      Math.round(displayedStockfishEvalBar.displayPawns * 10) / 10
+    const safePawns = Math.abs(roundedPawns) < 0.05 ? 0 : roundedPawns
+    return `${safePawns > 0 ? '+' : ''}${safePawns.toFixed(1)}`
+  }, [
+    displayedStockfishEvalBar.displayPawns,
+    displayedStockfishEvalBar.hasEval,
+    displayedStockfishEvalBar.label,
+  ])
+
+  const smoothedEvalPosition = useSpring(50, {
+    stiffness: 520,
+    damping: 42,
+    mass: 0.25,
+  })
+  const smoothedEvalVerticalPositionLabel = useTransform(
+    smoothedEvalPosition,
+    (value) => `${100 - value}%`,
+  )
+
+  useEffect(() => {
+    smoothedEvalPosition.set(evalPositionPercent)
+  }, [evalPositionPercent, smoothedEvalPosition])
 
   const NestedGameInfo = () => (
     <div className="flex w-full flex-col">
@@ -756,7 +1020,7 @@ const Analysis: React.FC<Props> = ({
                 }
                 setCurrentSquare={setCurrentSquare}
                 shapes={(() => {
-                  const baseShapes = []
+                  const baseShapes = [...playedMoveShapes]
 
                   // Add analysis arrows only when analysis is enabled
                   if (analysisEnabled) {
@@ -786,7 +1050,7 @@ const Analysis: React.FC<Props> = ({
                     baseShapes.push(hoverArrow)
                   }
 
-                  return baseShapes
+                  return staggerOverlappingArrows(baseShapes)
                 })()}
                 currentNode={controller.currentNode as GameNode}
                 orientation={controller.orientation}
@@ -794,6 +1058,7 @@ const Analysis: React.FC<Props> = ({
                 goToNode={controller.goToNode}
                 gameTree={analyzedGame.tree}
                 destinationBadges={destinationBadges}
+                brushes={analysisArrowBrushes as unknown as DrawBrushes}
               />
               {promotionFromTo ? (
                 <PromotionOverlay
@@ -940,59 +1205,208 @@ const Analysis: React.FC<Props> = ({
             >
               <NestedGameInfo />
             </GameInfo>
-            <div id="analysis" className="relative flex h-[100vw] w-screen">
-              <GameBoard
-                game={analyzedGame}
-                availableMoves={
-                  controller.learnFromMistakes.state.isActive && analysisEnabled
-                    ? new Map()
-                    : controller.availableMoves
-                }
-                setCurrentSquare={setCurrentSquare}
-                shapes={(() => {
-                  const baseShapes = []
-
-                  if (analysisEnabled) {
-                    baseShapes.push(...controller.arrows)
-                  }
-
-                  if (
-                    controller.learnFromMistakes.state.isActive &&
-                    !analysisEnabled
-                  ) {
-                    const currentInfo =
-                      controller.learnFromMistakes.getCurrentInfo()
-                    if (currentInfo) {
-                      const mistake = currentInfo.mistake
-                      baseShapes.push({
-                        brush: 'paleGrey',
-                        orig: mistake.playedMove.slice(0, 2) as Key,
-                        dest: mistake.playedMove.slice(2, 4) as Key,
-                        modifiers: { lineWidth: 8 },
-                      })
+            <div className="flex w-full flex-col items-center px-3">
+              <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch">
+                <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
+                  <div className="absolute left-1/2 top-2 -translate-x-1/2">
+                    <div className="flex w-12 -translate-x-0.5 flex-col items-center gap-2.5 text-[8px] font-semibold leading-none text-secondary/90">
+                      <span className="inline-flex w-full flex-col items-center gap-0.5">
+                        <span className="relative inline-flex h-3 w-5 items-center">
+                          <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-human-3" />
+                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-human-3" />
+                        </span>
+                        <span>Maia</span>
+                      </span>
+                      <span className="inline-flex w-full flex-col items-center gap-0.5">
+                        <span className="relative inline-flex h-3 w-5 items-center">
+                          <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-engine-2" />
+                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-engine-2" />
+                        </span>
+                        <span>SF</span>
+                      </span>
+                      <span className="inline-flex w-full flex-col items-center gap-0.5">
+                        <span className="relative inline-flex h-3 w-5 items-center">
+                          <span className="h-[4.5px] w-[calc(100%-4px)] rounded-full bg-[#4A8FB3]" />
+                          <span className="absolute left-[1px] right-[5px] top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-white" />
+                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-[#4A8FB3]" />
+                        </span>
+                        <span>Played</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  id="analysis"
+                  className="relative flex aspect-square w-[82vw] max-w-[500px]"
+                >
+                  <GameBoard
+                    game={analyzedGame}
+                    availableMoves={
+                      controller.learnFromMistakes.state.isActive &&
+                      analysisEnabled
+                        ? new Map()
+                        : controller.availableMoves
                     }
-                  }
+                    setCurrentSquare={setCurrentSquare}
+                    shapes={(() => {
+                      const baseShapes = [...playedMoveShapes]
 
-                  if (hoverArrow) {
-                    baseShapes.push(hoverArrow)
-                  }
+                      if (analysisEnabled) {
+                        baseShapes.push(...controller.arrows)
+                      }
 
-                  return baseShapes
-                })()}
-                currentNode={controller.currentNode as GameNode}
-                orientation={controller.orientation}
-                onPlayerMakeMove={onPlayerMakeMove}
-                goToNode={controller.goToNode}
-                gameTree={analyzedGame.tree}
-                destinationBadges={destinationBadges}
-              />
-              {promotionFromTo ? (
-                <PromotionOverlay
-                  player={currentPlayer}
-                  file={promotionFromTo[1].slice(0, 1)}
-                  onPlayerSelectPromotion={onPlayerSelectPromotion}
-                />
-              ) : null}
+                      if (
+                        controller.learnFromMistakes.state.isActive &&
+                        !analysisEnabled
+                      ) {
+                        const currentInfo =
+                          controller.learnFromMistakes.getCurrentInfo()
+                        if (currentInfo) {
+                          const mistake = currentInfo.mistake
+                          baseShapes.push({
+                            brush: 'paleGrey',
+                            orig: mistake.playedMove.slice(0, 2) as Key,
+                            dest: mistake.playedMove.slice(2, 4) as Key,
+                            modifiers: { lineWidth: 8 },
+                          })
+                        }
+                      }
+
+                      if (hoverArrow) {
+                        baseShapes.push(hoverArrow)
+                      }
+
+                      return staggerOverlappingArrows(baseShapes)
+                    })()}
+                    currentNode={controller.currentNode as GameNode}
+                    orientation={controller.orientation}
+                    onPlayerMakeMove={onPlayerMakeMove}
+                    goToNode={controller.goToNode}
+                    gameTree={analyzedGame.tree}
+                    destinationBadges={destinationBadges}
+                    brushes={analysisArrowBrushes as unknown as DrawBrushes}
+                  />
+                  {promotionFromTo ? (
+                    <PromotionOverlay
+                      player={currentPlayer}
+                      file={promotionFromTo[1].slice(0, 1)}
+                      onPlayerSelectPromotion={onPlayerSelectPromotion}
+                    />
+                  ) : null}
+                </div>
+                <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
+                  <div className="absolute inset-y-0 left-[58%] w-4 -translate-x-1/2">
+                    <div className="relative h-full w-4">
+                      <div className="absolute inset-0 overflow-hidden rounded-[5px] border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.35)]">
+                        <div
+                          className="absolute inset-0"
+                          style={{
+                            background:
+                              'linear-gradient(180deg, rgb(154 203 242 / 1) 0%, rgb(14 54 86 / 1) 100%)',
+                          }}
+                        />
+                        {[3, 2, 1, 0, -1, -2, -3].map((value) => (
+                          <div
+                            key={`sf-tick-${value}`}
+                            className="absolute inset-x-0 -translate-y-1/2"
+                            style={{
+                              top: `${((EVAL_BAR_RANGE - value) / (EVAL_BAR_RANGE * 2)) * 100}%`,
+                              height: value === 0 ? '2px' : '1px',
+                              backgroundColor:
+                                value === 0
+                                  ? 'rgb(var(--color-backdrop) / 0.75)'
+                                  : 'rgb(var(--color-backdrop) / 0.35)',
+                            }}
+                          />
+                        ))}
+                        <div className="absolute left-1/2 top-0 -translate-x-1/2 text-[7px] font-bold leading-none text-black/90 [text-shadow:0_1px_1px_rgb(255_255_255_/_0.5)]">
+                          +4
+                        </div>
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[7px] font-bold leading-none text-white/95 [text-shadow:0_1px_1px_rgb(0_0_0_/_0.55)]">
+                          -4
+                        </div>
+                      </div>
+                      <motion.div
+                        className="absolute left-1/2 flex h-4 min-w-[30px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/45 bg-white px-1 text-[8px] font-bold leading-none text-black/85"
+                        style={{
+                          top: smoothedEvalVerticalPositionLabel,
+                          boxShadow: '0 0 0 2px rgb(255 255 255 / 0.32)',
+                          opacity: displayedStockfishEvalBar.hasEval ? 1 : 0.6,
+                        }}
+                      >
+                        {displayedStockfishEvalText}
+                      </motion.div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 flex w-[82vw] max-w-[500px] items-center gap-1">
+                <span className="shrink-0 text-[8px] font-semibold leading-none text-primary/90">
+                  Maia %
+                </span>
+                <div className="relative flex h-[22px] flex-1 overflow-hidden rounded-full border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.2)]">
+                  {mobileBlunderSegments.map((segment) => (
+                    <motion.div
+                      key={`maia-horizontal-${segment.key}`}
+                      className={`relative flex h-full items-center justify-center gap-0.5 px-1 ${segment.bgClass}`}
+                      animate={{
+                        width: `${Math.max(segment.probability, 0)}%`,
+                      }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 220,
+                        damping: 28,
+                      }}
+                    >
+                      {segment.probability >= 7 && (
+                        <>
+                          <span
+                            className={`inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full border-2 text-[8px] font-bold leading-none shadow-sm ${segment.badgeClass}`}
+                          >
+                            {segment.badge}
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold leading-none ${segment.pctClass}`}
+                          >
+                            {segment.probability}%
+                          </span>
+                        </>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-1.5 mt-1 w-[82vw] max-w-[500px]">
+                <div className="flex items-center gap-2.5 whitespace-nowrap py-0.5 text-[9px] font-semibold leading-tight tracking-[0.01em]">
+                  {mobileBlunderSegments.map((segment) => (
+                    <div
+                      key={`maia-top-moves-${segment.key}`}
+                      className={`min-w-0 flex-1 truncate ${segment.moveClass}`}
+                    >
+                      {segment.label}:{' '}
+                      {segment.topMoves.length
+                        ? segment.topMoves.map((topMove, index) => (
+                            <React.Fragment
+                              key={`${segment.key}-${topMove.move}`}
+                            >
+                              {index > 0 && <span>, </span>}
+                              <button
+                                type="button"
+                                className="underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
+                                onMouseEnter={() => hover(topMove.move)}
+                                onMouseLeave={() => hover()}
+                                onClick={() => makeMove(topMove.move)}
+                                title={`Play ${topMove.label}`}
+                              >
+                                {topMove.label} {topMove.probability}%
+                              </button>
+                            </React.Fragment>
+                          ))
+                        : '-'}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="flex w-full flex-col gap-0">
               <div className="w-full !flex-grow-0">
@@ -1089,62 +1503,6 @@ const Analysis: React.FC<Props> = ({
                         }
                   }
                   currentNode={controller.currentNode}
-                />
-                {(!analysisEnabled ||
-                  controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
-                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
-                      <span className="material-symbols-outlined mb-1 text-xl text-human-3">
-                        lock
-                      </span>
-                      <p className="text-xs font-medium text-primary">
-                        {controller.learnFromMistakes.state.isActive
-                          ? 'Learning Mode Active'
-                          : 'Analysis Disabled'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-                <BlunderMeter
-                  hover={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? hover
-                      : mockHover
-                  }
-                  makeMove={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? makeMove
-                      : mockMakeMove
-                  }
-                  data={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? controller.blunderMeter
-                      : emptyBlunderMeterData
-                  }
-                  colorSanMapping={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? controller.colorSanMapping
-                      : {}
-                  }
-                  moveEvaluation={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? controller.moveEvaluation
-                      : undefined
-                  }
-                  playerToMove={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? (controller.currentNode?.turn ?? 'w')
-                      : 'w'
-                  }
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
