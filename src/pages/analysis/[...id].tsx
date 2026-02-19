@@ -1212,15 +1212,15 @@ const Analysis: React.FC<Props> = ({
                     <div className="flex w-12 flex-col items-center gap-2.5 text-[8px] font-semibold leading-none text-secondary/90">
                       <span className="inline-flex w-full flex-col items-center gap-0.5">
                         <span className="relative inline-flex h-3 w-5 items-center">
-                          <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-human-3" />
-                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-human-3" />
+                          <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-[#882020]" />
+                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-[#882020]" />
                         </span>
                         <span>Maia</span>
                       </span>
                       <span className="inline-flex w-full flex-col items-center gap-0.5">
                         <span className="relative inline-flex h-3 w-5 items-center">
-                          <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-engine-2" />
-                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-engine-2" />
+                          <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-[#003088]" />
+                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-[#003088]" />
                         </span>
                         <span>SF</span>
                       </span>
