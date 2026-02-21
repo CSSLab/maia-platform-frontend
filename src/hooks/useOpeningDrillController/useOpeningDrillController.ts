@@ -137,8 +137,78 @@ const expandDrillSelections = (
   return expanded
 }
 
-const isEndgameSelection = (selection?: OpeningSelection | null) =>
-  selection?.opening.categoryType === 'endgame'
+type DrillCompletionReason =
+  | 'target_moves_reached'
+  | 'threefold_repetition'
+  | 'insufficient_material'
+  | 'checkmate'
+  | 'stalemate'
+  | 'draw'
+  | 'game_over'
+  | 'manual_end'
+
+const resolveBoardTerminationReason = (
+  chess: Chess,
+): DrillCompletionReason | null => {
+  if (!chess.gameOver()) {
+    return null
+  }
+
+  if (chess.inCheckmate()) {
+    return 'checkmate'
+  }
+  if (chess.inThreefoldRepetition()) {
+    return 'threefold_repetition'
+  }
+  if (chess.insufficientMaterial()) {
+    return 'insufficient_material'
+  }
+  if (chess.inStalemate()) {
+    return 'stalemate'
+  }
+  if (chess.inDraw()) {
+    return 'draw'
+  }
+
+  return 'game_over'
+}
+
+const getDrillEndReasonMessage = (
+  reason: DrillCompletionReason,
+  drillGame: OpeningDrillGame,
+): string => {
+  if (reason === 'insufficient_material') {
+    return 'Drill ended: draw by insufficient material.'
+  }
+
+  if (reason === 'threefold_repetition') {
+    return 'Drill ended: draw by threefold repetition.'
+  }
+
+  if (reason === 'stalemate') {
+    return 'Drill ended: draw by stalemate.'
+  }
+
+  if (reason === 'checkmate') {
+    return 'Drill ended: checkmate.'
+  }
+
+  if (reason === 'manual_end') {
+    return 'Drill ended early by you.'
+  }
+  if (reason === 'draw') {
+    return 'Drill ended: draw by rule (for example, 50-move rule).'
+  }
+  if (reason === 'game_over') {
+    return 'Drill ended: game over.'
+  }
+
+  const target = drillGame.selection.targetMoveNumber
+  if (target !== null) {
+    return `Drill ended: target reached (${drillGame.playerMoveCount}/${target} moves).`
+  }
+  return 'Drill ended: target reached.'
+}
 
 const getInitialAnalysisProgress = (): DeepAnalysisProgress => ({
   currentMoveIndex: 0,
@@ -229,6 +299,9 @@ export const useOpeningDrillController = (
   const [currentPerformanceData, setCurrentPerformanceData] =
     useState<DrillPerformanceData | null>(null)
   const [isAnalyzingDrill, setIsAnalyzingDrill] = useState(false)
+  const [drillEndReasonMessage, setDrillEndReasonMessage] = useState<
+    string | null
+  >(null)
   const [waitingForMaiaResponse, setWaitingForMaiaResponse] = useState(false)
   const [continueAnalyzingMode, setContinueAnalyzingMode] = useState(false)
 
@@ -307,6 +380,7 @@ export const useOpeningDrillController = (
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setCurrentDrillGame(null)
+    setDrillEndReasonMessage(null)
     analysisCancellationRef.current = false
     setDrillAnalysisProgress(getInitialAnalysisProgress())
 
@@ -356,6 +430,7 @@ export const useOpeningDrillController = (
     setCurrentDrillGame(drillGame)
     setWaitingForMaiaResponse(false)
     setContinueAnalyzingMode(false)
+    setDrillEndReasonMessage(null)
   }, [currentDrill])
 
   const fallbackGameTree = useMemo(() => new GameTree(new Chess().fen()), [])
@@ -389,10 +464,11 @@ export const useOpeningDrillController = (
     if (!currentDrillGame || !currentDrill || continueAnalyzingMode)
       return false
 
-    if (isEndgameSelection(currentDrill)) {
-      if (!treeController.currentNode) return false
-      const chess = new Chess(treeController.currentNode.fen)
-      return chess.inCheckmate() || chess.inStalemate()
+    const boardTerminationReason = resolveBoardTerminationReason(
+      gameTree.toChess(),
+    )
+    if (boardTerminationReason) {
+      return true
     }
 
     if (currentDrill.targetMoveNumber === null) return false
@@ -402,6 +478,7 @@ export const useOpeningDrillController = (
     continueAnalyzingMode,
     currentDrill,
     currentDrillGame,
+    gameTree,
     treeController.currentNode,
   ])
 
@@ -889,10 +966,43 @@ export const useOpeningDrillController = (
     setIsAnalyzingDrill(false)
   }, [setIsAnalyzingDrill, stockfish])
 
+  const resolveDrillEndReason = useCallback(
+    (
+      drillGame: OpeningDrillGame,
+      completionReason?: DrillCompletionReason,
+    ): DrillCompletionReason | null => {
+      if (completionReason) return completionReason
+
+      const chess = drillGame.tree.toChess()
+      const boardTerminationReason = resolveBoardTerminationReason(chess)
+      if (boardTerminationReason) return boardTerminationReason
+
+      if (
+        drillGame.selection.targetMoveNumber !== null &&
+        drillGame.playerMoveCount >= drillGame.selection.targetMoveNumber
+      ) {
+        return 'target_moves_reached'
+      }
+
+      return null
+    },
+    [],
+  )
+
   const completeDrill = useCallback(
-    async (gameToComplete?: OpeningDrillGame) => {
+    async (
+      gameToComplete?: OpeningDrillGame,
+      completionReason?: DrillCompletionReason,
+    ) => {
       const drillGame = gameToComplete || currentDrillGame
       if (!drillGame) return
+      const resolvedReason = resolveDrillEndReason(drillGame, completionReason)
+      const completionNote = resolvedReason
+        ? getDrillEndReasonMessage(resolvedReason, drillGame)
+        : null
+      if (completionNote) {
+        setDrillEndReasonMessage(completionNote)
+      }
 
       try {
         setIsAnalyzingDrill(true)
@@ -921,8 +1031,20 @@ export const useOpeningDrillController = (
         // Simple performance evaluation without complex analysis tracking
 
         const performanceData = await evaluateDrillPerformance(drillGame)
-        setCurrentPerformanceData(performanceData)
-        setCompletedDrills((prev) => [...prev, performanceData.drill])
+        const enrichedPerformanceData = completionNote
+          ? {
+              ...performanceData,
+              feedback: [
+                completionNote,
+                ...performanceData.feedback.filter(
+                  (entry) => entry !== completionNote,
+                ),
+              ],
+            }
+          : performanceData
+
+        setCurrentPerformanceData(enrichedPerformanceData)
+        setCompletedDrills((prev) => [...prev, enrichedPerformanceData.drill])
 
         // Simplified: just show the performance modal
 
@@ -934,7 +1056,29 @@ export const useOpeningDrillController = (
         setIsAnalyzingDrill(false)
       }
     },
-    [currentDrillGame, ensureDrillAnalysis, evaluateDrillPerformance],
+    [
+      currentDrillGame,
+      ensureDrillAnalysis,
+      evaluateDrillPerformance,
+      resolveDrillEndReason,
+    ],
+  )
+
+  const completeDrillWithDelay = useCallback(
+    (drillGame: OpeningDrillGame, completionReason?: DrillCompletionReason) => {
+      const resolvedReason = resolveDrillEndReason(drillGame, completionReason)
+      if (resolvedReason) {
+        setDrillEndReasonMessage(
+          getDrillEndReasonMessage(resolvedReason, drillGame),
+        )
+      }
+      setIsAnalyzingDrill(true)
+      setWaitingForMaiaResponse(false)
+      setTimeout(() => {
+        completeDrill(drillGame, completionReason)
+      }, 1500)
+    },
+    [completeDrill, resolveDrillEndReason],
   )
 
   const moveToNextDrill = useCallback(() => {
@@ -942,6 +1086,7 @@ export const useOpeningDrillController = (
     setCurrentPerformanceData(null)
     setContinueAnalyzingMode(false)
     setAnalysisEnabled(false)
+    setDrillEndReasonMessage(null)
     setWaitingForMaiaResponse(false)
     analysisCancellationRef.current = false
     setDrillAnalysisProgress(getInitialAnalysisProgress())
@@ -951,11 +1096,17 @@ export const useOpeningDrillController = (
 
   // Continue analyzing current drill
   const continueAnalyzing = useCallback(() => {
+    const analysisStartNode =
+      currentDrillGame?.openingEndNode || currentDrillGame?.tree.getRoot()
+    if (analysisStartNode) {
+      treeController.setCurrentNode(analysisStartNode)
+    }
+
     setShowPerformanceModal(false)
     setAnalysisEnabled(true)
     setContinueAnalyzingMode(true)
     setWaitingForMaiaResponse(false)
-  }, [])
+  }, [currentDrillGame, treeController])
 
   const showPerformance = useCallback(async () => {
     if (!currentDrillGame) return
@@ -994,6 +1145,7 @@ export const useOpeningDrillController = (
     setContinueAnalyzingMode(false)
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
+    setDrillEndReasonMessage(null)
     setWaitingForMaiaResponse(false)
     analysisCancellationRef.current = false
     setDrillAnalysisProgress(getInitialAnalysisProgress())
@@ -1011,7 +1163,13 @@ export const useOpeningDrillController = (
   // Make a move for the player
   const makePlayerMove = useCallback(
     async (moveUci: string, fromNode?: GameNode) => {
-      if (!currentDrillGame || !treeController.currentNode || !isPlayerTurn)
+      if (
+        !currentDrillGame ||
+        !treeController.currentNode ||
+        !isPlayerTurn ||
+        isDrillComplete ||
+        isAnalyzingDrill
+      )
         return
 
       try {
@@ -1086,29 +1244,18 @@ export const useOpeningDrillController = (
           })
 
           if (!continueAnalyzingMode) {
-            const endgameCompletion =
-              isEndgameSelection(currentDrill) &&
-              (() => {
-                const state = new Chess(newNode.fen)
-                return state.inCheckmate() || state.inStalemate()
-              })()
+            const boardTerminationReason = resolveBoardTerminationReason(
+              gameTree.toChess(),
+            )
 
-            if (endgameCompletion) {
-              setIsAnalyzingDrill(true)
-              setWaitingForMaiaResponse(false)
-              setTimeout(() => {
-                completeDrill(updatedGame)
-              }, 1500)
+            if (boardTerminationReason) {
+              completeDrillWithDelay(updatedGame, boardTerminationReason)
             } else if (
               currentDrill &&
               currentDrill.targetMoveNumber !== null &&
               updatedGame.playerMoveCount >= currentDrill.targetMoveNumber
             ) {
-              setIsAnalyzingDrill(true)
-              setWaitingForMaiaResponse(false)
-              setTimeout(() => {
-                completeDrill(updatedGame)
-              }, 1500)
+              completeDrillWithDelay(updatedGame, 'target_moves_reached')
             } else {
               console.log(
                 'Setting waitingForMaiaResponse to true after player move',
@@ -1127,8 +1274,10 @@ export const useOpeningDrillController = (
       gameTree,
       isPlayerTurn,
       currentDrill,
-      completeDrill,
+      completeDrillWithDelay,
       continueAnalyzingMode,
+      isDrillComplete,
+      isAnalyzingDrill,
       treeController,
     ],
   )
@@ -1210,13 +1359,12 @@ export const useOpeningDrillController = (
               currentNodeFen: newNode.fen,
             })
 
-            if (isEndgameSelection(currentDrill) && !continueAnalyzingMode) {
-              const state = new Chess(newNode.fen)
-              if (state.inCheckmate() || state.inStalemate()) {
-                setIsAnalyzingDrill(true)
-                setTimeout(() => {
-                  completeDrill(updatedGame)
-                }, 1500)
+            if (!continueAnalyzingMode) {
+              const boardTerminationReason = resolveBoardTerminationReason(
+                gameTree.toChess(),
+              )
+              if (boardTerminationReason) {
+                completeDrillWithDelay(updatedGame, boardTerminationReason)
               }
             }
           }
@@ -1225,8 +1373,36 @@ export const useOpeningDrillController = (
         console.error('Error making Maia move:', error)
       }
     },
-    [currentDrillGame, gameTree, currentDrill],
+    [
+      currentDrillGame,
+      gameTree,
+      currentDrill,
+      continueAnalyzingMode,
+      completeDrillWithDelay,
+      playMoveSound,
+      treeController,
+    ],
   )
+
+  const endCurrentDrillWithFeedback = useCallback(() => {
+    if (
+      !currentDrillGame ||
+      continueAnalyzingMode ||
+      isAnalyzingDrill ||
+      showPerformanceModal
+    ) {
+      return
+    }
+
+    setWaitingForMaiaResponse(false)
+    completeDrill(currentDrillGame, 'manual_end')
+  }, [
+    completeDrill,
+    continueAnalyzingMode,
+    currentDrillGame,
+    isAnalyzingDrill,
+    showPerformanceModal,
+  ])
 
   // This ref stores the move-making function to ensure the `useEffect` has the latest version
   const makeMaiaMoveRef = useRef(makeMaiaMove)
@@ -1334,6 +1510,7 @@ export const useOpeningDrillController = (
 
     setCurrentDrillGame(resetGame)
     setAnalysisEnabled(false)
+    setDrillEndReasonMessage(null)
     setWaitingForMaiaResponse(false)
     setContinueAnalyzingMode(false)
   }, [currentDrill])
@@ -1349,6 +1526,7 @@ export const useOpeningDrillController = (
     isPlayerTurn,
     isDrillComplete,
     isAtOpeningEnd,
+    drillEndReasonMessage,
 
     // Tree controller
     gameTree,
@@ -1371,6 +1549,7 @@ export const useOpeningDrillController = (
     completeDrill,
     moveToNextDrill,
     continueAnalyzing,
+    endCurrentDrillWithFeedback,
 
     // Analysis
     analysisEnabled,

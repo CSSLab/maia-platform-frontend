@@ -90,7 +90,14 @@ const AnimatedGameReplay: React.FC<{
   playerColor: 'white' | 'black'
   gameTree: GameTree
   openingEndNode: GameNode
-}> = ({ openingFen, playerColor, gameTree, openingEndNode }) => {
+  terminationNote?: string
+}> = ({
+  openingFen,
+  playerColor,
+  gameTree,
+  openingEndNode,
+  terminationNote,
+}) => {
   const [currentFen, setCurrentFen] = useState(openingFen)
   const [currentNode, setCurrentNode] = useState<GameNode | null>(null)
   const [orientation, setOrientation] = useState<'white' | 'black'>(playerColor)
@@ -258,6 +265,7 @@ const AnimatedGameReplay: React.FC<{
           }}
           startFromNode={openingEndNode}
           restrictNavigationBefore={openingEndNode}
+          terminationNote={terminationNote}
           showAnnotations={true}
           showVariations={false}
         />
@@ -768,6 +776,7 @@ const DesktopLayout: React.FC<{
   treeController: ReturnType<typeof useTreeController>
   gameNodesMap: Map<string, GameNode>
   currentMoveIndex: number
+  terminationNote?: string
   getChartClassification: (
     analysis: MoveAnalysis,
     gameNodesMap: Map<string, GameNode>,
@@ -786,6 +795,7 @@ const DesktopLayout: React.FC<{
   treeController,
   gameNodesMap,
   currentMoveIndex,
+  terminationNote,
   getChartClassification,
 }) => (
   <div className="from-white/8 to-white/4 relative flex h-[90vh] max-h-[800px] w-[95vw] max-w-[1200px] flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md">
@@ -841,6 +851,7 @@ const DesktopLayout: React.FC<{
             playerColor={drill.selection.playerColor}
             gameTree={gameTree}
             openingEndNode={openingEndNode}
+            terminationNote={terminationNote}
           />
         </TreeControllerContext.Provider>
       </div>
@@ -1091,6 +1102,7 @@ const MobileLayout: React.FC<{
   treeController: ReturnType<typeof useTreeController>
   gameNodesMap: Map<string, GameNode>
   currentMoveIndex: number
+  terminationNote?: string
   getChartClassification: (
     analysis: MoveAnalysis,
     gameNodesMap: Map<string, GameNode>,
@@ -1111,6 +1123,7 @@ const MobileLayout: React.FC<{
   treeController,
   gameNodesMap,
   currentMoveIndex,
+  terminationNote,
   getChartClassification,
 }) => (
   <div className="from-white/8 to-white/4 relative flex h-[95vh] w-[95vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-gradient-to-br backdrop-blur-md">
@@ -1196,6 +1209,7 @@ const MobileLayout: React.FC<{
             playerColor={drill.selection.playerColor}
             gameTree={gameTree}
             openingEndNode={openingEndNode}
+            terminationNote={terminationNote}
           />
         </TreeControllerContext.Provider>
       )}
@@ -1457,6 +1471,14 @@ export const DrillPerformanceModal: React.FC<Props> = ({
 
   // Get opening FEN from the opening end node
   const openingFen = openingEndNode.fen
+  const moveListTerminationNote = useMemo(() => {
+    const reasonLine = performanceData.feedback.find((entry) =>
+      entry.toLowerCase().startsWith('drill ended:'),
+    )
+    if (!reasonLine) return undefined
+
+    return reasonLine.replace(/^Drill ended:\s*/i, '').replace(/\.$/, '')
+  }, [performanceData.feedback])
 
   return (
     <ModalContainer dismiss={onContinueAnalyzing}>
@@ -1477,6 +1499,7 @@ export const DrillPerformanceModal: React.FC<Props> = ({
           treeController={treeController}
           gameNodesMap={gameNodesMap}
           currentMoveIndex={currentMoveIndex}
+          terminationNote={moveListTerminationNote}
           getChartClassification={getChartClassification}
         />
       ) : (
@@ -1494,6 +1517,7 @@ export const DrillPerformanceModal: React.FC<Props> = ({
           treeController={treeController}
           gameNodesMap={gameNodesMap}
           currentMoveIndex={currentMoveIndex}
+          terminationNote={moveListTerminationNote}
           getChartClassification={getChartClassification}
         />
       )}

@@ -15,6 +15,7 @@ interface Props {
   openingEndNode?: GameNode | null
   analysisEnabled?: boolean
   continueAnalyzingMode?: boolean
+  drillTerminationNote?: string
 }
 
 export const OpeningDrillSidebar: React.FC<Props> = ({
@@ -26,6 +27,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
   openingEndNode,
   analysisEnabled,
   continueAnalyzingMode,
+  drillTerminationNote,
 }) => {
   const containerClass = embedded
     ? 'flex h-full w-full max-w-full flex-col'
@@ -309,6 +311,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
               game={{ id: currentDrill.id, tree: tree.gameTree }}
               startFromNode={openingEndNode || undefined}
               restrictNavigationBefore={openingEndNode || undefined}
+              terminationNote={drillTerminationNote}
               showAnnotations={!!(analysisEnabled || continueAnalyzingMode)}
               showVariations={!!continueAnalyzingMode}
               embedded

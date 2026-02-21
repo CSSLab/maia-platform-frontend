@@ -212,6 +212,14 @@ const OpeningsPage: NextPage = () => {
         )
       : 0
 
+  const moveListTerminationNote = useMemo(() => {
+    if (!controller.drillEndReasonMessage) return undefined
+
+    return controller.drillEndReasonMessage
+      .replace(/^Drill ended:\s*/i, '')
+      .replace(/\.$/, '')
+  }, [controller.drillEndReasonMessage])
+
   // Removed auto-reopen behavior so the modal can be dismissed even without configuration
 
   const handleCompleteSelection = useCallback(
@@ -495,6 +503,7 @@ const OpeningsPage: NextPage = () => {
               completedDrills={controller.completedDrills}
               selectionPool={controller.selectionPool}
               openingEndNode={controller.currentDrillGame?.openingEndNode}
+              drillTerminationNote={moveListTerminationNote}
               analysisEnabled={controller.analysisEnabled}
               continueAnalyzingMode={controller.continueAnalyzingMode}
               embedded
@@ -565,6 +574,11 @@ const OpeningsPage: NextPage = () => {
                     }}
                   />
                 </div>
+                {controller.drillEndReasonMessage && (
+                  <p className="mt-2 text-xs font-medium text-human-4">
+                    {controller.drillEndReasonMessage}
+                  </p>
+                )}
               </div>
               {controller.currentPerformanceData &&
                 !controller.showPerformanceModal && (
@@ -573,6 +587,16 @@ const OpeningsPage: NextPage = () => {
                     className="rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-glass-stronger"
                   >
                     View Performance
+                  </button>
+                )}
+              {!controller.currentPerformanceData &&
+                !controller.showPerformanceModal &&
+                !controller.continueAnalyzingMode && (
+                  <button
+                    onClick={controller.endCurrentDrillWithFeedback}
+                    className="rounded-md border border-human-4/50 bg-human-4/10 px-4 py-2 text-sm font-medium text-human-3 transition-colors hover:bg-human-4/20"
+                  >
+                    End Drill + Feedback
                   </button>
                 )}
               <button
@@ -726,6 +750,7 @@ const OpeningsPage: NextPage = () => {
                 restrictNavigationBefore={
                   controller.currentDrillGame?.openingEndNode || undefined
                 }
+                terminationNote={moveListTerminationNote}
                 showAnnotations={
                   controller.analysisEnabled || controller.continueAnalyzingMode
                 }
@@ -754,6 +779,11 @@ const OpeningsPage: NextPage = () => {
                     }}
                   />
                 </div>
+                {controller.drillEndReasonMessage && (
+                  <p className="mt-2 text-xs font-medium text-human-4">
+                    {controller.drillEndReasonMessage}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -767,6 +797,16 @@ const OpeningsPage: NextPage = () => {
                   className="w-full rounded-md border border-glass-border bg-glass px-6 py-2 text-sm font-medium text-white/90 hover:bg-glass-stronger"
                 >
                   View Performance
+                </button>
+              )}
+            {!controller.currentPerformanceData &&
+              !controller.showPerformanceModal &&
+              !controller.continueAnalyzingMode && (
+                <button
+                  onClick={controller.endCurrentDrillWithFeedback}
+                  className="w-full rounded-md border border-human-4/50 bg-human-4/10 px-6 py-2 text-sm font-medium text-human-3"
+                >
+                  End Drill + Feedback
                 </button>
               )}
             <button

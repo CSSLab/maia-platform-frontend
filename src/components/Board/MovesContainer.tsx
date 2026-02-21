@@ -9,6 +9,7 @@ interface Props {
   game: BaseGame
   highlightIndices?: number[]
   termination?: Termination
+  terminationNote?: string
   showAnnotations?: boolean
   showVariations?: boolean
   disableKeyboardNavigation?: boolean
@@ -41,6 +42,7 @@ export const MovesContainer: React.FC<
   const {
     game,
     termination,
+    terminationNote,
     highlightIndices,
     showAnnotations = true,
     showVariations = true,
@@ -362,6 +364,11 @@ export const MovesContainer: React.FC<
                 : 'draw'}
             </div>
           )}
+          {terminationNote && (
+            <div className="min-w-fit border-b border-t border-glass-border bg-glass px-3 py-1 text-xs text-white/70">
+              {terminationNote}
+            </div>
+          )}
         </div>
       </div>
     )
@@ -481,6 +488,11 @@ export const MovesContainer: React.FC<
           {termination.winner !== 'none'
             ? `${termination.winner} is victorious`
             : 'draw'}
+        </div>
+      )}
+      {terminationNote && !isMobile && (
+        <div className="col-span-5 border-b border-glass-border bg-glass px-2 py-1 text-center text-xs text-white/70">
+          {terminationNote}
         </div>
       )}
     </div>
