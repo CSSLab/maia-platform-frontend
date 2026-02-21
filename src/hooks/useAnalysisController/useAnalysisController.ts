@@ -223,11 +223,7 @@ export const useAnalysisController = (
       square: topHumanMove.slice(2, 4),
       classification,
     }
-  }, [
-    controller.currentNode,
-    moveEvaluation,
-    currentMaiaModel,
-  ])
+  }, [controller.currentNode, moveEvaluation, currentMaiaModel])
 
   return {
     gameTree: controller.tree,
