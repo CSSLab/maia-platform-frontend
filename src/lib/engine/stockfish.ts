@@ -350,10 +350,15 @@ const setupStockfish = (): Promise<StockfishWeb> => {
           locateFile: (name: string) => `/stockfish/${name}`,
         })
         .then(async (instance: StockfishWeb) => {
+          // NNUE weights are hosted on GitHub Releases to avoid Vercel bandwidth costs.
+          // Override with NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL for self-hosted deployments.
+          const nnueBaseUrl =
+            process.env.NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL ??
+            'https://github.com/CSSLab/maia-platform-frontend/releases/download/models-v1'
           // Load NNUE models before resolving
           Promise.all([
-            fetch(`/stockfish/${instance.getRecommendedNnue(0)}`),
-            fetch(`/stockfish/${instance.getRecommendedNnue(1)}`),
+            fetch(`${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`),
+            fetch(`${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`),
           ])
             .then((responses) => {
               return Promise.all([
