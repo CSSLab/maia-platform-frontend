@@ -36,3 +36,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# ONNX model weights - hosted on GitHub Releases, not committed to the repo
+/public/maia2/*.onnx
