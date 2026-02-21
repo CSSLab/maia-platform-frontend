@@ -31,7 +31,9 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
 
   const maia = useMemo(() => {
     const model = new Maia({
-      model: '/maia2/maia_rapid.onnx',
+      model:
+        process.env.NEXT_PUBLIC_MAIA_MODEL_URL ??
+        'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/maia2/maia_rapid.onnx',
       setStatus: setStatus,
       setProgress: setProgress,
       setError: setError,
