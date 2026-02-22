@@ -8,12 +8,126 @@ interface Props {
   onClose: () => void
 }
 
+const PGN_HEADER_LINE_REGEX = /^\s*\[[^\]]+\]\s*$/
+const PGN_RESULT_TOKENS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
+
+const ensureBlankLineAfterPgnHeaders = (pgn: string): string => {
+  const normalizedNewlines = pgn.replace(/\r\n/g, '\n')
+  const lines = normalizedNewlines.split('\n')
+
+  let firstContentLine = 0
+  while (
+    firstContentLine < lines.length &&
+    lines[firstContentLine].trim().length === 0
+  ) {
+    firstContentLine++
+  }
+
+  let headerEndLine = firstContentLine
+  while (
+    headerEndLine < lines.length &&
+    PGN_HEADER_LINE_REGEX.test(lines[headerEndLine])
+  ) {
+    headerEndLine++
+  }
+
+  const hasHeaderBlock = headerEndLine > firstContentLine
+  const hasMovetextAfterHeaders = headerEndLine < lines.length
+  const needsSeparator =
+    hasHeaderBlock &&
+    hasMovetextAfterHeaders &&
+    lines[headerEndLine].trim().length > 0
+
+  if (needsSeparator) {
+    lines.splice(headerEndLine, 0, '')
+  }
+
+  return lines.join('\n').trim()
+}
+
+const formatMoveHistoryAsPgn = (moves: string[]): string => {
+  const pgnTokens: string[] = []
+
+  for (let i = 0; i < moves.length; i += 2) {
+    pgnTokens.push(`${Math.floor(i / 2) + 1}. ${moves[i]}`)
+    if (moves[i + 1]) {
+      pgnTokens.push(moves[i + 1])
+    }
+  }
+
+  return pgnTokens.join(' ').trim()
+}
+
+const extractPgnResultToken = (pgn: string): string | undefined => {
+  const headerResultMatch = pgn.match(
+    /\[\s*Result\s+"(1-0|0-1|1\/2-1\/2|\*)"\s*\]/i,
+  )
+  if (headerResultMatch) {
+    return headerResultMatch[1]
+  }
+
+  // Strip comments and variations before scanning for a terminal result token.
+  let movetext = pgn.replace(/\{[^}]*\}/g, ' ').replace(/;[^\r\n]*/g, ' ')
+
+  const ravRegex = /\([^()]*\)/g
+  while (ravRegex.test(movetext)) {
+    movetext = movetext.replace(ravRegex, ' ')
+  }
+
+  const tailMatch = movetext.match(/(?:^|\s)(1-0|0-1|1\/2-1\/2|\*)(?:\s*)$/)
+  return tailMatch?.[1]
+}
+
+const normalizePgnForAnalysis = (input: string): string => {
+  const trimmed = input.trim()
+  const candidates = Array.from(
+    new Set([trimmed, ensureBlankLineAfterPgnHeaders(trimmed)]),
+  )
+
+  for (const candidate of candidates) {
+    for (const sloppy of [false, true]) {
+      const chess = new Chess()
+      const loaded = chess.loadPgn(candidate, { sloppy })
+
+      if (!loaded) continue
+
+      const header = chess.header()
+
+      // Preserve SetUp/FEN PGNs since the initial position cannot be represented
+      // by a move list alone.
+      if (header.SetUp === '1' && header.FEN) {
+        return chess.pgn()
+      }
+
+      const moveTextOnly = formatMoveHistoryAsPgn(chess.history())
+      if (!moveTextOnly) {
+        throw new Error('PGN must contain at least one move')
+      }
+
+      const resultToken =
+        (header.Result && PGN_RESULT_TOKENS.has(header.Result)
+          ? header.Result
+          : extractPgnResultToken(candidate)) || undefined
+
+      return resultToken && resultToken !== '*'
+        ? `${moveTextOnly} ${resultToken}`
+        : moveTextOnly
+    }
+  }
+
+  throw new Error(
+    'Unable to parse PGN. If using [Tag "..."] headers, include a blank line before the moves.',
+  )
+}
+
 export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
   const [mode, setMode] = useState<'pgn' | 'fen'>('pgn')
   const [input, setInput] = useState('')
   const [name, setName] = useState('')
 
   const validateAndSubmit = () => {
+    const trimmedInput = input.trim()
+
     if (!input.trim()) {
       toast.error('Please enter some data')
       return
@@ -21,22 +135,22 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
 
     if (mode === 'fen') {
       const chess = new Chess()
-      const validation = chess.validateFen(input.trim())
+      const validation = chess.validateFen(trimmedInput)
       if (!validation.valid) {
         toast.error('Invalid FEN position: ' + validation.error)
         return
       }
+
+      onSubmit(mode, trimmedInput, name.trim() || undefined)
     } else {
       try {
-        const chess = new Chess()
-        chess.loadPgn(input.trim())
+        const normalizedPgn = normalizePgnForAnalysis(trimmedInput)
+        onSubmit(mode, normalizedPgn, name.trim() || undefined)
       } catch (error) {
         toast.error('Invalid PGN format: ' + (error as Error).message)
         return
       }
     }
-
-    onSubmit(mode, input.trim(), name.trim() || undefined)
   }
 
   const examplePGN = `1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Bb7 10. d4 Re8`

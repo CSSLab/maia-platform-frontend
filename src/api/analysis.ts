@@ -358,11 +358,18 @@ export const storeCustomGame = async (data: {
     body: JSON.stringify(data),
   })
 
+  const bodyText = await res.text()
+
   if (!res.ok) {
-    console.error(`Failed to store custom game: ${await res.text()}`)
+    console.error(`Failed to store custom game: ${bodyText}`)
+    throw new Error(
+      `Failed to store custom game (${res.status} ${res.statusText})${
+        bodyText ? `: ${bodyText}` : ''
+      }`,
+    )
   }
 
-  return res.json()
+  return JSON.parse(bodyText)
 }
 
 export const deleteCustomGame = async (gameId: string): Promise<void> => {
