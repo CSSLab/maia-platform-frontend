@@ -9,6 +9,7 @@ interface Props {
 }
 
 const PGN_HEADER_LINE_REGEX = /^\s*\[[^\]]+\]\s*$/
+const PGN_RESULT_TOKENS = new Set(['1-0', '0-1', '1/2-1/2', '*'])
 
 const ensureBlankLineAfterPgnHeaders = (pgn: string): string => {
   const normalizedNewlines = pgn.replace(/\r\n/g, '\n')
@@ -57,6 +58,26 @@ const formatMoveHistoryAsPgn = (moves: string[]): string => {
   return pgnTokens.join(' ').trim()
 }
 
+const extractPgnResultToken = (pgn: string): string | undefined => {
+  const headerResultMatch = pgn.match(
+    /\[\s*Result\s+"(1-0|0-1|1\/2-1\/2|\*)"\s*\]/i,
+  )
+  if (headerResultMatch) {
+    return headerResultMatch[1]
+  }
+
+  // Strip comments and variations before scanning for a terminal result token.
+  let movetext = pgn.replace(/\{[^}]*\}/g, ' ').replace(/;[^\r\n]*/g, ' ')
+
+  const ravRegex = /\([^()]*\)/g
+  while (ravRegex.test(movetext)) {
+    movetext = movetext.replace(ravRegex, ' ')
+  }
+
+  const tailMatch = movetext.match(/(?:^|\s)(1-0|0-1|1\/2-1\/2|\*)(?:\s*)$/)
+  return tailMatch?.[1]
+}
+
 const normalizePgnForAnalysis = (input: string): string => {
   const trimmed = input.trim()
   const candidates = Array.from(
@@ -83,7 +104,14 @@ const normalizePgnForAnalysis = (input: string): string => {
         throw new Error('PGN must contain at least one move')
       }
 
-      return moveTextOnly
+      const resultToken =
+        (header.Result && PGN_RESULT_TOKENS.has(header.Result)
+          ? header.Result
+          : extractPgnResultToken(candidate)) || undefined
+
+      return resultToken && resultToken !== '*'
+        ? `${moveTextOnly} ${resultToken}`
+        : moveTextOnly
     }
   }
 
