@@ -58,9 +58,7 @@ function OptionSelect<T>({
           <button
             key={index}
             className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-              option === selected
-                ? selectedClassName
-                : unselectedClassName
+              option === selected ? selectedClassName : unselectedClassName
             } ${index === 0 ? 'rounded-l-lg' : ''} ${
               index === options.length - 1 ? 'rounded-r-lg' : ''
             }`}

@@ -333,10 +333,4 @@ const Turing: React.FC<Props> = (props: Props) => {
   )
 }
 
-export const getServerSideProps = async () => {
-  return {
-    props: {},
-  }
-}
-
 export default TuringPage

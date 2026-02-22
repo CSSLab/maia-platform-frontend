@@ -133,8 +133,8 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
     // Fetch immediately
     fetchGlobalStats()
 
-    // Update every 20 seconds
-    const interval = setInterval(fetchGlobalStats, 20000)
+    // Update every 5 minutes
+    const interval = setInterval(fetchGlobalStats, 5 * 60 * 1000)
 
     return () => clearInterval(interval)
   }, [])
@@ -149,8 +149,8 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
     // Fetch immediately
     fetchActiveUsers()
 
-    // Update every 20 seconds
-    const interval = setInterval(fetchActiveUsers, 20000)
+    // Update every 5 minutes
+    const interval = setInterval(fetchActiveUsers, 5 * 60 * 1000)
 
     return () => clearInterval(interval)
   }, [])

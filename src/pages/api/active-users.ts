@@ -8,7 +8,7 @@ type Data = {
 
 // In-memory cache
 let cachedUsers: { value: number; timestamp: number } | null = null
-const CACHE_DURATION = 60 * 1000 // 1 minute
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
 /**
  * API endpoint to get active user count from PostHog
