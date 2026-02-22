@@ -20,6 +20,7 @@ import {
   MaiaEvaluation,
   StockfishEvaluation,
   GameNode,
+  Termination,
 } from 'src/types'
 import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
 import { Loading } from 'src/components'
@@ -57,11 +58,89 @@ import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 
 const EVAL_BAR_RANGE = 4
+const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
+  'maia_custom_pgn_result_overrides'
+const PGN_RESULT_TOKEN_REGEX = /(.*?)(?:\s+)(1-0|0-1|1\/2-1\/2|\*)\s*$/
 const DEFAULT_STOCKFISH_EVAL_BAR = {
   hasEval: false,
   pawns: 0,
   displayPawns: 0,
   label: '--',
+}
+
+const splitTrailingPgnResult = (
+  pgn: string,
+): { pgnWithoutResult: string; result?: string } => {
+  const match = pgn.match(PGN_RESULT_TOKEN_REGEX)
+  if (!match) {
+    return { pgnWithoutResult: pgn }
+  }
+
+  return {
+    pgnWithoutResult: match[1].trim(),
+    result: match[2],
+  }
+}
+
+const getCustomPgnResultOverrides = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const raw = window.localStorage.getItem(
+      CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY,
+    )
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (error) {
+    console.warn('Failed to read custom PGN result overrides:', error)
+    return {}
+  }
+}
+
+const setCustomPgnResultOverride = (gameId: string, result: string): void => {
+  if (typeof window === 'undefined') return
+
+  try {
+    const overrides = getCustomPgnResultOverrides()
+    overrides[gameId] = result
+    window.localStorage.setItem(
+      CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY,
+      JSON.stringify(overrides),
+    )
+  } catch (error) {
+    console.warn('Failed to store custom PGN result override:', error)
+  }
+}
+
+const getCustomPgnResultOverride = (gameId: string): string | undefined => {
+  const override = getCustomPgnResultOverrides()[gameId]
+  return typeof override === 'string' ? override : undefined
+}
+
+const resultTokenToWinner = (
+  result: string,
+): Termination['winner'] | undefined => {
+  if (result === '1-0') return 'white'
+  if (result === '0-1') return 'black'
+  if (result === '1/2-1/2') return 'none'
+  return undefined
+}
+
+const applyCustomResultOverride = (
+  game: AnalyzedGame,
+  result?: string,
+): AnalyzedGame => {
+  if (!result || result === '*') return game
+
+  return {
+    ...game,
+    termination: {
+      ...(game.termination || {}),
+      result,
+      winner: resultTokenToWinner(result),
+    },
+  }
 }
 
 const AnalysisPage: NextPage = () => {
@@ -162,12 +241,16 @@ const AnalysisPage: NextPage = () => {
       updateUrl = true,
     ) => {
       const game = await fetchAnalyzedMaiaGame(id, type)
+      const gameWithOverrides =
+        type === 'custom'
+          ? applyCustomResultOverride(game, getCustomPgnResultOverride(id))
+          : game
 
       if (setCurrentMove) setCurrentMove(0)
 
-      setAnalyzedGame({ ...game, type })
+      setAnalyzedGame({ ...gameWithOverrides, type })
       setCurrentId([id, type])
-      await loadGameAnalysisCache({ ...game, type })
+      await loadGameAnalysisCache({ ...gameWithOverrides, type })
 
       if (updateUrl) {
         router.push(`/analysis/${id}/${type}`, undefined, {
@@ -348,11 +431,18 @@ const Analysis: React.FC<Props> = ({
     (type: 'fen' | 'pgn', data: string, name?: string) => {
       ;(async () => {
         try {
+          const pgnPayload =
+            type === 'pgn' ? splitTrailingPgnResult(data) : undefined
           const { game_id } = await storeCustomGame({
             name: name,
-            pgn: type === 'pgn' ? data : undefined,
+            pgn:
+              type === 'pgn' ? pgnPayload?.pgnWithoutResult || data : undefined,
             fen: type === 'fen' ? data : undefined,
           })
+
+          if (pgnPayload?.result && pgnPayload.result !== '*') {
+            setCustomPgnResultOverride(game_id, pgnPayload.result)
+          }
 
           setShowCustomModal(false)
           router.push(`/analysis/${game_id}/custom`)
