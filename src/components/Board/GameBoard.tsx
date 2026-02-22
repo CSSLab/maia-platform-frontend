@@ -198,7 +198,7 @@ export const GameBoard: React.FC<Props> = ({
                   <MoveClassificationIcon
                     classification={badge.classification}
                     size="small"
-                    className="!ml-0 !h-3.5 !w-3.5 !text-[9px] pointer-events-none"
+                    className="pointer-events-none !ml-0 !h-3.5 !w-3.5 !text-[9px]"
                   />
                 </div>
               </div>
