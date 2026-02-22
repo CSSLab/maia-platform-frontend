@@ -347,14 +347,23 @@ const Analysis: React.FC<Props> = ({
   const handleCustomAnalysis = useCallback(
     (type: 'fen' | 'pgn', data: string, name?: string) => {
       ;(async () => {
-        const { game_id } = await storeCustomGame({
-          name: name,
-          pgn: type === 'pgn' ? data : undefined,
-          fen: type === 'fen' ? data : undefined,
-        })
+        try {
+          const { game_id } = await storeCustomGame({
+            name: name,
+            pgn: type === 'pgn' ? data : undefined,
+            fen: type === 'fen' ? data : undefined,
+          })
 
-        setShowCustomModal(false)
-        router.push(`/analysis/${game_id}/custom`)
+          setShowCustomModal(false)
+          router.push(`/analysis/${game_id}/custom`)
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Failed to store custom game'
+          console.error('Custom analysis import failed:', error)
+          toast.error(message)
+        }
       })()
     },
     [],
