@@ -57,6 +57,8 @@ import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 
 const EVAL_BAR_RANGE = 4
+const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
+  'maia_custom_pgn_result_overrides'
 const DEFAULT_STOCKFISH_EVAL_BAR = {
   hasEval: false,
   pawns: 0,
@@ -64,8 +66,146 @@ const DEFAULT_STOCKFISH_EVAL_BAR = {
   label: '--',
 }
 
-const stripTrailingPgnResultToken = (pgn: string): string => {
-  return pgn.replace(/(?:\s+)(1-0|0-1|1\/2-1\/2|\*)\s*$/, '').trim()
+const PGN_HEADER_LINE_REGEX = /^\s*\[[^\]]+\]\s*$/
+
+const ensureBlankLineAfterPgnHeaders = (pgn: string): string => {
+  const normalizedNewlines = pgn.replace(/\r\n/g, '\n')
+  const lines = normalizedNewlines.split('\n')
+
+  let firstContentLine = 0
+  while (
+    firstContentLine < lines.length &&
+    lines[firstContentLine].trim().length === 0
+  ) {
+    firstContentLine++
+  }
+
+  let headerEndLine = firstContentLine
+  while (
+    headerEndLine < lines.length &&
+    PGN_HEADER_LINE_REGEX.test(lines[headerEndLine])
+  ) {
+    headerEndLine++
+  }
+
+  const hasHeaderBlock = headerEndLine > firstContentLine
+  const hasMovetextAfterHeaders = headerEndLine < lines.length
+  const needsSeparator =
+    hasHeaderBlock &&
+    hasMovetextAfterHeaders &&
+    lines[headerEndLine].trim().length > 0
+
+  if (needsSeparator) {
+    lines.splice(headerEndLine, 0, '')
+  }
+
+  return lines.join('\n').trim()
+}
+
+const formatMoveHistoryAsPgn = (moves: string[]): string => {
+  const tokens: string[] = []
+
+  for (let i = 0; i < moves.length; i += 2) {
+    tokens.push(`${Math.floor(i / 2) + 1}. ${moves[i]}`)
+    if (moves[i + 1]) {
+      tokens.push(moves[i + 1])
+    }
+  }
+
+  return tokens.join(' ').trim()
+}
+
+const normalizeCustomPgnForBackendStore = (pgn: string): string => {
+  const trimmed = pgn.trim()
+  const candidates = Array.from(
+    new Set([trimmed, ensureBlankLineAfterPgnHeaders(trimmed)]),
+  )
+
+  for (const candidate of candidates) {
+    const chess = new Chess()
+    if (!chess.loadPgn(candidate, { sloppy: true })) {
+      continue
+    }
+
+    const header = { ...chess.header() }
+
+    const moveText = formatMoveHistoryAsPgn(chess.history())
+    const headerText = Object.entries(header)
+      .map(([key, value]) => `[${key} "${value}"]`)
+      .join('\n')
+
+    if (!headerText) {
+      return moveText
+    }
+
+    return moveText ? `${headerText}\n\n${moveText}` : headerText
+  }
+
+  return ensureBlankLineAfterPgnHeaders(trimmed)
+}
+
+const extractPgnResultToken = (pgn: string): string | undefined => {
+  const headerMatch = pgn.match(/\[\s*Result\s+"(1-0|0-1|1\/2-1\/2|\*)"\s*\]/i)
+  if (headerMatch) {
+    return headerMatch[1]
+  }
+
+  const tailMatch = pgn.match(/(?:^|\s)(1-0|0-1|1\/2-1\/2|\*)(?:\s*)$/)
+  return tailMatch?.[1]
+}
+
+const getCustomPgnResultOverrides = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {}
+
+  try {
+    const raw = window.localStorage.getItem(
+      CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY,
+    )
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch (error) {
+    console.warn('Failed to read custom PGN result overrides:', error)
+    return {}
+  }
+}
+
+const setCustomPgnResultOverride = (gameId: string, result: string): void => {
+  if (typeof window === 'undefined') return
+
+  try {
+    const overrides = getCustomPgnResultOverrides()
+    overrides[gameId] = result
+    window.localStorage.setItem(
+      CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY,
+      JSON.stringify(overrides),
+    )
+  } catch (error) {
+    console.warn('Failed to store custom PGN result override:', error)
+  }
+}
+
+const resultTokenToWinner = (result: string): 'white' | 'black' | 'none' => {
+  if (result === '1-0') return 'white'
+  if (result === '0-1') return 'black'
+  return 'none'
+}
+
+const applyCustomPgnResultOverride = (
+  gameId: string,
+  game: AnalyzedGame,
+): AnalyzedGame => {
+  const result = getCustomPgnResultOverrides()[gameId]
+  if (!result || result === '*') return game
+
+  return {
+    ...game,
+    termination: {
+      ...(game.termination || {}),
+      result,
+      winner: resultTokenToWinner(result),
+    },
+  }
 }
 
 const AnalysisPage: NextPage = () => {
@@ -165,7 +305,9 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
-      const game = await fetchAnalyzedMaiaGame(id, type)
+      const rawGame = await fetchAnalyzedMaiaGame(id, type)
+      const game =
+        type === 'custom' ? applyCustomPgnResultOverride(id, rawGame) : rawGame
 
       if (setCurrentMove) setCurrentMove(0)
 
@@ -352,11 +494,20 @@ const Analysis: React.FC<Props> = ({
     (type: 'fen' | 'pgn', data: string, name?: string) => {
       ;(async () => {
         try {
+          const pgnResult =
+            type === 'pgn' ? extractPgnResultToken(data) : undefined
           const { game_id } = await storeCustomGame({
             name: name,
-            pgn: type === 'pgn' ? stripTrailingPgnResultToken(data) : undefined,
+            pgn:
+              type === 'pgn'
+                ? normalizeCustomPgnForBackendStore(data)
+                : undefined,
             fen: type === 'fen' ? data : undefined,
           })
+
+          if (pgnResult && pgnResult !== '*') {
+            setCustomPgnResultOverride(game_id, pgnResult)
+          }
 
           setShowCustomModal(false)
           router.push(`/analysis/${game_id}/custom`)
