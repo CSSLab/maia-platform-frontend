@@ -95,16 +95,23 @@ export class MaiaModelStorage {
         return null
       }
 
-      // Check if URL matches (for cache invalidation)
+      // If the URL changed but we still have cached data, keep the model
+      // and update the stored URL so future loads hit the cache directly.
       if (modelData.url !== modelUrl) {
-        console.log('Storage: Model URL changed, clearing old cache')
+        console.log('Storage: Model URL changed, updating stored URL')
         console.log('Storage: Cached URL:', modelData.url)
-        console.log('Storage: Requested URL:', modelUrl)
-        await this.deleteModel()
-        console.log(
-          'Storage: Old cache cleared, model needs to be re-downloaded',
-        )
-        return null
+        console.log('Storage: New URL:', modelUrl)
+        try {
+          const rwTx = db.transaction([this.storeName], 'readwrite')
+          const rwStore = rwTx.objectStore(this.storeName)
+          await new Promise<void>((resolve, reject) => {
+            const req = rwStore.put({ ...modelData, url: modelUrl })
+            req.onsuccess = () => resolve()
+            req.onerror = () => reject(req.error)
+          })
+        } catch (e) {
+          console.warn('Storage: Failed to update stored URL:', e)
+        }
       }
 
       console.log('Storage: Converting Blob to ArrayBuffer...')
