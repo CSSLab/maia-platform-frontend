@@ -1,6 +1,7 @@
 interface ModelStorage {
   id: string
   url: string
+  version: string
   data: Blob
   timestamp: number
   size: number
@@ -34,7 +35,11 @@ export class MaiaModelStorage {
     })
   }
 
-  async storeModel(modelUrl: string, buffer: ArrayBuffer): Promise<void> {
+  async storeModel(
+    modelUrl: string,
+    modelVersion: string,
+    buffer: ArrayBuffer,
+  ): Promise<void> {
     try {
       const db = await this.openDB()
       const transaction = db.transaction([this.storeName], 'readwrite')
@@ -43,6 +48,7 @@ export class MaiaModelStorage {
       const modelData: ModelStorage = {
         id: 'maia-rapid-model',
         url: modelUrl,
+        version: modelVersion,
         data: new Blob([buffer]),
         timestamp: Date.now(),
         size: buffer.byteLength,
@@ -61,7 +67,10 @@ export class MaiaModelStorage {
     }
   }
 
-  async getModel(modelUrl: string): Promise<ArrayBuffer | null> {
+  async getModel(
+    modelUrl: string,
+    modelVersion: string,
+  ): Promise<ArrayBuffer | null> {
     console.log('Storage: getModel called with URL:', modelUrl)
 
     try {
@@ -95,22 +104,33 @@ export class MaiaModelStorage {
         return null
       }
 
-      // If the URL changed but we still have cached data, keep the model
-      // and update the stored URL so future loads hit the cache directly.
-      if (modelData.url !== modelUrl) {
-        console.log('Storage: Model URL changed, updating stored URL')
-        console.log('Storage: Cached URL:', modelData.url)
-        console.log('Storage: New URL:', modelUrl)
+      // Version mismatch = genuinely new model, must re-download.
+      if (modelData.version && modelData.version !== modelVersion) {
+        console.log('Storage: Model version changed, clearing old cache')
+        console.log('Storage: Cached version:', modelData.version)
+        console.log('Storage: Required version:', modelVersion)
+        await this.deleteModel()
+        return null
+      }
+
+      // URL changed but same version (e.g. moved hosts) — keep the cache,
+      // just update the stored URL so future loads match immediately.
+      if (modelData.url !== modelUrl || modelData.version !== modelVersion) {
+        console.log('Storage: Updating stored URL/version')
         try {
           const rwTx = db.transaction([this.storeName], 'readwrite')
           const rwStore = rwTx.objectStore(this.storeName)
           await new Promise<void>((resolve, reject) => {
-            const req = rwStore.put({ ...modelData, url: modelUrl })
+            const req = rwStore.put({
+              ...modelData,
+              url: modelUrl,
+              version: modelVersion,
+            })
             req.onsuccess = () => resolve()
             req.onerror = () => reject(req.error)
           })
         } catch (e) {
-          console.warn('Storage: Failed to update stored URL:', e)
+          console.warn('Storage: Failed to update stored URL/version:', e)
         }
       }
 
