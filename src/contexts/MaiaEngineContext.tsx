@@ -34,6 +34,7 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
       model:
         process.env.NEXT_PUBLIC_MAIA_MODEL_URL ??
         'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/maia2/maia_rapid.onnx',
+      modelVersion: process.env.NEXT_PUBLIC_MAIA_MODEL_VERSION ?? '1',
       setStatus: setStatus,
       setProgress: setProgress,
       setError: setError,

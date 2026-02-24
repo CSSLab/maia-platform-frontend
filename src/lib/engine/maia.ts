@@ -6,6 +6,7 @@ import { MaiaModelStorage } from './storage'
 
 interface MaiaOptions {
   model: string
+  modelVersion: string
   setStatus: (status: MaiaStatus) => void
   setProgress: (progress: number) => void
   setError: (error: string) => void
@@ -14,11 +15,13 @@ interface MaiaOptions {
 class Maia {
   private model!: InferenceSession
   private modelUrl: string
+  private modelVersion: string
   private options: MaiaOptions
   private storage: MaiaModelStorage
 
   constructor(options: MaiaOptions) {
     this.modelUrl = options.model
+    this.modelVersion = options.modelVersion
     this.options = options
     this.storage = new MaiaModelStorage()
 
@@ -30,7 +33,7 @@ class Maia {
     await this.storage.requestPersistentStorage()
 
     console.log('Attempting to get model from IndexedDB...')
-    const buffer = await this.storage.getModel(this.modelUrl)
+    const buffer = await this.storage.getModel(this.modelUrl, this.modelVersion)
 
     if (buffer) {
       console.log('Model found in IndexedDB, initializing...')
@@ -94,7 +97,7 @@ class Maia {
       position += chunk.length
     }
 
-    await this.storage.storeModel(this.modelUrl, buffer.buffer)
+    await this.storage.storeModel(this.modelUrl, this.modelVersion, buffer.buffer)
 
     await this.initializeModel(buffer.buffer)
     this.options.setStatus('ready')
