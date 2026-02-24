@@ -7,7 +7,7 @@ import {
 } from 'src/lib/analytics'
 
 import { PlayType } from 'src/types'
-import { getGlobalStats, getActiveUserCount } from 'src/api'
+import { getGlobalStats } from 'src/api'
 import { AuthContext, ModalContext } from 'src/contexts'
 import { AnimatedNumber } from 'src/components/Common/AnimatedNumber'
 
@@ -112,7 +112,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
     puzzle_games_total: number
     turing_games_total: number
   }>()
-  const [activeUsers, setActiveUsers] = useState<number>(0)
   const { setPlaySetupModalProps } = useContext(ModalContext)
   const { user, connectLichess } = useContext(AuthContext)
 
@@ -135,22 +134,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
 
     // Update every 5 minutes
     const interval = setInterval(fetchGlobalStats, 5 * 60 * 1000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  // Fetch active users count and set up periodic updates
-  useEffect(() => {
-    const fetchActiveUsers = async () => {
-      const count = await getActiveUserCount()
-      setActiveUsers(count)
-    }
-
-    // Fetch immediately
-    fetchActiveUsers()
-
-    // Update every 5 minutes
-    const interval = setInterval(fetchActiveUsers, 5 * 60 * 1000)
 
     return () => clearInterval(interval)
   }, [])
@@ -263,15 +246,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
           </div>
         </div>
         <motion.div className="flex flex-wrap justify-center gap-6 px-2">
-          {activeUsers > 0 && (
-            <p className="text-center text-base text-white/80">
-              <AnimatedNumber
-                value={activeUsers}
-                className="font-bold text-white"
-              />{' '}
-              recent users
-            </p>
-          )}
           <p className="text-center text-base text-white/80">
             <AnimatedNumber
               value={globalStats?.play_moves_total || 0}
@@ -286,15 +260,13 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
             />{' '}
             puzzles solved
           </p>
-          {activeUsers <= 0 && (
-            <p className="text-center text-base text-white/80">
-              <AnimatedNumber
-                value={globalStats?.turing_games_total || 0}
-                className="font-bold text-white"
-              />{' '}
-              turing games played
-            </p>
-          )}
+          <p className="text-center text-base text-white/80">
+            <AnimatedNumber
+              value={globalStats?.turing_games_total || 0}
+              className="font-bold text-white"
+            />{' '}
+            turing games played
+          </p>
         </motion.div>
       </div>
     </Fragment>
