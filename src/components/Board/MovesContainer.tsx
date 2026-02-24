@@ -360,7 +360,7 @@ export const MovesContainer: React.FC<
               {termination.result}
               {', '}
               {termination.winner !== 'none'
-                ? `${termination.winner} is victorious`
+                ? `${termination.winner} wins`
                 : 'draw'}
             </div>
           )}
@@ -486,7 +486,7 @@ export const MovesContainer: React.FC<
           {termination.result}
           {', '}
           {termination.winner !== 'none'
-            ? `${termination.winner} is victorious`
+            ? `${termination.winner} wins`
             : 'draw'}
         </div>
       )}

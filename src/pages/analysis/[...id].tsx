@@ -20,7 +20,6 @@ import {
   MaiaEvaluation,
   StockfishEvaluation,
   GameNode,
-  Termination,
 } from 'src/types'
 import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
 import { Loading } from 'src/components'
@@ -60,7 +59,6 @@ import { applyEngineAnalysisData } from 'src/lib/analysis'
 const EVAL_BAR_RANGE = 4
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
   'maia_custom_pgn_result_overrides'
-const PGN_RESULT_TOKEN_REGEX = /(.*?)(?:\s+)(1-0|0-1|1\/2-1\/2|\*)\s*$/
 const DEFAULT_STOCKFISH_EVAL_BAR = {
   hasEval: false,
   pawns: 0,
@@ -68,18 +66,92 @@ const DEFAULT_STOCKFISH_EVAL_BAR = {
   label: '--',
 }
 
-const splitTrailingPgnResult = (
-  pgn: string,
-): { pgnWithoutResult: string; result?: string } => {
-  const match = pgn.match(PGN_RESULT_TOKEN_REGEX)
-  if (!match) {
-    return { pgnWithoutResult: pgn }
+const PGN_HEADER_LINE_REGEX = /^\s*\[[^\]]+\]\s*$/
+
+const ensureBlankLineAfterPgnHeaders = (pgn: string): string => {
+  const normalizedNewlines = pgn.replace(/\r\n/g, '\n')
+  const lines = normalizedNewlines.split('\n')
+
+  let firstContentLine = 0
+  while (
+    firstContentLine < lines.length &&
+    lines[firstContentLine].trim().length === 0
+  ) {
+    firstContentLine++
   }
 
-  return {
-    pgnWithoutResult: match[1].trim(),
-    result: match[2],
+  let headerEndLine = firstContentLine
+  while (
+    headerEndLine < lines.length &&
+    PGN_HEADER_LINE_REGEX.test(lines[headerEndLine])
+  ) {
+    headerEndLine++
   }
+
+  const hasHeaderBlock = headerEndLine > firstContentLine
+  const hasMovetextAfterHeaders = headerEndLine < lines.length
+  const needsSeparator =
+    hasHeaderBlock &&
+    hasMovetextAfterHeaders &&
+    lines[headerEndLine].trim().length > 0
+
+  if (needsSeparator) {
+    lines.splice(headerEndLine, 0, '')
+  }
+
+  return lines.join('\n').trim()
+}
+
+const formatMoveHistoryAsPgn = (moves: string[]): string => {
+  const tokens: string[] = []
+
+  for (let i = 0; i < moves.length; i += 2) {
+    tokens.push(`${Math.floor(i / 2) + 1}. ${moves[i]}`)
+    if (moves[i + 1]) {
+      tokens.push(moves[i + 1])
+    }
+  }
+
+  return tokens.join(' ').trim()
+}
+
+const normalizeCustomPgnForBackendStore = (pgn: string): string => {
+  const trimmed = pgn.trim()
+  const candidates = Array.from(
+    new Set([trimmed, ensureBlankLineAfterPgnHeaders(trimmed)]),
+  )
+
+  for (const candidate of candidates) {
+    const chess = new Chess()
+    if (!chess.loadPgn(candidate, { sloppy: true })) {
+      continue
+    }
+
+    const header = { ...chess.header() }
+
+    const moveText = formatMoveHistoryAsPgn(chess.history())
+    const headerText = Object.entries(header)
+      .map(([key, value]) => `[${key} "${value}"]`)
+      .join('\n')
+
+    if (!headerText) {
+      return moveText
+    }
+
+    return moveText ? `${headerText}\n\n${moveText}` : headerText
+  }
+
+  return ensureBlankLineAfterPgnHeaders(trimmed)
+}
+
+const extractPgnResultToken = (pgn: string): string | undefined => {
+  const headerMatch = pgn.match(/\[\s*Result\s+"(1-0|0-1|1\/2-1\/2|\*)"\s*\]/i)
+  if (headerMatch) {
+    return headerMatch[1]
+  }
+
+  const tailMatch = pgn.match(/(?:^|\s)(1-0|0-1|1\/2-1\/2|\*)(?:\s*)$/)
+  return tailMatch?.[1]
 }
 
 const getCustomPgnResultOverrides = (): Record<string, string> => {
@@ -113,24 +185,17 @@ const setCustomPgnResultOverride = (gameId: string, result: string): void => {
   }
 }
 
-const getCustomPgnResultOverride = (gameId: string): string | undefined => {
-  const override = getCustomPgnResultOverrides()[gameId]
-  return typeof override === 'string' ? override : undefined
-}
-
-const resultTokenToWinner = (
-  result: string,
-): Termination['winner'] | undefined => {
+const resultTokenToWinner = (result: string): 'white' | 'black' | 'none' => {
   if (result === '1-0') return 'white'
   if (result === '0-1') return 'black'
-  if (result === '1/2-1/2') return 'none'
-  return undefined
+  return 'none'
 }
 
-const applyCustomResultOverride = (
+const applyCustomPgnResultOverride = (
+  gameId: string,
   game: AnalyzedGame,
-  result?: string,
 ): AnalyzedGame => {
+  const result = getCustomPgnResultOverrides()[gameId]
   if (!result || result === '*') return game
 
   return {
@@ -240,17 +305,15 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
-      const game = await fetchAnalyzedMaiaGame(id, type)
-      const gameWithOverrides =
-        type === 'custom'
-          ? applyCustomResultOverride(game, getCustomPgnResultOverride(id))
-          : game
+      const rawGame = await fetchAnalyzedMaiaGame(id, type)
+      const game =
+        type === 'custom' ? applyCustomPgnResultOverride(id, rawGame) : rawGame
 
       if (setCurrentMove) setCurrentMove(0)
 
-      setAnalyzedGame({ ...gameWithOverrides, type })
+      setAnalyzedGame({ ...game, type })
       setCurrentId([id, type])
-      await loadGameAnalysisCache({ ...gameWithOverrides, type })
+      await loadGameAnalysisCache({ ...game, type })
 
       if (updateUrl) {
         router.push(`/analysis/${id}/${type}`, undefined, {
@@ -431,17 +494,19 @@ const Analysis: React.FC<Props> = ({
     (type: 'fen' | 'pgn', data: string, name?: string) => {
       ;(async () => {
         try {
-          const pgnPayload =
-            type === 'pgn' ? splitTrailingPgnResult(data) : undefined
+          const pgnResult =
+            type === 'pgn' ? extractPgnResultToken(data) : undefined
           const { game_id } = await storeCustomGame({
             name: name,
             pgn:
-              type === 'pgn' ? pgnPayload?.pgnWithoutResult || data : undefined,
+              type === 'pgn'
+                ? normalizeCustomPgnForBackendStore(data)
+                : undefined,
             fen: type === 'fen' ? data : undefined,
           })
 
-          if (pgnPayload?.result && pgnPayload.result !== '*') {
-            setCustomPgnResultOverride(game_id, pgnPayload.result)
+          if (pgnResult && pgnResult !== '*') {
+            setCustomPgnResultOverride(game_id, pgnResult)
           }
 
           setShowCustomModal(false)
@@ -456,7 +521,7 @@ const Analysis: React.FC<Props> = ({
         }
       })()
     },
-    [],
+    [router],
   )
 
   const handleLearnFromMistakes = useCallback(() => {
