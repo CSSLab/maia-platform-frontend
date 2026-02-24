@@ -2,6 +2,7 @@ import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
 import StockfishWeb from 'lila-stockfish-web'
 import { StockfishEvaluation } from 'src/types'
+import { StockfishModelStorage } from './stockfishStorage'
 
 class Engine {
   private fen: string
@@ -339,6 +340,27 @@ const sharedWasmMemory = (lo: number, hi = 32767): WebAssembly.Memory => {
   }
 }
 
+const loadNnueModel = async (
+  modelUrl: string,
+  storage: StockfishModelStorage,
+): Promise<ArrayBuffer> => {
+  const cachedModel = await storage.getModel(modelUrl)
+  if (cachedModel) {
+    return cachedModel
+  }
+
+  const response = await fetch(modelUrl)
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch Stockfish NNUE model (${response.status}) from ${modelUrl}`,
+    )
+  }
+
+  const buffer = await response.arrayBuffer()
+  await storage.storeModel(modelUrl, buffer)
+  return buffer
+}
+
 const setupStockfish = (): Promise<StockfishWeb> => {
   return new Promise<StockfishWeb>((resolve, reject) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -355,17 +377,17 @@ const setupStockfish = (): Promise<StockfishWeb> => {
           const nnueBaseUrl =
             process.env.NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL ??
             'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
+          const storage = new StockfishModelStorage()
+          await storage.requestPersistentStorage()
+
+          const nnue0Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`
+          const nnue1Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`
+
           // Load NNUE models before resolving
           Promise.all([
-            fetch(`${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`),
-            fetch(`${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`),
+            loadNnueModel(nnue0Url, storage),
+            loadNnueModel(nnue1Url, storage),
           ])
-            .then((responses) => {
-              return Promise.all([
-                responses[0].arrayBuffer(),
-                responses[1].arrayBuffer(),
-              ])
-            })
             .then((buffers) => {
               instance.setNnueBuffer(new Uint8Array(buffers[0]), 0)
               instance.setNnueBuffer(new Uint8Array(buffers[1]), 1)
