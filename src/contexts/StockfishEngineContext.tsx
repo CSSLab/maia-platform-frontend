@@ -10,6 +10,27 @@ import toast from 'react-hot-toast'
 import { StockfishStatus, StockfishEngine } from 'src/types'
 import Engine from 'src/lib/engine/stockfish'
 
+const STOCKFISH_LOADING_TOAST_DELAY_MS = 800
+
+let sharedClientStockfishEngine: Engine | null = null
+
+const getOrCreateStockfishEngine = (): Engine => {
+  if (typeof window === 'undefined') {
+    return new Engine()
+  }
+
+  if (
+    !sharedClientStockfishEngine ||
+    (sharedClientStockfishEngine.initializationError &&
+      !sharedClientStockfishEngine.ready &&
+      !sharedClientStockfishEngine.initializing)
+  ) {
+    sharedClientStockfishEngine = new Engine()
+  }
+
+  return sharedClientStockfishEngine
+}
+
 export const StockfishEngineContext = React.createContext<StockfishEngine>({
   streamEvaluations: () => {
     throw new Error(
@@ -32,13 +53,18 @@ export const StockfishEngineContextProvider: React.FC<{
   children: ReactNode
 }> = ({ children }: { children: ReactNode }) => {
   const engineRef = useRef<Engine | null>(null)
-  const [status, setStatus] = useState<StockfishStatus>('loading')
-  const [error, setError] = useState<string | null>(null)
-  const toastId = useRef<string | null>(null)
-
   if (!engineRef.current) {
-    engineRef.current = new Engine()
+    engineRef.current = getOrCreateStockfishEngine()
   }
+  const [status, setStatus] = useState<StockfishStatus>(() => {
+    if (engineRef.current?.initializationError) return 'error'
+    return engineRef.current?.ready ? 'ready' : 'loading'
+  })
+  const [error, setError] = useState<string | null>(
+    () => engineRef.current?.initializationError ?? null,
+  )
+  const toastId = useRef<string | null>(null)
+  const loadingToastTimerRef = useRef<number | null>(null)
 
   const streamEvaluations = useCallback(
     (fen: string, legalMoveCount: number, depth?: number) => {
@@ -61,10 +87,16 @@ export const StockfishEngineContextProvider: React.FC<{
 
   useEffect(() => {
     const checkEngineStatus = () => {
-      if (engineRef.current?.ready) {
+      const engine = engineRef.current
+      if (!engine) return
+
+      if (engine.initializationError) {
+        setStatus('error')
+        setError(engine.initializationError)
+      } else if (engine.ready) {
         setStatus('ready')
         setError(null)
-      } else if (engineRef.current && !engineRef.current.ready) {
+      } else {
         setStatus('loading')
       }
     }
@@ -78,33 +110,63 @@ export const StockfishEngineContextProvider: React.FC<{
   // Toast notifications for Stockfish engine status
   useEffect(() => {
     return () => {
-      toast.dismiss()
+      if (loadingToastTimerRef.current !== null && typeof window !== 'undefined') {
+        window.clearTimeout(loadingToastTimerRef.current)
+        loadingToastTimerRef.current = null
+      }
+      if (toastId.current) {
+        toast.dismiss(toastId.current)
+        toastId.current = null
+      }
     }
   }, [])
 
   useEffect(() => {
-    if (status === 'loading' && !toastId.current) {
-      toastId.current = toast.loading('Loading Stockfish Engine...')
-    } else if (status === 'ready') {
+    if (status === 'loading') {
+      if (
+        toastId.current ||
+        loadingToastTimerRef.current !== null ||
+        typeof window === 'undefined'
+      ) {
+        return
+      }
+
+      loadingToastTimerRef.current = window.setTimeout(() => {
+        loadingToastTimerRef.current = null
+        if (!toastId.current && engineRef.current && !engineRef.current.ready) {
+          toastId.current = toast.loading('Loading Stockfish Engine...')
+        }
+      }, STOCKFISH_LOADING_TOAST_DELAY_MS)
+      return
+    }
+
+    if (loadingToastTimerRef.current !== null && typeof window !== 'undefined') {
+      window.clearTimeout(loadingToastTimerRef.current)
+      loadingToastTimerRef.current = null
+    }
+
+    if (status === 'ready') {
+      // Only show a success toast when we previously showed a loading toast.
       if (toastId.current) {
         toast.success('Loaded Stockfish! Engine is ready', {
           id: toastId.current,
         })
         toastId.current = null
-      } else {
-        toast.success('Loaded Stockfish! Engine is ready')
       }
     } else if (status === 'error') {
+      const message = error
+        ? `Failed to load Stockfish engine: ${error}`
+        : 'Failed to load Stockfish engine'
       if (toastId.current) {
-        toast.error('Failed to load Stockfish engine', {
+        toast.error(message, {
           id: toastId.current,
         })
         toastId.current = null
       } else {
-        toast.error('Failed to load Stockfish engine')
+        toast.error(message)
       }
     }
-  }, [status])
+  }, [status, error])
 
   const contextValue = useMemo(
     () => ({

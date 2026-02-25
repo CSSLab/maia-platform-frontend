@@ -38,13 +38,16 @@ const openSansClassName = 'font-sans'
 function MaiaPlatform({ Component, pageProps }: AppProps) {
   const router = useRouter()
   const isAnalysisPage = router.pathname.startsWith('/analysis')
-  const isPageWithAnalysis = [
+  const isPageWithMaia = [
     '/analysis',
     '/openings',
     '/puzzles',
     '/settings',
     '/broadcast',
   ].some((path) => router.pathname.includes(path))
+  const isPageWithStockfish = ['/analysis', '/openings', '/puzzles', '/broadcast'].some(
+    (path) => router.pathname.includes(path),
+  )
 
   useEffect(() => {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
@@ -67,9 +70,8 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             AuthContextProvider,
             ErrorBoundary,
             ModalContextProvider,
-            ...(isPageWithAnalysis
-              ? [MaiaEngineContextProvider, StockfishEngineContextProvider]
-              : []),
+            ...(isPageWithMaia ? [MaiaEngineContextProvider] : []),
+            ...(isPageWithStockfish ? [StockfishEngineContextProvider] : []),
             ...(isAnalysisPage ? [AnalysisListContextProvider] : []),
           ]}
         >
