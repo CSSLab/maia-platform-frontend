@@ -1044,6 +1044,16 @@ const Analysis: React.FC<Props> = ({
     () => Math.max(0, Math.min(100, displayedMaiaWhiteWinBar.percent)),
     [displayedMaiaWhiteWinBar.percent],
   )
+  const renderedMaiaWhiteWinBar = useMemo(
+    () =>
+      analysisEnabled
+        ? displayedMaiaWhiteWinBar
+        : { hasValue: false, percent: 50, label: '--' },
+    [analysisEnabled, displayedMaiaWhiteWinBar],
+  )
+  const maiaWhiteWinBarPositionTargetPercent = analysisEnabled
+    ? maiaWhiteWinPositionPercent
+    : 50
 
   const smoothedMaiaWhiteWinPosition = useSpring(50, {
     stiffness: 520,
@@ -1056,8 +1066,8 @@ const Analysis: React.FC<Props> = ({
   )
 
   useIsomorphicLayoutEffect(() => {
-    smoothedMaiaWhiteWinPosition.set(maiaWhiteWinPositionPercent)
-  }, [maiaWhiteWinPositionPercent, smoothedMaiaWhiteWinPosition])
+    smoothedMaiaWhiteWinPosition.set(maiaWhiteWinBarPositionTargetPercent)
+  }, [maiaWhiteWinBarPositionTargetPercent, smoothedMaiaWhiteWinPosition])
 
   const desktopMaiaBubbleReservePx = useMemo(
     () => (width >= 1360 ? 62 : 52),
@@ -1197,10 +1207,28 @@ const Analysis: React.FC<Props> = ({
     smoothedEvalPosition,
     (value) => `${100 - value}%`,
   )
+  const renderedStockfishEvalBar = useMemo(
+    () =>
+      analysisEnabled
+        ? displayedStockfishEvalBar
+        : {
+            hasEval: false,
+            pawns: 0,
+            displayPawns: 0,
+            label: '--',
+          },
+    [analysisEnabled, displayedStockfishEvalBar],
+  )
+  const renderedStockfishEvalText = analysisEnabled
+    ? displayedStockfishEvalText
+    : '--'
+  const evalBarPositionTargetPercent = analysisEnabled
+    ? evalPositionPercent
+    : 50
 
   useIsomorphicLayoutEffect(() => {
-    smoothedEvalPosition.set(evalPositionPercent)
-  }, [evalPositionPercent, smoothedEvalPosition])
+    smoothedEvalPosition.set(evalBarPositionTargetPercent)
+  }, [evalBarPositionTargetPercent, smoothedEvalPosition])
 
   const NestedGameInfo = () => (
     <div className="flex w-full flex-col">
@@ -1486,11 +1514,12 @@ const Analysis: React.FC<Props> = ({
                 >
                   <div className="pointer-events-none flex justify-center py-1">
                     <AnalysisMaiaWinrateBar
-                      hasValue={displayedMaiaWhiteWinBar.hasValue}
-                      displayText={displayedMaiaWhiteWinBar.label}
+                      hasValue={renderedMaiaWhiteWinBar.hasValue}
+                      displayText={renderedMaiaWhiteWinBar.label}
                       labelPositionTop={
                         smoothedMaiaWhiteWinVerticalPositionLabel
                       }
+                      disabled={!analysisEnabled}
                       desktopSize={desktopBarChromeSize}
                     />
                   </div>
@@ -1555,9 +1584,10 @@ const Analysis: React.FC<Props> = ({
                   </div>
                   <div className="pointer-events-none flex justify-center py-1">
                     <AnalysisStockfishEvalBar
-                      hasEval={displayedStockfishEvalBar.hasEval}
-                      displayText={displayedStockfishEvalText}
+                      hasEval={renderedStockfishEvalBar.hasEval}
+                      displayText={renderedStockfishEvalText}
                       labelPositionTop={smoothedEvalVerticalPositionLabel}
+                      disabled={!analysisEnabled}
                       variant="desktop"
                       desktopSize={desktopBarChromeSize}
                     />
@@ -1786,9 +1816,10 @@ const Analysis: React.FC<Props> = ({
                 <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
                   <div className="absolute inset-y-0 left-[68%] w-4 -translate-x-1/2">
                     <AnalysisStockfishEvalBar
-                      hasEval={displayedStockfishEvalBar.hasEval}
-                      displayText={displayedStockfishEvalText}
+                      hasEval={renderedStockfishEvalBar.hasEval}
+                      displayText={renderedStockfishEvalText}
                       labelPositionTop={smoothedEvalVerticalPositionLabel}
+                      disabled={!analysisEnabled}
                     />
                   </div>
                 </div>
