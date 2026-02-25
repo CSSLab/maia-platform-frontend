@@ -9,7 +9,7 @@ import {
 import { motion } from 'framer-motion'
 import type { DrawShape } from 'chessground/draw'
 import { Dispatch, SetStateAction, useCallback, useMemo } from 'react'
-import type { ComponentProps } from 'react'
+import type { ComponentProps, CSSProperties, ReactNode } from 'react'
 import { useLocalStorage } from 'src/hooks'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
 import type { MaiaEvaluation, StockfishEvaluation } from 'src/types'
@@ -26,6 +26,10 @@ interface Props {
   analysisEnabled: boolean
   controller: ReturnType<typeof useAnalysisController>
   handleToggleAnalysis: () => void
+  hideDetailedBlunderMeter?: boolean
+  containerStyle?: CSSProperties
+  footerContent?: ReactNode
+  desktopContentHeightCss?: string
   itemVariants?: {
     hidden: {
       opacity: number
@@ -59,6 +63,10 @@ export const AnalysisSidebar: React.FC<Props> = ({
   setHoverArrow,
   analysisEnabled,
   handleToggleAnalysis,
+  hideDetailedBlunderMeter = false,
+  containerStyle,
+  footerContent,
+  desktopContentHeightCss = '85vh',
   itemVariants,
 }) => {
   const emptyBlunderMeterData = useMemo(
@@ -125,6 +133,8 @@ export const AnalysisSidebar: React.FC<Props> = ({
     boardDescription: highlightBoardDescription,
     currentNode: controller.currentNode ?? undefined,
     simplified: isSimplifiedView,
+    hideStockfishEvalSummary: hideDetailedBlunderMeter,
+    hideWhiteWinRateSummary: hideDetailedBlunderMeter,
   }
 
   const simplifiedBlunderMeterProps: ComponentProps<
@@ -263,6 +273,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
               highlightProps={highlightProps}
               blunderMeterProps={simplifiedBlunderMeterProps}
               analysisEnabled={analysisEnabled}
+              hideBlunderMeter={hideDetailedBlunderMeter}
             />
           </div>
           {!analysisEnabled &&
@@ -279,6 +290,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
               highlightProps={highlightProps}
               blunderMeterProps={simplifiedBlunderMeterProps}
               analysisEnabled={analysisEnabled}
+              hideBlunderMeter={hideDetailedBlunderMeter}
             />
           </div>
           {!analysisEnabled &&
@@ -293,7 +305,10 @@ export const AnalysisSidebar: React.FC<Props> = ({
   const detailedLayout = (
     <>
       <div className="hidden xl:flex xl:h-full xl:flex-col xl:gap-3">
-        <div className="desktop-analysis-big-row-1-container relative flex gap-3">
+        <div
+          className="desktop-analysis-big-row-1-container relative flex gap-3"
+          style={{ height: `calc((${desktopContentHeightCss} - 0.75rem) / 2)` }}
+        >
           <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass-strong backdrop-blur-md">
             {renderHeader('desktop')}
             <div className="flex h-full w-full flex-1">
@@ -311,11 +326,14 @@ export const AnalysisSidebar: React.FC<Props> = ({
             })}
         </div>
 
-        <div className="desktop-analysis-big-row-2-container relative flex flex-row gap-3">
+        <div
+          className="desktop-analysis-big-row-2-container relative flex flex-row gap-3"
+          style={{ height: `calc((${desktopContentHeightCss} - 0.75rem) / 2)` }}
+        >
           <div className="flex h-full w-full flex-col">
             <MoveMap {...moveMapProps} />
           </div>
-          <BlunderMeter {...blunderMeterProps} />
+          {!hideDetailedBlunderMeter && <BlunderMeter {...blunderMeterProps} />}
           {!analysisEnabled &&
             renderDisabledOverlay('Enable analysis to see position evaluation')}
         </div>
@@ -327,11 +345,13 @@ export const AnalysisSidebar: React.FC<Props> = ({
           <div className="flex h-full w-full border-r border-glass-border">
             <Highlight {...highlightProps} />
           </div>
-          <div className="flex h-full w-auto min-w-[40%] max-w-[40%] p-3">
-            <div className="h-full w-full">
-              <BlunderMeter {...blunderMeterProps} showContainer={false} />
+          {!hideDetailedBlunderMeter && (
+            <div className="flex h-full w-auto min-w-[40%] max-w-[40%] p-3">
+              <div className="h-full w-full">
+                <BlunderMeter {...blunderMeterProps} showContainer={false} />
+              </div>
             </div>
-          </div>
+          )}
           {!analysisEnabled &&
             renderDisabledOverlay('Enable analysis to see move evaluations', {
               offsetTop: true,
@@ -362,9 +382,12 @@ export const AnalysisSidebar: React.FC<Props> = ({
       id="analysis"
       variants={itemVariants ?? {}}
       className="desktop-right-column-container flex flex-col gap-3"
-      style={{ willChange: 'transform, opacity' }}
+      style={{ willChange: 'transform, opacity', ...containerStyle }}
     >
-      {isSimplifiedView ? simplifiedLayout : detailedLayout}
+      <div className="min-h-0 flex-1">
+        {isSimplifiedView ? simplifiedLayout : detailedLayout}
+      </div>
+      {footerContent ? <div className="shrink-0">{footerContent}</div> : null}
     </motion.div>
   )
 }

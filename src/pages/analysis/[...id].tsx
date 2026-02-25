@@ -3,8 +3,10 @@ import React, {
   Dispatch,
   useState,
   useEffect,
+  useLayoutEffect,
   useContext,
   useCallback,
+  useRef,
   SetStateAction,
 } from 'react'
 import {
@@ -24,10 +26,15 @@ import {
 import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
 import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
-import { PlayerInfo } from 'src/components/Common/PlayerInfo'
 import { MoveMap } from 'src/components/Analysis/MoveMap'
 import { Highlight } from 'src/components/Analysis/Highlight'
 import { AnalysisSidebar } from 'src/components/Analysis'
+import {
+  AnalysisArrowLegend,
+  AnalysisCompactBlunderMeter,
+  AnalysisMaiaWinrateBar,
+  AnalysisStockfishEvalBar,
+} from 'src/components/Analysis/BoardChrome'
 import { MovesByRating } from 'src/components/Analysis/MovesByRating'
 import { AnalysisGameList } from 'src/components/Analysis/AnalysisGameList'
 import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
@@ -55,6 +62,7 @@ import { tourConfigs } from 'src/constants/tours'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
+import { cpToWinrate } from 'src/lib'
 
 const EVAL_BAR_RANGE = 4
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
@@ -65,6 +73,8 @@ const DEFAULT_STOCKFISH_EVAL_BAR = {
   displayPawns: 0,
   label: '--',
 }
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 const PGN_HEADER_LINE_REGEX = /^\s*\[[^\]]+\]\s*$/
 
@@ -409,8 +419,53 @@ const Analysis: React.FC<Props> = ({
 
   router,
 }: Props) => {
-  const { width } = useContext(WindowSizeContext)
+  const { width, height } = useContext(WindowSizeContext)
   const isMobile = useMemo(() => width > 0 && width <= 670, [width])
+  const desktopBoardHeaderStripRef = useRef<HTMLDivElement | null>(null)
+  const desktopBlunderMeterSectionRef = useRef<HTMLDivElement | null>(null)
+  const [desktopMiddleMeasuredHeights, setDesktopMiddleMeasuredHeights] =
+    useState({
+      boardHeaderStripPx: 28,
+      blunderMeterSectionPx: 126,
+    })
+
+  useIsomorphicLayoutEffect(() => {
+    if (isMobile) return
+
+    const headerEl = desktopBoardHeaderStripRef.current
+    const blunderEl = desktopBlunderMeterSectionRef.current
+    if (!headerEl && !blunderEl) return
+
+    const updateHeights = () => {
+      const next = {
+        boardHeaderStripPx:
+          headerEl?.getBoundingClientRect().height ??
+          desktopMiddleMeasuredHeights.boardHeaderStripPx,
+        blunderMeterSectionPx:
+          blunderEl?.getBoundingClientRect().height ??
+          desktopMiddleMeasuredHeights.blunderMeterSectionPx,
+      }
+
+      setDesktopMiddleMeasuredHeights((prev) => {
+        if (
+          Math.abs(prev.boardHeaderStripPx - next.boardHeaderStripPx) < 0.5 &&
+          Math.abs(prev.blunderMeterSectionPx - next.blunderMeterSectionPx) <
+            0.5
+        ) {
+          return prev
+        }
+        return next
+      })
+    }
+
+    updateHeights()
+
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(updateHeights)
+    if (headerEl) observer.observe(headerEl)
+    if (blunderEl) observer.observe(blunderEl)
+    return () => observer.disconnect()
+  }, [isMobile, width, desktopMiddleMeasuredHeights])
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
   const [currentSquare, setCurrentSquare] = useState<Key | null>(null)
   const [promotionFromTo, setPromotionFromTo] = useState<
@@ -571,7 +626,7 @@ const Analysis: React.FC<Props> = ({
     [],
   )
 
-  const mobileBlunderMeterData = useMemo(
+  const compactBlunderMeterData = useMemo(
     () =>
       analysisEnabled && !controller.learnFromMistakes.state.isActive
         ? controller.blunderMeter
@@ -583,68 +638,6 @@ const Analysis: React.FC<Props> = ({
       emptyBlunderMeterData,
     ],
   )
-
-  const getTopCategoryMoves = useCallback(
-    (moves: { move: string; probability: number }[]) =>
-      moves
-        .filter((entry) => entry.probability >= 5)
-        .sort((a, b) => b.probability - a.probability)
-        .slice(0, 2)
-        .map((entry) => ({
-          move: entry.move,
-          probability: Math.round(entry.probability),
-          label: controller.colorSanMapping[entry.move]?.san || entry.move,
-        })),
-    [controller.colorSanMapping],
-  )
-
-  const mobileBlunderSegments = useMemo(() => {
-    return [
-      {
-        key: 'blunder',
-        label: 'Blunder',
-        probability: mobileBlunderMeterData.blunderMoves.probability,
-        topMoves: getTopCategoryMoves(
-          mobileBlunderMeterData.blunderMoves.moves,
-        ),
-        badge: '??',
-        bgClass: 'bg-[#d73027]',
-        badgeClass: 'border-[#7f1813] bg-white/95 text-[#d73027]',
-        pctClass: 'text-white/95',
-        moveClass: 'text-[#d73027]',
-      },
-      {
-        key: 'ok',
-        label: 'OK',
-        probability: mobileBlunderMeterData.okMoves.probability,
-        topMoves: getTopCategoryMoves(mobileBlunderMeterData.okMoves.moves),
-        badge: '?',
-        bgClass: 'bg-[#fee08b]',
-        badgeClass: 'border-[#8f6b00] bg-white/95 text-[#8f6b00]',
-        pctClass: 'text-black/80',
-        moveClass: 'text-[#fee08b]',
-      },
-      {
-        key: 'good',
-        label: 'Good',
-        probability: mobileBlunderMeterData.goodMoves.probability,
-        topMoves: getTopCategoryMoves(mobileBlunderMeterData.goodMoves.moves),
-        badge: '✓',
-        bgClass: 'bg-[#1a9850]',
-        badgeClass: 'border-[#0e5a2f] bg-white/95 text-[#1a9850]',
-        pctClass: 'text-white/95',
-        moveClass: 'text-[#1a9850]',
-      },
-    ]
-  }, [
-    mobileBlunderMeterData.blunderMoves.moves,
-    mobileBlunderMeterData.blunderMoves.probability,
-    mobileBlunderMeterData.okMoves.moves,
-    mobileBlunderMeterData.okMoves.probability,
-    mobileBlunderMeterData.goodMoves.moves,
-    mobileBlunderMeterData.goodMoves.probability,
-    getTopCategoryMoves,
-  ])
 
   const hover = (move?: string) => {
     if (move && analysisEnabled) {
@@ -871,6 +864,7 @@ const Analysis: React.FC<Props> = ({
 
   const rawStockfishEvalBar = useMemo(() => {
     const stockfish = controller.moveEvaluation?.stockfish
+    const sideToMove = controller.currentNode?.turn || 'w'
 
     if (!stockfish) {
       return {
@@ -881,10 +875,14 @@ const Analysis: React.FC<Props> = ({
 
     const mateIn = stockfish.mate_vec?.[stockfish.model_move]
     if (mateIn !== undefined) {
+      // Stockfish mate sign is relative to side-to-move; map to white/black perspective for the bar.
+      const matingColor =
+        mateIn > 0 ? sideToMove : sideToMove === 'w' ? 'b' : 'w'
+      const whitePerspectiveSign = matingColor === 'w' ? 1 : -1
       return {
         hasEval: true,
-        pawns: Math.sign(mateIn) * EVAL_BAR_RANGE,
-        displayPawns: Math.sign(mateIn) * EVAL_BAR_RANGE,
+        pawns: whitePerspectiveSign * EVAL_BAR_RANGE,
+        displayPawns: whitePerspectiveSign * EVAL_BAR_RANGE,
         label: `M${Math.abs(mateIn)}`,
         depth: stockfish.depth ?? 0,
       }
@@ -905,13 +903,13 @@ const Analysis: React.FC<Props> = ({
       label: `${rawPawns > 0 ? '+' : ''}${rawPawns.toFixed(2)}`,
       depth: stockfish.depth ?? 0,
     }
-  }, [controller.moveEvaluation?.stockfish])
+  }, [controller.currentNode?.turn, controller.moveEvaluation?.stockfish])
 
   const [displayedStockfishEvalBar, setDisplayedStockfishEvalBar] = useState(
     DEFAULT_STOCKFISH_EVAL_BAR,
   )
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!rawStockfishEvalBar.hasEval || rawStockfishEvalBar.depth <= 10) {
       return
     }
@@ -949,6 +947,261 @@ const Analysis: React.FC<Props> = ({
     displayedStockfishEvalBar.label,
   ])
 
+  const currentTurnForBars: 'w' | 'b' = controller.currentNode?.turn || 'w'
+
+  const isCurrentPositionCheckmateForBars = useMemo(() => {
+    if (!controller.currentNode) return false
+    try {
+      const chess = new Chess(controller.currentNode.fen)
+      return chess.inCheckmate()
+    } catch {
+      return false
+    }
+  }, [controller.currentNode])
+
+  const isInFirst10PlyForBars = useMemo(() => {
+    if (!controller.currentNode) return false
+    const moveNumber = controller.currentNode.moveNumber
+    const turn = controller.currentNode.turn
+    const plyFromStart = (moveNumber - 1) * 2 + (turn === 'b' ? 1 : 0)
+    return plyFromStart < 10
+  }, [controller.currentNode])
+
+  const rawMaiaWhiteWinBar = useMemo(() => {
+    const stockfishEval = controller.moveEvaluation?.stockfish
+
+    if (isCurrentPositionCheckmateForBars) {
+      const percent = currentTurnForBars === 'w' ? 0 : 100
+      return { hasValue: true, percent, label: `${percent.toFixed(1)}%` }
+    }
+
+    if (stockfishEval?.is_checkmate) {
+      const percent = currentTurnForBars === 'w' ? 0 : 100
+      return { hasValue: true, percent, label: `${percent.toFixed(1)}%` }
+    }
+
+    if (
+      stockfishEval?.model_move &&
+      stockfishEval.mate_vec &&
+      stockfishEval.mate_vec[stockfishEval.model_move] !== undefined
+    ) {
+      const mateValue = stockfishEval.mate_vec[stockfishEval.model_move]
+      const deliveringColor =
+        mateValue > 0
+          ? currentTurnForBars
+          : currentTurnForBars === 'w'
+            ? 'b'
+            : 'w'
+      const percent = deliveringColor === 'w' ? 100 : 0
+      return { hasValue: true, percent, label: `${percent.toFixed(1)}%` }
+    }
+
+    if (
+      isInFirst10PlyForBars &&
+      stockfishEval?.model_optimal_cp !== undefined
+    ) {
+      const percent = Math.max(
+        0,
+        Math.min(100, cpToWinrate(stockfishEval.model_optimal_cp) * 100),
+      )
+      return {
+        hasValue: true,
+        percent,
+        label: `${(Math.round(percent * 10) / 10).toFixed(1)}%`,
+      }
+    }
+
+    if (controller.moveEvaluation?.maia) {
+      const percent = Math.max(
+        0,
+        Math.min(100, controller.moveEvaluation.maia.value * 100),
+      )
+      return {
+        hasValue: true,
+        percent,
+        label: `${(Math.round(percent * 10) / 10).toFixed(1)}%`,
+      }
+    }
+
+    return { hasValue: false, percent: 50, label: '--' }
+  }, [
+    controller.moveEvaluation?.maia,
+    controller.moveEvaluation?.stockfish,
+    currentTurnForBars,
+    isCurrentPositionCheckmateForBars,
+    isInFirst10PlyForBars,
+  ])
+
+  const [displayedMaiaWhiteWinBar, setDisplayedMaiaWhiteWinBar] =
+    useState(rawMaiaWhiteWinBar)
+
+  useIsomorphicLayoutEffect(() => {
+    if (!rawMaiaWhiteWinBar.hasValue) {
+      return
+    }
+
+    setDisplayedMaiaWhiteWinBar(rawMaiaWhiteWinBar)
+  }, [rawMaiaWhiteWinBar])
+
+  const maiaWhiteWinPositionPercent = useMemo(
+    () => Math.max(0, Math.min(100, displayedMaiaWhiteWinBar.percent)),
+    [displayedMaiaWhiteWinBar.percent],
+  )
+
+  const smoothedMaiaWhiteWinPosition = useSpring(50, {
+    stiffness: 520,
+    damping: 42,
+    mass: 0.25,
+  })
+  const smoothedMaiaWhiteWinVerticalPositionLabel = useTransform(
+    smoothedMaiaWhiteWinPosition,
+    (value) => `${100 - value}%`,
+  )
+
+  useIsomorphicLayoutEffect(() => {
+    smoothedMaiaWhiteWinPosition.set(maiaWhiteWinPositionPercent)
+  }, [maiaWhiteWinPositionPercent, smoothedMaiaWhiteWinPosition])
+
+  const desktopMaiaBubbleReservePx = useMemo(() => {
+    const useExpandedDesktopBarChrome = width >= 1360
+    const text = displayedMaiaWhiteWinBar.label || '--'
+    const estimatedWidth = Math.ceil(
+      text.length * (useExpandedDesktopBarChrome ? 7 : 6.5) +
+        (useExpandedDesktopBarChrome ? 18 : 14),
+    )
+    return Math.max(useExpandedDesktopBarChrome ? 42 : 36, estimatedWidth)
+  }, [displayedMaiaWhiteWinBar.label, width])
+
+  const desktopEvalBubbleReservePx = useMemo(() => {
+    const useExpandedDesktopBarChrome = width >= 1360
+    const text = displayedStockfishEvalText || '--'
+    // Reserve enough gutter for a centered bubble without forcing the bubble wider.
+    const estimatedWidth = Math.ceil(
+      text.length * (useExpandedDesktopBarChrome ? 7 : 6.5) +
+        (useExpandedDesktopBarChrome ? 18 : 14),
+    )
+    return Math.max(useExpandedDesktopBarChrome ? 42 : 36, estimatedWidth)
+  }, [displayedStockfishEvalText, width])
+
+  const desktopEvalGutterWidthPx = useMemo(
+    () => desktopEvalBubbleReservePx + 6,
+    [desktopEvalBubbleReservePx],
+  )
+  const desktopMaiaGutterWidthPx = useMemo(
+    () => desktopMaiaBubbleReservePx + 6,
+    [desktopMaiaBubbleReservePx],
+  )
+  const desktopColumnTargetHeightCss = '85vh'
+  const desktopBoardBaselineSizeCss = 'min(42vw, 72vh)'
+  const desktopBoardWidthCapVw = useMemo(() => {
+    if (width >= 1536) return 48
+    if (width >= 1280) return 46
+    return 42
+  }, [width])
+  const desktopBoardHeightCapPx = useMemo(() => {
+    if (height <= 0) return null
+
+    const targetColumnHeightPx = height * 0.85
+    const extraGapPx = 4 // gap-1 between the top text strip and the board row
+    const measuredNonBoardHeightPx =
+      desktopMiddleMeasuredHeights.boardHeaderStripPx +
+      desktopMiddleMeasuredHeights.blunderMeterSectionPx +
+      extraGapPx
+
+    return Math.max(
+      320,
+      Math.floor(targetColumnHeightPx - measuredNonBoardHeightPx),
+    )
+  }, [desktopMiddleMeasuredHeights, height])
+  const desktopBoardSizeCss = useMemo(() => {
+    const heightCapCss =
+      desktopBoardHeightCapPx !== null ? `${desktopBoardHeightCapPx}px` : '72vh'
+    const expandedTargetCss = `min(${desktopBoardWidthCapVw}vw, ${heightCapCss})`
+
+    // Never shrink below the prior desktop sizing behavior; only grow when extra room exists.
+    return `max(${desktopBoardBaselineSizeCss}, ${expandedTargetCss})`
+  }, [
+    desktopBoardBaselineSizeCss,
+    desktopBoardHeightCapPx,
+    desktopBoardWidthCapVw,
+  ])
+  const desktopBoardMinSizeCss = useMemo(
+    () => `calc(max(24rem, ${desktopBoardSizeCss}))`,
+    [desktopBoardSizeCss],
+  )
+  const desktopConfigPanelHeightCss = '12.5rem'
+  const desktopSidebarContentHeightCss = `calc(${desktopColumnTargetHeightCss} - ${desktopConfigPanelHeightCss} - 0.75rem)`
+  const desktopBarChromeSize: 'compact' | 'expanded' =
+    width >= 1360 ? 'expanded' : 'compact'
+  const desktopCompactBlunderMaiaHeaderLabel = useMemo(() => {
+    const ratingLevel =
+      controller.currentMaiaModel?.replace('maia_kdd_', '') || '----'
+    return `Maia %\n@ ${ratingLevel}`
+  }, [controller.currentMaiaModel])
+  const desktopLeftPanelTabs = [
+    {
+      id: 'moves',
+      name: 'Moves',
+    },
+    {
+      id: 'select-game',
+      name: 'Select Game',
+    },
+  ] as const
+  const [desktopLeftPanelTab, setDesktopLeftPanelTab] = useState<
+    (typeof desktopLeftPanelTabs)[number]['id']
+  >(desktopLeftPanelTabs[0].id)
+
+  useEffect(() => {
+    if (isMobile || desktopLeftPanelTab !== 'select-game') return
+
+    const keyboardNavigationDisabled =
+      controller.gameAnalysis.progress.isAnalyzing ||
+      controller.learnFromMistakes.state.isActive
+
+    if (keyboardNavigationDisabled) return
+
+    const handleDesktopSelectGamePaging = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      if (
+        target &&
+        (target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+
+      if (event.key === 'ArrowLeft' && controller.currentNode?.parent) {
+        event.preventDefault()
+        event.stopPropagation()
+        controller.goToPreviousNode()
+        setDesktopLeftPanelTab('moves')
+        return
+      }
+
+      if (event.key === 'ArrowRight' && controller.currentNode?.mainChild) {
+        event.preventDefault()
+        event.stopPropagation()
+        controller.goToNextNode()
+        setDesktopLeftPanelTab('moves')
+      }
+    }
+
+    window.addEventListener('keydown', handleDesktopSelectGamePaging, true)
+    return () =>
+      window.removeEventListener('keydown', handleDesktopSelectGamePaging, true)
+  }, [
+    controller.currentNode,
+    controller.gameAnalysis.progress.isAnalyzing,
+    controller.goToNextNode,
+    controller.goToPreviousNode,
+    controller.learnFromMistakes.state.isActive,
+    desktopLeftPanelTab,
+    isMobile,
+  ])
+
   const smoothedEvalPosition = useSpring(50, {
     stiffness: 520,
     damping: 42,
@@ -959,7 +1212,7 @@ const Analysis: React.FC<Props> = ({
     (value) => `${100 - value}%`,
   )
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     smoothedEvalPosition.set(evalPositionPercent)
   }, [evalPositionPercent, smoothedEvalPosition])
 
@@ -1068,21 +1321,21 @@ const Analysis: React.FC<Props> = ({
 
   const desktopLayout = (
     <motion.div
-      className="flex h-full w-full flex-col items-center py-4"
+      className="flex h-full w-full flex-col items-center py-4 2xl:items-end"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full w-[90%] flex-row gap-3">
+      <div className="flex h-full w-[92%] flex-row gap-4 xl:w-[94%] xl:gap-5 2xl:w-[97%]">
         <motion.div
           id="navigation"
-          className="desktop-left-column-container flex flex-col overflow-hidden"
+          className="desktop-left-column-container flex min-h-0 flex-col gap-2"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+          <div className="w-full overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             {/* Game info header */}
             <GameInfo
               title="Analysis"
@@ -1092,10 +1345,89 @@ const Analysis: React.FC<Props> = ({
             >
               <NestedGameInfo />
             </GameInfo>
-            {/* Game list */}
-            <div className="flex flex-col overflow-hidden">
-              <div className="h-3" />
-              <div className="max-h-[32vh] min-h-[32vh]">
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+            <div className="flex flex-row border-b border-glass-border">
+              {desktopLeftPanelTabs.map((tab) => {
+                const selected = tab.id === desktopLeftPanelTab
+                return (
+                  <div
+                    key={tab.id}
+                    tabIndex={0}
+                    role="button"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') setDesktopLeftPanelTab(tab.id)
+                    }}
+                    onClick={() => setDesktopLeftPanelTab(tab.id)}
+                    className={`relative flex cursor-pointer select-none flex-row px-3 py-1.5 outline-none transition duration-200 focus:outline-none focus-visible:outline-none ${selected ? 'bg-white/5' : 'hover:bg-white hover:bg-opacity-[0.02]'}`}
+                  >
+                    <p
+                      className={`text-xs transition duration-200 2xl:text-sm ${selected ? 'text-primary' : 'text-secondary'}`}
+                    >
+                      {tab.name}
+                    </p>
+                    {selected ? (
+                      <motion.div
+                        layoutId="analysisDesktopLeftPanelTab"
+                        className="absolute bottom-0 left-0 h-[1px] w-full bg-white"
+                      />
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="relative flex min-h-0 flex-1 overflow-hidden">
+              <div
+                aria-hidden={desktopLeftPanelTab !== 'moves'}
+                className={`red-scrollbar absolute inset-0 flex h-full flex-col overflow-y-auto transition-opacity duration-150 ${
+                  desktopLeftPanelTab === 'moves'
+                    ? 'visible opacity-100'
+                    : 'pointer-events-none invisible opacity-0'
+                }`}
+              >
+                <MovesContainer
+                  game={analyzedGame}
+                  termination={analyzedGame.termination}
+                  showAnnotations={true}
+                  disableKeyboardNavigation={
+                    controller.gameAnalysis.progress.isAnalyzing ||
+                    controller.learnFromMistakes.state.isActive
+                  }
+                  disableMoveClicking={
+                    controller.learnFromMistakes.state.isActive
+                  }
+                  embedded
+                  heightClass="h-40"
+                />
+                {/* No spacer here to keep controller tight to moves */}
+                <BoardController
+                  gameTree={controller.gameTree}
+                  orientation={controller.orientation}
+                  setOrientation={controller.setOrientation}
+                  currentNode={controller.currentNode}
+                  plyCount={controller.plyCount}
+                  goToNode={controller.goToNode}
+                  goToNextNode={controller.goToNextNode}
+                  goToPreviousNode={controller.goToPreviousNode}
+                  goToRootNode={controller.goToRootNode}
+                  disableKeyboardNavigation={
+                    controller.gameAnalysis.progress.isAnalyzing ||
+                    controller.learnFromMistakes.state.isActive
+                  }
+                  disableNavigation={
+                    controller.learnFromMistakes.state.isActive
+                  }
+                  embedded
+                />
+              </div>
+              <div
+                aria-hidden={desktopLeftPanelTab !== 'select-game'}
+                className={`absolute inset-0 flex min-h-0 flex-col transition-opacity duration-150 ${
+                  desktopLeftPanelTab === 'select-game'
+                    ? 'visible opacity-100'
+                    : 'pointer-events-none invisible opacity-0'
+                }`}
+              >
                 <AnalysisGameList
                   currentId={currentId}
                   loadNewWorldChampionshipGame={(newId, setCurrentMove) =>
@@ -1113,168 +1445,154 @@ const Analysis: React.FC<Props> = ({
                 />
               </div>
             </div>
-            {/* Moves + controller */}
-            <div className="red-scrollbar flex h-full flex-1 flex-col overflow-y-auto">
-              <div className="h-3 border-b border-glass-border" />
-              <MovesContainer
-                game={analyzedGame}
-                termination={analyzedGame.termination}
-                showAnnotations={true}
-                disableKeyboardNavigation={
-                  controller.gameAnalysis.progress.isAnalyzing ||
-                  controller.learnFromMistakes.state.isActive
-                }
-                disableMoveClicking={
-                  controller.learnFromMistakes.state.isActive
-                }
-                embedded
-                heightClass="h-40"
-              />
-              {/* No spacer here to keep controller tight to moves */}
-              <BoardController
-                gameTree={controller.gameTree}
-                orientation={controller.orientation}
-                setOrientation={controller.setOrientation}
-                currentNode={controller.currentNode}
-                plyCount={controller.plyCount}
-                goToNode={controller.goToNode}
-                goToNextNode={controller.goToNextNode}
-                goToPreviousNode={controller.goToPreviousNode}
-                goToRootNode={controller.goToRootNode}
-                disableKeyboardNavigation={
-                  controller.gameAnalysis.progress.isAnalyzing ||
-                  controller.learnFromMistakes.state.isActive
-                }
-                disableNavigation={controller.learnFromMistakes.state.isActive}
-                embedded
-              />
-            </div>
           </div>
         </motion.div>
         <motion.div
           className="desktop-middle-column-container flex flex-col gap-3"
           variants={itemVariants}
-          style={{ willChange: 'transform, opacity' }}
+          style={{
+            willChange: 'transform, opacity',
+            width: desktopBoardSizeCss,
+            minWidth: desktopBoardMinSizeCss,
+            height: desktopColumnTargetHeightCss,
+          }}
         >
-          <div className="flex w-full flex-col overflow-hidden">
-            <PlayerInfo
-              rounded="top"
-              name={
-                controller.orientation === 'white'
-                  ? analyzedGame.blackPlayer.name
-                  : analyzedGame.whitePlayer.name
-              }
-              rating={
-                controller.orientation === 'white'
-                  ? analyzedGame.blackPlayer.rating
-                  : analyzedGame.whitePlayer.rating
-              }
-              color={controller.orientation === 'white' ? 'black' : 'white'}
-              termination={analyzedGame.termination?.winner}
-              currentFen={controller.currentNode?.fen}
-              orientation={controller.orientation}
-            />
-            <div className="desktop-board-container relative flex aspect-square">
-              <GameBoard
-                game={analyzedGame}
-                availableMoves={
-                  controller.learnFromMistakes.state.isActive && analysisEnabled
-                    ? new Map() // Empty moves when puzzle is solved
-                    : controller.availableMoves
-                }
-                setCurrentSquare={setCurrentSquare}
-                shapes={(() => {
-                  const baseShapes = [...playedMoveShapes]
+          <div className="flex h-full w-full flex-col overflow-visible">
+            <div
+              className="desktop-board-container relative flex"
+              style={{
+                width: desktopBoardSizeCss,
+                minWidth: desktopBoardMinSizeCss,
+                height: 'auto',
+                minHeight: 0,
+              }}
+            >
+              <div className="flex w-full flex-col gap-1">
+                <div
+                  ref={desktopBoardHeaderStripRef}
+                  className="grid w-full items-center gap-1.5 py-1.5 pr-1"
+                  style={{
+                    gridTemplateColumns: `${desktopMaiaGutterWidthPx}px minmax(0,1fr) ${desktopEvalGutterWidthPx}px`,
+                  }}
+                >
+                  <div className="pointer-events-none relative flex justify-center">
+                    <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold leading-none text-human-2">
+                      White Win %
+                    </span>
+                  </div>
+                  <div className="pointer-events-none flex justify-center">
+                    <AnalysisArrowLegend
+                      labelMode="short"
+                      className="gap-x-3 text-[10px]"
+                    />
+                  </div>
+                  <div className="pointer-events-none flex justify-center">
+                    <span className="text-[10px] font-semibold leading-none text-engine-2">
+                      SF Eval
+                    </span>
+                  </div>
+                </div>
+                <div
+                  className="grid w-full items-stretch gap-1.5 pr-1"
+                  style={{
+                    gridTemplateColumns: `${desktopMaiaGutterWidthPx}px minmax(0,1fr) ${desktopEvalGutterWidthPx}px`,
+                  }}
+                >
+                  <div className="pointer-events-none flex justify-center py-1">
+                    <AnalysisMaiaWinrateBar
+                      hasValue={displayedMaiaWhiteWinBar.hasValue}
+                      displayText={displayedMaiaWhiteWinBar.label}
+                      labelPositionTop={
+                        smoothedMaiaWhiteWinVerticalPositionLabel
+                      }
+                      desktopSize={desktopBarChromeSize}
+                    />
+                  </div>
+                  <div className="relative flex aspect-square w-full">
+                    <GameBoard
+                      game={analyzedGame}
+                      availableMoves={
+                        controller.learnFromMistakes.state.isActive &&
+                        analysisEnabled
+                          ? new Map() // Empty moves when puzzle is solved
+                          : controller.availableMoves
+                      }
+                      setCurrentSquare={setCurrentSquare}
+                      shapes={(() => {
+                        const baseShapes = [...playedMoveShapes]
 
-                  // Add analysis arrows only when analysis is enabled
-                  if (analysisEnabled) {
-                    baseShapes.push(...controller.arrows)
-                  }
+                        // Add analysis arrows only when analysis is enabled
+                        if (analysisEnabled) {
+                          baseShapes.push(...controller.arrows)
+                        }
 
-                  // Add mistake arrow during learn mode when analysis is disabled
-                  if (
-                    controller.learnFromMistakes.state.isActive &&
-                    !analysisEnabled
-                  ) {
-                    const currentInfo =
-                      controller.learnFromMistakes.getCurrentInfo()
-                    if (currentInfo) {
-                      const mistake = currentInfo.mistake
-                      baseShapes.push({
-                        brush: 'paleGrey',
-                        orig: mistake.playedMove.slice(0, 2) as Key,
-                        dest: mistake.playedMove.slice(2, 4) as Key,
-                        modifiers: { lineWidth: 8 },
-                      })
-                    }
-                  }
+                        // Add mistake arrow during learn mode when analysis is disabled
+                        if (
+                          controller.learnFromMistakes.state.isActive &&
+                          !analysisEnabled
+                        ) {
+                          const currentInfo =
+                            controller.learnFromMistakes.getCurrentInfo()
+                          if (currentInfo) {
+                            const mistake = currentInfo.mistake
+                            baseShapes.push({
+                              brush: 'paleGrey',
+                              orig: mistake.playedMove.slice(0, 2) as Key,
+                              dest: mistake.playedMove.slice(2, 4) as Key,
+                              modifiers: { lineWidth: 8 },
+                            })
+                          }
+                        }
 
-                  // Add hover arrow if present
-                  if (hoverArrow) {
-                    baseShapes.push(hoverArrow)
-                  }
+                        // Add hover arrow if present
+                        if (hoverArrow) {
+                          baseShapes.push(hoverArrow)
+                        }
 
-                  return staggerOverlappingArrows(baseShapes)
-                })()}
-                currentNode={controller.currentNode as GameNode}
-                orientation={controller.orientation}
-                onPlayerMakeMove={onPlayerMakeMove}
-                goToNode={controller.goToNode}
-                gameTree={analyzedGame.tree}
-                destinationBadges={destinationBadges}
-                brushes={analysisArrowBrushes as unknown as DrawBrushes}
-              />
-              {promotionFromTo ? (
-                <PromotionOverlay
-                  player={currentPlayer}
-                  file={promotionFromTo[1].slice(0, 1)}
-                  onPlayerSelectPromotion={onPlayerSelectPromotion}
-                />
-              ) : null}
+                        return staggerOverlappingArrows(baseShapes)
+                      })()}
+                      currentNode={controller.currentNode as GameNode}
+                      orientation={controller.orientation}
+                      onPlayerMakeMove={onPlayerMakeMove}
+                      goToNode={controller.goToNode}
+                      gameTree={analyzedGame.tree}
+                      destinationBadges={destinationBadges}
+                      brushes={analysisArrowBrushes as unknown as DrawBrushes}
+                    />
+                    {promotionFromTo ? (
+                      <PromotionOverlay
+                        player={currentPlayer}
+                        file={promotionFromTo[1].slice(0, 1)}
+                        onPlayerSelectPromotion={onPlayerSelectPromotion}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="pointer-events-none flex justify-center py-1">
+                    <AnalysisStockfishEvalBar
+                      hasEval={displayedStockfishEvalBar.hasEval}
+                      displayText={displayedStockfishEvalText}
+                      labelPositionTop={smoothedEvalVerticalPositionLabel}
+                      variant="desktop"
+                      desktopSize={desktopBarChromeSize}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <PlayerInfo
-              rounded="bottom"
-              name={
-                controller.orientation === 'white'
-                  ? analyzedGame.whitePlayer.name
-                  : analyzedGame.blackPlayer.name
-              }
-              rating={
-                controller.orientation === 'white'
-                  ? analyzedGame.whitePlayer.rating
-                  : analyzedGame.blackPlayer.rating
-              }
-              color={controller.orientation === 'white' ? 'white' : 'black'}
-              termination={analyzedGame.termination?.winner}
-              showArrowLegend={true}
-              currentFen={controller.currentNode?.fen}
-              orientation={controller.orientation}
-            />
+            <div ref={desktopBlunderMeterSectionRef} className="pt-3">
+              <AnalysisCompactBlunderMeter
+                variant="desktop"
+                data={compactBlunderMeterData}
+                colorSanMapping={controller.colorSanMapping}
+                playedMove={
+                  controller.currentNode?.mainChild?.move ?? undefined
+                }
+                maiaHeaderLabel={desktopCompactBlunderMaiaHeaderLabel}
+                hover={analysisEnabled ? hover : mockHover}
+                makeMove={analysisEnabled ? makeMove : mockMakeMove}
+              />
+            </div>
           </div>
-          <ConfigurableScreens
-            currentMaiaModel={controller.currentMaiaModel}
-            setCurrentMaiaModel={controller.setCurrentMaiaModel}
-            showTopMoveBadges={controller.showTopMoveBadges}
-            setShowTopMoveBadges={controller.setShowTopMoveBadges}
-            launchContinue={launchContinue}
-            MAIA_MODELS={MAIA_MODELS}
-            game={analyzedGame}
-            currentNode={controller.currentNode as GameNode}
-            onAnalyzeEntireGame={handleAnalyzeEntireGame}
-            onLearnFromMistakes={handleLearnFromMistakes}
-            isAnalysisInProgress={controller.gameAnalysis.progress.isAnalyzing}
-            isLearnFromMistakesActive={
-              controller.learnFromMistakes.state.isActive
-            }
-            autoSave={controller.gameAnalysis.autoSave}
-            learnFromMistakesState={controller.learnFromMistakes.state}
-            learnFromMistakesCurrentInfo={controller.learnFromMistakes.getCurrentInfo()}
-            onShowSolution={handleShowSolution}
-            onNextMistake={handleNextMistake}
-            onStopLearnFromMistakes={handleStopLearnFromMistakes}
-            onSelectPlayer={handleSelectPlayer}
-            lastMoveResult={lastMoveResult}
-          />
         </motion.div>
         <AnalysisSidebar
           hover={hover}
@@ -1283,6 +1601,46 @@ const Analysis: React.FC<Props> = ({
           setHoverArrow={setHoverArrow}
           analysisEnabled={analysisEnabled}
           handleToggleAnalysis={handleToggleAnalysis}
+          hideDetailedBlunderMeter={true}
+          desktopContentHeightCss={desktopSidebarContentHeightCss}
+          containerStyle={{
+            width: 'clamp(23rem, 27vw, 26rem)',
+            minWidth: '23rem',
+            flexBasis: 'clamp(23rem, 27vw, 26rem)',
+          }}
+          footerContent={
+            <div
+              className="flex h-full min-h-0 flex-col overflow-hidden"
+              style={{ height: desktopConfigPanelHeightCss }}
+            >
+              <ConfigurableScreens
+                currentMaiaModel={controller.currentMaiaModel}
+                setCurrentMaiaModel={controller.setCurrentMaiaModel}
+                showTopMoveBadges={controller.showTopMoveBadges}
+                setShowTopMoveBadges={controller.setShowTopMoveBadges}
+                launchContinue={launchContinue}
+                MAIA_MODELS={MAIA_MODELS}
+                game={analyzedGame}
+                currentNode={controller.currentNode as GameNode}
+                onAnalyzeEntireGame={handleAnalyzeEntireGame}
+                onLearnFromMistakes={handleLearnFromMistakes}
+                isAnalysisInProgress={
+                  controller.gameAnalysis.progress.isAnalyzing
+                }
+                isLearnFromMistakesActive={
+                  controller.learnFromMistakes.state.isActive
+                }
+                autoSave={controller.gameAnalysis.autoSave}
+                learnFromMistakesState={controller.learnFromMistakes.state}
+                learnFromMistakesCurrentInfo={controller.learnFromMistakes.getCurrentInfo()}
+                onShowSolution={handleShowSolution}
+                onNextMistake={handleNextMistake}
+                onStopLearnFromMistakes={handleStopLearnFromMistakes}
+                onSelectPlayer={handleSelectPlayer}
+                lastMoveResult={lastMoveResult}
+              />
+            </div>
+          }
           itemVariants={itemVariants}
         />
       </div>
@@ -1373,30 +1731,11 @@ const Analysis: React.FC<Props> = ({
               <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch">
                 <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
                   <div className="absolute left-1/2 top-2 -translate-x-[60%]">
-                    <div className="flex w-12 flex-col items-center gap-2.5 text-[8px] font-semibold leading-none text-secondary/90">
-                      <span className="inline-flex w-full flex-col items-center gap-0.5">
-                        <span className="relative inline-flex h-3 w-5 items-center">
-                          <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-[#882020]" />
-                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-[#882020]" />
-                        </span>
-                        <span>Maia</span>
-                      </span>
-                      <span className="inline-flex w-full flex-col items-center gap-0.5">
-                        <span className="relative inline-flex h-3 w-5 items-center">
-                          <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-[#003088]" />
-                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-[#003088]" />
-                        </span>
-                        <span>SF</span>
-                      </span>
-                      <span className="inline-flex w-full flex-col items-center gap-0.5">
-                        <span className="relative inline-flex h-3 w-5 items-center">
-                          <span className="h-[4.5px] w-[calc(100%-4px)] rounded-full bg-[#4A8FB3]" />
-                          <span className="absolute left-[1px] right-[5px] top-1/2 h-[2px] -translate-y-1/2 rounded-full bg-white" />
-                          <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[4px] border-l-[5px] border-y-transparent border-l-[#4A8FB3]" />
-                        </span>
-                        <span>Played</span>
-                      </span>
-                    </div>
+                    <AnalysisArrowLegend
+                      layout="vertical"
+                      labelMode="short"
+                      className="w-12 text-[8px] font-semibold"
+                    />
                   </div>
                 </div>
                 <div
@@ -1460,117 +1799,24 @@ const Analysis: React.FC<Props> = ({
                 </div>
                 <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
                   <div className="absolute inset-y-0 left-[68%] w-4 -translate-x-1/2">
-                    <div className="relative h-full w-4">
-                      <div className="absolute inset-0 overflow-hidden rounded-[5px] border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.35)]">
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            background:
-                              'linear-gradient(180deg, rgb(154 203 242 / 1) 0%, rgb(14 54 86 / 1) 100%)',
-                          }}
-                        />
-                        {[3, 2, 1, 0, -1, -2, -3].map((value) => (
-                          <div
-                            key={`sf-tick-${value}`}
-                            className="absolute inset-x-0 -translate-y-1/2"
-                            style={{
-                              top: `${((EVAL_BAR_RANGE - value) / (EVAL_BAR_RANGE * 2)) * 100}%`,
-                              height: value === 0 ? '2px' : '1px',
-                              backgroundColor:
-                                value === 0
-                                  ? 'rgb(var(--color-backdrop) / 0.75)'
-                                  : 'rgb(var(--color-backdrop) / 0.35)',
-                            }}
-                          />
-                        ))}
-                        <div className="absolute left-1/2 top-0 -translate-x-1/2 text-[7px] font-bold leading-none text-black/90 [text-shadow:0_1px_1px_rgb(255_255_255_/_0.5)]">
-                          +4
-                        </div>
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[7px] font-bold leading-none text-white/95 [text-shadow:0_1px_1px_rgb(0_0_0_/_0.55)]">
-                          -4
-                        </div>
-                      </div>
-                      <motion.div
-                        className="absolute left-1/2 flex h-4 min-w-[30px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/45 bg-white px-1 text-[8px] font-bold leading-none text-black/85"
-                        style={{
-                          top: smoothedEvalVerticalPositionLabel,
-                          boxShadow: '0 0 0 2px rgb(255 255 255 / 0.32)',
-                          opacity: displayedStockfishEvalBar.hasEval ? 1 : 0.6,
-                        }}
-                      >
-                        {displayedStockfishEvalText}
-                      </motion.div>
-                    </div>
+                    <AnalysisStockfishEvalBar
+                      hasEval={displayedStockfishEvalBar.hasEval}
+                      displayText={displayedStockfishEvalText}
+                      labelPositionTop={smoothedEvalVerticalPositionLabel}
+                    />
                   </div>
                 </div>
               </div>
-              <div className="mt-2 flex w-[82vw] max-w-[500px] items-center gap-1">
-                <span className="shrink-0 text-[8px] font-semibold leading-none text-primary/90">
-                  Maia %
-                </span>
-                <div className="relative flex h-[22px] flex-1 overflow-hidden rounded-full border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.2)]">
-                  {mobileBlunderSegments.map((segment) => (
-                    <motion.div
-                      key={`maia-horizontal-${segment.key}`}
-                      className={`relative flex h-full items-center justify-center gap-0.5 px-1 ${segment.bgClass}`}
-                      animate={{
-                        width: `${Math.max(segment.probability, 0)}%`,
-                      }}
-                      transition={{
-                        type: 'spring',
-                        stiffness: 220,
-                        damping: 28,
-                      }}
-                    >
-                      {segment.probability >= 7 && (
-                        <>
-                          <span
-                            className={`inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full border-2 text-[8px] font-bold leading-none shadow-sm ${segment.badgeClass}`}
-                          >
-                            {segment.badge}
-                          </span>
-                          <span
-                            className={`text-[9px] font-bold leading-none ${segment.pctClass}`}
-                          >
-                            {segment.probability}%
-                          </span>
-                        </>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-              <div className="mb-1.5 mt-1 w-[82vw] max-w-[500px]">
-                <div className="flex items-center gap-2.5 whitespace-nowrap py-0.5 text-[9px] font-semibold leading-tight tracking-[0.01em]">
-                  {mobileBlunderSegments.map((segment) => (
-                    <div
-                      key={`maia-top-moves-${segment.key}`}
-                      className={`min-w-0 flex-1 truncate ${segment.moveClass}`}
-                    >
-                      {segment.label}:{' '}
-                      {segment.topMoves.length
-                        ? segment.topMoves.map((topMove, index) => (
-                            <React.Fragment
-                              key={`${segment.key}-${topMove.move}`}
-                            >
-                              {index > 0 && <span>, </span>}
-                              <button
-                                type="button"
-                                className="underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
-                                onMouseEnter={() => hover(topMove.move)}
-                                onMouseLeave={() => hover()}
-                                onClick={() => makeMove(topMove.move)}
-                                title={`Play ${topMove.label}`}
-                              >
-                                {topMove.label} {topMove.probability}%
-                              </button>
-                            </React.Fragment>
-                          ))
-                        : '-'}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <AnalysisCompactBlunderMeter
+                className="mb-1.5 mt-2 w-[82vw] max-w-[500px]"
+                data={compactBlunderMeterData}
+                colorSanMapping={controller.colorSanMapping}
+                playedMove={
+                  controller.currentNode?.mainChild?.move ?? undefined
+                }
+                hover={analysisEnabled ? hover : mockHover}
+                makeMove={analysisEnabled ? makeMove : mockMakeMove}
+              />
             </div>
             <div className="flex w-full flex-col gap-0">
               <div className="w-full !flex-grow-0">
