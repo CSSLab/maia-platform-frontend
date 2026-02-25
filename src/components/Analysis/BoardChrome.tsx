@@ -349,6 +349,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
   className,
   variant = 'mobile',
 }) => {
+  const isDesktop = variant === 'desktop'
   const getTopCategoryMoves = (
     moves: { move: string; probability: number }[],
   ) => {
@@ -391,7 +392,9 @@ export const AnalysisCompactBlunderMeter: React.FC<
       topMoves: getTopCategoryMoves(data.blunderMoves.moves),
       badge: '??',
       bgClass: 'bg-[#d73027]',
-      badgeClass: 'border-[#7f1813] bg-white/95 text-[#d73027]',
+      badgeClass: isDesktop
+        ? 'border-[#7f1813] bg-white/95 text-[#d73027]'
+        : 'border-[#a81f1a] bg-white/95 text-[#e13a31]',
       pctClass: 'text-white/95',
       moveClass: 'text-[#d73027]',
     },
@@ -401,9 +404,11 @@ export const AnalysisCompactBlunderMeter: React.FC<
       mobileLabel: 'Mistakes',
       probability: data.okMoves.probability,
       topMoves: getTopCategoryMoves(data.okMoves.moves),
-      badge: '?',
+      badge: '?!',
       bgClass: 'bg-[#fee08b]',
-      badgeClass: 'border-[#8f6b00] bg-white/95 text-[#8f6b00]',
+      badgeClass: isDesktop
+        ? 'border-[#8f6b00] bg-white/95 text-[#8f6b00]'
+        : 'border-[#b58800] bg-white/95 text-[#a27700]',
       pctClass: 'text-black/80',
       moveClass: 'text-[#fee08b]',
     },
@@ -415,13 +420,14 @@ export const AnalysisCompactBlunderMeter: React.FC<
       topMoves: getTopCategoryMoves(data.goodMoves.moves),
       badge: '✓',
       bgClass: 'bg-[#1a9850]',
-      badgeClass: 'border-[#0e5a2f] bg-white/95 text-[#1a9850]',
+      badgeClass: isDesktop
+        ? 'border-[#0e5a2f] bg-white/95 text-[#1a9850]'
+        : 'border-[#148145] bg-white/95 text-[#22ab5d]',
       pctClass: 'text-white/95',
       moveClass: 'text-[#1a9850]',
     },
   ]
 
-  const isDesktop = variant === 'desktop'
   const barHeightClass = isDesktop ? 'h-6' : 'h-[22px]'
   const barLabelWidthClass = isDesktop ? 'w-[44px]' : ''
   const badgeSizeClass = isDesktop
@@ -584,12 +590,13 @@ export const AnalysisCompactBlunderMeter: React.FC<
             {segments.map((segment) => (
               <div
                 key={`maia-top-moves-${segment.key}`}
-                className={`flex min-w-0 flex-1 items-start ${segment.moveClass} ${
-                  segment.key === 'good' ? '-ml-5' : ''
-                }`}
+                className={`flex min-w-0 flex-1 items-start ${segment.moveClass}`}
               >
-                <span className="mr-2 shrink-0 whitespace-nowrap">
-                  {segment.mobileLabel ?? segment.label}:
+                <span
+                  className={`mr-1.5 inline-flex shrink-0 items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
+                  aria-hidden="true"
+                >
+                  {segment.badge}
                 </span>
                 {segment.topMoves.length ? (
                   segment.topMoves.length >= 3 ? (
