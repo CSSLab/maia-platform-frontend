@@ -16,6 +16,7 @@ interface AnalysisStockfishEvalBarProps {
   hasEval: boolean
   displayText: string
   labelPositionTop: MotionValue<string>
+  disabled?: boolean
   variant?: StockfishEvalBarVariant
   className?: string
   range?: number
@@ -38,6 +39,7 @@ interface AnalysisMaiaWinrateBarProps {
   hasValue: boolean
   displayText: string
   labelPositionTop: MotionValue<string>
+  disabled?: boolean
   className?: string
   bubbleMinWidthPx?: number
   desktopSize?: 'compact' | 'expanded'
@@ -134,6 +136,7 @@ export const AnalysisStockfishEvalBar: React.FC<
   hasEval,
   displayText,
   labelPositionTop,
+  disabled = false,
   variant = 'mobile',
   className,
   range = 4,
@@ -165,7 +168,13 @@ export const AnalysisStockfishEvalBar: React.FC<
         .join(' ')}
     >
       <div className={`relative h-full ${widthClass}`}>
-        <div className="absolute inset-0 overflow-hidden rounded-[5px] border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.35)]">
+        <div
+          className="absolute inset-0 overflow-hidden rounded-[5px] border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.35)]"
+          style={{
+            filter: disabled ? 'grayscale(0.85) saturate(0.35)' : undefined,
+            opacity: disabled ? 0.55 : 1,
+          }}
+        >
           <div
             className="absolute inset-0"
             style={{
@@ -200,13 +209,16 @@ export const AnalysisStockfishEvalBar: React.FC<
           >
             -{range}
           </div>
+          {disabled ? (
+            <div className="absolute inset-0 bg-backdrop/25" />
+          ) : null}
         </div>
         <motion.div
           className={`absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center border border-black/45 bg-white font-bold leading-none text-black/85 ${bubbleClass}`}
           style={{
             top: labelPositionTop,
             boxShadow: '0 0 0 2px rgb(255 255 255 / 0.32)',
-            opacity: hasEval ? 1 : 0.6,
+            opacity: disabled ? 0.45 : hasEval ? 1 : 0.6,
             minWidth: bubbleMinWidthPx,
           }}
         >
@@ -221,6 +233,7 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
   hasValue,
   displayText,
   labelPositionTop,
+  disabled = false,
   className,
   bubbleMinWidthPx,
   desktopSize = 'compact',
@@ -238,7 +251,13 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
       <div
         className={`relative h-full ${isExpandedDesktop ? 'w-[18px]' : 'w-[16px]'}`}
       >
-        <div className="absolute inset-0 overflow-hidden rounded-[5px] border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.35)]">
+        <div
+          className="absolute inset-0 overflow-hidden rounded-[5px] border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.35)]"
+          style={{
+            filter: disabled ? 'grayscale(0.85) saturate(0.35)' : undefined,
+            opacity: disabled ? 0.55 : 1,
+          }}
+        >
           <div
             className="absolute inset-0"
             style={{
@@ -272,6 +291,9 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
           >
             0
           </div>
+          {disabled ? (
+            <div className="absolute inset-0 bg-backdrop/25" />
+          ) : null}
         </div>
         <motion.div
           className={`absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/45 bg-white font-bold leading-none text-black/85 ${
@@ -282,7 +304,7 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
           style={{
             top: labelPositionTop,
             boxShadow: '0 0 0 2px rgb(255 255 255 / 0.32)',
-            opacity: hasValue ? 1 : 0.6,
+            opacity: disabled ? 0.45 : hasValue ? 1 : 0.6,
             minWidth: bubbleMinWidthPx,
           }}
         >
