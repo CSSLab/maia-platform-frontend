@@ -459,13 +459,10 @@ const Analysis: React.FC<Props> = ({
     }
 
     updateHeights()
-
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(updateHeights)
-    if (headerEl) observer.observe(headerEl)
-    if (blunderEl) observer.observe(blunderEl)
-    return () => observer.disconnect()
-  }, [isMobile, width, desktopMiddleMeasuredHeights])
+    // Intentionally avoid observing live content changes here; the blunder-meter
+    // rows can vary slightly by move, which causes distracting board-size jitter
+    // during arrow-key paging. Re-measure on width changes only.
+  }, [isMobile, width])
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
   const [currentSquare, setCurrentSquare] = useState<Key | null>(null)
   const [promotionFromTo, setPromotionFromTo] = useState<
@@ -1062,26 +1059,15 @@ const Analysis: React.FC<Props> = ({
     smoothedMaiaWhiteWinPosition.set(maiaWhiteWinPositionPercent)
   }, [maiaWhiteWinPositionPercent, smoothedMaiaWhiteWinPosition])
 
-  const desktopMaiaBubbleReservePx = useMemo(() => {
-    const useExpandedDesktopBarChrome = width >= 1360
-    const text = displayedMaiaWhiteWinBar.label || '--'
-    const estimatedWidth = Math.ceil(
-      text.length * (useExpandedDesktopBarChrome ? 7 : 6.5) +
-        (useExpandedDesktopBarChrome ? 18 : 14),
-    )
-    return Math.max(useExpandedDesktopBarChrome ? 42 : 36, estimatedWidth)
-  }, [displayedMaiaWhiteWinBar.label, width])
+  const desktopMaiaBubbleReservePx = useMemo(
+    () => (width >= 1360 ? 62 : 52),
+    [width],
+  )
 
-  const desktopEvalBubbleReservePx = useMemo(() => {
-    const useExpandedDesktopBarChrome = width >= 1360
-    const text = displayedStockfishEvalText || '--'
-    // Reserve enough gutter for a centered bubble without forcing the bubble wider.
-    const estimatedWidth = Math.ceil(
-      text.length * (useExpandedDesktopBarChrome ? 7 : 6.5) +
-        (useExpandedDesktopBarChrome ? 18 : 14),
-    )
-    return Math.max(useExpandedDesktopBarChrome ? 42 : 36, estimatedWidth)
-  }, [displayedStockfishEvalText, width])
+  const desktopEvalBubbleReservePx = useMemo(
+    () => (width >= 1360 ? 56 : 48),
+    [width],
+  )
 
   const desktopEvalGutterWidthPx = useMemo(
     () => desktopEvalBubbleReservePx + 6,
