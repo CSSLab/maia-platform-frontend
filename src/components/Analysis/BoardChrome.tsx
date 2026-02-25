@@ -40,6 +40,7 @@ interface AnalysisMaiaWinrateBarProps {
   displayText: string
   labelPositionTop: MotionValue<string>
   disabled?: boolean
+  variant?: StockfishEvalBarVariant
   className?: string
   bubbleMinWidthPx?: number
   desktopSize?: 'compact' | 'expanded'
@@ -159,7 +160,7 @@ export const AnalysisStockfishEvalBar: React.FC<
     ? isExpandedDesktop
       ? 'h-6 min-w-[42px] rounded-full px-2 text-[11px]'
       : 'h-5 min-w-[36px] rounded-full px-1.5 text-[10px]'
-    : 'h-4 min-w-[30px] rounded-full px-1 text-[8px]'
+    : 'h-[18px] w-[36px] rounded-full px-1 text-[9px]'
 
   return (
     <div
@@ -234,23 +235,35 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
   displayText,
   labelPositionTop,
   disabled = false,
+  variant = 'desktop',
   className,
   bubbleMinWidthPx,
   desktopSize = 'compact',
 }) => {
+  const isDesktop = variant === 'desktop'
   const isExpandedDesktop = desktopSize === 'expanded'
+  const widthClass = isDesktop
+    ? isExpandedDesktop
+      ? 'w-[18px]'
+      : 'w-[16px]'
+    : 'w-4'
+  const tickTextClass = isDesktop
+    ? isExpandedDesktop
+      ? 'text-[9px]'
+      : 'text-[8px]'
+    : 'text-[8px]'
+  const bubbleClass = isDesktop
+    ? isExpandedDesktop
+      ? 'h-6 min-w-[42px] px-2 text-[11px]'
+      : 'h-5 min-w-[36px] px-1.5 text-[10px]'
+    : 'h-[18px] w-[36px] rounded-full px-1 text-[9px]'
   return (
     <div
-      className={[
-        `relative h-full ${isExpandedDesktop ? 'w-[18px]' : 'w-[16px]'}`,
-        className,
-      ]
+      className={[`relative h-full ${widthClass}`, className]
         .filter(Boolean)
         .join(' ')}
     >
-      <div
-        className={`relative h-full ${isExpandedDesktop ? 'w-[18px]' : 'w-[16px]'}`}
-      >
+      <div className={`relative h-full ${widthClass}`}>
         <div
           className="absolute inset-0 overflow-hidden rounded-[5px] border border-glass-border bg-glass-strong shadow-[0_0_0_1px_rgb(var(--color-backdrop)/0.35)]"
           style={{
@@ -282,12 +295,12 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
             ),
           )}
           <div
-            className={`absolute left-1/2 top-0 -translate-x-1/2 font-bold leading-none text-black/90 [text-shadow:0_1px_1px_rgb(255_255_255_/_0.5)] ${isExpandedDesktop ? 'text-[9px]' : 'text-[8px]'}`}
+            className={`absolute left-1/2 top-0 -translate-x-1/2 font-bold leading-none text-black/90 [text-shadow:0_1px_1px_rgb(255_255_255_/_0.5)] ${tickTextClass}`}
           >
             100
           </div>
           <div
-            className={`absolute bottom-0 left-1/2 -translate-x-1/2 font-bold leading-none text-white/95 [text-shadow:0_1px_1px_rgb(0_0_0_/_0.55)] ${isExpandedDesktop ? 'text-[9px]' : 'text-[8px]'}`}
+            className={`absolute bottom-0 left-1/2 -translate-x-1/2 font-bold leading-none text-white/95 [text-shadow:0_1px_1px_rgb(0_0_0_/_0.55)] ${tickTextClass}`}
           >
             0
           </div>
@@ -296,11 +309,7 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
           ) : null}
         </div>
         <motion.div
-          className={`absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/45 bg-white font-bold leading-none text-black/85 ${
-            isExpandedDesktop
-              ? 'h-6 min-w-[42px] px-2 text-[11px]'
-              : 'h-5 min-w-[36px] px-1.5 text-[10px]'
-          }`}
+          className={`absolute left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/45 bg-white font-bold leading-none text-black/85 ${bubbleClass}`}
           style={{
             top: labelPositionTop,
             boxShadow: '0 0 0 2px rgb(255 255 255 / 0.32)',
@@ -318,6 +327,7 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
 type SegmentConfig = {
   key: 'blunder' | 'ok' | 'good'
   label: string
+  mobileLabel?: string
   probability: number
   topMoves: { move: string; probability: number; label: string }[]
   badge: string
@@ -376,6 +386,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
     {
       key: 'blunder',
       label: 'Blunders',
+      mobileLabel: 'Blunders',
       probability: data.blunderMoves.probability,
       topMoves: getTopCategoryMoves(data.blunderMoves.moves),
       badge: '??',
@@ -387,6 +398,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
     {
       key: 'ok',
       label: 'Mistakes',
+      mobileLabel: 'Mistakes',
       probability: data.okMoves.probability,
       topMoves: getTopCategoryMoves(data.okMoves.moves),
       badge: '?',
@@ -398,6 +410,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
     {
       key: 'good',
       label: 'Best Moves',
+      mobileLabel: 'Best',
       probability: data.goodMoves.probability,
       topMoves: getTopCategoryMoves(data.goodMoves.moves),
       badge: '✓',
@@ -415,13 +428,13 @@ export const AnalysisCompactBlunderMeter: React.FC<
     ? 'h-5 min-w-5 text-[10px]'
     : 'h-3.5 min-w-3.5 text-[8px]'
   const percentTextClass = isDesktop ? 'text-[11px]' : 'text-[9px]'
-  const metaTextClass = isDesktop ? 'text-xs py-1.5' : 'text-[9px] py-0.5'
+  const metaTextClass = isDesktop ? 'text-xs py-1.5' : 'text-[10px] py-1.5'
   const playedMoveOutlineOuterInsetClass = isDesktop
     ? '-inset-x-[11px] -inset-y-[5px]'
-    : '-inset-x-[7px] -inset-y-[4px]'
+    : '-inset-x-[6px] -inset-y-[2px]'
   const playedMoveOutlineInnerInsetClass = isDesktop
     ? '-inset-x-[8px] -inset-y-[3px]'
-    : '-inset-x-[5px] -inset-y-[3px]'
+    : '-inset-x-[4px] -inset-y-[1px]'
   const renderTopMoveButton = (
     segmentKey: string,
     topMove: { move: string; probability: number; label: string },
@@ -471,6 +484,26 @@ export const AnalysisCompactBlunderMeter: React.FC<
       </button>
     )
   }
+  const renderMobileMoveSequence = (
+    segmentKey: string,
+    moves: { move: string; probability: number; label: string }[],
+    startIndex = 0,
+  ) =>
+    moves.map((topMove, index) => {
+      const absoluteIndex = startIndex + index
+      return (
+        <span
+          key={`${segmentKey}-${topMove.move}-${absoluteIndex}`}
+          className="inline-flex min-w-0 items-baseline"
+        >
+          {absoluteIndex > 0 ? <span className="mr-1"> </span> : null}
+          {renderTopMoveButton(segmentKey, topMove)}
+          {absoluteIndex < startIndex + moves.length - 1 ? (
+            <span className="mr-1">,</span>
+          ) : null}
+        </span>
+      )
+    })
 
   return (
     <div
@@ -546,22 +579,48 @@ export const AnalysisCompactBlunderMeter: React.FC<
           </div>
         ) : (
           <div
-            className={`flex items-center gap-2.5 whitespace-nowrap font-semibold leading-tight tracking-[0.01em] ${metaTextClass}`}
+            className={`flex min-h-[38px] items-start gap-2.5 pt-1 font-semibold leading-snug tracking-[0.01em] ${metaTextClass}`}
           >
             {segments.map((segment) => (
               <div
                 key={`maia-top-moves-${segment.key}`}
-                className={`min-w-0 flex-1 truncate ${segment.moveClass}`}
+                className={`flex min-w-0 flex-1 items-start ${segment.moveClass} ${
+                  segment.key === 'good' ? '-ml-5' : ''
+                }`}
               >
-                {segment.label}:{' '}
-                {segment.topMoves.length
-                  ? segment.topMoves.map((topMove, index) => (
-                      <span key={`${segment.key}-${topMove.move}`}>
-                        {index > 0 ? <span>, </span> : null}
-                        {renderTopMoveButton(segment.key, topMove)}
+                <span className="mr-2 shrink-0 whitespace-nowrap">
+                  {segment.mobileLabel ?? segment.label}:
+                </span>
+                {segment.topMoves.length ? (
+                  segment.topMoves.length >= 3 ? (
+                    <span className="flex min-w-0 flex-col gap-0.5 leading-tight">
+                      <span className="-mx-[6px] inline-flex min-w-0 items-baseline whitespace-nowrap px-[6px]">
+                        {renderMobileMoveSequence(
+                          segment.key,
+                          segment.topMoves.slice(0, 2),
+                          0,
+                        )}
                       </span>
-                    ))
-                  : '-'}
+                      <span className="-mx-[6px] inline-flex min-w-0 items-baseline whitespace-nowrap px-[6px]">
+                        {renderMobileMoveSequence(
+                          segment.key,
+                          segment.topMoves.slice(2),
+                          2,
+                        )}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="-mx-[6px] inline-flex min-w-0 items-baseline whitespace-nowrap px-[6px]">
+                      {renderMobileMoveSequence(
+                        segment.key,
+                        segment.topMoves,
+                        0,
+                      )}
+                    </span>
+                  )
+                ) : (
+                  '-'
+                )}
               </div>
             ))}
           </div>

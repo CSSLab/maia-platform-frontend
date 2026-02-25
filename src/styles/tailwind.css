@@ -161,13 +161,24 @@ svg {
   scrollbar-width: none;
 }
 
+.red-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--color-human-accent3)) rgb(var(--color-backdrop) / 0.22);
+}
+
 .red-scrollbar::-webkit-scrollbar {
   width: 5px;
+  height: 5px;
+}
+
+.red-scrollbar::-webkit-scrollbar-track {
+  background-color: rgb(var(--color-backdrop) / 0.18);
+  border-radius: 9999px;
 }
 
 .red-scrollbar::-webkit-scrollbar-thumb {
   background-color: rgb(var(--color-human-accent3));
-  border-radius: 1px;
+  border-radius: 9999px;
 }
 
 .red-scrollbar::-webkit-scrollbar-thumb:hover {

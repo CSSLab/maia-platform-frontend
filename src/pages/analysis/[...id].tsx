@@ -1230,6 +1230,14 @@ const Analysis: React.FC<Props> = ({
     smoothedEvalPosition.set(evalBarPositionTargetPercent)
   }, [evalBarPositionTargetPercent, smoothedEvalPosition])
 
+  const formatAnalysisPlayerName = (name: string) => {
+    const maiaMatch = name.match(/^maia_kdd_(\d+)$/i)
+    if (maiaMatch) {
+      return `Maia ${maiaMatch[1]}`
+    }
+    return name
+  }
+
   const NestedGameInfo = () => (
     <div className="flex w-full flex-col">
       <div className="hidden md:block">
@@ -1240,7 +1248,9 @@ const Analysis: React.FC<Props> = ({
                 <div
                   className={`h-2 w-2 rounded-full ${index === 0 ? 'bg-white' : 'border-[0.5px] bg-black'}`}
                 />
-                <p className="text-sm">{player.name}</p>
+                <p className="text-sm">
+                  {formatAnalysisPlayerName(player.name)}
+                </p>
                 <span className="text-xs">
                   {player.rating ? <>({player.rating})</> : null}
                 </span>
@@ -1261,8 +1271,12 @@ const Analysis: React.FC<Props> = ({
       </div>
       <div className="flex w-full items-center justify-between text-xs md:hidden">
         <div className="flex items-center gap-1">
-          <div className="h-2 w-2 rounded-full bg-white" />
-          <span className="font-medium">{analyzedGame.whitePlayer.name}</span>
+          <span className="inline-flex w-4 items-center justify-center">
+            <div className="h-2 w-2 rounded-full bg-white" />
+          </span>
+          <span className="font-medium">
+            {formatAnalysisPlayerName(analyzedGame.whitePlayer.name)}
+          </span>
           {analyzedGame.whitePlayer.rating && (
             <span className="text-primary/60">
               ({analyzedGame.whitePlayer.rating})
@@ -1285,8 +1299,12 @@ const Analysis: React.FC<Props> = ({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <div className="h-2 w-2 rounded-full border-[0.5px] bg-black" />
-          <span className="font-medium">{analyzedGame.blackPlayer.name}</span>
+          <span className="inline-flex w-4 items-center justify-center">
+            <div className="h-2 w-2 rounded-full border-[0.5px] bg-black" />
+          </span>
+          <span className="font-medium">
+            {formatAnalysisPlayerName(analyzedGame.blackPlayer.name)}
+          </span>
           {analyzedGame.blackPlayer.rating && (
             <span className="text-primary/60">
               ({analyzedGame.blackPlayer.rating})
@@ -1740,23 +1758,58 @@ const Analysis: React.FC<Props> = ({
               MAIA_MODELS={MAIA_MODELS}
               onGameListClick={() => setShowGameListMobile(true)}
               showGameListButton={true}
+              mobileActions={
+                <button
+                  type="button"
+                  onClick={handleToggleAnalysis}
+                  className={`flex items-center gap-1 rounded bg-human-4/30 px-2 py-1 text-xxs text-human-2 duration-200 hover:bg-human-4/50 md:hidden md:text-sm ${
+                    analysisEnabled ? 'text-human-2' : 'text-white/80'
+                  }`}
+                  aria-pressed={analysisEnabled}
+                >
+                  <span className="material-symbols-outlined text-xxs md:text-sm">
+                    {analysisEnabled ? 'visibility_off' : 'visibility'}
+                  </span>
+                  <span>{analysisEnabled ? 'Hide' : 'Show'}</span>
+                </button>
+              }
             >
               <NestedGameInfo />
             </GameInfo>
             <div className="flex w-full flex-col items-center px-3">
-              <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch">
-                <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
-                  <div className="absolute left-1/2 top-2 -translate-x-[60%]">
-                    <AnalysisArrowLegend
-                      layout="vertical"
-                      labelMode="short"
-                      className="w-12 text-[8px] font-semibold"
-                    />
-                  </div>
+              <div className="pointer-events-none mb-0.5 grid h-5 w-full max-w-[560px] grid-cols-[30px_minmax(0,1fr)_30px] items-center gap-3">
+                <div className="flex justify-center">
+                  <span className="translate-y-px whitespace-nowrap text-[8px] font-extrabold leading-none text-human-2">
+                    Maia %
+                  </span>
+                </div>
+                <AnalysisArrowLegend
+                  labelMode="short"
+                  className="translate-y-px justify-center gap-x-3 self-center text-[8px] font-semibold"
+                />
+                <div className="flex justify-center">
+                  <span className="translate-y-px whitespace-nowrap text-[8px] font-extrabold leading-none text-engine-2">
+                    SF Eval
+                  </span>
+                </div>
+              </div>
+              <div className="grid w-full max-w-[560px] grid-cols-[30px_minmax(0,1fr)_30px] items-stretch gap-3">
+                <div className="pointer-events-none flex min-h-0 min-w-0 justify-center self-stretch">
+                  <AnalysisMaiaWinrateBar
+                    hasValue={renderedMaiaWhiteWinBar.hasValue}
+                    displayText={
+                      renderedMaiaWhiteWinBar.hasValue
+                        ? `${Math.round(renderedMaiaWhiteWinBar.percent)}%`
+                        : '--'
+                    }
+                    labelPositionTop={smoothedMaiaWhiteWinVerticalPositionLabel}
+                    disabled={!analysisEnabled}
+                    variant="mobile"
+                  />
                 </div>
                 <div
                   id="analysis"
-                  className="relative flex aspect-square w-[82vw] max-w-[500px]"
+                  className="relative flex aspect-square w-full"
                 >
                   <GameBoard
                     game={analyzedGame}
@@ -1813,19 +1866,18 @@ const Analysis: React.FC<Props> = ({
                     />
                   ) : null}
                 </div>
-                <div className="pointer-events-none relative min-h-0 min-w-0 self-stretch">
-                  <div className="absolute inset-y-0 left-[68%] w-4 -translate-x-1/2">
-                    <AnalysisStockfishEvalBar
-                      hasEval={renderedStockfishEvalBar.hasEval}
-                      displayText={renderedStockfishEvalText}
-                      labelPositionTop={smoothedEvalVerticalPositionLabel}
-                      disabled={!analysisEnabled}
-                    />
-                  </div>
+                <div className="pointer-events-none flex min-h-0 min-w-0 justify-center self-stretch">
+                  <AnalysisStockfishEvalBar
+                    hasEval={renderedStockfishEvalBar.hasEval}
+                    displayText={renderedStockfishEvalText}
+                    labelPositionTop={smoothedEvalVerticalPositionLabel}
+                    disabled={!analysisEnabled}
+                    variant="mobile"
+                  />
                 </div>
               </div>
               <AnalysisCompactBlunderMeter
-                className="mb-1.5 mt-2 w-[82vw] max-w-[500px]"
+                className="mb-1.5 mt-3 w-full max-w-[560px]"
                 data={compactBlunderMeterData}
                 colorSanMapping={controller.colorSanMapping}
                 playedMove={
@@ -1930,6 +1982,8 @@ const Analysis: React.FC<Props> = ({
                         }
                   }
                   currentNode={controller.currentNode}
+                  hideWhiteWinRateSummary={true}
+                  hideStockfishEvalSummary={true}
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
@@ -2073,14 +2127,14 @@ const Analysis: React.FC<Props> = ({
       <Head>
         <title>
           {analyzedGame
-            ? `Analyze: ${analyzedGame.whitePlayer.name} vs ${analyzedGame.blackPlayer.name} – Maia Chess`
+            ? `Analyze: ${formatAnalysisPlayerName(analyzedGame.whitePlayer.name)} vs ${formatAnalysisPlayerName(analyzedGame.blackPlayer.name)} – Maia Chess`
             : 'Analyze – Maia Chess'}
         </title>
         <meta
           name="description"
           content={
             analyzedGame
-              ? `Analyze ${analyzedGame.whitePlayer.name} vs ${analyzedGame.blackPlayer.name} with human-aware AI. See what real players would do, explore moves by rating level, and spot where blunders are most likely to occur.`
+              ? `Analyze ${formatAnalysisPlayerName(analyzedGame.whitePlayer.name)} vs ${formatAnalysisPlayerName(analyzedGame.blackPlayer.name)} with human-aware AI. See what real players would do, explore moves by rating level, and spot where blunders are most likely to occur.`
               : 'Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers.'
           }
         />
