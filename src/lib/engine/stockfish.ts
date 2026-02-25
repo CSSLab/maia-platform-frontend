@@ -4,6 +4,16 @@ import StockfishWeb from 'lila-stockfish-web'
 import { StockfishEvaluation } from 'src/types'
 import { StockfishModelStorage } from './stockfishStorage'
 
+const DEFAULT_NNUE_FETCH_TIMEOUT_MS = 30000
+type StockfishInitPhase =
+  | 'idle'
+  | 'loading-module'
+  | 'checking-cache'
+  | 'downloading-nnue'
+  | 'loading-nnue'
+  | 'ready'
+  | 'error'
+
 class Engine {
   private fen: string
   private moves: string[]
@@ -21,6 +31,9 @@ class Engine {
   private evaluationRejecter: ((reason?: unknown) => void) | null
   private evaluationPromise: Promise<StockfishEvaluation> | null
   private evaluationGenerator: AsyncGenerator<StockfishEvaluation> | null
+  private initError: string | null
+  private initInFlight: boolean
+  private initPhase: StockfishInitPhase
 
   constructor() {
     this.fen = ''
@@ -33,10 +46,22 @@ class Engine {
     this.evaluationRejecter = null
     this.evaluationPromise = null
     this.evaluationGenerator = null
+    this.initError = null
+    this.initInFlight = false
+    this.initPhase = 'idle'
 
     this.onMessage = this.onMessage.bind(this)
 
-    setupStockfish()
+    // Skip browser-only Stockfish initialization during SSR/Node renders.
+    if (typeof window === 'undefined' || typeof Worker === 'undefined') {
+      return
+    }
+
+    this.initInFlight = true
+    this.initPhase = 'loading-module'
+    setupStockfish((phase) => {
+      this.initPhase = phase
+    })
       .then((stockfish: StockfishWeb) => {
         this.stockfish = stockfish
         stockfish.uci('uci')
@@ -44,17 +69,40 @@ class Engine {
         stockfish.uci('setoption name MultiPV value 100')
         stockfish.onError = this.onError
         stockfish.listen = this.onMessage
+        this.initError = null
         this.isReady = true
         this.nnueLoaded = true
+        this.initPhase = 'ready'
       })
       .catch((error) => {
         console.error('Failed to initialize Stockfish:', error)
+        this.initError =
+          error instanceof Error
+            ? error.message
+            : 'Unknown initialization error'
         this.isReady = false
+        this.nnueLoaded = false
+        this.initPhase = 'error'
+      })
+      .finally(() => {
+        this.initInFlight = false
       })
   }
 
   get ready(): boolean {
     return this.isReady && this.stockfish !== null && this.nnueLoaded
+  }
+
+  get initializationError(): string | null {
+    return this.initError
+  }
+
+  get initializing(): boolean {
+    return this.initInFlight
+  }
+
+  get initializationPhase(): StockfishInitPhase {
+    return this.initPhase
   }
 
   async *streamEvaluations(
@@ -63,7 +111,7 @@ class Engine {
     targetDepth = 18,
   ): AsyncGenerator<StockfishEvaluation> {
     if (this.stockfish && this.isReady) {
-      if (typeof global.gc === 'function') {
+      if (typeof global !== 'undefined' && typeof global.gc === 'function') {
         global.gc()
       }
 
@@ -340,16 +388,51 @@ const sharedWasmMemory = (lo: number, hi = 32767): WebAssembly.Memory => {
   }
 }
 
+const getNnueFetchTimeoutMs = (): number => {
+  const raw = process.env.NEXT_PUBLIC_STOCKFISH_NNUE_FETCH_TIMEOUT_MS
+  const parsed = raw ? parseInt(raw, 10) : NaN
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_NNUE_FETCH_TIMEOUT_MS
+}
+
+const fetchWithTimeout = async (
+  url: string,
+  timeoutMs: number,
+): Promise<Response> => {
+  if (typeof AbortController === 'undefined' || timeoutMs <= 0) {
+    return fetch(url)
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(
+        `Stockfish NNUE fetch timed out after ${timeoutMs}ms: ${url}`,
+      )
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 const loadNnueModel = async (
   modelUrl: string,
   storage: StockfishModelStorage,
+  timeoutMs: number,
+  onNetworkFetchStart?: () => void,
 ): Promise<ArrayBuffer> => {
   const cachedModel = await storage.getModel(modelUrl)
   if (cachedModel) {
     return cachedModel
   }
 
-  const response = await fetch(modelUrl)
+  onNetworkFetchStart?.()
+  const response = await fetchWithTimeout(modelUrl, timeoutMs)
   if (!response.ok) {
     throw new Error(
       `Failed to fetch Stockfish NNUE model (${response.status}) from ${modelUrl}`,
@@ -361,45 +444,54 @@ const loadNnueModel = async (
   return buffer
 }
 
-const setupStockfish = (): Promise<StockfishWeb> => {
-  return new Promise<StockfishWeb>((resolve, reject) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    import('lila-stockfish-web/sf17-79.js').then((makeModule: any) => {
-      makeModule
-        .default({
-          wasmMemory: sharedWasmMemory(2560),
-          onError: (msg: string) => reject(new Error(msg)),
-          locateFile: (name: string) => `/stockfish/${name}`,
-        })
-        .then(async (instance: StockfishWeb) => {
-          // NNUE weights served via raw.githubusercontent.com permalink (CORS + COEP compatible).
-          // Override with NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL for self-hosted deployments.
-          const nnueBaseUrl =
-            process.env.NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL ??
-            'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
-          const storage = new StockfishModelStorage()
-          await storage.requestPersistentStorage()
-
-          const nnue0Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`
-          const nnue1Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`
-
-          // Load NNUE models before resolving
-          Promise.all([
-            loadNnueModel(nnue0Url, storage),
-            loadNnueModel(nnue1Url, storage),
-          ])
-            .then((buffers) => {
-              instance.setNnueBuffer(new Uint8Array(buffers[0]), 0)
-              instance.setNnueBuffer(new Uint8Array(buffers[1]), 1)
-              resolve(instance)
-            })
-            .catch((error) => {
-              console.error('Failed to load NNUE models:', error)
-              reject(error)
-            })
-        })
-    })
+const setupStockfish = async (
+  onPhaseChange?: (phase: StockfishInitPhase) => void,
+): Promise<StockfishWeb> => {
+  onPhaseChange?.('loading-module')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const makeModule: any = await import('lila-stockfish-web/sf17-79.js')
+  const instance: StockfishWeb = await makeModule.default({
+    wasmMemory: sharedWasmMemory(2560),
+    locateFile: (name: string) => `/stockfish/${name}`,
   })
+
+  // NNUE weights served via raw.githubusercontent.com permalink (CORS + COEP compatible).
+  // Override with NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL for self-hosted deployments.
+  const nnueBaseUrl =
+    process.env.NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL ??
+    'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
+  const storage = new StockfishModelStorage()
+  await storage.requestPersistentStorage()
+
+  const nnue0Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`
+  const nnue1Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`
+  const timeoutMs = getNnueFetchTimeoutMs()
+  let downloadStarted = false
+
+  try {
+    onPhaseChange?.('checking-cache')
+    const buffers = await Promise.all([
+      loadNnueModel(nnue0Url, storage, timeoutMs, () => {
+        if (!downloadStarted) {
+          downloadStarted = true
+          onPhaseChange?.('downloading-nnue')
+        }
+      }),
+      loadNnueModel(nnue1Url, storage, timeoutMs, () => {
+        if (!downloadStarted) {
+          downloadStarted = true
+          onPhaseChange?.('downloading-nnue')
+        }
+      }),
+    ])
+    onPhaseChange?.('loading-nnue')
+    instance.setNnueBuffer(new Uint8Array(buffers[0]), 0)
+    instance.setNnueBuffer(new Uint8Array(buffers[1]), 1)
+    return instance
+  } catch (error) {
+    console.error('Failed to load NNUE models:', error)
+    throw error
+  }
 }
 
 export default Engine

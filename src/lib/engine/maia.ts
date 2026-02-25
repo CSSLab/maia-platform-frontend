@@ -97,7 +97,11 @@ class Maia {
       position += chunk.length
     }
 
-    await this.storage.storeModel(this.modelUrl, this.modelVersion, buffer.buffer)
+    await this.storage.storeModel(
+      this.modelUrl,
+      this.modelVersion,
+      buffer.buffer,
+    )
 
     await this.initializeModel(buffer.buffer)
     this.options.setStatus('ready')
