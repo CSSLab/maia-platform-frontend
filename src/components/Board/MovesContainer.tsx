@@ -16,6 +16,7 @@ interface Props {
   disableMoveClicking?: boolean
   startFromNode?: GameNode
   restrictNavigationBefore?: GameNode
+  forceMobileLayout?: boolean
 }
 
 const getMoveClassification = (node: GameNode | null) => {
@@ -50,10 +51,12 @@ export const MovesContainer: React.FC<
     disableMoveClicking = false,
     startFromNode,
     restrictNavigationBefore,
+    forceMobileLayout,
     embedded = true,
     heightClass = 'h-48',
   } = props as Props & { embedded?: boolean; heightClass?: string }
-  const { isMobile } = useContext(WindowSizeContext)
+  const { isMobile: viewportIsMobile } = useContext(WindowSizeContext)
+  const isMobile = forceMobileLayout ?? viewportIsMobile
   const containerRef = useRef<HTMLDivElement>(null)
   const currentMoveRef = useRef<HTMLDivElement>(null)
 

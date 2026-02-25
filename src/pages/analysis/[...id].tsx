@@ -421,6 +421,17 @@ const Analysis: React.FC<Props> = ({
 }: Props) => {
   const { width, height } = useContext(WindowSizeContext)
   const isMobile = useMemo(() => width > 0 && width <= 670, [width])
+  const useMobileStyleAnalysisLayout = useMemo(() => {
+    if (isMobile) return true
+
+    // Use mobile-style analysis layout for tablet/medium widths to avoid the
+    // cramped intermediate desktop layout (e.g. iPad and narrow desktop windows).
+    return width > 670 && width <= 1120
+  }, [isMobile, width])
+  const isTabletUsingMobileStyleLayout = useMemo(
+    () => useMobileStyleAnalysisLayout && !isMobile,
+    [isMobile, useMobileStyleAnalysisLayout],
+  )
   const desktopBoardHeaderStripRef = useRef<HTMLDivElement | null>(null)
   const desktopBlunderMeterSectionRef = useRef<HTMLDivElement | null>(null)
   const [desktopMiddleMeasuredHeights, setDesktopMiddleMeasuredHeights] =
@@ -430,7 +441,7 @@ const Analysis: React.FC<Props> = ({
     })
 
   useIsomorphicLayoutEffect(() => {
-    if (isMobile) return
+    if (useMobileStyleAnalysisLayout) return
 
     const headerEl = desktopBoardHeaderStripRef.current
     const blunderEl = desktopBlunderMeterSectionRef.current
@@ -462,7 +473,7 @@ const Analysis: React.FC<Props> = ({
     // Intentionally avoid observing live content changes here; the blunder-meter
     // rows can vary slightly by move, which causes distracting board-size jitter
     // during arrow-key paging. Re-measure on width changes only.
-  }, [isMobile, width])
+  }, [useMobileStyleAnalysisLayout, width])
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
   const [currentSquare, setCurrentSquare] = useState<Key | null>(null)
   const [promotionFromTo, setPromotionFromTo] = useState<
@@ -1185,7 +1196,9 @@ const Analysis: React.FC<Props> = ({
   >(desktopLeftPanelTabs[0].id)
 
   useEffect(() => {
-    if (isMobile || desktopLeftPanelTab !== 'select-game') return
+    if (useMobileStyleAnalysisLayout || desktopLeftPanelTab !== 'select-game') {
+      return
+    }
 
     const keyboardNavigationDisabled =
       controller.gameAnalysis.progress.isAnalyzing ||
@@ -1231,7 +1244,7 @@ const Analysis: React.FC<Props> = ({
     controller.goToPreviousNode,
     controller.learnFromMistakes.state.isActive,
     desktopLeftPanelTab,
-    isMobile,
+    useMobileStyleAnalysisLayout,
   ])
 
   const smoothedEvalPosition = useSpring(50, {
@@ -1945,11 +1958,18 @@ const Analysis: React.FC<Props> = ({
                   }
                 />
               </div>
-              <div className="relative bottom-0 h-48 max-h-48 flex-1 overflow-auto overflow-y-hidden">
+              <div
+                className={`relative bottom-0 overflow-auto overflow-y-hidden ${
+                  isTabletUsingMobileStyleLayout
+                    ? 'h-12 max-h-12 flex-none'
+                    : 'h-48 max-h-48 flex-1'
+                }`}
+              >
                 <MovesContainer
                   game={analyzedGame}
                   termination={analyzedGame.termination}
                   showAnnotations={true}
+                  forceMobileLayout={useMobileStyleAnalysisLayout}
                   disableKeyboardNavigation={
                     controller.gameAnalysis.progress.isAnalyzing ||
                     controller.learnFromMistakes.state.isActive
@@ -2185,7 +2205,11 @@ const Analysis: React.FC<Props> = ({
         ) : null}
       </AnimatePresence>
       <TreeControllerContext.Provider value={controller}>
-        {analyzedGame && <div>{isMobile ? mobileLayout : desktopLayout}</div>}
+        {analyzedGame && (
+          <div>
+            {useMobileStyleAnalysisLayout ? mobileLayout : desktopLayout}
+          </div>
+        )}
       </TreeControllerContext.Provider>
       <AnimatePresence>
         {showCustomModal && (
