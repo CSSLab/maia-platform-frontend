@@ -5,6 +5,14 @@ import { StockfishEvaluation } from 'src/types'
 import { StockfishModelStorage } from './stockfishStorage'
 
 const DEFAULT_NNUE_FETCH_TIMEOUT_MS = 30000
+type StockfishInitPhase =
+  | 'idle'
+  | 'loading-module'
+  | 'checking-cache'
+  | 'downloading-nnue'
+  | 'loading-nnue'
+  | 'ready'
+  | 'error'
 
 class Engine {
   private fen: string
@@ -25,6 +33,7 @@ class Engine {
   private evaluationGenerator: AsyncGenerator<StockfishEvaluation> | null
   private initError: string | null
   private initInFlight: boolean
+  private initPhase: StockfishInitPhase
 
   constructor() {
     this.fen = ''
@@ -39,6 +48,7 @@ class Engine {
     this.evaluationGenerator = null
     this.initError = null
     this.initInFlight = false
+    this.initPhase = 'idle'
 
     this.onMessage = this.onMessage.bind(this)
 
@@ -48,7 +58,10 @@ class Engine {
     }
 
     this.initInFlight = true
-    setupStockfish()
+    this.initPhase = 'loading-module'
+    setupStockfish((phase) => {
+      this.initPhase = phase
+    })
       .then((stockfish: StockfishWeb) => {
         this.stockfish = stockfish
         stockfish.uci('uci')
@@ -59,6 +72,7 @@ class Engine {
         this.initError = null
         this.isReady = true
         this.nnueLoaded = true
+        this.initPhase = 'ready'
       })
       .catch((error) => {
         console.error('Failed to initialize Stockfish:', error)
@@ -66,6 +80,7 @@ class Engine {
           error instanceof Error ? error.message : 'Unknown initialization error'
         this.isReady = false
         this.nnueLoaded = false
+        this.initPhase = 'error'
       })
       .finally(() => {
         this.initInFlight = false
@@ -82,6 +97,10 @@ class Engine {
 
   get initializing(): boolean {
     return this.initInFlight
+  }
+
+  get initializationPhase(): StockfishInitPhase {
+    return this.initPhase
   }
 
   async *streamEvaluations(
@@ -401,12 +420,14 @@ const loadNnueModel = async (
   modelUrl: string,
   storage: StockfishModelStorage,
   timeoutMs: number,
+  onNetworkFetchStart?: () => void,
 ): Promise<ArrayBuffer> => {
   const cachedModel = await storage.getModel(modelUrl)
   if (cachedModel) {
     return cachedModel
   }
 
+  onNetworkFetchStart?.()
   const response = await fetchWithTimeout(modelUrl, timeoutMs)
   if (!response.ok) {
     throw new Error(
@@ -419,7 +440,10 @@ const loadNnueModel = async (
   return buffer
 }
 
-const setupStockfish = async (): Promise<StockfishWeb> => {
+const setupStockfish = async (
+  onPhaseChange?: (phase: StockfishInitPhase) => void,
+): Promise<StockfishWeb> => {
+  onPhaseChange?.('loading-module')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const makeModule: any = await import('lila-stockfish-web/sf17-79.js')
   const instance: StockfishWeb = await makeModule.default({
@@ -438,12 +462,25 @@ const setupStockfish = async (): Promise<StockfishWeb> => {
   const nnue0Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`
   const nnue1Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`
   const timeoutMs = getNnueFetchTimeoutMs()
+  let downloadStarted = false
 
   try {
+    onPhaseChange?.('checking-cache')
     const buffers = await Promise.all([
-      loadNnueModel(nnue0Url, storage, timeoutMs),
-      loadNnueModel(nnue1Url, storage, timeoutMs),
+      loadNnueModel(nnue0Url, storage, timeoutMs, () => {
+        if (!downloadStarted) {
+          downloadStarted = true
+          onPhaseChange?.('downloading-nnue')
+        }
+      }),
+      loadNnueModel(nnue1Url, storage, timeoutMs, () => {
+        if (!downloadStarted) {
+          downloadStarted = true
+          onPhaseChange?.('downloading-nnue')
+        }
+      }),
     ])
+    onPhaseChange?.('loading-nnue')
     instance.setNnueBuffer(new Uint8Array(buffers[0]), 0)
     instance.setNnueBuffer(new Uint8Array(buffers[1]), 1)
     return instance

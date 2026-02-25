@@ -11,6 +11,49 @@ import { StockfishStatus, StockfishEngine } from 'src/types'
 import Engine from 'src/lib/engine/stockfish'
 
 const STOCKFISH_LOADING_TOAST_DELAY_MS = 800
+const STOCKFISH_DEBUG_LOADING_KEY = 'maia.stockfishDebugLoading'
+
+const isTruthy = (value: string | null | undefined): boolean => {
+  if (!value) return false
+  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
+}
+
+const isStockfishDebugLoadingEnabled = (): boolean => {
+  if (typeof window !== 'undefined') {
+    try {
+      const localValue = window.localStorage.getItem(STOCKFISH_DEBUG_LOADING_KEY)
+      if (localValue !== null) return isTruthy(localValue)
+    } catch {
+      // ignore localStorage access failures
+    }
+  }
+
+  return isTruthy(process.env.NEXT_PUBLIC_STOCKFISH_DEBUG_LOADING)
+}
+
+const getStockfishLoadingLabel = (
+  engine: Engine | null,
+  debugLoadingEnabled: boolean,
+): string => {
+  if (!debugLoadingEnabled) {
+    return 'Loading Stockfish...'
+  }
+
+  if (!engine) return 'Loading Stockfish...'
+
+  switch (engine.initializationPhase) {
+    case 'checking-cache':
+      return 'Checking local Stockfish cache...'
+    case 'downloading-nnue':
+      return 'Downloading Stockfish model weights...'
+    case 'loading-nnue':
+      return 'Loading Stockfish from local cache...'
+    case 'loading-module':
+      return 'Starting Stockfish engine...'
+    default:
+      return 'Loading Stockfish...'
+  }
+}
 
 let sharedClientStockfishEngine: Engine | null = null
 
@@ -63,6 +106,12 @@ export const StockfishEngineContextProvider: React.FC<{
   const [error, setError] = useState<string | null>(
     () => engineRef.current?.initializationError ?? null,
   )
+  const [debugLoadingEnabled] = useState<boolean>(() =>
+    isStockfishDebugLoadingEnabled(),
+  )
+  const [loadingLabel, setLoadingLabel] = useState<string>(() =>
+    getStockfishLoadingLabel(engineRef.current, debugLoadingEnabled),
+  )
   const toastId = useRef<string | null>(null)
   const loadingToastTimerRef = useRef<number | null>(null)
 
@@ -90,6 +139,11 @@ export const StockfishEngineContextProvider: React.FC<{
       const engine = engineRef.current
       if (!engine) return
 
+      setLoadingLabel((prev) => {
+        const next = getStockfishLoadingLabel(engine, debugLoadingEnabled)
+        return prev === next ? prev : next
+      })
+
       if (engine.initializationError) {
         setStatus('error')
         setError(engine.initializationError)
@@ -105,7 +159,7 @@ export const StockfishEngineContextProvider: React.FC<{
     const interval = setInterval(checkEngineStatus, 100)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [debugLoadingEnabled])
 
   // Toast notifications for Stockfish engine status
   useEffect(() => {
@@ -123,18 +177,25 @@ export const StockfishEngineContextProvider: React.FC<{
 
   useEffect(() => {
     if (status === 'loading') {
-      if (
-        toastId.current ||
-        loadingToastTimerRef.current !== null ||
-        typeof window === 'undefined'
-      ) {
+      if (typeof window === 'undefined') {
+        return
+      }
+
+      if (toastId.current) {
+        toastId.current = toast.loading(loadingLabel, { id: toastId.current })
+        return
+      }
+
+      if (loadingToastTimerRef.current !== null) {
         return
       }
 
       loadingToastTimerRef.current = window.setTimeout(() => {
         loadingToastTimerRef.current = null
         if (!toastId.current && engineRef.current && !engineRef.current.ready) {
-          toastId.current = toast.loading('Loading Stockfish Engine...')
+          toastId.current = toast.loading(
+            getStockfishLoadingLabel(engineRef.current, debugLoadingEnabled),
+          )
         }
       }, STOCKFISH_LOADING_TOAST_DELAY_MS)
       return
@@ -166,7 +227,7 @@ export const StockfishEngineContextProvider: React.FC<{
         toast.error(message)
       }
     }
-  }, [status, error])
+  }, [status, error, loadingLabel, debugLoadingEnabled])
 
   const contextValue = useMemo(
     () => ({
