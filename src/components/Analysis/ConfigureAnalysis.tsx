@@ -63,28 +63,6 @@ export const ConfigureAnalysis: React.FC<Props> = ({
           </span>
         </div>
       </div>
-      <div className="mt-1 flex w-full items-center justify-between rounded border border-glass-border bg-glass px-2.5 py-2">
-        <div className="flex flex-col">
-          <span className="text-xs text-white/90">Show board badges</span>
-          <span className="text-[11px] text-white/60">
-            Show ? / ?? marker on top human move destination
-          </span>
-        </div>
-        <label
-          htmlFor="analysis-top-move-badges-toggle"
-          className="relative inline-flex cursor-pointer items-center"
-        >
-          <input
-            id="analysis-top-move-badges-toggle"
-            type="checkbox"
-            checked={showTopMoveBadges}
-            onChange={() => setShowTopMoveBadges(!showTopMoveBadges)}
-            className="peer sr-only"
-          />
-          <div className="peer h-5 w-9 rounded-full bg-white/10 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-white/20 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500/40 peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:after:bg-red-400"></div>
-          <span className="sr-only">Toggle top move board badges</span>
-        </label>
-      </div>
       {onAnalyzeEntireGame && (
         <button
           onClick={onAnalyzeEntireGame}
@@ -121,6 +99,28 @@ export const ConfigureAnalysis: React.FC<Props> = ({
           </div>
         </button>
       )}
+      <div className="mt-1 flex w-full items-center justify-between rounded border border-glass-border bg-glass px-2.5 py-2">
+        <div className="flex flex-col">
+          <span className="text-xs text-white/90">Show board badges</span>
+          <span className="text-[11px] text-white/60">
+            Show ? / ?? marker on top human move destination
+          </span>
+        </div>
+        <label
+          htmlFor="analysis-top-move-badges-toggle"
+          className="relative inline-flex cursor-pointer items-center"
+        >
+          <input
+            id="analysis-top-move-badges-toggle"
+            type="checkbox"
+            checked={showTopMoveBadges}
+            onChange={() => setShowTopMoveBadges(!showTopMoveBadges)}
+            className="peer sr-only"
+          />
+          <div className="peer h-5 w-9 rounded-full bg-white/10 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-white/20 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500/40 peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:after:bg-red-400"></div>
+          <span className="sr-only">Toggle top move board badges</span>
+        </label>
+      </div>
       {autoSave && game.type !== 'tournament' && (
         <div className="mt-2 w-full">
           <div className="flex items-center gap-1.5">

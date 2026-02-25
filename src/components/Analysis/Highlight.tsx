@@ -41,6 +41,8 @@ interface Props {
   currentNode?: GameNode
   isHomePage?: boolean
   simplified?: boolean
+  hideStockfishEvalSummary?: boolean
+  hideWhiteWinRateSummary?: boolean
 }
 
 export const Highlight: React.FC<Props> = ({
@@ -55,6 +57,8 @@ export const Highlight: React.FC<Props> = ({
   currentNode,
   isHomePage = false,
   simplified = false,
+  hideStockfishEvalSummary = false,
+  hideWhiteWinRateSummary = false,
 }: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
 
@@ -389,14 +393,16 @@ export const Highlight: React.FC<Props> = ({
             )}
           </div>
 
-          <div className="flex w-full flex-row items-center justify-between border-b border-white/5 px-2 py-1 md:flex-col md:items-center md:justify-start md:py-0.5 lg:py-1">
-            <p className="whitespace-nowrap text-sm font-semibold text-human-2 md:text-xxs lg:text-xs">
-              White Win %
-            </p>
-            <p className="text-sm font-bold text-human-1 lg:text-lg">
-              {getWhiteWinRate()}
-            </p>
-          </div>
+          {!hideWhiteWinRateSummary && (
+            <div className="flex w-full flex-row items-center justify-between border-b border-white/5 px-2 py-1 md:flex-col md:items-center md:justify-start md:py-0.5 lg:py-1">
+              <p className="whitespace-nowrap text-sm font-semibold text-human-2 md:text-xxs lg:text-xs">
+                White Win %
+              </p>
+              <p className="text-sm font-bold text-human-1 lg:text-lg">
+                {getWhiteWinRate()}
+              </p>
+            </div>
+          )}
 
           <div
             className={`flex w-full flex-col items-start justify-center md:items-center ${simplified ? 'p-3' : 'px-2 py-1.5 xl:py-2'}`}
@@ -452,19 +458,21 @@ export const Highlight: React.FC<Props> = ({
             </p>
           </div>
 
-          <div className="flex w-full flex-row items-center justify-between border-b border-white/5 px-2 py-1 md:flex-col md:items-center md:justify-start md:py-0.5 lg:py-1">
-            <p className="whitespace-nowrap text-sm font-semibold text-engine-2 md:text-xxs lg:text-xs">
-              SF Eval{' '}
-              {moveEvaluation?.stockfish?.depth
-                ? ` (d${moveEvaluation.stockfish?.depth})`
-                : ''}
-            </p>
-            <p className="text-sm font-bold text-engine-1 md:text-sm lg:text-lg">
-              {isCurrentPositionCheckmate
-                ? 'Checkmate'
-                : getStockfishEvalDisplay()}
-            </p>
-          </div>
+          {!hideStockfishEvalSummary && (
+            <div className="flex w-full flex-row items-center justify-between border-b border-white/5 px-2 py-1 md:flex-col md:items-center md:justify-start md:py-0.5 lg:py-1">
+              <p className="whitespace-nowrap text-sm font-semibold text-engine-2 md:text-xxs lg:text-xs">
+                SF Eval{' '}
+                {moveEvaluation?.stockfish?.depth
+                  ? ` (d${moveEvaluation.stockfish?.depth})`
+                  : ''}
+              </p>
+              <p className="text-sm font-bold text-engine-1 md:text-sm lg:text-lg">
+                {isCurrentPositionCheckmate
+                  ? 'Checkmate'
+                  : getStockfishEvalDisplay()}
+              </p>
+            </div>
+          )}
 
           <div
             className={`flex w-full flex-col items-start justify-center ${simplified ? 'p-3' : 'px-2 py-1.5 xl:py-2'} md:items-center`}

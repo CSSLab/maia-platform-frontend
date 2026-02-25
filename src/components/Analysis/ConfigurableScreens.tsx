@@ -69,7 +69,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
   const screens = [
     {
       id: 'configure',
-      name: 'Configure',
+      name: 'Options',
     },
     {
       id: 'export',

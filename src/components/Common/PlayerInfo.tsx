@@ -276,18 +276,34 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
       </div>
       <div className="flex items-center gap-4">
         {showArrowLegend && (
-          <div className="flex flex-col items-start">
-            <div className="flex items-center gap-0.5">
-              <span className="material-symbols-outlined !text-xxs text-human-3">
-                arrow_outward
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <div
+              className="flex items-center gap-1"
+              title="Most Human Move (Maia)"
+            >
+              <span className="relative inline-flex h-2.5 w-4 items-center">
+                <span className="h-[2px] w-[calc(100%-4px)] rounded-full bg-[#882020]" />
+                <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[3px] border-l-[4px] border-y-transparent border-l-[#882020]" />
               </span>
-              <span className="text-xxs text-human-3">Most Human Move</span>
+              <span className="text-xxs text-human-3">Maia</span>
             </div>
-            <div className="flex items-center gap-0.5">
-              <span className="material-symbols-outlined !text-xxs text-engine-3">
-                arrow_outward
+            <div
+              className="flex items-center gap-1"
+              title="Best Engine Move (Stockfish)"
+            >
+              <span className="relative inline-flex h-2.5 w-4 items-center">
+                <span className="h-[2px] w-[calc(100%-4px)] rounded-full bg-[#003088]" />
+                <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[3px] border-l-[4px] border-y-transparent border-l-[#003088]" />
               </span>
-              <span className="text-xxs text-engine-3">Best Engine Move</span>
+              <span className="text-xxs text-engine-3">SF</span>
+            </div>
+            <div className="flex items-center gap-1" title="Move Played">
+              <span className="relative inline-flex h-2.5 w-4 items-center">
+                <span className="h-[3px] w-[calc(100%-4px)] rounded-full bg-[#4A8FB3]" />
+                <span className="absolute left-[1px] right-[5px] top-1/2 h-[1px] -translate-y-1/2 rounded-full bg-white" />
+                <span className="absolute right-0 top-1/2 h-0 w-0 -translate-y-1/2 border-y-[3px] border-l-[4px] border-y-transparent border-l-[#4A8FB3]" />
+              </span>
+              <span className="text-xxs text-primary/80">Played</span>
             </div>
           </div>
         )}

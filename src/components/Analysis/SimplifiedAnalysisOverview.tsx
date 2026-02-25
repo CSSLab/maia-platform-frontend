@@ -7,11 +7,28 @@ interface SimplifiedAnalysisOverviewProps {
   highlightProps: React.ComponentProps<typeof Highlight>
   blunderMeterProps: React.ComponentProps<typeof SimplifiedBlunderMeter>
   analysisEnabled: boolean
+  hideBlunderMeter?: boolean
 }
 
 export const SimplifiedAnalysisOverview: React.FC<
   SimplifiedAnalysisOverviewProps
-> = ({ highlightProps, blunderMeterProps, analysisEnabled }) => {
+> = ({
+  highlightProps,
+  blunderMeterProps,
+  analysisEnabled,
+  hideBlunderMeter = false,
+}) => {
+  if (hideBlunderMeter) {
+    return (
+      <div
+        className="flex h-full w-full flex-col"
+        data-analysis-enabled={analysisEnabled}
+      >
+        <Highlight {...highlightProps} />
+      </div>
+    )
+  }
+
   return (
     <div
       className="flex h-full w-full flex-col"
