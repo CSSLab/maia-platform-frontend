@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useTour } from 'src/contexts'
 import { InstructionsType } from 'src/types'
 import { tourConfigs } from 'src/constants/tours'
@@ -18,6 +19,7 @@ interface Props {
     error: string | null
     gameEnded: boolean
   }
+  mobileActions?: React.ReactNode
   embedded?: boolean
 }
 
@@ -32,9 +34,28 @@ export const GameInfo: React.FC<Props> = ({
   showGameListButton,
   onGameListClick,
   streamState,
+  mobileActions,
   embedded = false,
 }: Props) => {
   const { startTour } = useTour()
+  const maiaSelectRef = useRef<HTMLSelectElement | null>(null)
+  const openMaiaModelPicker = () => {
+    const select = maiaSelectRef.current as
+      | (HTMLSelectElement & { showPicker?: () => void })
+      | null
+    if (!select) return
+
+    select.focus()
+    if (select.showPicker) {
+      try {
+        select.showPicker()
+        return
+      } catch {
+        // Fallback for browsers/event timing that reject showPicker.
+      }
+    }
+    select.click()
+  }
 
   return (
     <div
@@ -47,10 +68,53 @@ export const GameInfo: React.FC<Props> = ({
     >
       <div className="flex w-full items-center justify-between">
         <div className="flex items-center justify-start gap-1 md:gap-1.5">
-          <span className="material-symbols-outlined text-base md:text-xl">
+          <span className="material-symbols-outlined inline-flex w-4 items-center justify-center text-base md:w-5 md:text-xl">
             {icon}
           </span>
-          <h2 className="text-sm font-semibold md:text-lg">{title}</h2>
+          <div className="flex items-center gap-1">
+            <h2 className="text-sm font-semibold leading-none md:text-lg">
+              {title}
+            </h2>
+            {currentMaiaModel && setCurrentMaiaModel && (
+              <div className="flex items-center gap-1 text-xs leading-none md:hidden md:text-sm">
+                <span>using</span>
+                <div className="relative inline-flex items-center gap-0.5">
+                  <select
+                    ref={maiaSelectRef}
+                    value={currentMaiaModel}
+                    className="cursor-pointer appearance-none bg-transparent leading-none focus:outline-none"
+                    onChange={(e) => setCurrentMaiaModel(e.target.value)}
+                  >
+                    {MAIA_MODELS?.map((model) => (
+                      <option value={model} key={model}>
+                        {model.replace('maia_kdd_', 'Maia ')}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="material-symbols-outlined -ml-0.5 inline-flex h-4 items-center justify-center self-center align-middle text-sm leading-none"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      openMaiaModelPicker()
+                    }}
+                    onClick={(e) => {
+                      e.preventDefault()
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        openMaiaModelPicker()
+                      }
+                    }}
+                    aria-label="Change Maia model"
+                  >
+                    arrow_drop_down
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           {streamState && (
             <div className="flex items-center gap-1.5">
               <div
@@ -75,29 +139,9 @@ export const GameInfo: React.FC<Props> = ({
               </span>
             </div>
           )}
-          {currentMaiaModel && setCurrentMaiaModel && (
-            <div className="flex items-center gap-1 text-xs md:hidden md:text-sm">
-              using
-              <div className="relative inline-flex items-center gap-0.5">
-                <select
-                  value={currentMaiaModel}
-                  className="cursor-pointer appearance-none bg-transparent focus:outline-none"
-                  onChange={(e) => setCurrentMaiaModel(e.target.value)}
-                >
-                  {MAIA_MODELS?.map((model) => (
-                    <option value={model} key={model}>
-                      {model.replace('maia_kdd_', 'Maia ')}
-                    </option>
-                  ))}
-                </select>
-                <span className="material-symbols-outlined pointer-events-none text-sm">
-                  arrow_drop_down
-                </span>
-              </div>
-            </div>
-          )}
         </div>
         <div className="flex items-center gap-2">
+          {mobileActions}
           {showGameListButton && (
             <button
               type="button"

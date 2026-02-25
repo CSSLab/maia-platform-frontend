@@ -259,7 +259,10 @@ export const MovesContainer: React.FC<
 
   if (isMobile) {
     return (
-      <div ref={containerRef} className="w-full overflow-x-auto px-2">
+      <div
+        ref={containerRef}
+        className="red-scrollbar w-full overflow-x-auto px-2"
+      >
         <div className="flex flex-row items-center gap-1">
           {mobileMovePairs.map((pair, pairIndex) => (
             <React.Fragment key={pairIndex}>
