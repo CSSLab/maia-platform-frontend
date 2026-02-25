@@ -623,7 +623,7 @@ const Analysis: React.FC<Props> = ({
     [],
   )
 
-  const compactBlunderMeterData = useMemo(
+  const rawCompactBlunderMeterData = useMemo(
     () =>
       analysisEnabled && !controller.learnFromMistakes.state.isActive
         ? controller.blunderMeter
@@ -635,6 +635,42 @@ const Analysis: React.FC<Props> = ({
       emptyBlunderMeterData,
     ],
   )
+  const [
+    displayedCompactBlunderMeterData,
+    setDisplayedCompactBlunderMeterData,
+  ] = useState(rawCompactBlunderMeterData)
+
+  const hasUsableBlunderMeterData = useMemo(() => {
+    const totalProbability =
+      rawCompactBlunderMeterData.goodMoves.probability +
+      rawCompactBlunderMeterData.okMoves.probability +
+      rawCompactBlunderMeterData.blunderMoves.probability
+    const hasMoves =
+      rawCompactBlunderMeterData.goodMoves.moves.length > 0 ||
+      rawCompactBlunderMeterData.okMoves.moves.length > 0 ||
+      rawCompactBlunderMeterData.blunderMoves.moves.length > 0
+
+    return totalProbability > 0 || hasMoves
+  }, [rawCompactBlunderMeterData])
+
+  useIsomorphicLayoutEffect(() => {
+    if (!analysisEnabled || controller.learnFromMistakes.state.isActive) {
+      setDisplayedCompactBlunderMeterData(emptyBlunderMeterData)
+      return
+    }
+
+    if (hasUsableBlunderMeterData) {
+      setDisplayedCompactBlunderMeterData(rawCompactBlunderMeterData)
+    }
+  }, [
+    analysisEnabled,
+    controller.learnFromMistakes.state.isActive,
+    emptyBlunderMeterData,
+    hasUsableBlunderMeterData,
+    rawCompactBlunderMeterData,
+  ])
+
+  const compactBlunderMeterData = displayedCompactBlunderMeterData
 
   const hover = (move?: string) => {
     if (move && analysisEnabled) {
