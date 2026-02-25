@@ -45,9 +45,12 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
     '/settings',
     '/broadcast',
   ].some((path) => router.pathname.includes(path))
-  const isPageWithStockfish = ['/analysis', '/openings', '/puzzles', '/broadcast'].some(
-    (path) => router.pathname.includes(path),
-  )
+  const isPageWithStockfish = [
+    '/analysis',
+    '/openings',
+    '/puzzles',
+    '/broadcast',
+  ].some((path) => router.pathname.includes(path))
 
   useEffect(() => {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {

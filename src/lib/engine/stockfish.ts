@@ -77,7 +77,9 @@ class Engine {
       .catch((error) => {
         console.error('Failed to initialize Stockfish:', error)
         this.initError =
-          error instanceof Error ? error.message : 'Unknown initialization error'
+          error instanceof Error
+            ? error.message
+            : 'Unknown initialization error'
         this.isReady = false
         this.nnueLoaded = false
         this.initPhase = 'error'
@@ -408,7 +410,9 @@ const fetchWithTimeout = async (
     return await fetch(url, { signal: controller.signal })
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(`Stockfish NNUE fetch timed out after ${timeoutMs}ms: ${url}`)
+      throw new Error(
+        `Stockfish NNUE fetch timed out after ${timeoutMs}ms: ${url}`,
+      )
     }
     throw error
   } finally {

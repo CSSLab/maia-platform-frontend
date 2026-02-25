@@ -21,7 +21,9 @@ const isTruthy = (value: string | null | undefined): boolean => {
 const isStockfishDebugLoadingEnabled = (): boolean => {
   if (typeof window !== 'undefined') {
     try {
-      const localValue = window.localStorage.getItem(STOCKFISH_DEBUG_LOADING_KEY)
+      const localValue = window.localStorage.getItem(
+        STOCKFISH_DEBUG_LOADING_KEY,
+      )
       if (localValue !== null) return isTruthy(localValue)
     } catch {
       // ignore localStorage access failures
@@ -164,7 +166,10 @@ export const StockfishEngineContextProvider: React.FC<{
   // Toast notifications for Stockfish engine status
   useEffect(() => {
     return () => {
-      if (loadingToastTimerRef.current !== null && typeof window !== 'undefined') {
+      if (
+        loadingToastTimerRef.current !== null &&
+        typeof window !== 'undefined'
+      ) {
         window.clearTimeout(loadingToastTimerRef.current)
         loadingToastTimerRef.current = null
       }
@@ -201,7 +206,10 @@ export const StockfishEngineContextProvider: React.FC<{
       return
     }
 
-    if (loadingToastTimerRef.current !== null && typeof window !== 'undefined') {
+    if (
+      loadingToastTimerRef.current !== null &&
+      typeof window !== 'undefined'
+    ) {
       window.clearTimeout(loadingToastTimerRef.current)
       loadingToastTimerRef.current = null
     }
