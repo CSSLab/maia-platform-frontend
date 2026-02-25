@@ -10,6 +10,8 @@ import React, {
 } from 'react'
 import toast from 'react-hot-toast'
 
+const MAIA_LOADING_TOAST_DELAY_MS = 800
+
 export const MaiaEngineContext = React.createContext<MaiaEngine>({
   maia: undefined,
   status: 'loading',
@@ -28,6 +30,7 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const toastId = useRef<string | null>(null)
+  const loadingToastTimerRef = useRef<number | null>(null)
 
   const maia = useMemo(() => {
     const model = new Maia({
@@ -63,33 +66,77 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
   // Toast notifications for Maia model status
   useEffect(() => {
     return () => {
-      toast.dismiss()
+      if (
+        loadingToastTimerRef.current !== null &&
+        typeof window !== 'undefined'
+      ) {
+        window.clearTimeout(loadingToastTimerRef.current)
+        loadingToastTimerRef.current = null
+      }
+      if (toastId.current) {
+        toast.dismiss(toastId.current)
+        toastId.current = null
+      }
     }
   }, [])
 
   useEffect(() => {
-    if (status === 'loading' && !toastId.current) {
-      toastId.current = toast.loading('Loading Maia Model...')
-    } else if (status === 'ready') {
+    if (status === 'loading') {
+      if (
+        typeof window === 'undefined' ||
+        toastId.current ||
+        loadingToastTimerRef.current !== null
+      ) {
+        return
+      }
+
+      loadingToastTimerRef.current = window.setTimeout(() => {
+        loadingToastTimerRef.current = null
+        if (!toastId.current) {
+          toastId.current = toast.loading('Loading Maia...')
+        }
+      }, MAIA_LOADING_TOAST_DELAY_MS)
+      return
+    }
+
+    if (
+      loadingToastTimerRef.current !== null &&
+      typeof window !== 'undefined'
+    ) {
+      window.clearTimeout(loadingToastTimerRef.current)
+      loadingToastTimerRef.current = null
+    }
+
+    if (status === 'no-cache' || status === 'downloading') {
+      if (toastId.current) {
+        toast.dismiss(toastId.current)
+        toastId.current = null
+      }
+      return
+    }
+
+    if (status === 'ready') {
+      // Only show success if a loading toast was visible.
       if (toastId.current) {
         toast.success('Loaded Maia! Analysis is ready', {
           id: toastId.current,
         })
         toastId.current = null
-      } else {
-        toast.success('Loaded Maia! Analysis is ready')
       }
     } else if (status === 'error') {
+      const message = error
+        ? `Failed to load Maia model: ${error}`
+        : 'Failed to load Maia model'
       if (toastId.current) {
-        toast.error('Failed to load Maia model', {
+        toast.error(message, {
           id: toastId.current,
         })
         toastId.current = null
       } else {
-        toast.error('Failed to load Maia model')
+        toast.error(message)
       }
     }
-  }, [status])
+  }, [status, error])
 
   return (
     <MaiaEngineContext.Provider
