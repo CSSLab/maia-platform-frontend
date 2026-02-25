@@ -19,6 +19,119 @@ export const ENDGAME_TRAIT_LABELS: Record<EndgameTrait, string> = {
   one_pawn_total: 'One Pawn Total',
 }
 
+const ENDGAME_CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  'King-Pawn Endgames': 'Pawn Endgames',
+}
+
+const ENDGAME_CATEGORY_ORDER = [
+  'King-Pawn Endgames',
+  'Rook Endgames',
+  'Queen Endgames',
+  'Bishop Endgames',
+  'Knight Endgames',
+] as const
+
+const ENDGAME_MOTIF_ORDER: Partial<Record<string, readonly string[]>> = {
+  'Queen Endgames': [
+    'QvQ',
+    'QvR',
+    'RvQ',
+    'QvRR',
+    'RRvQ',
+    'QvK',
+    'QvBR',
+    'BRvQ',
+    'QvNR',
+    'NRvQ',
+  ],
+  'Rook Endgames': [
+    'RvR',
+    'RvB',
+    'BvR',
+    'RvN',
+    'NvR',
+    'RvK',
+    'RvBB',
+    'BBvR',
+    'RvNB',
+    'NBvR',
+    'RvNN',
+  ],
+  'Bishop Endgames': ['BvB', 'BvN', 'NvB', 'BvK', 'BBvK', 'NBvK'],
+  'Knight Endgames': ['NvN', 'NvK'],
+  'King-Pawn Endgames': [
+    'pawn_only_subtype__noflank_balanced',
+    'pawn_only_subtype__noflank_majority',
+    'pawn_only_subtype__noflank_minority',
+    'pawn_only_subtype__flank_balanced',
+    'pawn_only_subtype__flank_majority',
+    'pawn_only_subtype__flank_minority',
+  ],
+}
+
+const PIECE_CODE_LABELS: Record<string, string> = {
+  K: 'King',
+  Q: 'Queen',
+  R: 'Rook',
+  B: 'Bishop',
+  N: 'Knight',
+}
+
+const formatMaterialSide = (material: string): string => {
+  if (!material) return material
+
+  const repeatedPiece = material.length === 2 && material[0] === material[1]
+  if (repeatedPiece) {
+    const label = PIECE_CODE_LABELS[material[0]] ?? material[0]
+    return `Two ${label}s`
+  }
+
+  if (material.length === 2) {
+    const chars = material.split('')
+    const normalizedPair = chars.slice().sort().join('')
+
+    if (normalizedPair === 'BN') return 'Bishop + Knight'
+    if (normalizedPair === 'BR') return 'Bishop + Rook'
+
+    return chars.map((char) => PIECE_CODE_LABELS[char] ?? char).join(' + ')
+  }
+
+  return PIECE_CODE_LABELS[material] ?? material
+}
+
+const ENDGAME_MOTIF_DISPLAY_NAMES: Record<string, string> = {
+  pawn_only_subtype__flank_balanced: 'Flank Pawns (Balanced)',
+  pawn_only_subtype__flank_majority: 'Flank Pawns (Majority)',
+  pawn_only_subtype__flank_minority: 'Flank Pawns (Minority)',
+  pawn_only_subtype__noflank_balanced: 'Central Pawns (Balanced)',
+  pawn_only_subtype__noflank_majority: 'Central Pawns (Majority)',
+  pawn_only_subtype__noflank_minority: 'Central Pawns (Minority)',
+}
+
+const getEndgameCategoryDisplayName = (categoryName: string) =>
+  ENDGAME_CATEGORY_DISPLAY_NAMES[categoryName] ?? categoryName
+
+const getEndgameMotifDisplayName = (motifName: string) => {
+  const explicitLabel = ENDGAME_MOTIF_DISPLAY_NAMES[motifName]
+  if (explicitLabel) return explicitLabel
+
+  const [left, right] = motifName.split('v')
+  if (left && right) {
+    return `${formatMaterialSide(left)} vs ${formatMaterialSide(right)}`
+  }
+
+  return motifName
+}
+
+const getPreferredOrderIndex = (
+  value: string,
+  preferredOrder: readonly string[] | undefined,
+) => {
+  if (!preferredOrder) return Number.POSITIVE_INFINITY
+  const index = preferredOrder.indexOf(value)
+  return index === -1 ? Number.POSITIVE_INFINITY : index
+}
+
 const normalizeFen = (fen: string): string => {
   const trimmed = fen.trim()
   if (!trimmed) return trimmed
@@ -108,27 +221,29 @@ export const buildEndgameDataset = (raw: EndgamesJson): EndgameDataset => {
 
   for (const [categoryName, motifs] of Object.entries(raw)) {
     const categorySlug = slugify(categoryName)
+    const categoryDisplayName = getEndgameCategoryDisplayName(categoryName)
 
     const aggregatedTraits: Partial<Record<EndgameTrait, string[]>> = {}
 
-    const motifList: EndgameMotifData[] = Object.entries(motifs).map(
-      ([motifName, motifTraitsRaw]) => {
+    const motifOrder = ENDGAME_MOTIF_ORDER[categoryName]
+
+    const motifList = Object.entries(motifs)
+      .map(([motifName, motifTraitsRaw]) => {
         const motifSlug = slugify(motifName)
         const traitEntries = normalizeMotifTraits(motifTraitsRaw)
 
         for (const trait of ENDGAME_TRAITS) {
-          if (traitEntries[trait]?.length) {
+          const traitList = traitEntries[trait]
+          if (traitList?.length) {
             const existing = new Set(aggregatedTraits[trait] ?? [])
-            traitEntries[trait]!.forEach((fen) =>
-              existing.add(normalizeFen(fen)),
-            )
+            traitList.forEach((fen) => existing.add(normalizeFen(fen)))
             aggregatedTraits[trait] = Array.from(existing)
           }
         }
 
         const motifData: EndgameMotifData = {
           slug: motifSlug,
-          name: motifName,
+          name: getEndgameMotifDisplayName(motifName),
           traits: traitEntries,
         }
 
@@ -137,13 +252,24 @@ export const buildEndgameDataset = (raw: EndgamesJson): EndgameDataset => {
           categorySlug,
         }
 
-        return motifData
-      },
-    )
+        return {
+          rawName: motifName,
+          data: motifData,
+        }
+      })
+      .sort((a, b) => {
+        const aIndex = getPreferredOrderIndex(a.rawName, motifOrder)
+        const bIndex = getPreferredOrderIndex(b.rawName, motifOrder)
+
+        if (aIndex !== bIndex) return aIndex - bIndex
+
+        return a.data.name.localeCompare(b.data.name)
+      })
+      .map((entry) => entry.data)
 
     const categoryData: EndgameCategoryData = {
       slug: categorySlug,
-      name: categoryName,
+      name: categoryDisplayName,
       traits: aggregatedTraits,
       motifs: motifList,
     }
@@ -151,6 +277,21 @@ export const buildEndgameDataset = (raw: EndgamesJson): EndgameDataset => {
     categories.push(categoryData)
     categoryMap[categorySlug] = categoryData
   }
+
+  categories.sort((a, b) => {
+    const aIndex = getPreferredOrderIndex(
+      a.slug,
+      ENDGAME_CATEGORY_ORDER.map((category) => slugify(category)),
+    )
+    const bIndex = getPreferredOrderIndex(
+      b.slug,
+      ENDGAME_CATEGORY_ORDER.map((category) => slugify(category)),
+    )
+
+    if (aIndex !== bIndex) return aIndex - bIndex
+
+    return a.name.localeCompare(b.name)
+  })
 
   return {
     categories,
@@ -207,7 +348,7 @@ export const createEndgameOpenings = (dataset: EndgameDataset): Opening[] => {
       const opening: Opening = {
         id: category.slug,
         name: category.name,
-        description: `Practice ${category.name.toLowerCase()} motifs.`,
+        description: '',
         fen: fallbackFen,
         pgn: '',
         setupFen: fallbackFen,

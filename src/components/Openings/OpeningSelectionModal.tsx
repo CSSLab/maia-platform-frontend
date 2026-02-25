@@ -537,9 +537,11 @@ const BrowsePanel: React.FC<{
                               Custom
                             </span>
                           </div>
-                          <p className="text-xs text-secondary">
-                            {opening.description}
-                          </p>
+                          {opening.description && (
+                            <p className="text-xs text-secondary">
+                              {opening.description}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -691,9 +693,11 @@ const BrowsePanel: React.FC<{
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">{opening.name}</h3>
-                        <p className="text-sm text-secondary">
-                          {opening.description}
-                        </p>
+                        {opening.description && (
+                          <p className="text-sm text-secondary">
+                            {opening.description}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -926,7 +930,11 @@ const PreviewPanel: React.FC<{
               {previewVariation && ` → ${previewVariation.name}`}
             </span>
           </p>
-          <p className="text-xs text-secondary">{previewOpening.description}</p>
+          {previewOpening.description && (
+            <p className="text-xs text-secondary">
+              {previewOpening.description}
+            </p>
+          )}
         </div>
 
         {isEndgame ? (
