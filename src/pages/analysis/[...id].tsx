@@ -1445,7 +1445,7 @@ const Analysis: React.FC<Props> = ({
         >
           <div className="flex h-full w-full flex-col overflow-visible">
             <div
-              className="desktop-board-container relative flex"
+              className="desktop-board-container relative flex shrink-0"
               style={{
                 width: desktopBoardSizeCss,
                 minWidth: desktopBoardMinSizeCss,
@@ -1565,7 +1565,7 @@ const Analysis: React.FC<Props> = ({
                 </div>
               </div>
             </div>
-            <div ref={desktopBlunderMeterSectionRef} className="pt-3">
+            <div ref={desktopBlunderMeterSectionRef} className="shrink-0 pt-3">
               <AnalysisCompactBlunderMeter
                 variant="desktop"
                 data={compactBlunderMeterData}
