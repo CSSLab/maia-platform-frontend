@@ -483,11 +483,32 @@ const Analysis: React.FC<Props> = ({
   const [showAnalysisConfigModal, setShowAnalysisConfigModal] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [analysisEnabled, setAnalysisEnabled] = useState(true)
+  const [
+    desktopMoveListScrollResetSignal,
+    setDesktopMoveListScrollResetSignal,
+  ] = useState(0)
   const [lastMoveResult, setLastMoveResult] = useState<
     'correct' | 'incorrect' | 'not-learning'
   >('not-learning')
 
   const controller = useAnalysisController(analyzedGame)
+  const userGamePovOrientation = useMemo(() => {
+    if (!['play', 'hand', 'brain'].includes(analyzedGame.type)) {
+      return null
+    }
+
+    const whiteName = analyzedGame.whitePlayer.name.toLowerCase()
+    const blackName = analyzedGame.blackPlayer.name.toLowerCase()
+
+    if (whiteName.includes('maia')) return 'black'
+    if (blackName.includes('maia')) return 'white'
+
+    return null
+  }, [
+    analyzedGame.blackPlayer.name,
+    analyzedGame.type,
+    analyzedGame.whitePlayer.name,
+  ])
   const destinationBadges = useMemo(() => {
     if (
       !analysisEnabled ||
@@ -521,6 +542,11 @@ const Analysis: React.FC<Props> = ({
       }
     }
   }, [analyzedGame])
+
+  useEffect(() => {
+    if (!userGamePovOrientation) return
+    controller.setOrientation(userGamePovOrientation)
+  }, [analyzedGame.tree, controller.setOrientation, userGamePovOrientation])
 
   useEffect(() => {
     setHoverArrow(null)
@@ -1194,6 +1220,12 @@ const Analysis: React.FC<Props> = ({
   const [desktopLeftPanelTab, setDesktopLeftPanelTab] = useState<
     (typeof desktopLeftPanelTabs)[number]['id']
   >(desktopLeftPanelTabs[0].id)
+  const showDesktopMovesAfterNavigation = useCallback(() => {
+    if (desktopLeftPanelTab !== 'select-game') return
+
+    setDesktopLeftPanelTab('moves')
+    setDesktopMoveListScrollResetSignal((prev) => prev + 1)
+  }, [desktopLeftPanelTab])
 
   useEffect(() => {
     if (useMobileStyleAnalysisLayout || desktopLeftPanelTab !== 'select-game') {
@@ -1222,7 +1254,7 @@ const Analysis: React.FC<Props> = ({
         event.preventDefault()
         event.stopPropagation()
         controller.goToPreviousNode()
-        setDesktopLeftPanelTab('moves')
+        showDesktopMovesAfterNavigation()
         return
       }
 
@@ -1230,7 +1262,7 @@ const Analysis: React.FC<Props> = ({
         event.preventDefault()
         event.stopPropagation()
         controller.goToNextNode()
-        setDesktopLeftPanelTab('moves')
+        showDesktopMovesAfterNavigation()
       }
     }
 
@@ -1244,6 +1276,7 @@ const Analysis: React.FC<Props> = ({
     controller.goToPreviousNode,
     controller.learnFromMistakes.state.isActive,
     desktopLeftPanelTab,
+    showDesktopMovesAfterNavigation,
     useMobileStyleAnalysisLayout,
   ])
 
@@ -1457,74 +1490,75 @@ const Analysis: React.FC<Props> = ({
                 )
               })}
             </div>
-            <div className="relative flex min-h-0 flex-1 overflow-hidden">
-              <div
-                aria-hidden={desktopLeftPanelTab !== 'moves'}
-                className={`red-scrollbar absolute inset-0 flex h-full flex-col overflow-y-auto transition-opacity duration-150 ${
-                  desktopLeftPanelTab === 'moves'
-                    ? 'visible opacity-100'
-                    : 'pointer-events-none invisible opacity-0'
-                }`}
-              >
-                <MovesContainer
-                  game={analyzedGame}
-                  termination={analyzedGame.termination}
-                  showAnnotations={true}
-                  disableKeyboardNavigation={
-                    controller.gameAnalysis.progress.isAnalyzing ||
-                    controller.learnFromMistakes.state.isActive
-                  }
-                  disableMoveClicking={
-                    controller.learnFromMistakes.state.isActive
-                  }
-                  embedded
-                  heightClass="h-40"
-                />
-                {/* No spacer here to keep controller tight to moves */}
-                <BoardController
-                  gameTree={controller.gameTree}
-                  orientation={controller.orientation}
-                  setOrientation={controller.setOrientation}
-                  currentNode={controller.currentNode}
-                  plyCount={controller.plyCount}
-                  goToNode={controller.goToNode}
-                  goToNextNode={controller.goToNextNode}
-                  goToPreviousNode={controller.goToPreviousNode}
-                  goToRootNode={controller.goToRootNode}
-                  disableKeyboardNavigation={
-                    controller.gameAnalysis.progress.isAnalyzing ||
-                    controller.learnFromMistakes.state.isActive
-                  }
-                  disableNavigation={
-                    controller.learnFromMistakes.state.isActive
-                  }
-                  embedded
-                />
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="relative min-h-0 flex-1 overflow-hidden">
+                <div
+                  aria-hidden={desktopLeftPanelTab !== 'moves'}
+                  className={`absolute inset-0 flex h-full flex-col transition-opacity duration-150 ${
+                    desktopLeftPanelTab === 'moves'
+                      ? 'visible opacity-100'
+                      : 'pointer-events-none invisible opacity-0'
+                  }`}
+                >
+                  <MovesContainer
+                    game={analyzedGame}
+                    termination={analyzedGame.termination}
+                    showAnnotations={true}
+                    disableKeyboardNavigation={
+                      controller.gameAnalysis.progress.isAnalyzing ||
+                      controller.learnFromMistakes.state.isActive
+                    }
+                    disableMoveClicking={
+                      controller.learnFromMistakes.state.isActive
+                    }
+                    scrollToTopSignal={desktopMoveListScrollResetSignal}
+                    embedded
+                    heightClass="h-40"
+                  />
+                </div>
+                <div
+                  aria-hidden={desktopLeftPanelTab !== 'select-game'}
+                  className={`absolute inset-0 flex min-h-0 flex-col transition-opacity duration-150 ${
+                    desktopLeftPanelTab === 'select-game'
+                      ? 'visible opacity-100'
+                      : 'pointer-events-none invisible opacity-0'
+                  }`}
+                >
+                  <AnalysisGameList
+                    currentId={currentId}
+                    loadNewWorldChampionshipGame={(newId, setCurrentMove) =>
+                      getAndSetTournamentGame(newId, setCurrentMove)
+                    }
+                    loadNewLichessGame={(id, pgn, setCurrentMove) =>
+                      getAndSetLichessGame(id, pgn, setCurrentMove)
+                    }
+                    loadNewMaiaGame={(id, type, setCurrentMove) =>
+                      getAndSetUserGame(id, type, setCurrentMove)
+                    }
+                    onCustomAnalysis={() => setShowCustomModal(true)}
+                    refreshTrigger={refreshTrigger}
+                    embedded
+                  />
+                </div>
               </div>
-              <div
-                aria-hidden={desktopLeftPanelTab !== 'select-game'}
-                className={`absolute inset-0 flex min-h-0 flex-col transition-opacity duration-150 ${
-                  desktopLeftPanelTab === 'select-game'
-                    ? 'visible opacity-100'
-                    : 'pointer-events-none invisible opacity-0'
-                }`}
-              >
-                <AnalysisGameList
-                  currentId={currentId}
-                  loadNewWorldChampionshipGame={(newId, setCurrentMove) =>
-                    getAndSetTournamentGame(newId, setCurrentMove)
-                  }
-                  loadNewLichessGame={(id, pgn, setCurrentMove) =>
-                    getAndSetLichessGame(id, pgn, setCurrentMove)
-                  }
-                  loadNewMaiaGame={(id, type, setCurrentMove) =>
-                    getAndSetUserGame(id, type, setCurrentMove)
-                  }
-                  onCustomAnalysis={() => setShowCustomModal(true)}
-                  refreshTrigger={refreshTrigger}
-                  embedded
-                />
-              </div>
+              <BoardController
+                gameTree={controller.gameTree}
+                orientation={controller.orientation}
+                setOrientation={controller.setOrientation}
+                currentNode={controller.currentNode}
+                plyCount={controller.plyCount}
+                goToNode={controller.goToNode}
+                goToNextNode={controller.goToNextNode}
+                goToPreviousNode={controller.goToPreviousNode}
+                goToRootNode={controller.goToRootNode}
+                disableKeyboardNavigation={
+                  controller.gameAnalysis.progress.isAnalyzing ||
+                  controller.learnFromMistakes.state.isActive
+                }
+                disableNavigation={controller.learnFromMistakes.state.isActive}
+                onNavigate={showDesktopMovesAfterNavigation}
+                embedded
+              />
             </div>
           </div>
         </motion.div>

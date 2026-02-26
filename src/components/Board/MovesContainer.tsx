@@ -17,6 +17,7 @@ interface Props {
   startFromNode?: GameNode
   restrictNavigationBefore?: GameNode
   forceMobileLayout?: boolean
+  scrollToTopSignal?: number
 }
 
 const getMoveClassification = (node: GameNode | null) => {
@@ -52,6 +53,7 @@ export const MovesContainer: React.FC<
     startFromNode,
     restrictNavigationBefore,
     forceMobileLayout,
+    scrollToTopSignal,
     embedded = true,
     heightClass = 'h-48',
   } = props as Props & { embedded?: boolean; heightClass?: string }
@@ -168,6 +170,15 @@ export const MovesContainer: React.FC<
       })
     }
   }, [controller.currentNode])
+
+  useEffect(() => {
+    if (!containerRef.current || scrollToTopSignal === undefined) return
+
+    containerRef.current.scrollTo({
+      top: 0,
+      left: 0,
+    })
+  }, [scrollToTopSignal])
 
   const moves = useMemo(() => {
     // When using startFromNode, we want to show moves AFTER that node

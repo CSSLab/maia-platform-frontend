@@ -18,6 +18,7 @@ interface Props {
   disablePrevious?: boolean
   disableKeyboardNavigation?: boolean
   disableNavigation?: boolean
+  onNavigate?: () => void
   embedded?: boolean
 }
 
@@ -36,6 +37,7 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
   disablePrevious = false,
   disableKeyboardNavigation = false,
   disableNavigation = false,
+  onNavigate,
   embedded = false,
 }: Props) => {
   const { width } = useWindowSize()
@@ -55,17 +57,20 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
   const getFirst = useCallback(() => {
     goToRootNode()
     setCurrentMove?.(null)
-  }, [goToRootNode, setCurrentMove])
+    onNavigate?.()
+  }, [goToRootNode, onNavigate, setCurrentMove])
 
   const getPrevious = useCallback(() => {
     goToPreviousNode()
     setCurrentMove?.(null)
-  }, [goToPreviousNode, setCurrentMove])
+    onNavigate?.()
+  }, [goToPreviousNode, onNavigate, setCurrentMove])
 
   const getNext = useCallback(() => {
     goToNextNode()
     setCurrentMove?.(null)
-  }, [goToNextNode, setCurrentMove])
+    onNavigate?.()
+  }, [goToNextNode, onNavigate, setCurrentMove])
 
   const getLast = useCallback(() => {
     if (!currentNode) return
@@ -79,7 +84,8 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
     }
 
     setCurrentMove?.(null)
-  }, [currentNode, goToNode, setCurrentMove])
+    onNavigate?.()
+  }, [currentNode, goToNode, onNavigate, setCurrentMove])
 
   useEffect(() => {
     if (width <= 670 || disableKeyboardNavigation) return

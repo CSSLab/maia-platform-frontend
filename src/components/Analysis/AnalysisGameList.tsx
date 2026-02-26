@@ -898,6 +898,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                         selectedGameElement as React.RefObject<HTMLButtonElement>
                       }
                       analysisTournamentList={analysisTournamentList}
+                      onGameSelected={onGameSelected}
                     />
                   ))}
                 </>
