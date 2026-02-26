@@ -13,6 +13,7 @@ type Props = {
   selectedGameElement: React.RefObject<HTMLButtonElement>
   analysisTournamentList: Map<string, WorldChampionshipGameListEntry[]>
   setCurrentMove?: Dispatch<SetStateAction<number>>
+  onGameSelected?: () => void
 }
 
 export const Tournament = ({
@@ -26,6 +27,7 @@ export const Tournament = ({
   setLoadingIndex,
   selectedGameElement,
   analysisTournamentList,
+  onGameSelected,
 }: Props) => {
   const router = useRouter()
   const games = analysisTournamentList.get(id)
@@ -59,10 +61,18 @@ export const Tournament = ({
         className={`flex w-full flex-col ${openIndex === index ? 'block' : 'hidden'}`}
       >
         {games?.map((game, j) => {
+          const routeType = currentId?.[1]
+          const isTypedGameRoute =
+            routeType === 'lichess' ||
+            routeType === 'play' ||
+            routeType === 'hand' ||
+            routeType === 'brain' ||
+            routeType === 'custom' ||
+            routeType === 'stream'
           const selected =
-            currentId && currentId[1] == 'tournament'
+            currentId && !isTypedGameRoute
               ? sectionId == currentId[0] &&
-                game.game_index == Number.parseInt(currentId[1])
+                game.game_index == Number.parseInt(currentId[1], 10)
               : false
           return (
             <button
@@ -71,6 +81,7 @@ export const Tournament = ({
               onClick={() => {
                 setLoadingIndex(j)
                 router.push(`/analysis/${sectionId}/${game.game_index}`)
+                onGameSelected?.()
               }}
               ref={selected && opened ? selectedGameElement : null}
             >
