@@ -48,7 +48,7 @@ import { useAnalysisController } from 'src/hooks/useAnalysisController'
 import { AllStats, useStats } from 'src/hooks/useStats'
 import { PuzzleGame, Status } from 'src/types/puzzle'
 import { AnalyzedGame, MaiaEvaluation, StockfishEvaluation } from 'src/types'
-import { WindowSizeContext, useTour } from 'src/contexts'
+import { TABLET_BREAKPOINT_PX, WindowSizeContext, useTour } from 'src/contexts'
 import { TrainingControllerContext } from 'src/contexts/TrainingControllerContext'
 import {
   getCurrentPlayer,
@@ -316,7 +316,10 @@ const Train: React.FC<Props> = ({
   )
 
   const { width } = useContext(WindowSizeContext)
-  const isMobile = useMemo(() => width > 0 && width <= 670, [width])
+  const isMobile = useMemo(
+    () => width > 0 && width <= TABLET_BREAKPOINT_PX,
+    [width],
+  )
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
   const analysisSyncedRef = useRef(false)
   const [promotionFromTo, setPromotionFromTo] = useState<

@@ -269,7 +269,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
           </div>
           <div
             id="play-page"
-            className="relative flex aspect-square h-[100vw] w-screen"
+            className="relative mx-auto flex aspect-square w-full max-w-3xl"
           >
             <GameBoard
               game={game}

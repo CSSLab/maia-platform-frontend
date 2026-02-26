@@ -10,7 +10,7 @@ import { GameNode } from 'src/types'
 import { GameTree } from 'src/types/tree'
 import type { DrawShape } from 'chessground/draw'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
-import { WindowSizeContext } from 'src/contexts'
+import { TABLET_BREAKPOINT_PX, WindowSizeContext } from 'src/contexts'
 
 interface Props {
   currentNode: GameNode | null
@@ -38,7 +38,10 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
   makeMove: parentMakeMove,
 }) => {
   const { width } = useContext(WindowSizeContext)
-  const isMobile = useMemo(() => width > 0 && width <= 670, [width])
+  const isMobile = useMemo(
+    () => width > 0 && width <= TABLET_BREAKPOINT_PX,
+    [width],
+  )
 
   const hover = useCallback(
     (move?: string) => {

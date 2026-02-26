@@ -332,13 +332,14 @@ export const Header: React.FC = () => {
         </div>
       </Link>
       <button
-        className="block cursor-pointer *:*:fill-primary md:hidden"
+        aria-label="Open navigation menu"
+        className="block cursor-pointer *:*:fill-primary"
         onClick={() => setShowMenu((show) => !show)}
       >
         <span className="material-symbols-outlined text-3xl">menu</span>
       </button>
       {showMenu && (
-        <div className="fixed left-0 top-0 z-40 flex h-screen w-screen flex-col items-start justify-between bg-backdrop py-4">
+        <div className="fixed left-0 top-0 z-40 flex h-screen w-screen flex-col items-start justify-between overflow-y-auto bg-backdrop py-4">
           <div className="flex w-full flex-row justify-between px-4">
             <Link href="/" passHref>
               <div className="flex flex-row items-center gap-2">
@@ -347,26 +348,38 @@ export const Header: React.FC = () => {
               </div>
             </Link>
             <button
-              className="block cursor-pointer *:*:fill-primary md:hidden"
+              aria-label="Close navigation menu"
+              className="block cursor-pointer *:*:fill-primary"
               onClick={() => setShowMenu(false)}
             >
               <span className="material-symbols-outlined text-3xl">menu</span>
             </button>
           </div>
-          <div className="flex flex-col gap-5 px-12 tracking-wider">
+          <div className="flex w-full flex-1 flex-col gap-5 overflow-y-auto px-12 py-6 tracking-wider">
             <div className="flex flex-col items-start justify-center gap-3">
               <button>PLAY</button>
               <div className="ml-4 flex flex-col items-start justify-center gap-2">
-                <button onClick={() => startGame('againstMaia')}>
+                <button
+                  onClick={() => {
+                    setShowMenu(false)
+                    startGame('againstMaia')
+                  }}
+                >
                   Play Maia
                 </button>
-                <button onClick={() => startGame('handAndBrain')}>
+                <button
+                  onClick={() => {
+                    setShowMenu(false)
+                    startGame('handAndBrain')
+                  }}
+                >
                   Play Hand and Brain
                 </button>
                 <a
                   href="https://lichess.org/@/maia1"
                   target="_blank"
                   rel="noreferrer"
+                  onClick={() => setShowMenu(false)}
                 >
                   Play Maia on Lichess
                 </a>
@@ -393,6 +406,15 @@ export const Header: React.FC = () => {
             <Link href="/blog" className="uppercase">
               Maia Blog
             </Link>
+            <a
+              target="_blank"
+              rel="noreferrer"
+              href="https://discord.gg/Az93GqEAs7"
+              className="uppercase"
+              onClick={() => setShowMenu(false)}
+            >
+              Discord
+            </a>
             {/* <a
               target="_blank"
               rel="noreferrer"
