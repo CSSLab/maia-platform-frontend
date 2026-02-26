@@ -120,6 +120,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
   )
 
   const [openMoreOptions, setMoreOptionsOpen] = useState<boolean>(true)
+  const compactHandBrainLayout = props.playType === 'handAndBrain'
 
   const handlePresetSelect = useCallback((preset: TimeControl) => {
     setTimeControl(preset)
@@ -214,7 +215,9 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="relative flex h-[600px] w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md"
+          className={`relative flex ${
+            compactHandBrainLayout ? 'h-[640px]' : 'h-[600px]'
+          } w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md`}
         >
           <div
             className="pointer-events-none absolute inset-0"
@@ -234,7 +237,11 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           </button>
 
           {/* Header */}
-          <div className="border-b border-glass-border p-4">
+          <div
+            className={`border-b border-glass-border ${
+              compactHandBrainLayout ? 'px-4 py-3' : 'p-4'
+            }`}
+          >
             <h2 className="text-xl font-bold text-primary">
               {props.playType == 'againstMaia'
                 ? 'Play Against Maia'
@@ -248,76 +255,100 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           </div>
 
           {/* Settings Section */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div
+            className={`flex-1 overflow-y-auto ${
+              compactHandBrainLayout ? 'p-3' : 'p-4'
+            }`}
+          >
             <div className="space-y-4">
               {props.playType == 'handAndBrain' ? (
                 <>
                   <div>
-                    <label
-                      htmlFor="play-as-select"
-                      className="mb-1 block text-sm font-medium text-primary"
-                    >
-                      Play as:
-                    </label>
-                    <div id="play-as-select">
-                      <OptionSelect
-                        options={[false, true]}
-                        labels={['Hand', 'Brain']}
-                        selected={isBrain}
-                        onChange={setIsBrain}
-                      />
+                    <div className="grid grid-cols-[auto,1fr] items-center gap-3">
+                      <label
+                        htmlFor="play-as-select"
+                        className="whitespace-nowrap text-sm font-medium text-primary"
+                      >
+                        Play as:
+                      </label>
+                      <div id="play-as-select" className="min-w-0">
+                        <OptionSelect
+                          options={[false, true]}
+                          labels={['Hand', 'Brain']}
+                          selected={isBrain}
+                          onChange={setIsBrain}
+                          selectedClassName="border-human-4 bg-human-4 text-white hover:bg-human-4/90"
+                        />
+                      </div>
                     </div>
+                    <p className="mt-0.5 text-xxs leading-tight text-secondary">
+                      Hand makes the move; Brain chooses which piece type must
+                      be moved.
+                    </p>
                   </div>
                   <div>
-                    <label
-                      htmlFor="partner-select"
-                      className="mb-1 block text-sm font-medium text-primary"
-                    >
-                      Partner:
-                    </label>
-                    <select
-                      id="partner-select"
-                      value={maiaPartnerVersion}
-                      className="w-full rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
-                      onChange={(e) => setMaiaPartnerVersion(e.target.value)}
-                    >
-                      {maiaOptions.map((maia) => (
-                        <option key={`partner_${maia}`} value={maia}>
-                          {maia.replace('maia_kdd_', 'Maia ')}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="grid grid-cols-[auto,1fr] items-center gap-3">
+                      <label
+                        htmlFor="partner-select"
+                        className="whitespace-nowrap text-sm font-medium text-primary"
+                      >
+                        Partner:
+                      </label>
+                      <select
+                        id="partner-select"
+                        value={maiaPartnerVersion}
+                        className="w-full min-w-0 rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
+                        onChange={(e) => setMaiaPartnerVersion(e.target.value)}
+                      >
+                        {maiaOptions.map((maia) => (
+                          <option key={`partner_${maia}`} value={maia}>
+                            {maia.replace('maia_kdd_', 'Maia ')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="mt-0.5 text-xxs leading-tight text-secondary">
+                      {isBrain
+                        ? `${maiaPartnerVersion.replace('maia_kdd_', 'Maia ')} is your Hand and will make the move on the board.`
+                        : `${maiaPartnerVersion.replace('maia_kdd_', 'Maia ')} is your Brain and will choose which piece type must be moved.`}
+                    </p>
                   </div>
                 </>
               ) : null}
 
               <div>
-                <label
-                  htmlFor="opponent-select"
-                  className="mb-1 block text-sm font-medium text-primary"
-                >
-                  Opponent:
-                </label>
-                <select
-                  id="opponent-select"
-                  value={maiaVersion}
-                  className="w-full rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
-                  onChange={(e) => setMaiaVersion(e.target.value)}
-                >
-                  {maiaOptions.map((maia) => (
-                    <option key={`opponent_${maia}`} value={maia}>
-                      {maia.replace('maia_kdd_', 'Maia ')}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-[auto,1fr] items-center gap-3">
+                  <label
+                    htmlFor="opponent-select"
+                    className="whitespace-nowrap text-sm font-medium text-primary"
+                  >
+                    Opponent:
+                  </label>
+                  <select
+                    id="opponent-select"
+                    value={maiaVersion}
+                    className="w-full min-w-0 rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
+                    onChange={(e) => setMaiaVersion(e.target.value)}
+                  >
+                    {maiaOptions.map((maia) => (
+                      <option key={`opponent_${maia}`} value={maia}>
+                        {maia.replace('maia_kdd_', 'Maia ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>
-                <div className="mb-3 flex items-center justify-between">
+                <div
+                  className={`flex items-center justify-between ${
+                    compactHandBrainLayout ? 'mb-2' : 'mb-3'
+                  }`}
+                >
                   <span className="text-sm font-medium text-primary">
                     Time Control:
                   </span>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1.5">
                     {TimeControlOptions.map((option, index) => (
                       <button
                         key={option}
@@ -334,9 +365,17 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                <div
+                  className={
+                    compactHandBrainLayout ? 'space-y-2.5' : 'space-y-3'
+                  }
+                >
                   <div>
-                    <div className="mb-2 flex items-center justify-between">
+                    <div
+                      className={`flex items-center justify-between ${
+                        compactHandBrainLayout ? 'mb-1' : 'mb-2'
+                      }`}
+                    >
                       <label
                         htmlFor="time-minutes-slider"
                         className="text-xs font-medium text-primary"
@@ -365,7 +404,11 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                   </div>
 
                   <div>
-                    <div className="mb-2 flex items-center justify-between">
+                    <div
+                      className={`flex items-center justify-between ${
+                        compactHandBrainLayout ? 'mb-1' : 'mb-2'
+                      }`}
+                    >
                       <label
                         htmlFor="increment-seconds-slider"
                         className="text-xs font-medium text-primary"
@@ -393,20 +436,22 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               </div>
 
               <div>
-                <label
-                  htmlFor="maia-timing-select"
-                  className="mb-1 block text-sm font-medium text-primary"
-                >
-                  Maia thinking time:
-                </label>
-                <div id="maia-timing-select">
-                  <OptionSelect
-                    options={[false, true]}
-                    labels={['Instant', 'Human-like']}
-                    selected={simulateMaiaTime}
-                    onChange={setSimulateMaiaTime}
-                    selectedClassName="border-human-4 bg-human-4 text-white hover:bg-human-4/90"
-                  />
+                <div className="grid grid-cols-[auto,1fr] items-center gap-3">
+                  <label
+                    htmlFor="maia-timing-select"
+                    className="whitespace-nowrap text-sm font-medium text-primary"
+                  >
+                    Maia thinking time:
+                  </label>
+                  <div id="maia-timing-select" className="min-w-0">
+                    <OptionSelect
+                      options={[false, true]}
+                      labels={['Instant', 'Human-like']}
+                      selected={simulateMaiaTime}
+                      onChange={setSimulateMaiaTime}
+                      selectedClassName="border-human-4 bg-human-4 text-white hover:bg-human-4/90"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -451,11 +496,19 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           </div>
 
           {/* Color Selection Section */}
-          <div className="border-t border-glass-border p-4">
-            <p className="mb-3 text-center text-sm font-medium text-primary">
+          <div
+            className={`border-t border-glass-border ${
+              compactHandBrainLayout ? 'p-3' : 'p-4'
+            }`}
+          >
+            <p
+              className={`text-center text-sm font-medium text-primary ${
+                compactHandBrainLayout ? 'mb-2' : 'mb-3'
+              }`}
+            >
               Choose your color:
             </p>
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center gap-4">
               <button
                 onClick={() => start('black')}
                 title="Play as black"
