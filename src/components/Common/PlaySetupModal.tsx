@@ -297,7 +297,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                       <select
                         id="partner-select"
                         value={maiaPartnerVersion}
-                        className="min-w-0 w-full rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
+                        className="w-full min-w-0 rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
                         onChange={(e) => setMaiaPartnerVersion(e.target.value)}
                       >
                         {maiaOptions.map((maia) => (
@@ -327,7 +327,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                   <select
                     id="opponent-select"
                     value={maiaVersion}
-                    className="min-w-0 w-full rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
+                    className="w-full min-w-0 rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
                     onChange={(e) => setMaiaVersion(e.target.value)}
                   >
                     {maiaOptions.map((maia) => (
@@ -365,7 +365,11 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                   </div>
                 </div>
 
-                <div className={compactHandBrainLayout ? 'space-y-2.5' : 'space-y-3'}>
+                <div
+                  className={
+                    compactHandBrainLayout ? 'space-y-2.5' : 'space-y-3'
+                  }
+                >
                   <div>
                     <div
                       className={`flex items-center justify-between ${
