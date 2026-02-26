@@ -10,7 +10,7 @@ import type { Key } from 'chessground/types'
 import { Chess, PieceSymbol } from 'chess.ts'
 import type { DrawShape } from 'chessground/draw'
 
-import { WindowSizeContext } from 'src/contexts'
+import { TABLET_BREAKPOINT_PX, WindowSizeContext } from 'src/contexts'
 import { MAIA_MODELS } from 'src/constants/common'
 import { GameInfo } from 'src/components/Common/GameInfo'
 import { GameBoard } from 'src/components/Board/GameBoard'
@@ -41,7 +41,10 @@ export const StreamAnalysis: React.FC<Props> = ({
   analysisController,
 }) => {
   const { width } = useContext(WindowSizeContext)
-  const isMobile = useMemo(() => width > 0 && width <= 670, [width])
+  const isMobile = useMemo(
+    () => width > 0 && width <= TABLET_BREAKPOINT_PX,
+    [width],
+  )
 
   const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
   const [currentSquare, setCurrentSquare] = useState<Key | null>(null)
