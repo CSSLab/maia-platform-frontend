@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { motion, type MotionValue } from 'framer-motion'
 import type { ColorSanMapping, BlunderMeterResult } from 'src/types'
 
@@ -350,6 +351,21 @@ export const AnalysisCompactBlunderMeter: React.FC<
   variant = 'mobile',
 }) => {
   const isDesktop = variant === 'desktop'
+  const sanLabelCacheRef = useRef<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!colorSanMapping) return
+
+    for (const [move, entry] of Object.entries(colorSanMapping)) {
+      if (entry?.san) {
+        sanLabelCacheRef.current[move] = entry.san
+      }
+    }
+  }, [colorSanMapping])
+
+  const getDisplayMoveLabel = (move: string) =>
+    colorSanMapping?.[move]?.san ?? sanLabelCacheRef.current[move] ?? '...'
+
   const getTopCategoryMoves = (
     moves: { move: string; probability: number }[],
   ) => {
@@ -360,7 +376,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
       .map((entry) => ({
         move: entry.move,
         probability: Math.round(entry.probability),
-        label: colorSanMapping?.[entry.move]?.san || entry.move,
+        label: getDisplayMoveLabel(entry.move),
       }))
 
     if (!playedMove || topMoves.some((entry) => entry.move === playedMove)) {
@@ -377,8 +393,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
       {
         move: playedMoveEntry.move,
         probability: Math.round(playedMoveEntry.probability),
-        label:
-          colorSanMapping?.[playedMoveEntry.move]?.san || playedMoveEntry.move,
+        label: getDisplayMoveLabel(playedMoveEntry.move),
       },
     ]
   }
