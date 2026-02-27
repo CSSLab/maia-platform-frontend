@@ -141,7 +141,7 @@ export const DownloadModelModal: React.FC<Props> = ({
             <div className="order-1 flex flex-row gap-2 md:order-2">
               <Link
                 href="/"
-                className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
+                className="group flex cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 py-1.5 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:px-4 md:py-2.5"
               >
                 <span className="material-symbols-outlined text-base text-secondary group-hover:text-primary md:text-lg">
                   home
@@ -152,7 +152,7 @@ export const DownloadModelModal: React.FC<Props> = ({
               <div
                 tabIndex={0}
                 role="button"
-                className={`flex h-8 select-none items-center gap-2 rounded px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
+                className={`flex select-none items-center gap-2 rounded px-3 py-1.5 text-sm text-white transition-all duration-200 md:px-4 md:py-2.5 ${
                   isDownloading || progress >= 100
                     ? 'cursor-not-allowed border border-human-4/30 bg-human-4/50'
                     : 'cursor-pointer border border-glass-border bg-human-4 hover:bg-human-3'
