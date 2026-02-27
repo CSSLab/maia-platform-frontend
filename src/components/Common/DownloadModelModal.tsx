@@ -67,7 +67,7 @@ export const DownloadModelModal: React.FC<Props> = ({
   }
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center px-4 md:px-0"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -85,14 +85,14 @@ export const DownloadModelModal: React.FC<Props> = ({
         }}
       />
       <motion.div
-        className="relative z-10 w-full md:max-w-[min(750px,50vw)]"
+        className="relative z-10 flex w-full flex-col md:max-w-[min(750px,50vw)]"
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 10, opacity: 0 }}
         transition={{ duration: 0.2 }}
       >
-        <div className="group relative flex w-full flex-col gap-5 overflow-hidden rounded-lg border border-glass-border bg-glass p-5 text-left backdrop-blur-md transition-all duration-300 md:p-8">
-          <div className="flex items-center gap-3">
+        <div className="group relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-lg border border-glass-border bg-glass p-5 text-left backdrop-blur-md transition-all duration-300 md:p-8">
+          <div className="mb-5 flex flex-shrink-0 items-center gap-3">
             <span className="material-symbols-outlined material-symbols-filled text-3xl text-primary">
               auto_awesome
             </span>
@@ -101,31 +101,34 @@ export const DownloadModelModal: React.FC<Props> = ({
             </h1>
           </div>
 
-          <div className="flex flex-col gap-3 text-sm md:text-base">
-            <p className="text-primary/80">
-              Our newest model, Maia 2, provides richer and more in-depth
-              analysis, allowing for:
-            </p>
-            <ul className="flex list-inside flex-col gap-1.5 pl-2 text-white/80">
-              <li>
-                ✨ Detailed move evaluations tailored to different rating levels
-              </li>
-              <li>
-                🧠 Insights into how players of various strengths approach the
-                game
-              </li>
-              <li>
-                ⚡ Faster, local analysis without needing to send data to a
-                server
-              </li>
-            </ul>
-            <p className="text-white/80">
-              Maia 2 runs entirely on your device and requires a one-time 90mb
-              download.
-            </p>
+          <div className="flex-1 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-3 text-sm md:text-base">
+              <p className="text-primary/80">
+                Our newest model, Maia 2, provides richer and more in-depth
+                analysis, allowing for:
+              </p>
+              <ul className="flex list-inside flex-col gap-1.5 pl-2 text-white/80">
+                <li>
+                  ✨ Detailed move evaluations tailored to different rating
+                  levels
+                </li>
+                <li>
+                  🧠 Insights into how players of various strengths approach the
+                  game
+                </li>
+                <li>
+                  ⚡ Faster, local analysis without needing to send data to a
+                  server
+                </li>
+              </ul>
+              <p className="text-white/80">
+                Maia 2 runs entirely on your device and requires a one-time 90mb
+                download.
+              </p>
+            </div>
           </div>
 
-          <div className="mt-4 flex w-full flex-col items-end justify-end gap-2 md:mt-6 md:flex-row">
+          <div className="mt-6 flex flex-shrink-0 w-full flex-col items-end justify-end gap-2 md:flex-row">
             {progress ? (
               <div className="relative order-2 flex h-8 w-full items-center overflow-hidden rounded-md border border-glass-border bg-glass px-3 md:order-1 md:h-10 md:flex-1">
                 <p className="z-10 text-xs text-white/90 md:text-sm">
@@ -141,7 +144,7 @@ export const DownloadModelModal: React.FC<Props> = ({
             <div className="order-1 flex flex-row gap-2 md:order-2">
               <Link
                 href="/"
-                className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
+                className="group flex cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 py-1.5 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:px-4"
               >
                 <span className="material-symbols-outlined text-base text-secondary group-hover:text-primary md:text-lg">
                   home
@@ -152,7 +155,7 @@ export const DownloadModelModal: React.FC<Props> = ({
               <div
                 tabIndex={0}
                 role="button"
-                className={`flex h-8 select-none items-center gap-2 rounded px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
+                className={`flex select-none items-center gap-2 rounded px-3 py-1.5 text-sm text-white transition-all duration-200 md:px-4 ${
                   isDownloading || progress >= 100
                     ? 'cursor-not-allowed border border-human-4/30 bg-human-4/50'
                     : 'cursor-pointer border border-glass-border bg-human-4 hover:bg-human-3'
