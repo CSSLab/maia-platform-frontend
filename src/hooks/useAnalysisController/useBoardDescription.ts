@@ -22,12 +22,13 @@ export const useBoardDescription = (
 
     const fen = currentNode.fen
     const whiteToMove = currentNode.turn === 'w'
+    const selectedMaiaEvaluation = moveEvaluation.maia
 
     const stockfishEvals = moveEvaluation.stockfish.cp_vec
     const maiaEvals: Record<string, number[]> = {}
     const allMaiaAnalysis = currentNode.analysis.maia || {}
 
-    Object.keys(moveEvaluation.maia.policy).forEach((move) => {
+    Object.keys(selectedMaiaEvaluation.policy).forEach((move) => {
       maiaEvals[move] = new Array(MAIA_MODELS.length).fill(0)
     })
 
@@ -43,11 +44,47 @@ export const useBoardDescription = (
       }
     })
 
+    let selectedMaiaIndex = MAIA_MODELS.findIndex((model) => {
+      const modelAnalysis = allMaiaAnalysis[model]
+      return (
+        modelAnalysis === selectedMaiaEvaluation ||
+        modelAnalysis?.policy === selectedMaiaEvaluation.policy
+      )
+    })
+
+    if (selectedMaiaIndex < 0) {
+      let bestIndex = -1
+      let bestScore = -Infinity
+      MAIA_MODELS.forEach((model, index) => {
+        const policy = allMaiaAnalysis[model]?.policy
+        if (!policy) return
+
+        const sharedMoves = Object.keys(selectedMaiaEvaluation.policy).filter(
+          (move) => policy[move] !== undefined,
+        )
+        if (!sharedMoves.length) return
+
+        const score = sharedMoves.reduce(
+          (acc, move) =>
+            acc -
+            Math.abs((policy[move] ?? 0) - selectedMaiaEvaluation.policy[move]),
+          0,
+        )
+        if (score > bestScore) {
+          bestScore = score
+          bestIndex = index
+        }
+      })
+      selectedMaiaIndex = bestIndex
+    }
+
     const description = describePosition(
       fen,
       stockfishEvals,
       maiaEvals,
       whiteToMove,
+      selectedMaiaEvaluation.policy,
+      selectedMaiaIndex >= 0 ? selectedMaiaIndex : undefined,
     )
     return description
   }, [
