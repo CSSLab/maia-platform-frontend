@@ -187,6 +187,24 @@ The project uses automated code formatting and linting to maintain consistency:
 
 This ensures consistent interpretation where positive values always represent an advantage for the player whose turn it is. The conversion logic is documented in `src/hooks/useStockfishEngine/engine.ts:138-155`.
 
+#### Maia Value-Head Debug Logging
+
+When testing the value-head play mode (`/play/maia` with `maiaMoveSelectionMode=value_head`), you can enable an opt-in console table that prints each legal move with Maia's evaluated win probability.
+
+Enable in browser DevTools:
+
+```js
+localStorage.setItem('maia.valueHeadDebug', 'true')
+```
+
+Disable:
+
+```js
+localStorage.removeItem('maia.valueHeadDebug')
+```
+
+With the flag enabled, each Maia move prints a compact table (`san`, `move`, `maiaWinProb`) in the browser console. This is local-only and does not change behavior unless the flag is set in localStorage.
+
 #### State Management Architecture
 
 The platform uses a Context + Custom Hooks pattern:
