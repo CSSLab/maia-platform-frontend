@@ -3,20 +3,9 @@ import { startGame } from 'src/api'
 import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { tourConfigs } from 'src/constants/tours'
-import {
-  MaiaEngineContext,
-  MaiaEngineContextProvider,
-  ModalContext,
-  useTour,
-} from 'src/contexts'
-import { DownloadModelModal, Loading, PlayControls } from 'src/components'
-import {
-  Color,
-  MaiaEngine,
-  MaiaMoveSelectionMode,
-  TimeControl,
-  PlayGameConfig,
-} from 'src/types'
+import { ModalContext, useTour } from 'src/contexts'
+import { Loading, PlayControls } from 'src/components'
+import { Color, TimeControl, PlayGameConfig } from 'src/types'
 import { useContext, useEffect, useMemo, useState } from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
@@ -85,13 +74,7 @@ const PlayMaia: React.FC<Props> = ({
   )
 }
 
-interface PageContentProps {
-  maiaEngine?: MaiaEngine
-}
-
-const PlayMaiaPageContent: React.FC<PageContentProps> = ({
-  maiaEngine,
-}: PageContentProps) => {
+const PlayMaiaPage: NextPage = () => {
   const { startTour, tourState } = useTour()
   const [initialTourCheck, setInitialTourCheck] = useState(false)
 
@@ -113,7 +96,6 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
     timeControl,
     isBrain,
     sampleMoves,
-    maiaMoveSelectionMode,
     simulateMaiaTime: simulateMaiaTimeQuery,
     startFen,
   } = router.query
@@ -132,8 +114,6 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
       timeControl: (timeControl || 'unlimited') as TimeControl,
       isBrain: isBrain == 'true',
       sampleMoves: sampleMoves == 'true',
-      maiaMoveSelectionMode: (maiaMoveSelectionMode ||
-        'move_matching') as MaiaMoveSelectionMode,
       simulateMaiaTime: simulateMaiaTime,
       startFen: typeof startFen == 'string' ? startFen : undefined,
     }),
@@ -141,7 +121,6 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
       startFen,
       isBrain,
       maiaVersion,
-      maiaMoveSelectionMode,
       player,
       sampleMoves,
       timeControl,
@@ -198,10 +177,6 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
       }
     }
 
-    if (!router.isReady) {
-      return
-    }
-
     if (!id) {
       fetchGameId()
 
@@ -220,15 +195,6 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
           content="Challenge the most human-like chess AI. Unlike traditional engines that play robotically, Maia naturally plays moves a person would make, trained on millions of human games with real chess intuition."
         />
       </Head>
-      {playGameConfig.maiaMoveSelectionMode === 'value_head' &&
-      maiaEngine &&
-      (maiaEngine.status === 'no-cache' ||
-        maiaEngine.status === 'downloading') ? (
-        <DownloadModelModal
-          progress={maiaEngine.progress}
-          download={maiaEngine.downloadModel}
-        />
-      ) : null}
       <Loading isLoading={!router.isReady || !id}>
         {router.isReady && id && (
           <PlayMaia
@@ -241,27 +207,6 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
         )}
       </Loading>
     </>
-  )
-}
-
-const PlayMaiaPageWithLocalMaia: React.FC = () => {
-  const maiaEngine = useContext(MaiaEngineContext)
-
-  return <PlayMaiaPageContent maiaEngine={maiaEngine} />
-}
-
-const PlayMaiaPage: NextPage = () => {
-  const router = useRouter()
-  const requiresLocalMaia = router.query.maiaMoveSelectionMode === 'value_head'
-
-  if (!requiresLocalMaia) {
-    return <PlayMaiaPageContent />
-  }
-
-  return (
-    <MaiaEngineContextProvider>
-      <PlayMaiaPageWithLocalMaia />
-    </MaiaEngineContextProvider>
   )
 }
 

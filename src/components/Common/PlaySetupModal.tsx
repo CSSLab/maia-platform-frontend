@@ -7,7 +7,6 @@ import { useCallback, useContext, useState } from 'react'
 
 import {
   Color,
-  MaiaMoveSelectionMode,
   PlayType,
   TimeControl,
   TimeControlOptionNames,
@@ -81,7 +80,6 @@ interface Props {
   maiaVersion?: string
   isBrain?: boolean
   sampleMoves?: boolean
-  maiaMoveSelectionMode?: MaiaMoveSelectionMode
   simulateMaiaTime?: boolean
   startFen?: string
 }
@@ -107,10 +105,6 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
   const [sampleMoves, setSampleMoves] = useState<boolean>(
     props.sampleMoves || true,
   )
-  const [maiaMoveSelectionMode, setMaiaMoveSelectionMode] =
-    useState<MaiaMoveSelectionMode>(
-      props.maiaMoveSelectionMode || 'move_matching',
-    )
   const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
     props.simulateMaiaTime !== undefined ? props.simulateMaiaTime : true,
   )
@@ -180,7 +174,6 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
             maiaVersion: maiaVersion,
             timeControl: timeControl,
             sampleMoves: sampleMoves,
-            maiaMoveSelectionMode: maiaMoveSelectionMode,
             simulateMaiaTime: simulateMaiaTime,
             startFen: fen,
           },
@@ -195,7 +188,6 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
             timeControl: timeControl,
             isBrain: isBrain,
             sampleMoves: sampleMoves,
-            maiaMoveSelectionMode: maiaMoveSelectionMode,
             simulateMaiaTime: simulateMaiaTime,
             startFen: fen,
           },
@@ -210,7 +202,6 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
       maiaVersion,
       timeControl,
       sampleMoves,
-      maiaMoveSelectionMode,
       simulateMaiaTime,
       fen,
       isBrain,
@@ -463,35 +454,6 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                   </div>
                 </div>
               </div>
-
-              {props.playType == 'againstMaia' ? (
-                <div>
-                  <label
-                    htmlFor="maia-play-style-select"
-                    className="mb-1 block text-sm font-medium text-primary"
-                  >
-                    Maia play style:
-                  </label>
-                  <div id="maia-play-style-select">
-                    <OptionSelect
-                      options={['move_matching', 'value_head']}
-                      labels={['Human move-match', 'Best win rate']}
-                      selected={maiaMoveSelectionMode}
-                      onChange={(selected) =>
-                        setMaiaMoveSelectionMode(
-                          selected as MaiaMoveSelectionMode,
-                        )
-                      }
-                      selectedClassName="border-human-4 bg-human-4 text-white hover:bg-human-4/90"
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-secondary">
-                    {maiaMoveSelectionMode === 'move_matching'
-                      ? 'Classic Maia: chooses the move it expects a human to play.'
-                      : 'Local Maia 2 mode: evaluates every legal move and picks the one with the best perceived win rate.'}
-                  </p>
-                </div>
-              ) : null}
 
               <div className="flex items-center gap-2">
                 <input
