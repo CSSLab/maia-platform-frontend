@@ -9,6 +9,25 @@ import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
 import { MaiaEngineContext } from 'src/contexts'
 
+const MAIA_VALUE_HEAD_DEBUG_KEY = 'maia.valueHeadDebug'
+
+const isTruthy = (value: string | null | undefined): boolean => {
+  if (!value) return false
+  return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
+}
+
+const isMaiaValueHeadDebugEnabled = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    return isTruthy(window.localStorage.getItem(MAIA_VALUE_HEAD_DEBUG_KEY))
+  } catch {
+    return false
+  }
+}
+
 const playStatsLoader = async () => {
   const stats = await fetchPlayPlayerStats()
   return {
@@ -35,6 +54,8 @@ export const useVsMaiaPlayController = (
     playGameConfig.maiaMoveSelectionMode === 'value_head'
       ? maiaEngine.status
       : null
+  const playerRatingForValueHead = stats.rating ?? 1500
+  const valueHeadDebugEnabled = isMaiaValueHeadDebugEnabled()
 
   const selectValueHeadMove = useCallback(async () => {
     if (
@@ -42,6 +63,13 @@ export const useVsMaiaPlayController = (
       valueHeadStatus !== 'ready' ||
       !valueHeadModel
     ) {
+      if (valueHeadDebugEnabled) {
+        console.log('[Maia value-head debug] selector unavailable', {
+          hasCurrentNode: !!controller.currentNode,
+          valueHeadStatus,
+          hasModel: !!valueHeadModel,
+        })
+      }
       return null
     }
 
@@ -71,9 +99,13 @@ export const useVsMaiaPlayController = (
       10,
     )
     const modelElo = Number.isNaN(maiaRating) ? 1500 : maiaRating
+
+    // After Maia makes a candidate move, it is the human's turn.
+    // Maia's value head conditions on the side to move as elo_self,
+    // so the resulting boards must use the human as elo_self and Maia as elo_oppo.
     const { result } = await valueHeadModel.batchEvaluate(
       candidateBoards,
-      Array(candidateBoards.length).fill(modelElo),
+      Array(candidateBoards.length).fill(playerRatingForValueHead),
       Array(candidateBoards.length).fill(modelElo),
     )
 
@@ -91,6 +123,30 @@ export const useVsMaiaPlayController = (
       }
     }
 
+    if (valueHeadDebugEnabled) {
+      const candidateSummaries = candidateMoves
+        .map((moveUci, index) => {
+          const moveResult = result[index]
+          const whiteWinProb = moveResult.value
+          const maiaWinProb = maiaIsWhite ? whiteWinProb : 1 - whiteWinProb
+          const board = new Chess(currentFen)
+          const moveObj = board.move(moveUci, { sloppy: true })
+
+          return {
+            move: moveUci,
+            san: moveObj?.san ?? moveUci,
+            maiaWinProb: Number(maiaWinProb.toFixed(4)),
+          }
+        })
+        .sort((a, b) => b.maiaWinProb - a.maiaWinProb)
+
+      console.groupCollapsed(
+        `[Maia value-head debug] ${playGameConfig.maiaVersion} selected ${bestMove}`,
+      )
+      console.table(candidateSummaries)
+      console.groupEnd()
+    }
+
     const estimatedDelaySeconds = Math.min(
       3,
       0.35 + legalMoves.length * 0.04 + Math.random() * 0.25,
@@ -104,8 +160,10 @@ export const useVsMaiaPlayController = (
     controller.currentNode,
     controller.player,
     playGameConfig.maiaVersion,
+    playerRatingForValueHead,
     valueHeadModel,
     valueHeadStatus,
+    valueHeadDebugEnabled,
   ])
 
   const makePlayerMove = async (moveUci: string) => {
