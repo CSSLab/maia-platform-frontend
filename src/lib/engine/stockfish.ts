@@ -1412,7 +1412,7 @@ class Engine {
       engine.uci(`position fen ${runContext.fen}`)
       engine.uci(
         searchMove
-          ? `go searchmoves ${searchMove} depth ${depth}`
+          ? `go depth ${depth} searchmoves ${searchMove}`
           : `go depth ${depth}`,
       )
     })
