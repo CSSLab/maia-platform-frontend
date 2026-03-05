@@ -9,6 +9,18 @@ export type MaiaStatus =
   | 'error'
 
 export type StockfishStatus = 'loading' | 'ready' | 'error'
+export type StockfishMoveMapStrategy =
+  | 'multipv-all'
+  | 'staged-root-probe'
+  | 'searchmoves-all'
+
+export interface StockfishStreamOptions {
+  moveMapStrategy?: StockfishMoveMapStrategy
+  maiaCandidateMoves?: string[]
+  forcedCandidateMoves?: string[]
+  maiaPolicy?: { [move: string]: number }
+  kSf?: number
+}
 
 export interface MaiaEngine {
   maia?: Maia
@@ -26,5 +38,6 @@ export interface StockfishEngine {
     fen: string,
     moveCount: number,
     depth?: number,
+    options?: StockfishStreamOptions,
   ) => AsyncIterable<StockfishEvaluation> | null
 }

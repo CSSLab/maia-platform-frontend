@@ -56,6 +56,13 @@ export const generateColorSanMapping = (
 
   const chess = new Chess(fen)
   const moves = chess.moves({ verbose: true })
+  moves.forEach((m) => {
+    const moveKey = `${m.from}${m.to}${m.promotion || ''}`
+    mapping[moveKey] = {
+      san: m.san,
+      color: '#FFF',
+    }
+  })
 
   if (!stockfish) return mapping
 

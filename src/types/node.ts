@@ -309,11 +309,46 @@ export class GameNode {
     stockfishEval: StockfishEvaluation,
     activeModel?: string,
   ): void {
-    if (
-      this._analysis.stockfish &&
-      this._analysis.stockfish.depth >= stockfishEval.depth
-    ) {
-      return
+    const existingStockfish = this._analysis.stockfish
+    if (existingStockfish) {
+      if (existingStockfish.depth > stockfishEval.depth) {
+        return
+      }
+
+      if (existingStockfish.depth === stockfishEval.depth) {
+        const existingDiagnostics = existingStockfish.diagnostics
+        const incomingDiagnostics = stockfishEval.diagnostics
+        const existingStrategy = existingStockfish.diagnostics?.strategy
+        const incomingStrategy = stockfishEval.diagnostics?.strategy
+        const existingPositionId = existingStockfish.diagnostics?.positionId
+        const incomingPositionId = stockfishEval.diagnostics?.positionId
+        const isSameRun =
+          !!incomingStrategy &&
+          !!existingStrategy &&
+          incomingStrategy === existingStrategy &&
+          !!incomingPositionId &&
+          !!existingPositionId &&
+          incomingPositionId === existingPositionId
+        const incomingIsLaterSameRunSnapshot =
+          isSameRun &&
+          !!incomingDiagnostics &&
+          !!existingDiagnostics &&
+          incomingDiagnostics.totalTimeMs >= existingDiagnostics.totalTimeMs
+
+        const shouldReplaceSameDepth =
+          (incomingStrategy &&
+            existingStrategy &&
+            incomingStrategy !== existingStrategy) ||
+          (incomingPositionId &&
+            existingPositionId &&
+            incomingPositionId !== existingPositionId) ||
+          (!!stockfishEval.diagnostics && !existingStockfish.diagnostics) ||
+          incomingIsLaterSameRunSnapshot
+
+        if (!shouldReplaceSameDepth) {
+          return
+        }
+      }
     }
 
     this._analysis.stockfish = stockfishEval

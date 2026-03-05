@@ -20,6 +20,31 @@ export interface MaiaEvaluation {
   policy: { [key: string]: number }
 }
 
+export interface StockfishMoveDiagnostic {
+  cp: number
+  depth: number
+  mateIn?: number
+  phase?: 'multipv' | 'screen' | 'deep' | 'ground-truth'
+  selectedBy?: 'sf-top' | 'maia-95' | 'both'
+  maiaProb?: number
+}
+
+export interface StockfishDiagnostics {
+  positionId: string
+  fen: string
+  strategy: 'multipv-all' | 'staged-root-probe' | 'searchmoves-all'
+  targetDepth: number
+  legalMoveCount: number
+  totalTimeMs: number
+  phaseTimesMs?: { [phase: string]: number }
+  moveCounts?: {
+    screened?: number
+    deepened?: number
+    finalAtTargetDepth?: number
+  }
+  moves?: { [move: string]: StockfishMoveDiagnostic }
+}
+
 export interface StockfishEvaluation {
   sent: boolean
   depth: number
@@ -27,6 +52,8 @@ export interface StockfishEvaluation {
   model_optimal_cp: number
   cp_vec: { [key: string]: number }
   cp_relative_vec: { [key: string]: number }
+  root_move_depth_vec?: { [key: string]: number }
+  diagnostics?: StockfishDiagnostics
   winrate_vec?: { [key: string]: number }
   winrate_loss_vec?: { [key: string]: number }
   mate_vec?: { [key: string]: number }

@@ -20,6 +20,8 @@ export const MOVE_CLASSIFICATION_THRESHOLDS = {
 export const DEFAULT_MAIA_MODEL = 'maia_kdd_1500' as const
 export const MIN_STOCKFISH_DEPTH = 12 as const
 export const LEARN_FROM_MISTAKES_DEPTH = 12 as const
+export const STOCKFISH_DEBUG_RERUN_EVENT = 'maia:stockfish-debug-rerun' as const
+export const STOCKFISH_DEBUG_RERUN_KEY = 'maia.stockfishDebugRerunTs' as const
 
 export const COLORS = {
   good: ['#238b45', '#41ab5d', '#74c476', '#90D289', '#AEDFA4'],
