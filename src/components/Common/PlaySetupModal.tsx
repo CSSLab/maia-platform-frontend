@@ -82,9 +82,12 @@ interface Props {
   isBrain?: boolean
   sampleMoves?: boolean
   maiaMoveSelectionMode?: MaiaMoveSelectionMode
+  valueHeadPlayerRating?: number
   simulateMaiaTime?: boolean
   startFen?: string
 }
+
+type ValueHeadPlayerRatingOption = 'auto' | number
 
 export const PlaySetupModal: React.FC<Props> = (props: Props) => {
   const { setPlaySetupModalProps } = useContext(ModalContext)
@@ -111,6 +114,8 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
     useState<MaiaMoveSelectionMode>(
       props.maiaMoveSelectionMode || 'move_matching',
     )
+  const [valueHeadPlayerRating, setValueHeadPlayerRating] =
+    useState<ValueHeadPlayerRatingOption>(props.valueHeadPlayerRating ?? 'auto')
   const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
     props.simulateMaiaTime !== undefined ? props.simulateMaiaTime : true,
   )
@@ -180,6 +185,10 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
             timeControl: timeControl,
             sampleMoves: sampleMoves,
             maiaMoveSelectionMode: maiaMoveSelectionMode,
+            ...(maiaMoveSelectionMode !== 'value_head' ||
+            valueHeadPlayerRating === 'auto'
+              ? {}
+              : { valueHeadPlayerRating: valueHeadPlayerRating }),
             simulateMaiaTime: simulateMaiaTime,
             startFen: fen,
           },
@@ -210,6 +219,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
       timeControl,
       sampleMoves,
       maiaMoveSelectionMode,
+      valueHeadPlayerRating,
       simulateMaiaTime,
       fen,
       isBrain,
@@ -444,6 +454,46 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                     {maiaMoveSelectionMode === 'move_matching'
                       ? 'Classic Maia: chooses the move it expects a human to play.'
                       : 'Local Maia 2 mode: evaluates every legal move and picks the one with the best perceived win rate.'}
+                  </p>
+                </div>
+              ) : null}
+
+              {props.playType == 'againstMaia' &&
+              maiaMoveSelectionMode === 'value_head' ? (
+                <div>
+                  <label
+                    htmlFor="value-head-player-rating"
+                    className="mb-1 block text-sm font-medium text-primary"
+                  >
+                    Value-head player rating:
+                  </label>
+                  <select
+                    id="value-head-player-rating"
+                    value={String(valueHeadPlayerRating)}
+                    className="w-full rounded border border-glass-border bg-glass px-3 py-2 text-sm text-white/90 focus:outline-none"
+                    onChange={(e) => {
+                      const nextValue = e.target.value
+                      setValueHeadPlayerRating(
+                        nextValue === 'auto' ? 'auto' : parseInt(nextValue, 10),
+                      )
+                    }}
+                  >
+                    <option value="auto">Use your play rating</option>
+                    {maiaOptions.map((maia) => {
+                      const rating = parseInt(maia.replace('maia_kdd_', ''), 10)
+                      return (
+                        <option
+                          key={`value_head_rating_${rating}`}
+                          value={rating}
+                        >
+                          Fixed {rating}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  <p className="mt-2 text-xs text-secondary">
+                    Controls the rating Maia assumes for the human side when
+                    value-head move selection is enabled.
                   </p>
                 </div>
               ) : null}

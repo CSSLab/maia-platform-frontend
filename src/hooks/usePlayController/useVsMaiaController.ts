@@ -54,7 +54,8 @@ export const useVsMaiaPlayController = (
     playGameConfig.maiaMoveSelectionMode === 'value_head'
       ? maiaEngine.status
       : null
-  const playerRatingForValueHead = stats.rating ?? 1500
+  const playerRatingForValueHead =
+    playGameConfig.valueHeadPlayerRating ?? stats.rating ?? 1500
   const valueHeadDebugEnabled = isMaiaValueHeadDebugEnabled()
 
   const selectValueHeadMove = useCallback(async () => {
@@ -160,6 +161,7 @@ export const useVsMaiaPlayController = (
     controller.currentNode,
     controller.player,
     playGameConfig.maiaVersion,
+    playGameConfig.valueHeadPlayerRating,
     playerRatingForValueHead,
     valueHeadModel,
     valueHeadStatus,

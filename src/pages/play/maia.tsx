@@ -114,9 +114,15 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
     isBrain,
     sampleMoves,
     maiaMoveSelectionMode,
+    valueHeadPlayerRating,
     simulateMaiaTime: simulateMaiaTimeQuery,
     startFen,
   } = router.query
+
+  const parsedValueHeadPlayerRating =
+    typeof valueHeadPlayerRating === 'string'
+      ? parseInt(valueHeadPlayerRating, 10)
+      : NaN
 
   const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
     simulateMaiaTimeQuery === 'true' || simulateMaiaTimeQuery === undefined
@@ -134,6 +140,11 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
       sampleMoves: sampleMoves == 'true',
       maiaMoveSelectionMode: (maiaMoveSelectionMode ||
         'move_matching') as MaiaMoveSelectionMode,
+      valueHeadPlayerRating:
+        Number.isFinite(parsedValueHeadPlayerRating) &&
+        parsedValueHeadPlayerRating > 0
+          ? parsedValueHeadPlayerRating
+          : undefined,
       simulateMaiaTime: simulateMaiaTime,
       startFen: typeof startFen == 'string' ? startFen : undefined,
     }),
@@ -142,6 +153,7 @@ const PlayMaiaPageContent: React.FC<PageContentProps> = ({
       isBrain,
       maiaVersion,
       maiaMoveSelectionMode,
+      parsedValueHeadPlayerRating,
       player,
       sampleMoves,
       timeControl,

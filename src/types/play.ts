@@ -27,6 +27,7 @@ export interface PlayGameConfig {
   isBrain: boolean
   sampleMoves: boolean
   maiaMoveSelectionMode?: MaiaMoveSelectionMode
+  valueHeadPlayerRating?: number
   simulateMaiaTime?: boolean
   startFen?: string
   maiaPartnerVersion?: string
