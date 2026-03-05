@@ -184,9 +184,9 @@ export const useEngineAnalysis = (
 
     // Add retry logic for Stockfish initialization
     const attemptStockfishAnalysis = async () => {
-      // Wait up to 3 seconds for Stockfish to be ready
+      // Wait longer for Stockfish to be ready on first load / slower devices.
       let retries = 0
-      const maxRetries = 30 // 3 seconds with 100ms intervals
+      const maxRetries = 120 // 12 seconds with 100ms intervals
 
       while (retries < maxRetries && !stockfish.isReady() && !cancelled) {
         await new Promise((resolve) => setTimeout(resolve, 100))
@@ -194,7 +194,7 @@ export const useEngineAnalysis = (
       }
 
       if (cancelled || !stockfish.isReady()) {
-        if (!cancelled) {
+        if (!cancelled && stockfish.status === 'error') {
           console.warn('Stockfish not ready after waiting, skipping analysis')
         }
         return
