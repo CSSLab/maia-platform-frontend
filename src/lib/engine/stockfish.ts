@@ -683,62 +683,69 @@ class Engine {
         if (!this.isActiveRun(runContext.positionId)) {
           return
         }
+
         lastScreeningSnapshot = screeningSnapshot
+        phaseTimesMs.screening = screeningSnapshot.elapsedMs
+        const screeningDepthAchieved = Math.max(
+          1,
+          Math.min(plan.screeningDepth, screeningSnapshot.depth),
+        )
+
+        for (const score of screeningSnapshot.moves) {
+          rootScores[score.move] = {
+            cp: score.cp,
+            depth: Math.max(
+              rootScores[score.move]?.depth || 0,
+              Math.max(1, Math.min(plan.screeningDepth, score.depth)),
+            ),
+            mateIn: score.mateIn,
+          }
+          movePhases[score.move] = 'screen'
+        }
+
+        if (Object.keys(rootScores).length !== runContext.legalMoveCount) {
+          continue
+        }
+
+        if (screeningDepthAchieved < targetDepth) {
+          const screeningEval = this.buildEvaluationFromRootScores(
+            screeningDepthAchieved,
+            rootScores,
+            runContext.fen,
+          )
+          this.attachDiagnostics(screeningEval, {
+            runContext,
+            strategy: 'staged-root-probe',
+            targetDepth,
+            legalMoveCount: runContext.legalMoveCount,
+            phaseTimesMs,
+            rootScores,
+            movePhases,
+            moveCounts: {
+              screened: runContext.legalMoveCount,
+              deepened: 0,
+              finalAtTargetDepth: Object.values(rootScores).filter(
+                (score) => score.depth >= targetDepth,
+              ).length,
+            },
+          })
+          this.maybePublishDiagnostics(
+            screeningEval,
+            false,
+            runContext.diagnosticsToConsole,
+          )
+          yield screeningEval
+        }
       }
 
       if (!lastScreeningSnapshot || lastScreeningSnapshot.moves.length === 0) {
         throw new Error('Failed to collect staged screening scores')
       }
 
-      phaseTimesMs.screening = lastScreeningSnapshot.elapsedMs
-      const screeningDepthAchieved = Math.max(
-        1,
-        Math.min(plan.screeningDepth, lastScreeningSnapshot.depth),
-      )
-
-      for (const score of lastScreeningSnapshot.moves) {
-        rootScores[score.move] = {
-          cp: score.cp,
-          depth: Math.max(1, Math.min(plan.screeningDepth, score.depth)),
-          mateIn: score.mateIn,
-        }
-        movePhases[score.move] = 'screen'
-      }
-
       if (Object.keys(rootScores).length !== runContext.legalMoveCount) {
         throw new Error(
           `Incomplete staged screening (${Object.keys(rootScores).length}/${runContext.legalMoveCount})`,
         )
-      }
-
-      if (plan.screeningDepth > 0 && plan.screeningDepth < targetDepth) {
-        const screeningEval = this.buildEvaluationFromRootScores(
-          screeningDepthAchieved,
-          rootScores,
-          runContext.fen,
-        )
-        this.attachDiagnostics(screeningEval, {
-          runContext,
-          strategy: 'staged-root-probe',
-          targetDepth,
-          legalMoveCount: runContext.legalMoveCount,
-          phaseTimesMs,
-          rootScores,
-          movePhases,
-          moveCounts: {
-            screened: runContext.legalMoveCount,
-            deepened: 0,
-            finalAtTargetDepth: Object.values(rootScores).filter(
-              (score) => score.depth >= targetDepth,
-            ).length,
-          },
-        })
-        this.maybePublishDiagnostics(
-          screeningEval,
-          false,
-          runContext.diagnosticsToConsole,
-        )
-        yield screeningEval
       }
 
       const stagedMultiPv = Math.max(
