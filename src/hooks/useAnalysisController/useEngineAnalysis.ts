@@ -209,6 +209,9 @@ export const useEngineAnalysis = (
       )
       const maiaPolicy = currentNode.analysis.maia?.[currentMaiaModel]?.policy
       const maiaCandidateMoves: string[] = []
+      const playedMove = currentNode.mainChild?.move
+      const forcedCandidateMoves =
+        playedMove && legalMoves.has(playedMove) ? [playedMove] : []
 
       if (maiaPolicy) {
         let cumulative = 0
@@ -232,6 +235,7 @@ export const useEngineAnalysis = (
         targetDepth,
         {
           maiaCandidateMoves,
+          forcedCandidateMoves,
           maiaPolicy,
         },
       )
@@ -276,5 +280,6 @@ export const useEngineAnalysis = (
     targetDepth,
     stockfishDebugRerunToken,
     currentNode?.analysis.maia?.[currentMaiaModel]?.policy,
+    currentNode?.mainChild?.move,
   ])
 }

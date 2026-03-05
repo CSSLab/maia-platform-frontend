@@ -17,6 +17,7 @@ export type StockfishMoveMapStrategy =
 export interface StockfishStreamOptions {
   moveMapStrategy?: StockfishMoveMapStrategy
   maiaCandidateMoves?: string[]
+  forcedCandidateMoves?: string[]
   maiaPolicy?: { [move: string]: number }
   kSf?: number
 }

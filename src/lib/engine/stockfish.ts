@@ -48,6 +48,7 @@ type AnalysisRunContext = {
   legalMoves: string[]
   legalMoveCount: number
   maiaCandidateMoves: string[]
+  forcedCandidateMoves: string[]
   maiaPolicy: Record<string, number>
   kSf: number
   targetDepth: number
@@ -186,6 +187,9 @@ class Engine {
       const maiaCandidateMoves = Array.from(
         new Set(options?.maiaCandidateMoves || []),
       ).filter((move) => this.moves.includes(move))
+      const forcedCandidateMoves = Array.from(
+        new Set(options?.forcedCandidateMoves || []),
+      ).filter((move) => this.moves.includes(move))
       const maiaPolicy = Object.fromEntries(
         Object.entries(options?.maiaPolicy || {}).filter(
           ([move, prob]) => this.moves.includes(move) && Number.isFinite(prob),
@@ -200,6 +204,7 @@ class Engine {
         legalMoves: [...this.moves],
         legalMoveCount: this.legalMoveCount,
         maiaCandidateMoves,
+        forcedCandidateMoves,
         maiaPolicy,
         kSf: kSfFromOptions || 0,
         targetDepth,
@@ -761,10 +766,13 @@ class Engine {
         0,
         MAX_MAIA_DEEPEN_MOVES,
       )
+      const targetDeepeningMoves = Array.from(
+        new Set([...maiaTopMoves, ...runContext.forcedCandidateMoves]),
+      )
       const maiaMidDepth = Math.min(MAIA_MID_DEPTH, targetDepth)
 
       if (maiaMidDepth > plan.screeningDepth) {
-        for (const move of maiaTopMoves) {
+        for (const move of targetDeepeningMoves) {
           if (!this.isActiveRun(runContext.positionId)) {
             return
           }
@@ -881,7 +889,7 @@ class Engine {
         yield streamingEval
       }
 
-      for (const move of maiaTopMoves) {
+      for (const move of targetDeepeningMoves) {
         if (!this.isActiveRun(runContext.positionId)) {
           return
         }
@@ -1665,6 +1673,7 @@ class Engine {
           legalMoves: [...this.moves],
           legalMoveCount: this.legalMoveCount,
           maiaCandidateMoves: [],
+          forcedCandidateMoves: [],
           maiaPolicy: {},
           kSf: 0,
           targetDepth: this.currentTargetDepth,
