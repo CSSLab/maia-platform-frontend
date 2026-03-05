@@ -425,7 +425,13 @@ class Engine {
       moves: RootSearchResult[]
     }[] = []
     let pendingResolver:
-      | ((value: { depth: number; elapsedMs: number; moves: RootSearchResult[] } | null) => void)
+      | ((
+          value: {
+            depth: number
+            elapsedMs: number
+            moves: RootSearchResult[]
+          } | null,
+        ) => void)
       | null = null
     let finished = false
 
