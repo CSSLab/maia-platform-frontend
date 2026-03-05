@@ -15,6 +15,7 @@ export const useEngineAnalysis = (
   currentMaiaModel: string,
   setAnalysisState: React.Dispatch<React.SetStateAction<number>>,
   targetDepth = 18,
+  forceStagedStrategy = false,
 ) => {
   const maia = useContext(MaiaEngineContext)
   const stockfish = useContext(StockfishEngineContext)
@@ -234,6 +235,9 @@ export const useEngineAnalysis = (
         chess.moves().length,
         targetDepth,
         {
+          moveMapStrategy: forceStagedStrategy
+            ? 'staged-root-probe'
+            : undefined,
           maiaCandidateMoves,
           forcedCandidateMoves,
           maiaPolicy,
@@ -278,6 +282,7 @@ export const useEngineAnalysis = (
     currentMaiaModel,
     setAnalysisState,
     targetDepth,
+    forceStagedStrategy,
     stockfishDebugRerunToken,
     currentNode?.analysis.maia?.[currentMaiaModel]?.policy,
     currentNode?.mainChild?.move,

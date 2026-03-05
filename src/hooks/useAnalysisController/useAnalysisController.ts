@@ -86,6 +86,7 @@ export const useAnalysisController = (
     deepAnalysisController.progress.isAnalyzing
       ? deepAnalysisController.config.targetDepth
       : 18,
+    deepAnalysisController.progress.isAnalyzing,
   )
 
   const availableMoves = useMemo(() => {
