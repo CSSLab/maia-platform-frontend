@@ -512,7 +512,7 @@ export const Highlight: React.FC<Props> = ({
                   <p
                     className={`text-left font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
                   >
-                    {move}
+                    {colorSanMapping[move]?.san ?? move}
                   </p>
                   <p
                     className={`text-right font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
@@ -620,7 +620,7 @@ export const Highlight: React.FC<Props> = ({
                     <p
                       className={`text-left font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
                     >
-                      {move}
+                      {colorSanMapping[move]?.san ?? move}
                     </p>
                     <p
                       className={`text-right font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
