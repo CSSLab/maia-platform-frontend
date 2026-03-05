@@ -39,6 +39,8 @@ type RootProbePlan = {
 
 type RootMovePhase = 'multipv' | 'screen' | 'deep' | 'ground-truth'
 type CandidateSelectionSource = 'sf-top' | 'maia-95' | 'both'
+const MAX_MAIA_DEEPEN_MOVES = 4
+const MAIA_MID_DEPTH = 14
 
 type AnalysisRunContext = {
   positionId: string
@@ -755,6 +757,77 @@ class Engine {
           runContext.kSf > 0 ? runContext.kSf : 4,
         ),
       )
+      const maiaTopMoves = runContext.maiaCandidateMoves.slice(
+        0,
+        MAX_MAIA_DEEPEN_MOVES,
+      )
+      const maiaMidDepth = Math.min(MAIA_MID_DEPTH, targetDepth)
+
+      if (maiaMidDepth > plan.screeningDepth) {
+        for (const move of maiaTopMoves) {
+          if (!this.isActiveRun(runContext.positionId)) {
+            return
+          }
+
+          if (!rootScores[move]) {
+            continue
+          }
+
+          markSelectionSource(move, 'maia-95')
+          const current = rootScores[move]
+          if (current && current.depth >= maiaMidDepth) {
+            continue
+          }
+
+          const t0 = Date.now()
+          const deepProbe = await this.runRootSearchWithRetry(
+            runContext,
+            maiaMidDepth,
+            move,
+          )
+          phaseTimesMs.deepening += Date.now() - t0
+          if (!deepProbe) {
+            continue
+          }
+
+          rootScores[move] = {
+            cp: deepProbe.cp,
+            depth: Math.max(1, Math.min(maiaMidDepth, deepProbe.depth)),
+            mateIn: deepProbe.mateIn,
+          }
+          movePhases[move] = 'deep'
+          deepenedMoves.add(move)
+
+          const maiaMidEval = this.buildEvaluationFromRootScores(
+            maiaMidDepth,
+            rootScores,
+            runContext.fen,
+          )
+          this.attachDiagnostics(maiaMidEval, {
+            runContext,
+            strategy: 'staged-root-probe',
+            targetDepth,
+            legalMoveCount: runContext.legalMoveCount,
+            phaseTimesMs,
+            rootScores,
+            movePhases,
+            moveSelectionSources,
+            moveCounts: {
+              screened: runContext.legalMoveCount,
+              deepened: deepenedMoves.size,
+              finalAtTargetDepth: Object.values(rootScores).filter(
+                (score) => score.depth >= targetDepth,
+              ).length,
+            },
+          })
+          this.maybePublishDiagnostics(
+            maiaMidEval,
+            false,
+            runContext.diagnosticsToConsole,
+          )
+          yield maiaMidEval
+        }
+      }
 
       for await (const multipvSnapshot of this.streamMultiPvSnapshots(
         runContext,
@@ -808,7 +881,7 @@ class Engine {
         yield streamingEval
       }
 
-      for (const move of runContext.maiaCandidateMoves) {
+      for (const move of maiaTopMoves) {
         if (!this.isActiveRun(runContext.positionId)) {
           return
         }
