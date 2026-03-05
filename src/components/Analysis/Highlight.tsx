@@ -357,6 +357,8 @@ export const Highlight: React.FC<Props> = ({
   const useCompactMobileColumnTitles = isMobile && !simplified
   const mobileMaiaColumnTitle = `Maia ${currentMaiaModel.slice(-4)}: Human Moves`
   const mobileStockfishColumnTitle = 'SF 17: Engine Moves'
+  const stockfishDepth = moveEvaluation?.stockfish?.depth
+  const stockfishDepthLabel = stockfishDepth ? `d${stockfishDepth}` : null
   const openMaiaHeaderPicker = () => {
     const select = maiaHeaderSelectRef.current as
       | (HTMLSelectElement & { showPicker?: () => void })
@@ -496,10 +498,13 @@ export const Highlight: React.FC<Props> = ({
               return (
                 <button
                   key={index}
-                  className="flex w-full cursor-pointer items-center justify-between hover:underline"
-                  style={{
-                    color: colorSanMapping[move]?.color ?? '#fff',
-                  }}
+                  className="flex w-full cursor-pointer items-center justify-between text-human-1 hover:underline"
+                  style={
+                    colorSanMapping[move]?.color &&
+                    colorSanMapping[move].color !== '#FFF'
+                      ? { color: colorSanMapping[move].color }
+                      : undefined
+                  }
                   onMouseLeave={handleMouseLeave}
                   onMouseEnter={(e) => handleMouseEnter(move, 'maia', e, prob)}
                   onClick={(e) => handleClick(move, 'maia', e, prob)}
@@ -507,7 +512,7 @@ export const Highlight: React.FC<Props> = ({
                   <p
                     className={`text-left font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
                   >
-                    {colorSanMapping[move]?.san ?? move}
+                    {move}
                   </p>
                   <p
                     className={`text-right font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
@@ -521,20 +526,24 @@ export const Highlight: React.FC<Props> = ({
         </div>
         <div className="flex flex-col items-center justify-start gap-0.5 xl:gap-1">
           <div className="flex w-full flex-col border-b border-white/5 py-2">
-            <p className="whitespace-nowrap text-center text-sm font-semibold text-engine-1 md:text-xxs lg:text-xs">
-              {useCompactMobileColumnTitles
-                ? mobileStockfishColumnTitle
-                : 'Stockfish 17'}
+            <p className="flex items-baseline justify-center gap-1 whitespace-nowrap text-center text-sm font-semibold text-engine-1 md:text-xxs lg:text-xs">
+              <span>
+                {useCompactMobileColumnTitles
+                  ? mobileStockfishColumnTitle
+                  : 'Stockfish 17'}
+              </span>
+              {stockfishDepthLabel && (
+                <span className="text-[10px] font-normal text-engine-2/75 md:text-[9px] lg:text-[10px]">
+                  {stockfishDepthLabel}
+                </span>
+              )}
             </p>
           </div>
 
           {!hideStockfishEvalSummary && (
             <div className="flex w-full flex-row items-center justify-between border-b border-white/5 px-2 py-1 md:flex-col md:items-center md:justify-start md:py-0.5 lg:py-1">
               <p className="whitespace-nowrap text-sm font-semibold text-engine-2 md:text-xxs lg:text-xs">
-                SF Eval{' '}
-                {moveEvaluation?.stockfish?.depth
-                  ? ` (d${moveEvaluation.stockfish?.depth})`
-                  : ''}
+                SF Eval
               </p>
               <p className="text-sm font-bold text-engine-1 md:text-sm lg:text-lg">
                 {isCurrentPositionCheckmate
@@ -577,10 +586,13 @@ export const Highlight: React.FC<Props> = ({
                 return (
                   <button
                     key={index}
-                    className="flex w-full cursor-pointer items-center justify-between hover:underline"
-                    style={{
-                      color: colorSanMapping[move]?.color ?? '#fff',
-                    }}
+                    className="flex w-full cursor-pointer items-center justify-between text-engine-1 hover:underline"
+                    style={
+                      colorSanMapping[move]?.color &&
+                      colorSanMapping[move].color !== '#FFF'
+                        ? { color: colorSanMapping[move].color }
+                        : undefined
+                    }
                     onMouseLeave={handleMouseLeave}
                     onMouseEnter={(e) =>
                       handleMouseEnter(
@@ -608,7 +620,7 @@ export const Highlight: React.FC<Props> = ({
                     <p
                       className={`text-left font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
                     >
-                      {colorSanMapping[move]?.san ?? move}
+                      {move}
                     </p>
                     <p
                       className={`text-right font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
