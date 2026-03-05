@@ -1,7 +1,11 @@
 import { Chess } from 'chess.ts'
 import { fetchOpeningBookMoves } from 'src/api'
-import { useEffect, useContext } from 'react'
+import { useEffect, useContext, useRef, useState } from 'react'
 import { MAIA_MODELS } from 'src/constants/common'
+import {
+  STOCKFISH_DEBUG_RERUN_EVENT,
+  STOCKFISH_DEBUG_RERUN_KEY,
+} from 'src/constants/analysis'
 import { GameNode, MaiaEvaluation } from 'src/types'
 import { MaiaEngineContext, StockfishEngineContext } from 'src/contexts'
 
@@ -14,6 +18,37 @@ export const useEngineAnalysis = (
 ) => {
   const maia = useContext(MaiaEngineContext)
   const stockfish = useContext(StockfishEngineContext)
+  const [stockfishDebugRerunToken, setStockfishDebugRerunToken] = useState(0)
+  const lastConsumedStockfishRerunTokenRef = useRef(0)
+
+  const readRerunTokenFromStorage = () => {
+    if (typeof window === 'undefined') return 0
+    const raw = window.localStorage.getItem(STOCKFISH_DEBUG_RERUN_KEY)
+    const parsed = raw ? Number.parseInt(raw, 10) : 0
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const onDebugRerun = () => {
+      const token = readRerunTokenFromStorage() || Date.now()
+      setStockfishDebugRerunToken(token)
+    }
+
+    setStockfishDebugRerunToken(readRerunTokenFromStorage())
+    window.addEventListener(STOCKFISH_DEBUG_RERUN_EVENT, onDebugRerun)
+
+    const intervalId = window.setInterval(() => {
+      const token = readRerunTokenFromStorage()
+      setStockfishDebugRerunToken((prev) => (token > prev ? token : prev))
+    }, 500)
+
+    return () => {
+      window.removeEventListener(STOCKFISH_DEBUG_RERUN_EVENT, onDebugRerun)
+      window.clearInterval(intervalId)
+    }
+  }, [])
 
   async function inferenceMaiaModel(board: Chess): Promise<{
     [key: string]: MaiaEvaluation
@@ -131,9 +166,17 @@ export const useEngineAnalysis = (
 
   useEffect(() => {
     if (!currentNode) return
+
+    const shouldForceStockfishRerun =
+      stockfishDebugRerunToken > lastConsumedStockfishRerunTokenRef.current
+    if (shouldForceStockfishRerun) {
+      lastConsumedStockfishRerunTokenRef.current = stockfishDebugRerunToken
+    }
+
     if (
       currentNode.analysis.stockfish &&
-      currentNode.analysis.stockfish?.depth >= targetDepth
+      currentNode.analysis.stockfish?.depth >= targetDepth &&
+      !shouldForceStockfishRerun
     )
       return
 
@@ -158,10 +201,38 @@ export const useEngineAnalysis = (
       }
 
       const chess = new Chess(currentNode.fen)
+      const legalMoves = new Set(
+        chess
+          .moves({ verbose: true })
+          .map((move) => `${move.from}${move.to}${move.promotion || ''}`),
+      )
+      const maiaPolicy = currentNode.analysis.maia?.[currentMaiaModel]?.policy
+      const maiaCandidateMoves: string[] = []
+
+      if (maiaPolicy) {
+        let cumulative = 0
+        const sortedMaiaMoves = Object.entries(maiaPolicy)
+          .filter(([, prob]) => Number.isFinite(prob) && prob > 0)
+          .sort(([, a], [, b]) => b - a)
+
+        for (const [move, prob] of sortedMaiaMoves) {
+          if (!legalMoves.has(move)) continue
+          maiaCandidateMoves.push(move)
+          cumulative += prob
+          if (cumulative >= 0.95) {
+            break
+          }
+        }
+      }
+
       const evaluationStream = stockfish.streamEvaluations(
         chess.fen(),
         chess.moves().length,
         targetDepth,
+        {
+          maiaCandidateMoves,
+          maiaPolicy,
+        },
       )
 
       if (evaluationStream && !cancelled) {
@@ -196,5 +267,13 @@ export const useEngineAnalysis = (
       cancelled = true
       clearTimeout(timeoutId)
     }
-  }, [currentNode, stockfish, currentMaiaModel, setAnalysisState, targetDepth])
+  }, [
+    currentNode,
+    stockfish,
+    currentMaiaModel,
+    setAnalysisState,
+    targetDepth,
+    stockfishDebugRerunToken,
+    currentNode?.analysis.maia?.[currentMaiaModel]?.policy,
+  ])
 }
