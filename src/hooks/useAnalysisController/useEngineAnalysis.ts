@@ -20,6 +20,7 @@ export const useEngineAnalysis = (
   const stockfish = useContext(StockfishEngineContext)
   const [stockfishDebugRerunToken, setStockfishDebugRerunToken] = useState(0)
   const lastConsumedStockfishRerunTokenRef = useRef(0)
+  const [analysisRetryTick, setAnalysisRetryTick] = useState(0)
 
   const readRerunTokenFromStorage = () => {
     if (typeof window === 'undefined') return 0
@@ -46,6 +47,16 @@ export const useEngineAnalysis = (
 
     return () => {
       window.removeEventListener(STOCKFISH_DEBUG_RERUN_EVENT, onDebugRerun)
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const intervalId = window.setInterval(() => {
+      setAnalysisRetryTick((tick) => tick + 1)
+    }, 2000)
+    return () => {
       window.clearInterval(intervalId)
     }
   }, [])
@@ -84,10 +95,11 @@ export const useEngineAnalysis = (
     const nodeFen = currentNode.fen
 
     const attemptMaiaAnalysis = async () => {
+      const hasSelectedModelAnalysis =
+        !!currentNode?.analysis.maia?.[currentMaiaModel]
       if (
         !currentNode ||
-        (currentNode.analysis.maia &&
-          Object.keys(currentNode.analysis.maia).length > 0) ||
+        hasSelectedModelAnalysis ||
         inProgressAnalyses.has(nodeFen)
       )
         return
@@ -142,6 +154,8 @@ export const useEngineAnalysis = (
           currentNode.addMaiaAnalysis(maiaEvaluations, currentMaiaModel)
           setAnalysisState((state) => state + 1)
         }
+      } catch (error) {
+        console.warn('Failed to run Maia analysis:', error)
       } finally {
         inProgressAnalyses.delete(nodeFen)
       }
@@ -162,6 +176,7 @@ export const useEngineAnalysis = (
     inProgressAnalyses,
     maia,
     setAnalysisState,
+    analysisRetryTick,
   ])
 
   useEffect(() => {
@@ -275,5 +290,6 @@ export const useEngineAnalysis = (
     targetDepth,
     stockfishDebugRerunToken,
     currentNode?.analysis.maia?.[currentMaiaModel]?.policy,
+    analysisRetryTick,
   ])
 }
