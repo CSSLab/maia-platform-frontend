@@ -669,28 +669,40 @@ class Engine {
         return
       }
 
-      for (const move of runContext.legalMoves) {
+      let lastScreeningSnapshot: {
+        depth: number
+        elapsedMs: number
+        moves: RootSearchResult[]
+      } | null = null
+
+      for await (const screeningSnapshot of this.streamMultiPvSnapshots(
+        runContext,
+        plan.screeningDepth,
+        runContext.legalMoveCount,
+      )) {
         if (!this.isActiveRun(runContext.positionId)) {
           return
         }
+        lastScreeningSnapshot = screeningSnapshot
+      }
 
-        const t0 = Date.now()
-        const probe = await this.runRootSearch(
-          runContext,
-          plan.screeningDepth,
-          move,
-        )
-        phaseTimesMs.screening += Date.now() - t0
-        if (!probe) {
-          throw new Error(`Failed to probe root move ${move}`)
-        }
+      if (!lastScreeningSnapshot || lastScreeningSnapshot.moves.length === 0) {
+        throw new Error('Failed to collect staged screening scores')
+      }
 
-        rootScores[move] = {
-          cp: probe.cp,
-          depth: Math.max(1, Math.min(plan.screeningDepth, probe.depth)),
-          mateIn: probe.mateIn,
+      phaseTimesMs.screening = lastScreeningSnapshot.elapsedMs
+      const screeningDepthAchieved = Math.max(
+        1,
+        Math.min(plan.screeningDepth, lastScreeningSnapshot.depth),
+      )
+
+      for (const score of lastScreeningSnapshot.moves) {
+        rootScores[score.move] = {
+          cp: score.cp,
+          depth: Math.max(1, Math.min(plan.screeningDepth, score.depth)),
+          mateIn: score.mateIn,
         }
-        movePhases[move] = 'screen'
+        movePhases[score.move] = 'screen'
       }
 
       if (Object.keys(rootScores).length !== runContext.legalMoveCount) {
@@ -701,7 +713,7 @@ class Engine {
 
       if (plan.screeningDepth > 0 && plan.screeningDepth < targetDepth) {
         const screeningEval = this.buildEvaluationFromRootScores(
-          plan.screeningDepth,
+          screeningDepthAchieved,
           rootScores,
           runContext.fen,
         )
@@ -805,7 +817,7 @@ class Engine {
         }
 
         const t0 = Date.now()
-        const deepProbe = await this.runRootSearch(
+        const deepProbe = await this.runRootSearchWithRetry(
           runContext,
           targetDepth,
           move,
@@ -918,7 +930,11 @@ class Engine {
         }
 
         const t0 = Date.now()
-        const probe = await this.runRootSearch(runContext, targetDepth, move)
+        const probe = await this.runRootSearchWithRetry(
+          runContext,
+          targetDepth,
+          move,
+        )
         phaseTimesMs.groundTruth += Date.now() - t0
         if (!probe) {
           throw new Error(`Failed to analyze root move ${move}`)
@@ -1231,10 +1247,29 @@ class Engine {
     return evaluation
   }
 
+  private async runRootSearchWithRetry(
+    runContext: AnalysisRunContext,
+    depth: number,
+    searchMove?: string,
+  ): Promise<RootSearchResult | null> {
+    const primary = await this.runRootSearch(
+      runContext,
+      depth,
+      searchMove,
+      false,
+    )
+    if (primary || !searchMove) {
+      return primary
+    }
+
+    return this.runRootSearch(runContext, depth, searchMove, true)
+  }
+
   private async runRootSearch(
     runContext: AnalysisRunContext,
     depth: number,
     searchMove?: string,
+    searchMovesFirst = false,
   ): Promise<RootSearchResult | null> {
     if (
       !this.stockfish ||
@@ -1412,7 +1447,9 @@ class Engine {
       engine.uci(`position fen ${runContext.fen}`)
       engine.uci(
         searchMove
-          ? `go depth ${depth} searchmoves ${searchMove}`
+          ? searchMovesFirst
+            ? `go searchmoves ${searchMove} depth ${depth}`
+            : `go depth ${depth} searchmoves ${searchMove}`
           : `go depth ${depth}`,
       )
     })
