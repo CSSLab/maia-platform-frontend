@@ -226,7 +226,6 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
             </div>
           )}
         </div>
-
       </div>
     </div>
   )

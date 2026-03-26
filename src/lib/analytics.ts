@@ -115,7 +115,7 @@ export const trackOpeningQuickAddUsed = (
   openingName: string,
   playerColor: 'white' | 'black',
   maiaVersion: string,
-  targetMoves: number,
+  targetMoves: number | null,
 ) => {
   safeTrack('opening_quick_add_used', {
     opening_name: openingName,
@@ -129,7 +129,7 @@ export const trackOpeningConfiguredAndAdded = (
   openingName: string,
   playerColor: 'white' | 'black',
   maiaVersion: string,
-  targetMoves: number,
+  targetMoves: number | null,
   variationName?: string,
 ) => {
   safeTrack('opening_configured_and_added', {

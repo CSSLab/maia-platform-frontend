@@ -1180,7 +1180,6 @@ const Train: React.FC<Props> = ({
                   </div>
                 )}
               </div>
-
             </div>
             {gamesController}
           </div>

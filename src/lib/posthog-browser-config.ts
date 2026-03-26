@@ -1,4 +1,8 @@
-import { COPY_AUTOCAPTURE_EVENT, type CaptureResult, type PostHogConfig } from 'posthog-js'
+import {
+  COPY_AUTOCAPTURE_EVENT,
+  type CaptureResult,
+  type PostHogConfig,
+} from 'posthog-js'
 
 const dropAutocaptureEvents = (event: CaptureResult | null) => {
   if (!event) {
