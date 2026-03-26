@@ -360,7 +360,8 @@ export const Highlight: React.FC<Props> = ({
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
   const compactTitleTextClass = 'text-sm font-semibold leading-none'
-  const splitTitleTextClass = 'text-sm font-semibold leading-none md:text-xxs lg:text-xs'
+  const splitTitleTextClass =
+    'text-sm font-semibold leading-none md:text-xxs lg:text-xs'
   const stockfishDepth = moveEvaluation?.stockfish?.depth
   const stockfishDepthLabel = stockfishDepth ? `d${stockfishDepth}` : null
   const openMaiaHeaderPicker = () => {
@@ -398,7 +399,9 @@ export const Highlight: React.FC<Props> = ({
         >
           <div
             className={`relative w-full border-b border-white/5 ${
-              useCompactMobileColumnTitles ? compactTitleRowClass : splitTitleRowClass
+              useCompactMobileColumnTitles
+                ? compactTitleRowClass
+                : splitTitleRowClass
             }`}
           >
             {isHomePage ? (
@@ -500,7 +503,9 @@ export const Highlight: React.FC<Props> = ({
             {!useCompactMobileColumnTitles && (
               <p
                 className={`whitespace-nowrap text-sm font-semibold text-human-2 ${
-                  simplified ? 'mb-0.5 text-sm leading-tight' : 'mb-1 md:text-xxs lg:text-xs'
+                  simplified
+                    ? 'mb-0.5 text-sm leading-tight'
+                    : 'mb-1 md:text-xxs lg:text-xs'
                 }`}
               >
                 Human Moves
@@ -555,7 +560,9 @@ export const Highlight: React.FC<Props> = ({
         >
           <div
             className={`w-full border-b border-white/5 ${
-              useCompactMobileColumnTitles ? compactTitleRowClass : splitTitleRowClass
+              useCompactMobileColumnTitles
+                ? compactTitleRowClass
+                : splitTitleRowClass
             }`}
           >
             <p
@@ -571,7 +578,7 @@ export const Highlight: React.FC<Props> = ({
                   : 'Stockfish 17'}
               </span>
               {stockfishDepthLabel && (
-                <span className="leading-none text-[10px] font-normal text-engine-2/75 md:text-[9px] lg:text-[10px]">
+                <span className="text-[10px] font-normal leading-none text-engine-2/75 md:text-[9px] lg:text-[10px]">
                   {stockfishDepthLabel}
                 </span>
               )}
@@ -599,7 +606,9 @@ export const Highlight: React.FC<Props> = ({
             {!useCompactMobileColumnTitles && (
               <p
                 className={`whitespace-nowrap text-sm font-semibold text-engine-2 ${
-                  simplified ? 'mb-0.5 text-sm leading-tight' : 'mb-1 md:text-xxs lg:text-xs'
+                  simplified
+                    ? 'mb-0.5 text-sm leading-tight'
+                    : 'mb-1 md:text-xxs lg:text-xs'
                 }`}
               >
                 Engine Moves

@@ -1,3 +1,5 @@
+// This package is server-only and not always present in local type resolution.
+// eslint-disable-next-line import/no-unresolved
 import { PostHog } from 'posthog-node'
 
 // NOTE: This is a Node.js client for sending events from the server side to PostHog.
