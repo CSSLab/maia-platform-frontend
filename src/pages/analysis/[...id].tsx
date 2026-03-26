@@ -1199,7 +1199,7 @@ const Analysis: React.FC<Props> = ({
     () => `calc(max(24rem, ${desktopBoardSizeCss}))`,
     [desktopBoardSizeCss],
   )
-  const desktopConfigPanelHeightCss = '12.5rem'
+  const desktopConfigPanelHeightCss = '9.5rem'
   const desktopSidebarContentHeightCss = `calc(${desktopColumnTargetHeightCss} - ${desktopConfigPanelHeightCss} - 0.75rem)`
   const desktopBarChromeSize: 'compact' | 'expanded' =
     width >= 1360 ? 'expanded' : 'compact'
