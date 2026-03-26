@@ -32,6 +32,7 @@ import {
   Header,
   FeedbackButton,
 } from 'src/components'
+import { browserPostHogConfig } from 'src/lib/posthog-browser-config'
 
 const openSansClassName = 'font-sans'
 
@@ -56,11 +57,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
       api_host: '/ingest',
       ui_host: 'https://us.posthog.com',
-      defaults: '2025-05-24',
-      autocapture: false,
-      capture_pageview: true,
-      capture_pageleave: false,
-      capture_performance: false,
+      ...browserPostHogConfig,
       capture_exceptions: true,
       debug: false,
     })
