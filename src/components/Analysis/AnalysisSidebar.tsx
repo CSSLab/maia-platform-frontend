@@ -1,5 +1,4 @@
 import {
-  MoveMap,
   Highlight,
   BlunderMeter,
   MovesByRating,
@@ -57,7 +56,6 @@ export const AnalysisSidebar: React.FC<Props> = ({
   hover,
   makeMove,
   controller,
-  setHoverArrow,
   analysisEnabled,
   handleToggleAnalysis,
   hideDetailedBlunderMeter = false,
@@ -138,14 +136,6 @@ export const AnalysisSidebar: React.FC<Props> = ({
 
   const blunderMeterProps: ComponentProps<typeof BlunderMeter> = {
     ...simplifiedBlunderMeterProps,
-  }
-
-  const moveMapProps = {
-    moveMap: analysisEnabled ? controller.moveMap : undefined,
-    colorSanMapping: analysisEnabled ? controller.colorSanMapping : {},
-    setHoverArrow,
-    makeMove: analysisEnabled ? makeMove : mockMakeMove,
-    playerToMove: analysisEnabled ? (controller.currentNode?.turn ?? 'w') : 'w',
   }
 
   const movesByRatingProps = {
@@ -275,16 +265,14 @@ export const AnalysisSidebar: React.FC<Props> = ({
       <div className="flex h-full flex-col gap-3 xl:hidden">
         <div className="desktop-analysis-small-row-1-container relative flex overflow-hidden rounded-md border border-glass-border bg-glass-strong pt-10 backdrop-blur-md">
           {renderHeader('mobile', 'absolute left-0 top-0 z-10 w-full')}
-          <div className="flex h-full w-full border-r border-glass-border">
-            <Highlight {...highlightProps} />
+          <div className="flex h-full w-full">
+            <SimplifiedAnalysisOverview
+              highlightProps={{ ...highlightProps, simplified: true }}
+              blunderMeterProps={simplifiedBlunderMeterProps}
+              analysisEnabled={analysisEnabled}
+              hideBlunderMeter={hideDetailedBlunderMeter}
+            />
           </div>
-          {!hideDetailedBlunderMeter && (
-            <div className="flex h-full w-auto min-w-[40%] max-w-[40%] p-3">
-              <div className="h-full w-full">
-                <BlunderMeter {...blunderMeterProps} showContainer={false} />
-              </div>
-            </div>
-          )}
           {!analysisEnabled &&
             renderDisabledOverlay('Enable analysis to see move evaluations', {
               offsetTop: true,
@@ -292,14 +280,6 @@ export const AnalysisSidebar: React.FC<Props> = ({
         </div>
 
         <div className="desktop-analysis-small-row-2-container relative flex w-full">
-          <div className="h-full w-full">
-            <MoveMap {...moveMapProps} />
-          </div>
-          {!analysisEnabled &&
-            renderDisabledOverlay('Enable analysis to see position evaluation')}
-        </div>
-
-        <div className="desktop-analysis-small-row-3-container relative flex w-full">
           <div className="relative flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             <MovesByRating {...movesByRatingProps} />
             {!analysisEnabled &&

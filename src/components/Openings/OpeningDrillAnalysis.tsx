@@ -1,7 +1,6 @@
 import React, { useMemo, useCallback, useContext } from 'react'
 import {
   Highlight,
-  MoveMap,
   BlunderMeter,
   MovesByRating,
   AnalysisSidebar,
@@ -68,10 +67,6 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
 
   const mockMakeMove = useCallback(() => {
     // Intentionally empty - no moves allowed when analysis disabled
-  }, [])
-
-  const mockSetHoverArrow = useCallback(() => {
-    // Intentionally empty - no hover arrows when analysis disabled
   }, [])
 
   // Create empty data structures that match expected types
@@ -232,35 +227,6 @@ export const OpeningDrillAnalysis: React.FC<Props> = ({
           )}
         </div>
 
-        <div className="relative">
-          <MoveMap
-            moveMap={analysisEnabled ? analysisController.moveMap : undefined}
-            colorSanMapping={
-              analysisEnabled ? analysisController.colorSanMapping : {}
-            }
-            setHoverArrow={
-              analysisEnabled ? parentSetHoverArrow : mockSetHoverArrow
-            }
-            makeMove={analysisEnabled ? makeMove : mockMakeMove}
-            playerToMove={
-              analysisEnabled
-                ? (analysisController.currentNode?.turn ?? 'w')
-                : 'w'
-            }
-          />
-          {!analysisEnabled && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
-              <div className="rounded bg-glass p-4 text-center shadow-lg">
-                <span className="material-symbols-outlined mb-1 text-xl text-human-3">
-                  lock
-                </span>
-                <p className="text-xs font-medium text-primary">
-                  Analysis Disabled
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   )

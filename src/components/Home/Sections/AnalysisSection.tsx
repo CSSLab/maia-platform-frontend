@@ -7,7 +7,6 @@ import { useState, useEffect, useRef } from 'react'
 import { DemoBlunderMeter } from './DemoBlunderMeter'
 import { useInView } from 'react-intersection-observer'
 import { analysisMockData } from './analysisMockData.js'
-import { MoveMap } from 'src/components/Analysis/MoveMap'
 import { Highlight } from 'src/components/Analysis/Highlight'
 import { MovesByRating } from 'src/components/Analysis/MovesByRating'
 import { MaiaEvaluation, StockfishEvaluation, GameNode } from 'src/types'
@@ -120,8 +119,6 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
   const [renderKey, setRenderKey] = useState(0)
 
   const [currentMaiaModel, setCurrentMaiaModel] = useState('maia_kdd_1500')
-  const [hoverArrow, setHoverArrow] = useState<DrawShape | null>(null)
-
   useEffect(() => {
     const handleResize = () => {
       setRenderKey((prev) => prev + 1)
@@ -274,40 +271,20 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                   </motion.div>
                 </div>
               </div>
-              <div className="flex flex-col gap-3 md:flex-row">
-                <motion.div
-                  className="h-64 md:w-1/2"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={
-                    inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
-                  }
-                  transition={{ duration: 0.3, delay: 0.6 }}
-                >
-                  <div className="from-white/8 to-white/4 h-full w-full overflow-hidden rounded border border-glass-border bg-gradient-to-br backdrop-blur-md">
-                    <MovesByRating
-                      moves={analysisMockData.movesByRating}
-                      colorSanMapping={analysisMockData.colorSanMapping}
-                      isHomePage={true}
-                    />
-                  </div>
-                </motion.div>
-                <motion.div
-                  className="from-white/8 to-white/4 h-64 overflow-hidden rounded border border-glass-border bg-gradient-to-br backdrop-blur-md md:w-1/2"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={
-                    inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }
-                  }
-                  transition={{ duration: 0.3, delay: 0.7 }}
-                >
-                  <MoveMap
-                    moveMap={analysisMockData.moveMap}
+              <motion.div
+                className="h-64"
+                initial={{ opacity: 0, y: 20 }}
+                animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+                transition={{ duration: 0.3, delay: 0.6 }}
+              >
+                <div className="from-white/8 to-white/4 h-full w-full overflow-hidden rounded border border-glass-border bg-gradient-to-br backdrop-blur-md">
+                  <MovesByRating
+                    moves={analysisMockData.movesByRating}
                     colorSanMapping={analysisMockData.colorSanMapping}
-                    setHoverArrow={setHoverArrow}
-                    makeMove={handleMakeMove}
                     isHomePage={true}
                   />
-                </motion.div>
-              </div>
+                </div>
+              </motion.div>
             </div>
           </div>
         </motion.div>

@@ -1789,10 +1789,13 @@ const loadNnueModel = async (
   storage: StockfishModelStorage,
   timeoutMs: number,
   onNetworkFetchStart?: () => void,
+  forceRefresh = false,
 ): Promise<ArrayBuffer> => {
-  const cachedModel = await storage.getModel(modelUrl)
-  if (cachedModel) {
-    return cachedModel
+  if (!forceRefresh) {
+    const cachedModel = await storage.getModel(modelUrl)
+    if (cachedModel) {
+      return cachedModel
+    }
   }
 
   onNetworkFetchStart?.()
@@ -1808,16 +1811,27 @@ const loadNnueModel = async (
   return buffer
 }
 
+const shouldRetryNnueLoad = (error: unknown): boolean => {
+  if (error instanceof RangeError) {
+    return true
+  }
+
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return (
+    /offset is out of bounds/i.test(error.message) ||
+    /could not allocate/i.test(error.message) ||
+    /bytes\?/i.test(error.message)
+  )
+}
+
 const setupStockfish = async (
   onPhaseChange?: (phase: StockfishInitPhase) => void,
 ): Promise<StockfishWeb> => {
-  onPhaseChange?.('loading-module')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const makeModule: any = await import('lila-stockfish-web/sf17-79.js')
-  const instance: StockfishWeb = await makeModule.default({
-    wasmMemory: sharedWasmMemory(2560),
-    locateFile: (name: string) => `/stockfish/${name}`,
-  })
 
   // NNUE weights served via raw.githubusercontent.com permalink (CORS + COEP compatible).
   // Override with NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL for self-hosted deployments.
@@ -1826,31 +1840,84 @@ const setupStockfish = async (
     'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
   const storage = new StockfishModelStorage()
   await storage.requestPersistentStorage()
-
-  const nnue0Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`
-  const nnue1Url = `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`
   const timeoutMs = getNnueFetchTimeoutMs()
-  let downloadStarted = false
+  let nnueUrls: [string, string] | null = null
 
-  try {
+  const createInstance = async (): Promise<StockfishWeb> => {
+    onPhaseChange?.('loading-module')
+    return makeModule.default({
+      wasmMemory: sharedWasmMemory(2560),
+      locateFile: (name: string) => `/stockfish/${name}`,
+    })
+  }
+
+  const loadWeightsIntoInstance = async (
+    instance: StockfishWeb,
+    forceRefresh = false,
+  ): Promise<void> => {
+    if (!nnueUrls) {
+      throw new Error('Stockfish recommended NNUE URLs were not initialized')
+    }
+
+    let downloadStarted = false
+
     onPhaseChange?.('checking-cache')
     const buffers = await Promise.all([
-      loadNnueModel(nnue0Url, storage, timeoutMs, () => {
-        if (!downloadStarted) {
-          downloadStarted = true
-          onPhaseChange?.('downloading-nnue')
-        }
-      }),
-      loadNnueModel(nnue1Url, storage, timeoutMs, () => {
-        if (!downloadStarted) {
-          downloadStarted = true
-          onPhaseChange?.('downloading-nnue')
-        }
-      }),
+      loadNnueModel(
+        nnueUrls[0],
+        storage,
+        timeoutMs,
+        () => {
+          if (!downloadStarted) {
+            downloadStarted = true
+            onPhaseChange?.('downloading-nnue')
+          }
+        },
+        forceRefresh,
+      ),
+      loadNnueModel(
+        nnueUrls[1],
+        storage,
+        timeoutMs,
+        () => {
+          if (!downloadStarted) {
+            downloadStarted = true
+            onPhaseChange?.('downloading-nnue')
+          }
+        },
+        forceRefresh,
+      ),
     ])
+
     onPhaseChange?.('loading-nnue')
     instance.setNnueBuffer(new Uint8Array(buffers[0]), 0)
     instance.setNnueBuffer(new Uint8Array(buffers[1]), 1)
+  }
+
+  try {
+    let instance = await createInstance()
+    nnueUrls = [
+      `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`,
+      `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`,
+    ]
+
+    try {
+      await loadWeightsIntoInstance(instance)
+    } catch (error) {
+      if (!shouldRetryNnueLoad(error)) {
+        throw error
+      }
+
+      console.warn(
+        'Stockfish NNUE load failed; clearing cached weights and retrying once.',
+        error,
+      )
+      await Promise.all(nnueUrls.map((url) => storage.deleteModel(url)))
+
+      instance = await createInstance()
+      await loadWeightsIntoInstance(instance, true)
+    }
+
     return instance
   } catch (error) {
     console.error('Failed to load NNUE models:', error)
