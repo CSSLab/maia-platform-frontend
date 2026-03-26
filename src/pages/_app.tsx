@@ -57,6 +57,10 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
       api_host: '/ingest',
       ui_host: 'https://us.posthog.com',
       defaults: '2025-05-24',
+      autocapture: false,
+      capture_pageview: true,
+      capture_pageleave: false,
+      capture_performance: false,
       capture_exceptions: true,
       debug: false,
     })
