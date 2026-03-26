@@ -354,9 +354,13 @@ export const Highlight: React.FC<Props> = ({
     }
   }, [boardDescription?.segments?.length])
 
-  const useCompactMobileColumnTitles = isMobile && !simplified
+  const useCompactMobileColumnTitles = isMobile || simplified
   const mobileMaiaColumnTitle = `Maia ${currentMaiaModel.slice(-4)}: Human Moves`
   const mobileStockfishColumnTitle = 'SF 17: Engine Moves'
+  const compactTitleRowClass = 'grid h-11 place-items-center'
+  const splitTitleRowClass = 'grid h-12 place-items-center'
+  const compactTitleTextClass = 'text-sm font-semibold leading-none'
+  const splitTitleTextClass = 'text-sm font-semibold leading-none md:text-xxs lg:text-xs'
   const stockfishDepth = moveEvaluation?.stockfish?.depth
   const stockfishDepthLabel = stockfishDepth ? `d${stockfishDepth}` : null
   const openMaiaHeaderPicker = () => {
@@ -387,10 +391,24 @@ export const Highlight: React.FC<Props> = ({
           simplified ? 'grid-cols-1' : ''
         }`}
       >
-        <div className="flex flex-col items-center justify-start gap-0.5 border-r border-glass-border xl:gap-1">
-          <div className="relative flex w-full flex-col border-b border-white/5">
+        <div
+          className={`flex flex-col items-center justify-start border-r border-glass-border ${
+            simplified ? 'gap-0' : 'gap-0.5 xl:gap-1'
+          }`}
+        >
+          <div
+            className={`relative w-full border-b border-white/5 ${
+              useCompactMobileColumnTitles ? compactTitleRowClass : splitTitleRowClass
+            }`}
+          >
             {isHomePage ? (
-              <div className="py-2 text-center text-sm font-semibold text-human-1 md:text-xxs lg:text-xs">
+              <div
+                className={`text-center text-human-1 ${
+                  useCompactMobileColumnTitles
+                    ? compactTitleTextClass
+                    : splitTitleTextClass
+                }`}
+              >
                 {useCompactMobileColumnTitles
                   ? mobileMaiaColumnTitle
                   : `Maia ${currentMaiaModel.slice(-4)}`}
@@ -398,12 +416,14 @@ export const Highlight: React.FC<Props> = ({
             ) : (
               <>
                 {useCompactMobileColumnTitles ? (
-                  <div className="flex items-center justify-center py-2 pr-4 text-sm font-semibold text-human-1">
+                  <div
+                    className={`flex items-center justify-center pr-4 text-human-1 ${compactTitleTextClass}`}
+                  >
                     <select
                       ref={maiaHeaderSelectRef}
                       value={currentMaiaModel}
                       onChange={(e) => setCurrentMaiaModel(e.target.value)}
-                      className="cursor-pointer appearance-none bg-transparent text-center outline-none transition-colors duration-200 hover:text-human-1/80"
+                      className="pointer-events-none absolute inset-0 h-full w-full appearance-none opacity-0"
                     >
                       {MAIA_MODELS.map((model) => (
                         <option
@@ -415,8 +435,8 @@ export const Highlight: React.FC<Props> = ({
                         </option>
                       ))}
                     </select>
-                    <span className="ml-0.5 whitespace-nowrap">
-                      : Human Moves
+                    <span className="whitespace-nowrap leading-none">
+                      {mobileMaiaColumnTitle}
                     </span>
                   </div>
                 ) : (
@@ -424,7 +444,7 @@ export const Highlight: React.FC<Props> = ({
                     ref={maiaHeaderSelectRef}
                     value={currentMaiaModel}
                     onChange={(e) => setCurrentMaiaModel(e.target.value)}
-                    className="cursor-pointer appearance-none bg-transparent py-2 text-center text-sm font-semibold text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80 md:text-xxs lg:text-xs"
+                    className={`cursor-pointer appearance-none bg-transparent text-center ${splitTitleTextClass} text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80`}
                   >
                     {MAIA_MODELS.map((model) => (
                       <option
@@ -473,11 +493,15 @@ export const Highlight: React.FC<Props> = ({
           )}
 
           <div
-            className={`flex w-full flex-col items-start justify-center md:items-center ${simplified ? 'p-3' : 'px-2 py-1.5 xl:py-2'}`}
+            className={`flex w-full flex-col items-start justify-start md:items-center ${
+              simplified ? 'px-3 pb-2 pt-1.5' : 'px-2 py-1.5 xl:py-2'
+            }`}
           >
             {!useCompactMobileColumnTitles && (
               <p
-                className={`mb-1 whitespace-nowrap text-sm font-semibold text-human-2 ${simplified ? 'text-sm' : 'md:text-xxs lg:text-xs'}`}
+                className={`whitespace-nowrap text-sm font-semibold text-human-2 ${
+                  simplified ? 'mb-0.5 text-sm leading-tight' : 'mb-1 md:text-xxs lg:text-xs'
+                }`}
               >
                 Human Moves
               </p>
@@ -524,16 +548,30 @@ export const Highlight: React.FC<Props> = ({
             })}
           </div>
         </div>
-        <div className="flex flex-col items-center justify-start gap-0.5 xl:gap-1">
-          <div className="flex w-full flex-col border-b border-white/5 py-2">
-            <p className="flex items-baseline justify-center gap-1 whitespace-nowrap text-center text-sm font-semibold text-engine-1 md:text-xxs lg:text-xs">
-              <span>
+        <div
+          className={`flex flex-col items-center justify-start ${
+            simplified ? 'gap-0' : 'gap-0.5 xl:gap-1'
+          }`}
+        >
+          <div
+            className={`w-full border-b border-white/5 ${
+              useCompactMobileColumnTitles ? compactTitleRowClass : splitTitleRowClass
+            }`}
+          >
+            <p
+              className={`flex items-center justify-center gap-1 whitespace-nowrap text-center text-engine-1 ${
+                useCompactMobileColumnTitles
+                  ? compactTitleTextClass
+                  : splitTitleTextClass
+              }`}
+            >
+              <span className="leading-none">
                 {useCompactMobileColumnTitles
                   ? mobileStockfishColumnTitle
                   : 'Stockfish 17'}
               </span>
               {stockfishDepthLabel && (
-                <span className="text-[10px] font-normal text-engine-2/75 md:text-[9px] lg:text-[10px]">
+                <span className="leading-none text-[10px] font-normal text-engine-2/75 md:text-[9px] lg:text-[10px]">
                   {stockfishDepthLabel}
                 </span>
               )}
@@ -554,11 +592,15 @@ export const Highlight: React.FC<Props> = ({
           )}
 
           <div
-            className={`flex w-full flex-col items-start justify-center ${simplified ? 'p-3' : 'px-2 py-1.5 xl:py-2'} md:items-center`}
+            className={`flex w-full flex-col items-start justify-start md:items-center ${
+              simplified ? 'px-3 pb-2 pt-1.5' : 'px-2 py-1.5 xl:py-2'
+            }`}
           >
             {!useCompactMobileColumnTitles && (
               <p
-                className={`mb-1 whitespace-nowrap text-sm font-semibold text-engine-2 ${simplified ? 'text-sm' : 'md:text-xxs lg:text-xs'}`}
+                className={`whitespace-nowrap text-sm font-semibold text-engine-2 ${
+                  simplified ? 'mb-0.5 text-sm leading-tight' : 'mb-1 md:text-xxs lg:text-xs'
+                }`}
               >
                 Engine Moves
               </p>
