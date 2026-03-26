@@ -13,6 +13,7 @@ import type { DrawShape } from 'chessground/draw'
 import { TABLET_BREAKPOINT_PX, WindowSizeContext } from 'src/contexts'
 import { MAIA_MODELS } from 'src/constants/common'
 import { GameInfo } from 'src/components/Common/GameInfo'
+import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import { GameBoard } from 'src/components/Board/GameBoard'
 import { PlayerInfo } from 'src/components/Common/PlayerInfo'
 import { MovesContainer } from 'src/components/Board/MovesContainer'
@@ -225,6 +226,12 @@ export const StreamAnalysis: React.FC<Props> = ({
           {game.whitePlayer.rating && (
             <span className="text-primary/60">({game.whitePlayer.rating})</span>
           )}
+          <MaterialBalance
+            fen={analysisController.currentNode?.fen}
+            color="white"
+            iconClassName="!text-xs text-primary/70"
+            textClassName="text-primary/70"
+          />
         </div>
         <div className="flex items-center gap-1">
           {streamState.isLive ? (
@@ -249,6 +256,12 @@ export const StreamAnalysis: React.FC<Props> = ({
           {game.blackPlayer.rating && (
             <span className="text-primary/60">({game.blackPlayer.rating})</span>
           )}
+          <MaterialBalance
+            fen={analysisController.currentNode?.fen}
+            color="black"
+            iconClassName="!text-xs text-primary/70"
+            textClassName="text-primary/70"
+          />
         </div>
       </div>
     </div>
