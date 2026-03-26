@@ -1604,8 +1604,8 @@ const Analysis: React.FC<Props> = ({
                         fen={controller.currentNode?.fen}
                         color="white"
                         className="whitespace-nowrap"
-                        iconClassName="!text-[12px]"
-                        textClassName="text-[11px] text-white/85"
+                        iconClassName="!text-[18px]"
+                        textClassName="text-[14px] text-white/90"
                       />
                     </div>
                     <AnalysisArrowLegend
@@ -1617,8 +1617,8 @@ const Analysis: React.FC<Props> = ({
                         fen={controller.currentNode?.fen}
                         color="black"
                         className="whitespace-nowrap"
-                        iconClassName="!text-[12px]"
-                        textClassName="text-[11px] text-white/85"
+                        iconClassName="!text-[18px]"
+                        textClassName="text-[14px] text-white/90"
                       />
                     </div>
                   </div>
@@ -1893,8 +1893,8 @@ const Analysis: React.FC<Props> = ({
                       fen={controller.currentNode?.fen}
                       color="white"
                       className="whitespace-nowrap"
-                      iconClassName="!text-[11px]"
-                      textClassName="text-[10px] text-primary/75"
+                      iconClassName="!text-[13px]"
+                      textClassName="text-[11px] text-primary/80"
                     />
                   </div>
                   <AnalysisArrowLegend
@@ -1906,8 +1906,8 @@ const Analysis: React.FC<Props> = ({
                       fen={controller.currentNode?.fen}
                       color="black"
                       className="whitespace-nowrap"
-                      iconClassName="!text-[11px]"
-                      textClassName="text-[10px] text-primary/75"
+                      iconClassName="!text-[13px]"
+                      textClassName="text-[11px] text-primary/80"
                     />
                   </div>
                 </div>

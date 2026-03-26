@@ -21,19 +21,6 @@ const STARTING_MATERIAL: { white: MaterialCount; black: MaterialCount } = {
   black: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
 }
 
-const getPieceIcon = (piece: PieceType): string => {
-  const iconMap: Record<PieceType, string> = {
-    p: 'chess_pawn',
-    n: 'chess_knight',
-    b: 'chess_bishop',
-    r: 'chess_rook',
-    q: 'chess',
-    k: 'chess',
-  }
-
-  return iconMap[piece]
-}
-
 const getPieceLabel = (piece: PieceType): string => {
   const labelMap: Record<PieceType, string> = {
     p: 'pawn',
@@ -45,6 +32,19 @@ const getPieceLabel = (piece: PieceType): string => {
   }
 
   return labelMap[piece]
+}
+
+const getPieceSpriteClass = (piece: PieceType): string => {
+  const spriteMap: Record<PieceType, string> = {
+    p: 'pawn',
+    n: 'knight',
+    b: 'bishop',
+    r: 'rook',
+    q: 'queen',
+    k: 'king',
+  }
+
+  return spriteMap[piece]
 }
 
 const calculateCapturedPieces = (fen: string) => {
@@ -113,12 +113,14 @@ export const MaterialBalance = ({
   className = '',
   iconClassName = '',
   textClassName = '',
+  pieceFilter,
 }: {
   fen?: string
   color: Color
   className?: string
   iconClassName?: string
   textClassName?: string
+  pieceFilter?: string
 }) => {
   const materialData = useMemo(() => {
     if (!fen) {
@@ -166,10 +168,12 @@ export const MaterialBalance = ({
     return null
   }
 
-  const capturedPieceToneClass =
-    color === 'white'
-      ? 'text-zinc-900 [text-shadow:0_0_1px_rgba(255,255,255,0.95)]'
-      : 'text-white [text-shadow:0_0_1px_rgba(0,0,0,0.9)]'
+  const capturedPieceColor = color === 'white' ? 'black' : 'white'
+  const capturedPieceFilter =
+    pieceFilter ??
+    capturedPieceColor === 'black'
+      ? 'drop-shadow(0 0 0.8px rgba(255,255,255,0.82)) drop-shadow(0 0 1.5px rgba(255,255,255,0.28))'
+      : 'drop-shadow(0 0 0.8px rgba(0,0,0,0.82)) drop-shadow(0 0 1.5px rgba(0,0,0,0.22))'
 
   return (
     <div className={`flex select-none items-center gap-1 ${className}`.trim()}>
@@ -186,23 +190,25 @@ export const MaterialBalance = ({
               {Array.from({ length: count }).map((_, index) => (
                 <span
                   key={`${piece}-${index}`}
-                  className={`material-symbols-outlined material-symbols-filled text-sm ${capturedPieceToneClass} ${index > 0 ? '-ml-1.5' : ''} ${iconClassName}`.trim()}
+                  className={`cg-wrap !relative !inline-block !h-[1em] !w-[1em] align-middle ${
+                    index > 0 ? '-ml-1.5' : ''
+                  } ${iconClassName}`.trim()}
                   title={getPieceLabel(piece)}
                 >
-                  {getPieceIcon(piece)}
+                  <piece
+                    className={`${getPieceSpriteClass(piece)} ${capturedPieceColor}`}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      filter: capturedPieceFilter,
+                    }}
+                  />
                 </span>
               ))}
             </div>
           )
         })}
       </div>
-      {materialData.advantage > 0 && (
-        <span
-          className={`text-xxs font-medium text-secondary ${textClassName}`.trim()}
-        >
-          +{materialData.advantage}
-        </span>
-      )}
     </div>
   )
 }

@@ -60,24 +60,47 @@ export const GameClock: React.FC<Props> = (
 
   return (
     <div
-      className={`flex items-center justify-between bg-glass-strong md:items-start md:justify-start ${active ? 'opacity-100' : 'opacity-50'} flex-row md:flex-col`}
+      className="flex flex-row items-center justify-between bg-glass-strong md:flex-col md:items-start md:justify-start"
     >
       <div className="flex w-full items-center justify-between gap-3 px-4 py-2">
-        <span>
-          {props.player === 'black' ? '●' : '○'}{' '}
-          {player === props.player
-            ? user?.displayName
-            : getMaiaDisplayName(maiaVersion)}
+        <span
+          className={`flex items-center gap-2 transition-colors ${
+            active ? 'text-white' : 'text-white/55'
+          }`}
+        >
+          <span
+            className={`inline-block h-3 w-3 rounded-full ${
+              props.player === 'white'
+                ? 'bg-white ring-1 ring-white/70'
+                : 'bg-black ring-1 ring-white/35'
+            } ${active ? 'animate-pulse ring-2 ring-primary/35' : ''}`}
+          />
+          <span>
+            {player === props.player
+              ? user?.displayName
+              : getMaiaDisplayName(maiaVersion)}
+          </span>
         </span>
         <MaterialBalance
           fen={currentNode?.fen}
           color={props.player}
-          className="gap-1.5"
-          iconClassName="!text-base md:!text-lg text-white/85"
-          textClassName="text-sm md:text-base text-white/85"
+          className="gap-2"
+          iconClassName="!text-xl md:!text-2xl text-white/95"
+          textClassName="text-base md:text-lg text-white/90"
+          pieceFilter={
+            props.player === 'black'
+              ? 'brightness(1.18) contrast(1.08)'
+              : undefined
+          }
         />
       </div>
-      <div className="inline-flex self-start px-4 py-2 md:text-3xl">
+      <div
+        className={`inline-flex self-start px-4 py-2 transition-all duration-200 md:text-3xl ${
+          active
+            ? 'font-semibold text-primary'
+            : 'text-white/55'
+        }`}
+      >
         {minutes}:{('00' + seconds).slice(-2)}
         {showTenths ? '.' + tenths : null}
       </div>
