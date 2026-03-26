@@ -26,9 +26,10 @@ import {
 import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
 import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
-import { MoveMap } from 'src/components/Analysis/MoveMap'
-import { Highlight } from 'src/components/Analysis/Highlight'
-import { AnalysisSidebar } from 'src/components/Analysis'
+import {
+  AnalysisSidebar,
+  SimplifiedAnalysisOverview,
+} from 'src/components/Analysis'
 import {
   AnalysisArrowLegend,
   AnalysisCompactBlunderMeter,
@@ -726,7 +727,6 @@ const Analysis: React.FC<Props> = ({
   }
 
   const mockHover = useCallback(() => void 0, [])
-  const mockSetHoverArrow = useCallback(() => void 0, [])
 
   const makeMove = (move: string) => {
     if (!controller.currentNode || !analyzedGame.tree) return
@@ -2057,64 +2057,98 @@ const Analysis: React.FC<Props> = ({
             </div>
             <div className="flex w-full flex-col overflow-hidden">
               <div className="relative border-t border-glass-border bg-glass backdrop-blur-md">
-                <Highlight
-                  hover={
+                <SimplifiedAnalysisOverview
+                  highlightProps={{
+                    hover:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? hover
+                        : mockHover,
+                    makeMove:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? makeMove
+                        : mockMakeMove,
+                    currentMaiaModel: controller.currentMaiaModel,
+                    setCurrentMaiaModel: controller.setCurrentMaiaModel,
+                    recommendations:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? controller.moveRecommendations
+                        : emptyRecommendations,
+                    moveEvaluation:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? (controller.moveEvaluation as {
+                            maia?: MaiaEvaluation
+                            stockfish?: StockfishEvaluation
+                          })
+                        : {
+                            maia: undefined,
+                            stockfish: undefined,
+                          },
+                    colorSanMapping:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? controller.colorSanMapping
+                        : {},
+                    boardDescription:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? controller.boardDescription
+                        : {
+                            segments: [
+                              {
+                                type: 'text',
+                                content: controller.learnFromMistakes.state
+                                  .isActive
+                                  ? 'Analysis is hidden during Learn from Mistakes mode.'
+                                  : 'Analysis is disabled. Enable analysis to see detailed move evaluations and recommendations.',
+                              },
+                            ],
+                          },
+                    currentNode: controller.currentNode,
+                    simplified: true,
+                    hideWhiteWinRateSummary: true,
+                    hideStockfishEvalSummary: true,
+                  }}
+                  blunderMeterProps={{
+                    hover:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? hover
+                        : mockHover,
+                    makeMove:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? makeMove
+                        : mockMakeMove,
+                    data:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? compactBlunderMeterData
+                        : emptyBlunderMeterData,
+                    colorSanMapping:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? controller.colorSanMapping
+                        : {},
+                    moveEvaluation:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? controller.moveEvaluation
+                        : undefined,
+                    playerToMove:
+                      analysisEnabled &&
+                      !controller.learnFromMistakes.state.isActive
+                        ? (controller.currentNode?.turn ?? 'w')
+                        : 'w',
+                  }}
+                  analysisEnabled={
                     analysisEnabled &&
                     !controller.learnFromMistakes.state.isActive
-                      ? hover
-                      : mockHover
                   }
-                  makeMove={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? makeMove
-                      : mockMakeMove
-                  }
-                  currentMaiaModel={controller.currentMaiaModel}
-                  setCurrentMaiaModel={controller.setCurrentMaiaModel}
-                  recommendations={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? controller.moveRecommendations
-                      : emptyRecommendations
-                  }
-                  moveEvaluation={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? (controller.moveEvaluation as {
-                          maia?: MaiaEvaluation
-                          stockfish?: StockfishEvaluation
-                        })
-                      : {
-                          maia: undefined,
-                          stockfish: undefined,
-                        }
-                  }
-                  colorSanMapping={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? controller.colorSanMapping
-                      : {}
-                  }
-                  boardDescription={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? controller.boardDescription
-                      : {
-                          segments: [
-                            {
-                              type: 'text',
-                              content: controller.learnFromMistakes.state
-                                .isActive
-                                ? 'Analysis is hidden during Learn from Mistakes mode.'
-                                : 'Analysis is disabled. Enable analysis to see detailed move evaluations and recommendations.',
-                            },
-                          ],
-                        }
-                  }
-                  currentNode={controller.currentNode}
-                  hideWhiteWinRateSummary={true}
-                  hideStockfishEvalSummary={true}
+                  hideBlunderMeter={true}
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
@@ -2146,56 +2180,6 @@ const Analysis: React.FC<Props> = ({
                     !controller.learnFromMistakes.state.isActive
                       ? controller.colorSanMapping
                       : {}
-                  }
-                />
-                {(!analysisEnabled ||
-                  controller.learnFromMistakes.state.isActive) && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
-                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
-                      <span className="material-symbols-outlined mb-1 text-xl text-human-3">
-                        lock
-                      </span>
-                      <p className="text-xs font-medium text-primary">
-                        {controller.learnFromMistakes.state.isActive
-                          ? 'Learning Mode Active'
-                          : 'Analysis Disabled'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="relative">
-                <MoveMap
-                  moveMap={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? controller.moveMap
-                      : undefined
-                  }
-                  colorSanMapping={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? controller.colorSanMapping
-                      : {}
-                  }
-                  setHoverArrow={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? setHoverArrow
-                      : mockSetHoverArrow
-                  }
-                  makeMove={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? makeMove
-                      : mockMakeMove
-                  }
-                  playerToMove={
-                    analysisEnabled &&
-                    !controller.learnFromMistakes.state.isActive
-                      ? (controller.currentNode?.turn ?? 'w')
-                      : 'w'
                   }
                 />
                 {(!analysisEnabled ||

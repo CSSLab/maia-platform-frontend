@@ -39,7 +39,6 @@ import {
   PromotionOverlay,
   DownloadModelModal,
   Highlight,
-  MoveMap,
   BlunderMeter,
   AnalysisSidebar,
 } from 'src/components'
@@ -662,10 +661,6 @@ const Train: React.FC<Props> = ({
   const mockMakeMove = useCallback(() => {
     // Intentionally empty - no moves allowed in puzzle mode
   }, [])
-  const mockSetHoverArrow = useCallback(() => {
-    // Intentionally empty - no hover arrows in puzzle mode
-  }, [])
-
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -1186,57 +1181,6 @@ const Train: React.FC<Props> = ({
                 )}
               </div>
 
-              <div className="relative">
-                <MoveMap
-                  moveMap={
-                    analysisEnabled && showAnalysis
-                      ? analysisController.moveMap
-                      : undefined
-                  }
-                  colorSanMapping={
-                    analysisEnabled && showAnalysis
-                      ? analysisController.colorSanMapping
-                      : {}
-                  }
-                  setHoverArrow={
-                    analysisEnabled && showAnalysis
-                      ? setHoverArrow
-                      : mockSetHoverArrow
-                  }
-                  makeMove={
-                    analysisEnabled && showAnalysis ? makeMove : mockMakeMove
-                  }
-                  playerToMove={
-                    analysisEnabled && showAnalysis
-                      ? (analysisController.currentNode?.turn ?? 'w')
-                      : 'w'
-                  }
-                />
-                {!analysisEnabled && showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
-                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
-                      <span className="material-symbols-outlined mb-1 text-xl text-human-3">
-                        lock
-                      </span>
-                      <p className="text-xs font-medium text-primary">
-                        Analysis Disabled
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {!showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
-                    <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
-                      <span className="material-symbols-outlined mb-1 text-xl text-human-3">
-                        lock
-                      </span>
-                      <p className="text-xs font-medium text-primary">
-                        Analysis Locked
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
             {gamesController}
           </div>
