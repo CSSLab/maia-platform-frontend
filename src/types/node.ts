@@ -1,4 +1,4 @@
-import { Color } from 'chess.ts'
+import { Chess, Color } from 'chess.ts'
 import { StockfishEvaluation, MaiaEvaluation } from '.'
 import { MOVE_CLASSIFICATION_THRESHOLDS } from 'src/constants/analysis'
 import { calculateMoveColor } from 'src/hooks/useAnalysisController/utils'
@@ -48,7 +48,7 @@ export class GameNode {
     this._excellentMove = false
     this._bestMove = false
     this._turn = this.parseTurn(fen)
-    this._check = fen.includes('+')
+    this._check = this.parseCheck(fen)
     this._moveNumber = this.parseMoveNumber(fen, this._turn)
     this._time = time
     this._color = null
@@ -108,12 +108,31 @@ export class GameNode {
 
   private parseTurn(fen: string): Color {
     const parts = fen.split(' ')
-    return parts[1] as Color
+    if (parts[1] === 'w' || parts[1] === 'b') {
+      return parts[1]
+    }
+
+    return 'w'
   }
 
   private parseMoveNumber(fen: string, turn: string): number {
     const parts = fen.split(' ')
-    return parseInt(parts[5]) - (turn === 'w' ? 1 : 0)
+    const fullMoveNumber = parseInt(parts[5], 10)
+
+    if (Number.isNaN(fullMoveNumber)) {
+      return 1
+    }
+
+    return fullMoveNumber - (turn === 'w' ? 1 : 0)
+  }
+
+  private parseCheck(fen: string): boolean {
+    try {
+      const chess = new Chess(fen)
+      return chess.inCheck()
+    } catch {
+      return false
+    }
   }
 
   private performMoveClassification(
