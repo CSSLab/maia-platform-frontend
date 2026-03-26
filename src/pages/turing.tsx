@@ -19,6 +19,7 @@ import {
   BoardController,
   TuringSubmission,
 } from 'src/components'
+import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import { AllStats } from 'src/hooks/useStats'
 import { TuringGame } from 'src/types/turing'
 import { useTuringController } from 'src/hooks/useTuringController/useTuringController'
@@ -121,7 +122,14 @@ const Turing: React.FC<Props> = (props: Props) => {
     <>
       <div className="flex w-full flex-col items-start justify-between text-secondary">
         <div className="flex w-full items-center justify-between gap-2 text-sm">
-          <span>● Unknown</span>
+          <div className="flex items-center gap-1">
+            <span>● Unknown</span>
+            <MaterialBalance
+              fen={controller.currentNode?.fen}
+              color="white"
+              iconClassName="!text-xs"
+            />
+          </div>
           <span>
             {game.termination.winner === 'white' ? (
               <span className="text-engine-3">1</span>
@@ -133,7 +141,14 @@ const Turing: React.FC<Props> = (props: Props) => {
           </span>
         </div>
         <div className="flex w-full items-center justify-between gap-2 text-sm">
-          <span>○ Unknown</span>
+          <div className="flex items-center gap-1">
+            <span>○ Unknown</span>
+            <MaterialBalance
+              fen={controller.currentNode?.fen}
+              color="black"
+              iconClassName="!text-xs"
+            />
+          </div>
           <span>
             {game.termination.winner === 'black' ? (
               <span className="text-engine-3">1</span>

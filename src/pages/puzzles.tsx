@@ -378,7 +378,6 @@ const Train: React.FC<Props> = ({
     analysisController.currentNode,
     controller.currentNode,
   ])
-
   useEffect(() => {
     if (analysisEnabled && showAnalysis && !analysisSyncedRef.current) {
       // Set the analysis controller to the current training controller's node

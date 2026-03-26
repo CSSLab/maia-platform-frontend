@@ -3,6 +3,7 @@ import { useState, useEffect, useContext } from 'react'
 import { Color } from 'src/types'
 import { AuthContext } from 'src/contexts'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
+import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 
 interface Props {
   player: Color
@@ -13,8 +14,15 @@ export const GameClock: React.FC<Props> = (
   props: React.PropsWithChildren<Props>,
 ) => {
   const { user } = useContext(AuthContext)
-  const { player, toPlay, whiteClock, blackClock, lastMoveTime, maiaVersion } =
-    useContext(PlayControllerContext)
+  const {
+    player,
+    toPlay,
+    whiteClock,
+    blackClock,
+    lastMoveTime,
+    maiaVersion,
+    currentNode,
+  } = useContext(PlayControllerContext)
 
   const [referenceTime, setReferenceTime] = useState<number>(Date.now())
 
@@ -54,11 +62,20 @@ export const GameClock: React.FC<Props> = (
     <div
       className={`flex items-center justify-between bg-glass-strong md:items-start md:justify-start ${active ? 'opacity-100' : 'opacity-50'} flex-row md:flex-col`}
     >
-      <div className="px-4 py-2">
-        {props.player === 'black' ? '●' : '○'}{' '}
-        {player === props.player
-          ? user?.displayName
-          : getMaiaDisplayName(maiaVersion)}
+      <div className="flex w-full items-center justify-between gap-3 px-4 py-2">
+        <span>
+          {props.player === 'black' ? '●' : '○'}{' '}
+          {player === props.player
+            ? user?.displayName
+            : getMaiaDisplayName(maiaVersion)}
+        </span>
+        <MaterialBalance
+          fen={currentNode?.fen}
+          color={props.player}
+          className="gap-1.5"
+          iconClassName="!text-base md:!text-lg text-white/85"
+          textClassName="text-sm md:text-base text-white/85"
+        />
       </div>
       <div className="inline-flex self-start px-4 py-2 md:text-3xl">
         {minutes}:{('00' + seconds).slice(-2)}

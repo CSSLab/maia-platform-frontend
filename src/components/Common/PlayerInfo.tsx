@@ -14,96 +14,8 @@ interface PlayerInfoProps {
   rounded?: 'all' | 'top' | 'bottom' | 'none'
 }
 
-import { useState, useEffect, useMemo } from 'react'
-import { Chess } from 'chess.ts'
-
-type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
-type MaterialCount = Record<PieceType, number>
-
-const PIECE_DISPLAY_ORDER: PieceType[] = ['p', 'n', 'b', 'r', 'q']
-
-const PIECE_VALUES: Record<string, number> = {
-  p: 1, // pawn
-  n: 3, // knight
-  b: 3, // bishop
-  r: 5, // rook
-  q: 9, // queen
-  k: 0, // king (not counted)
-}
-
-const STARTING_MATERIAL: { white: MaterialCount; black: MaterialCount } = {
-  white: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
-  black: { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 },
-}
-
-const calculateCapturedPieces = (fen?: string) => {
-  if (!fen) return { white: {}, black: {} }
-
-  const chess = new Chess(fen)
-  const board = chess.board()
-
-  // Count current pieces on board
-  const currentMaterial: { white: MaterialCount; black: MaterialCount } = {
-    white: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
-    black: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
-  }
-
-  for (const row of board) {
-    for (const square of row) {
-      if (square) {
-        const piece = square.type.toLowerCase() as PieceType
-        const color = square.color === 'w' ? 'white' : 'black'
-        currentMaterial[color][piece]++
-      }
-    }
-  }
-
-  // Calculate captured pieces (starting - current)
-  const captured = {
-    white: {} as Record<string, number>,
-    black: {} as Record<string, number>,
-  }
-
-  for (const piece of Object.keys(STARTING_MATERIAL.white) as PieceType[]) {
-    const whiteCaptured =
-      STARTING_MATERIAL.white[piece] - currentMaterial.white[piece]
-    const blackCaptured =
-      STARTING_MATERIAL.black[piece] - currentMaterial.black[piece]
-
-    if (whiteCaptured > 0) captured.white[piece] = whiteCaptured
-    if (blackCaptured > 0) captured.black[piece] = blackCaptured
-  }
-
-  return captured
-}
-
-const calculateMaterialAdvantage = (
-  fen?: string,
-): { white: number; black: number } => {
-  if (!fen) return { white: 0, black: 0 }
-
-  const chess = new Chess(fen)
-  const board = chess.board()
-
-  let whiteTotal = 0
-  let blackTotal = 0
-
-  for (const row of board) {
-    for (const square of row) {
-      if (square) {
-        const piece = square.type.toLowerCase()
-        const value = PIECE_VALUES[piece] || 0
-        if (square.color === 'w') {
-          whiteTotal += value
-        } else {
-          blackTotal += value
-        }
-      }
-    }
-  }
-
-  return { white: whiteTotal, black: blackTotal }
-}
+import { useState, useEffect } from 'react'
+import { MaterialBalance } from './MaterialBalance'
 
 export const PlayerInfo: React.FC<PlayerInfoProps> = ({
   name,
@@ -112,106 +24,12 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
   termination,
   showArrowLegend = false,
   currentFen,
-  orientation = 'white',
   clock,
   rounded = 'all',
 }) => {
   const [currentTime, setCurrentTime] = useState<number>(
     clock?.timeInSeconds || 0,
   )
-
-  // Calculate captured pieces and material advantage
-  const capturedPieces = useMemo(
-    () => calculateCapturedPieces(currentFen),
-    [currentFen],
-  )
-  const materialAdvantage = useMemo(
-    () => calculateMaterialAdvantage(currentFen),
-    [currentFen],
-  )
-
-  // Get pieces captured by this player (pieces of opposite color that were captured)
-  const myCapturedPieces =
-    color === 'white' ? capturedPieces.black : capturedPieces.white
-  const opponentCapturedPieces =
-    color === 'white' ? capturedPieces.white : capturedPieces.black
-
-  const pieceDifference = useMemo(() => {
-    const diff: Partial<Record<PieceType, number>> = {}
-
-    PIECE_DISPLAY_ORDER.forEach((piece) => {
-      const myCount = myCapturedPieces?.[piece] ?? 0
-      const opponentCount = opponentCapturedPieces?.[piece] ?? 0
-      const net = myCount - opponentCount
-
-      if (net > 0) {
-        diff[piece] = net
-      }
-    })
-
-    return diff
-  }, [myCapturedPieces, opponentCapturedPieces])
-
-  // Calculate net material advantage (white total - black total)
-  const netAdvantage = materialAdvantage.white - materialAdvantage.black
-
-  // Only show advantage for the side that actually has more material
-  const myAdvantage = useMemo(() => {
-    if (netAdvantage === 0) return 0
-
-    if (netAdvantage > 0) {
-      // White has advantage
-      return color === 'white' ? netAdvantage : 0
-    } else {
-      // Black has advantage
-      return color === 'black' ? Math.abs(netAdvantage) : 0
-    }
-  }, [netAdvantage, color])
-
-  // Map chess pieces to Material UI icons
-  const getPieceIcon = (piece: string): string => {
-    const iconMap: Record<string, string> = {
-      p: 'chess_pawn',
-      n: 'chess_knight',
-      b: 'chess_bishop',
-      r: 'chess_rook',
-      q: 'chess', // queen uses 'chess' icon
-    }
-    return iconMap[piece] || 'chess'
-  }
-
-  // Render captured pieces
-  const renderCapturedPieces = () => {
-    const pieceGroups: React.JSX.Element[] = []
-
-    // Order pieces by value (lowest to highest)
-    PIECE_DISPLAY_ORDER.forEach((piece) => {
-      const count = pieceDifference[piece] || 0
-      if (count > 0) {
-        const piecesOfType: React.JSX.Element[] = []
-
-        for (let i = 0; i < count; i++) {
-          piecesOfType.push(
-            <span
-              key={`${piece}-${i}`}
-              className={`material-symbols-outlined material-symbols-filled text-sm text-secondary ${i > 0 ? '-ml-1.5' : ''}`}
-              title={`${piece === 'p' ? 'pawn' : piece === 'n' ? 'knight' : piece === 'b' ? 'bishop' : piece === 'r' ? 'rook' : 'queen'}`}
-            >
-              {getPieceIcon(piece)}
-            </span>,
-          )
-        }
-
-        pieceGroups.push(
-          <div key={piece} className="flex items-center gap-0">
-            {piecesOfType}
-          </div>,
-        )
-      }
-    })
-
-    return pieceGroups
-  }
 
   useEffect(() => {
     if (!clock || !clock.isActive) return
@@ -263,16 +81,7 @@ export const PlayerInfo: React.FC<PlayerInfoProps> = ({
             {rating ? `(${rating})` : null}
           </span>
         </p>
-        {currentFen && (
-          <div className="ml-1 flex select-none items-center gap-1">
-            <div className="flex items-center">{renderCapturedPieces()}</div>
-            {myAdvantage > 0 && (
-              <span className="text-xxs font-medium text-secondary">
-                +{myAdvantage}
-              </span>
-            )}
-          </div>
-        )}
+        <MaterialBalance fen={currentFen} color={color as 'white' | 'black'} />
       </div>
       <div className="flex items-center gap-4">
         {showArrowLegend && (

@@ -49,6 +49,7 @@ import { MovesContainer } from 'src/components/Board/MovesContainer'
 import { BoardController } from 'src/components/Board/BoardController'
 import { PromotionOverlay } from 'src/components/Board/PromotionOverlay'
 import { GameInfo } from 'src/components/Common/GameInfo'
+import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import Head from 'next/head'
 import toast from 'react-hot-toast'
 import type { NextPage } from 'next'
@@ -1330,12 +1331,14 @@ const Analysis: React.FC<Props> = ({
                 <div
                   className={`h-2 w-2 rounded-full ${index === 0 ? 'bg-white' : 'border-[0.5px] bg-black'}`}
                 />
-                <p className="text-sm">
-                  {formatAnalysisPlayerName(player.name)}
-                </p>
-                <span className="text-xs">
-                  {player.rating ? <>({player.rating})</> : null}
-                </span>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm">
+                    {formatAnalysisPlayerName(player.name)}
+                  </p>
+                  <span className="text-xs">
+                    {player.rating ? <>({player.rating})</> : null}
+                  </span>
+                </div>
               </div>
               {analyzedGame.termination?.winner ===
               (index == 0 ? 'white' : 'black') ? (
@@ -1595,11 +1598,29 @@ const Analysis: React.FC<Props> = ({
                       White Win %
                     </span>
                   </div>
-                  <div className="pointer-events-none flex justify-center">
+                  <div className="pointer-events-none relative flex min-w-0 items-center justify-center">
+                    <div className="absolute left-[12%] top-1/2 -translate-y-1/2">
+                      <MaterialBalance
+                        fen={controller.currentNode?.fen}
+                        color="white"
+                        className="whitespace-nowrap"
+                        iconClassName="!text-[12px]"
+                        textClassName="text-[11px] text-white/85"
+                      />
+                    </div>
                     <AnalysisArrowLegend
                       labelMode="short"
                       className="gap-x-3 text-[10px]"
                     />
+                    <div className="absolute right-[12%] top-1/2 -translate-y-1/2">
+                      <MaterialBalance
+                        fen={controller.currentNode?.fen}
+                        color="black"
+                        className="whitespace-nowrap"
+                        iconClassName="!text-[12px]"
+                        textClassName="text-[11px] text-white/85"
+                      />
+                    </div>
                   </div>
                   <div className="pointer-events-none flex justify-center">
                     <span className="text-[10px] font-semibold leading-none text-engine-2">
@@ -1866,10 +1887,30 @@ const Analysis: React.FC<Props> = ({
                     Maia %
                   </span>
                 </div>
-                <AnalysisArrowLegend
-                  labelMode="short"
-                  className="translate-y-px justify-center gap-x-3 self-center text-[8px] font-semibold"
-                />
+                <div className="relative flex min-w-0 items-center justify-center">
+                  <div className="absolute left-[10%] top-1/2 -translate-y-1/2">
+                    <MaterialBalance
+                      fen={controller.currentNode?.fen}
+                      color="white"
+                      className="whitespace-nowrap"
+                      iconClassName="!text-[11px]"
+                      textClassName="text-[10px] text-primary/75"
+                    />
+                  </div>
+                  <AnalysisArrowLegend
+                    labelMode="short"
+                    className="translate-y-px justify-center gap-x-3 self-center text-[8px] font-semibold"
+                  />
+                  <div className="absolute right-[10%] top-1/2 -translate-y-1/2">
+                    <MaterialBalance
+                      fen={controller.currentNode?.fen}
+                      color="black"
+                      className="whitespace-nowrap"
+                      iconClassName="!text-[11px]"
+                      textClassName="text-[10px] text-primary/75"
+                    />
+                  </div>
+                </div>
                 <div className="flex justify-center">
                   <span className="translate-y-px whitespace-nowrap text-[8px] font-extrabold leading-none text-engine-2">
                     SF Eval
