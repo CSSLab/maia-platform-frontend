@@ -906,8 +906,38 @@ export const useOpeningDrillController = (
   // Background analysis: run Maia + Stockfish on positions as they are played
   // so that post-drill analysis is already complete (or nearly so) when the
   // drill ends.
-  const backgroundAnalysisQueueRef = useRef<Set<string>>(new Set())
+  //
+  // We use a ref-based queue so the async loop persists across re-renders.
+  // The useEffect only *enqueues* new nodes; the loop processes them
+  // independently of the React lifecycle to avoid being killed on every move.
+  const backgroundQueueRef = useRef<GameNode[]>([])
+  const backgroundRunningRef = useRef(false)
+  const backgroundCancelledRef = useRef(false)
 
+  // The long-lived loop that drains the queue
+  const runBackgroundLoop = useCallback(async () => {
+    if (backgroundRunningRef.current) return
+    backgroundRunningRef.current = true
+
+    try {
+      while (backgroundQueueRef.current.length > 0) {
+        if (backgroundCancelledRef.current) break
+        const node = backgroundQueueRef.current[0]
+
+        await ensureMaiaForNode(node)
+        if (backgroundCancelledRef.current) break
+
+        await ensureStockfishForNode(node)
+
+        // Only remove from queue after both analyses complete (or if cancelled)
+        backgroundQueueRef.current.shift()
+      }
+    } finally {
+      backgroundRunningRef.current = false
+    }
+  }, [ensureMaiaForNode, ensureStockfishForNode])
+
+  // Enqueue new drill nodes whenever the tree grows
   useEffect(() => {
     if (!currentDrillGame || isAnalyzingDrill) return
 
@@ -918,9 +948,11 @@ export const useOpeningDrillController = (
       : 0
     const drillNodes = mainLine.slice(startIndex)
 
-    // Find nodes that still need analysis and haven't been queued yet
-    const nodesNeedingWork = drillNodes.filter((node) => {
-      if (backgroundAnalysisQueueRef.current.has(node.fen)) return false
+    // Track FENs already in the queue to avoid duplicates
+    const queuedFens = new Set(backgroundQueueRef.current.map((n) => n.fen))
+
+    const newNodes = drillNodes.filter((node) => {
+      if (queuedFens.has(node.fen)) return false
       const hasMaia =
         node.analysis.maia &&
         MAIA_MODELS.every((model) => node.analysis.maia?.[model])
@@ -930,35 +962,26 @@ export const useOpeningDrillController = (
       return !hasMaia || !hasStockfish
     })
 
-    if (nodesNeedingWork.length === 0) return
-
-    let cancelled = false
-
-    const runBackgroundAnalysis = async () => {
-      for (const node of nodesNeedingWork) {
-        if (cancelled) break
-        backgroundAnalysisQueueRef.current.add(node.fen)
-        await ensureMaiaForNode(node)
-        if (cancelled) break
-        // Let Stockfish finish its current evaluation even if new moves come in
-        await ensureStockfishForNode(node)
-      }
-    }
-
-    runBackgroundAnalysis()
-
-    return () => {
-      cancelled = true
+    if (newNodes.length > 0) {
+      backgroundQueueRef.current.push(...newNodes)
+      runBackgroundLoop()
     }
   }, [
     currentDrillGame,
     gameTree,
     isAnalyzingDrill,
-    ensureMaiaForNode,
-    ensureStockfishForNode,
-    // Re-run when tree grows (new moves played)
+    runBackgroundLoop,
     treeController.currentNode,
   ])
+
+  // Cancel background analysis when drill session resets
+  useEffect(() => {
+    backgroundCancelledRef.current = false
+    return () => {
+      backgroundCancelledRef.current = true
+      backgroundQueueRef.current = []
+    }
+  }, [currentDrillGame])
 
   const ensureDrillAnalysis = useCallback(
     async (drillGame: OpeningDrillGame): Promise<boolean> => {
