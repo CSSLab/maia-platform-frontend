@@ -947,9 +947,28 @@ export const useOpeningDrillController = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Enqueue new drill positions for background analysis
+  // Enqueue new drill positions for background analysis.
+  // Also handles drill-change detection (must be in the same effect to avoid
+  // the cancellation effect clearing the queue after the enqueue effect fills it).
+  const bgDrillIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!currentDrillGame || isAnalyzingDrill) return
+    if (!currentDrillGame || isAnalyzingDrill) {
+      // No active drill or post-drill analysis is running — cancel background
+      if (bgDrillIdRef.current !== null) {
+        bgCancelledRef.current = true
+        bgQueueRef.current = []
+        bgDrillIdRef.current = null
+      }
+      return
+    }
+
+    // If drill changed, reset background state for the new drill
+    if (currentDrillGame.id !== bgDrillIdRef.current) {
+      bgCancelledRef.current = true
+      bgQueueRef.current = []
+      bgDrillIdRef.current = currentDrillGame.id
+      bgCancelledRef.current = false
+    }
 
     const mainLine = gameTree.getMainLine()
     const openingEndNode = currentDrillGame.openingEndNode
@@ -983,20 +1002,6 @@ export const useOpeningDrillController = (
     runBgLoop,
     treeController.currentNode,
   ])
-
-  // Cancel background analysis when a new drill starts
-  const bgDrillIdRef = useRef<string | null>(null)
-  useEffect(() => {
-    const drillId = currentDrillGame?.id ?? null
-    if (drillId !== bgDrillIdRef.current) {
-      bgCancelledRef.current = true
-      bgQueueRef.current = []
-      bgDrillIdRef.current = drillId
-      if (drillId) {
-        bgCancelledRef.current = false
-      }
-    }
-  }, [currentDrillGame?.id])
 
   // Helper: stop background loop and wait for it to fully exit
   const stopBackgroundAnalysis = useCallback(async () => {
