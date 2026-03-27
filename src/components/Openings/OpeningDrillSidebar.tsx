@@ -48,6 +48,10 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
   const currentIsEndgame = currentDrill?.opening.categoryType === 'endgame'
   const currentTraitLabel = currentDrill?.endgameMeta?.traitLabel
   const currentGroupLabel = currentDrill?.endgameMeta?.groupLabel
+  const currentPoolSelectionId = currentDrill
+    ? currentDrill.endgameMeta?.groupId ||
+      currentDrill.id.replace(/__attempt_\d+$/, '')
+    : null
 
   const poolCategory =
     selectionPool[0]?.opening.categoryType ??
@@ -245,7 +249,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
         </div>
         <div className="flex flex-col gap-1 border-t border-glass-border px-0 py-2">
           <h3 className="px-4 text-sm font-medium text-white/90">
-            Active {poolLabel} Pool ({selectionPool.length})
+            Active Drill Pool ({selectionPool.length})
           </h3>
           {selectionPool.length === 0 ? (
             <p className="mt-2 text-xs text-white/70">
@@ -253,53 +257,83 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
             </p>
           ) : (
             <div className="flex w-full flex-col">
-              {selectionPool.map((selection, index) => (
-                <div
-                  key={`pool-${selection.id}-${index}`}
-                  className="flex w-full items-center gap-2 px-4 py-1"
-                >
-                  {selection.opening.categoryType === 'endgame' ? (
-                    <span className="material-symbols-outlined text-sm text-human-3 md:text-base">
-                      trophy
-                    </span>
-                  ) : (
-                    <div className="relative h-4 w-4 flex-shrink-0">
-                      <Image
-                        src={
-                          selection.playerColor === 'white'
-                            ? '/assets/pieces/white king.svg'
-                            : '/assets/pieces/black king.svg'
-                        }
-                        fill={true}
-                        alt={`${selection.playerColor} king`}
-                      />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-xs font-medium text-white/90">
-                        {selection.opening.name}
-                      </p>
-                      {selection.opening.isCustom && (
-                        <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
-                          Custom
-                        </span>
-                      )}
-                    </div>
-                    {selection.opening.categoryType === 'endgame'
-                      ? selection.endgameMeta?.traitLabel && (
-                          <p className="text-xxs text-human-3">
-                            {selection.endgameMeta.traitLabel}
-                          </p>
-                        )
-                      : selection.variation && (
-                          <p className="truncate text-[11px] text-white/60">
-                            {selection.variation.name}
-                          </p>
+              {selectionPool.map((selection, index) => {
+                const isCurrentPoolSelection =
+                  currentPoolSelectionId === selection.id
+
+                return (
+                  <div
+                    key={`pool-${selection.id}-${index}`}
+                    className={`relative mx-2 flex w-auto items-center gap-2 rounded-md border px-3 py-2 transition-colors ${
+                      isCurrentPoolSelection
+                        ? 'bg-human-4/32 border-human-4/50'
+                        : 'border-transparent bg-transparent'
+                    }`}
+                  >
+                    {isCurrentPoolSelection && (
+                      <span className="absolute inset-y-2 left-0 w-px rounded-full bg-human-4" />
+                    )}
+                    {selection.opening.categoryType === 'endgame' ? (
+                      <span className="material-symbols-outlined text-sm text-human-3 md:text-base">
+                        trophy
+                      </span>
+                    ) : (
+                      <div className="relative h-4 w-4 flex-shrink-0">
+                        <Image
+                          src={
+                            selection.playerColor === 'white'
+                              ? '/assets/pieces/white king.svg'
+                              : '/assets/pieces/black king.svg'
+                          }
+                          fill={true}
+                          alt={`${selection.playerColor} king`}
+                        />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className={`truncate text-xs font-medium ${
+                            isCurrentPoolSelection
+                              ? 'text-white'
+                              : 'text-white/90'
+                          }`}
+                        >
+                          {selection.opening.name}
+                        </p>
+                        {selection.opening.isCustom && (
+                          <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                            Custom
+                          </span>
                         )}
+                      </div>
+                      {selection.opening.categoryType === 'endgame'
+                        ? selection.endgameMeta?.traitLabel && (
+                            <p
+                              className={`text-xxs ${
+                                isCurrentPoolSelection
+                                  ? 'text-human-1'
+                                  : 'text-human-3'
+                              }`}
+                            >
+                              {selection.endgameMeta.traitLabel}
+                            </p>
+                          )
+                        : selection.variation && (
+                            <p
+                              className={`truncate text-[11px] ${
+                                isCurrentPoolSelection
+                                  ? 'text-white/85'
+                                  : 'text-white/60'
+                              }`}
+                            >
+                              {selection.variation.name}
+                            </p>
+                          )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

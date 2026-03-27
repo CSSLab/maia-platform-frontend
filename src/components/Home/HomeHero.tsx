@@ -229,9 +229,9 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
             />
             <FeatureCard
               icon="play_lesson"
-              title="Practice"
+              title="Drill"
               description="Learn and practice chess openings with Maia"
-              href="/openings"
+              href="/drills"
               index={4}
               featureKey="openings"
             />

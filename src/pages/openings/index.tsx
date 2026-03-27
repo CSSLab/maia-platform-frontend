@@ -88,8 +88,17 @@ const OpeningsPage: NextPage = () => {
   )
 
   const handleCloseModal = () => {
+    if (drillConfiguration) {
+      setShowSelectionModal(false)
+      return
+    }
+
     router.push('/')
   }
+
+  const handleReconfigureDrills = useCallback(() => {
+    setShowSelectionModal(true)
+  }, [])
 
   const [drillConfiguration, setDrillConfiguration] =
     useState<DrillConfiguration | null>(null)
@@ -728,17 +737,23 @@ const OpeningsPage: NextPage = () => {
     }
   }, [controller.gameTree, controller.currentDrill?.id])
 
-  const targetMoves = controller.currentDrill?.targetMoveNumber ?? null
+  const configuredTargetMoves =
+    controller.currentDrill?.targetMoveNumber ?? null
+  const targetMoves = controller.isCurrentDrillExtended
+    ? null
+    : configuredTargetMoves
   const targetMovesLabel = typeof targetMoves === 'number' ? targetMoves : '∞'
   const moveProgressPercent =
-    controller.currentDrillGame &&
-    typeof targetMoves === 'number' &&
-    targetMoves > 0
-      ? Math.min(
-          (controller.currentDrillGame.playerMoveCount / targetMoves) * 100,
-          100,
-        )
-      : 0
+    controller.currentDrillGame && controller.isCurrentDrillExtended
+      ? 100
+      : controller.currentDrillGame &&
+          typeof targetMoves === 'number' &&
+          targetMoves > 0
+        ? Math.min(
+            (controller.currentDrillGame.playerMoveCount / targetMoves) * 100,
+            100,
+          )
+        : 0
 
   const moveListTerminationNote = useMemo(() => {
     if (!controller.drillEndReasonMessage) return undefined
@@ -992,13 +1007,23 @@ const OpeningsPage: NextPage = () => {
 
   const renderDrillActionButtons = (fullWidth = false) => (
     <div className="flex w-full justify-center gap-1">
+      {controller.isAwaitingExtensionDecision &&
+        !controller.showPerformanceModal &&
+        !controller.continueAnalyzingMode && (
+          <button
+            onClick={controller.extendCurrentDrill}
+            className={`${fullWidth ? 'w-full' : ''} rounded-md border border-glass-border bg-white/5 px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-white/10`}
+          >
+            Extend Drill
+          </button>
+        )}
       {controller.currentPerformanceData &&
         !controller.showPerformanceModal && (
           <button
             onClick={controller.showCurrentPerformance}
             className={`${fullWidth ? 'w-full' : ''} rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-glass-stronger`}
           >
-            View Performance
+            Drill Review
           </button>
         )}
       {!controller.currentPerformanceData &&
@@ -1008,17 +1033,40 @@ const OpeningsPage: NextPage = () => {
             onClick={controller.endCurrentDrillWithFeedback}
             className={`${fullWidth ? 'w-full' : ''} rounded-md border border-human-4/50 bg-human-4/10 px-4 py-2 text-sm font-medium text-human-3 transition-colors hover:bg-human-4/20`}
           >
-            End Drill + Feedback
+            {controller.isAwaitingExtensionDecision ? 'Review' : 'End & Review'}
           </button>
         )}
-      <button
-        onClick={controller.moveToNextDrill}
-        className={`${fullWidth ? 'w-full' : ''} rounded bg-human-4 px-4 py-2 text-sm font-medium transition-colors hover:bg-human-4/80`}
-      >
-        Next Drill
-      </button>
+      {!controller.showPerformanceModal &&
+        !controller.continueAnalyzingMode && (
+          <button
+            onClick={handleReconfigureDrills}
+            className={`${fullWidth ? 'w-full' : ''} rounded-md border border-glass-border bg-white/5 px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:bg-white/10`}
+          >
+            Reconfigure Drills
+          </button>
+        )}
     </div>
   )
+
+  const renderPostDrillAnalysisButtons = (fullWidth = false) =>
+    controller.continueAnalyzingMode ? (
+      <div className="flex w-full justify-center gap-1">
+        {controller.currentPerformanceData && (
+          <button
+            onClick={controller.showCurrentPerformance}
+            className={`${fullWidth ? 'w-full' : ''} rounded bg-human-4 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-human-4/80`}
+          >
+            Drill Review
+          </button>
+        )}
+        <button
+          onClick={controller.moveToNextDrill}
+          className={`${fullWidth ? 'w-full' : ''} rounded bg-human-4 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-human-4/80`}
+        >
+          Next Drill
+        </button>
+      </div>
+    ) : null
 
   const renderLiveDrillSummary = () =>
     controller.currentDrill ? (
@@ -1476,7 +1524,7 @@ const OpeningsPage: NextPage = () => {
             </div>
           </div>
 
-          {renderDrillActionButtons()}
+          {renderPostDrillAnalysisButtons()}
         </div>
 
         {/* Right Panel - Analysis Sidebar (same as analysis page) */}
@@ -1738,7 +1786,7 @@ const OpeningsPage: NextPage = () => {
           )}
 
           {/* Action Buttons */}
-          {renderDrillActionButtons(true)}
+          {renderPostDrillAnalysisButtons(true)}
 
           {/* Analysis Components Stacked */}
           <div className="flex w-full flex-col gap-1 overflow-hidden">
@@ -1907,7 +1955,7 @@ const OpeningsPage: NextPage = () => {
               performanceData={controller.currentPerformanceData}
               onContinueAnalyzing={controller.continueAnalyzing}
               onNextDrill={controller.moveToNextDrill}
-              isLastDrill={false}
+              onReconfigureDrills={handleReconfigureDrills}
             />
           )}
       </AnimatePresence>

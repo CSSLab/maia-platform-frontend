@@ -41,14 +41,14 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
   const isAnalysisPage = router.pathname.startsWith('/analysis')
   const isPageWithMaia = [
     '/analysis',
-    '/openings',
+    '/drills',
     '/puzzles',
     '/settings',
     '/broadcast',
   ].some((path) => router.pathname.includes(path))
   const isPageWithStockfish = [
     '/analysis',
-    '/openings',
+    '/drills',
     '/puzzles',
     '/broadcast',
   ].some((path) => router.pathname.includes(path))

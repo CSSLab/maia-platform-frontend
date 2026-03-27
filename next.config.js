@@ -6,6 +6,15 @@ const withTM = require('next-transpile-modules')(['@react-chess/chessground'])
 module.exports = withTM({
   reactStrictMode: false,
   output: 'standalone',
+  async redirects() {
+    return [
+      {
+        source: '/openings',
+        destination: '/drills',
+        permanent: true,
+      },
+    ]
+  },
   async rewrites() {
     return [
       {

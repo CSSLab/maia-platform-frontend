@@ -87,27 +87,6 @@ const getSelectionDetailLine = (selection: OpeningSelection) => {
   return selection.opening.categoryType === 'custom' ? 'Custom position' : null
 }
 
-const getSelectionConfigurationTags = (selection: OpeningSelection) => [
-  getMaiaOpponentName(selection.maiaVersion),
-  selection.playerColor === 'white' ? 'White' : 'Black',
-]
-
-const getSelectionConfigurationText = (selection: OpeningSelection) => {
-  const items = [...getSelectionConfigurationTags(selection)]
-
-  if (selection.opening.categoryType === 'endgame') {
-    items.push(`${selection.endgamePositions?.length ?? 0} positions`)
-  } else {
-    items.push(
-      selection.targetMoveNumber === null
-        ? '∞ moves'
-        : `${selection.targetMoveNumber} moves`,
-    )
-  }
-
-  return items.join(' · ')
-}
-
 const SelectionTitle: React.FC<{
   selection: OpeningSelection
   className?: string
@@ -119,6 +98,41 @@ const SelectionTitle: React.FC<{
     )}
   </p>
 )
+
+const SelectionConfigurationLine: React.FC<{
+  selection: OpeningSelection
+  className?: string
+}> = ({ selection, className = 'mt-1 text-[10px] text-white/50' }) => {
+  const finalItem =
+    selection.opening.categoryType === 'endgame'
+      ? `${selection.endgamePositions?.length ?? 0} positions`
+      : selection.targetMoveNumber === null
+        ? '∞ moves'
+        : `${selection.targetMoveNumber} moves`
+
+  return (
+    <div className={`flex flex-wrap items-center gap-1 ${className}`}>
+      <span>{getMaiaOpponentName(selection.maiaVersion)}</span>
+      <span className="text-white/28">·</span>
+      <span className="inline-flex items-center gap-1">
+        <span className="relative h-3.5 w-3.5">
+          <Image
+            src={
+              selection.playerColor === 'white'
+                ? '/assets/pieces/white king.svg'
+                : '/assets/pieces/black king.svg'
+            }
+            fill={true}
+            alt={`${selection.playerColor} king`}
+          />
+        </span>
+        <span>{selection.playerColor === 'white' ? 'White' : 'Black'}</span>
+      </span>
+      <span className="text-white/28">·</span>
+      <span>{finalItem}</span>
+    </div>
+  )
+}
 
 interface Props {
   openings: Opening[]
@@ -1137,7 +1151,7 @@ const DrillStudioPanel: React.FC<{
                       }}
                       className="w-full accent-human-4"
                     />
-                    <div className="mt-0.5 flex justify-between text-[10px] text-white/25">
+                    <div className="mt-1 flex justify-between text-[12px] font-medium text-white/55">
                       <span>5</span>
                       <span>∞</span>
                     </div>
@@ -1161,7 +1175,7 @@ const DrillStudioPanel: React.FC<{
               onClick={addSelection}
               disabled={addDisabled}
               title={addButtonTitle}
-              className="w-full rounded-md bg-human-4/80 py-2.5 text-[14px] font-semibold text-black transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30 2xl:w-auto 2xl:px-10"
+              className="w-full rounded-md bg-human-4/80 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30 2xl:w-auto 2xl:px-10"
             >
               {addButtonLabel}
             </button>
@@ -1182,11 +1196,9 @@ const DrillStudioPanel: React.FC<{
                   Select drills from the library to begin.
                 </div>
               ) : (
-                <div className="grid max-h-48 grid-cols-1 gap-1 overflow-y-auto 2xl:grid-cols-2">
+                <div className="grid max-h-48 grid-cols-1 gap-1 overflow-y-auto xl:grid-cols-2">
                   {selections.map((selection) => {
                     const detailLine = getSelectionDetailLine(selection)
-                    const configurationText =
-                      getSelectionConfigurationText(selection)
 
                     const isActive =
                       previewOpening.id === selection.opening.id &&
@@ -1217,9 +1229,7 @@ const DrillStudioPanel: React.FC<{
                               {detailLine}
                             </p>
                           )}
-                          <p className="mt-1 truncate text-[10px] text-white/50">
-                            {configurationText}
-                          </p>
+                          <SelectionConfigurationLine selection={selection} />
                         </div>
                         <button
                           onClick={(e) => {
@@ -1246,7 +1256,7 @@ const DrillStudioPanel: React.FC<{
           <button
             onClick={handleStartDrilling}
             disabled={selections.length === 0}
-            className="w-full rounded-lg bg-human-4/85 py-3 text-[15px] font-semibold text-black transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
+            className="w-full rounded-lg bg-human-4/85 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
           >
             Start Drilling ({selections.length}{' '}
             {selections.length === 1 ? 'selection' : 'selections'})
@@ -1307,7 +1317,6 @@ const SelectedPanel: React.FC<{
               const isEndgameSelection =
                 getOpeningCategory(selection.opening) === 'endgame'
               const detailLine = getSelectionDetailLine(selection)
-              const configurationText = getSelectionConfigurationText(selection)
 
               return (
                 <div
@@ -1350,9 +1359,10 @@ const SelectedPanel: React.FC<{
                         {detailLine && (
                           <p className="text-xs text-white/70">{detailLine}</p>
                         )}
-                        <p className="mt-1 text-xxs text-secondary">
-                          {configurationText}
-                        </p>
+                        <SelectionConfigurationLine
+                          selection={selection}
+                          className="mt-1 text-xxs text-secondary"
+                        />
                       </div>
                     </div>
                   </div>
@@ -1420,7 +1430,7 @@ const SelectedPanel: React.FC<{
             }}
             className="w-full accent-human-4"
           />
-          <div className="mt-1 flex justify-between text-xs text-secondary">
+          <div className="mt-1.5 flex justify-between text-[13px] font-medium text-white/60">
             <span>5</span>
             <span>∞</span>
           </div>
@@ -2571,7 +2581,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         >
           <div>
             <h1 className="text-[19px] font-semibold text-primary">
-              Practice with Maia
+              Drill with Maia
             </h1>
             <p className="mt-0.5 text-[13px] text-secondary">
               Select drills, configure settings, practice against Maia 3.
