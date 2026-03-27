@@ -451,12 +451,13 @@ function processOutputsMaia3(
   const logits = logits_move.data as Float32Array
   const wdl = logits_value.data as Float32Array
 
-  // Convert WDL logits to win probability via softmax
+  // Convert LDW logits to win probability via softmax
+  // Model output channels: index 0 = Loss, 1 = Draw, 2 = Win (for side-to-move)
   const maxWdl = Math.max(wdl[0], wdl[1], wdl[2])
-  const expW = Math.exp(wdl[0] - maxWdl)
+  const expL = Math.exp(wdl[0] - maxWdl)
   const expD = Math.exp(wdl[1] - maxWdl)
-  const expL = Math.exp(wdl[2] - maxWdl)
-  const sumExp = expW + expD + expL
+  const expW = Math.exp(wdl[2] - maxWdl)
+  const sumExp = expL + expD + expW
   // Win probability = P(win) + 0.5 * P(draw)
   let winProb = (expW + 0.5 * expD) / sumExp
 
