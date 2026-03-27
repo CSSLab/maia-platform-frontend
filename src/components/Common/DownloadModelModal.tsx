@@ -120,7 +120,7 @@ export const DownloadModelModal: React.FC<Props> = ({
               </li>
             </ul>
             <p className="text-white/80">
-              Maia 3 runs entirely on your device and requires a one-time 87mb
+              Maia 3 runs entirely on your device and requires a one-time 44mb
               download.
             </p>
           </div>
@@ -175,7 +175,7 @@ export const DownloadModelModal: React.FC<Props> = ({
                 )}
                 <p className="font-medium">
                   {isDownloading ? 'Downloading...' : 'Download Maia 3'}{' '}
-                  <span className="text-xs text-white/70">(87mb)</span>
+                  <span className="text-xs text-white/70">(44mb)</span>
                 </p>
               </div>
             </div>
