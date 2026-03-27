@@ -103,7 +103,7 @@ export const DownloadModelModal: React.FC<Props> = ({
 
           <div className="flex flex-col gap-3 text-sm md:text-base">
             <p className="text-primary/80">
-              Our newest model, Maia 3, provides richer and more in-depth
+              Our newest model, Maia-3, provides richer and more in-depth
               analysis, allowing for:
             </p>
             <ul className="flex list-inside flex-col gap-1.5 pl-2 text-white/80">
@@ -120,7 +120,7 @@ export const DownloadModelModal: React.FC<Props> = ({
               </li>
             </ul>
             <p className="text-white/80">
-              Maia 3 runs entirely on your device and requires a one-time 44mb
+              Maia-3 runs entirely on your device and requires a one-time 44mb
               download.
             </p>
           </div>
@@ -174,7 +174,7 @@ export const DownloadModelModal: React.FC<Props> = ({
                   </span>
                 )}
                 <p className="font-medium">
-                  {isDownloading ? 'Downloading...' : 'Download Maia 3'}{' '}
+                  {isDownloading ? 'Downloading...' : 'Download Maia-3'}{' '}
                   <span className="text-xs text-white/70">(44mb)</span>
                 </p>
               </div>
