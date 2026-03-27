@@ -59,9 +59,7 @@ export const GameClock: React.FC<Props> = (
   const showTenths = minutes < 1 && seconds <= 20
 
   return (
-    <div
-      className="flex flex-row items-center justify-between bg-glass-strong md:flex-col md:items-start md:justify-start"
-    >
+    <div className="flex flex-row items-center justify-between bg-glass-strong md:flex-col md:items-start md:justify-start">
       <div className="flex w-full items-center justify-between gap-3 px-4 py-2">
         <span
           className={`flex items-center gap-2 transition-colors ${
@@ -96,9 +94,7 @@ export const GameClock: React.FC<Props> = (
       </div>
       <div
         className={`inline-flex self-start px-4 py-2 transition-all duration-200 md:text-3xl ${
-          active
-            ? 'font-semibold text-primary'
-            : 'text-white/55'
+          active ? 'font-semibold text-primary' : 'text-white/55'
         }`}
       >
         {minutes}:{('00' + seconds).slice(-2)}

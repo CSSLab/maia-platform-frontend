@@ -142,7 +142,7 @@ export const GameBoard: React.FC<Props> = ({
       fen,
       lastMove,
       check: currentNode.check
-        ? (currentNode.turn === 'w' ? 'white' : 'black')
+        ? ((currentNode.turn === 'w' ? 'white' : 'black') as 'white' | 'black')
         : false,
       orientation: orientation as 'white' | 'black',
     }
