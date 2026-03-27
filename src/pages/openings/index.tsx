@@ -27,7 +27,7 @@ import {
   AnalysisNotification,
   AnalysisOverlay,
 } from 'src/components'
-import openings from 'src/constants/openings.json'
+import openings from 'src/constants/maia_openings_expanded.json'
 import endgamesRaw from 'src/constants/endgames.json'
 import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
 import { OpeningDrillAnalysis } from 'src/components/Openings/OpeningDrillAnalysis'
