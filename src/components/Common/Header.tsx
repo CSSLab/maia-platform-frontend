@@ -212,7 +212,7 @@ export const Header: React.FC = () => {
             href="/openings"
             className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/openings') ? '!text-primary' : '!text-primary/80'}`}
           >
-            OPENINGS
+            PRACTICE
           </Link>
           <Link
             href="/turing"
@@ -392,7 +392,7 @@ export const Header: React.FC = () => {
               Puzzles
             </Link>
             <Link href="/openings" className="uppercase">
-              Openings
+              Practice
             </Link>
             <Link href="/turing" className="uppercase">
               Bot-or-not
