@@ -170,7 +170,7 @@ export const GameBoard: React.FC<Props> = ({
           },
           fen: boardConfig.fen,
           lastMove: boardConfig.lastMove as Key[],
-          check: boardConfig.check,
+          check: boardConfig.check as boolean | 'white' | 'black' | undefined,
           orientation: boardConfig.orientation,
         }}
       />
