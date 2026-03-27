@@ -631,7 +631,7 @@ export const useOpeningDrillController = (
       }
 
       try {
-        const { result } = await maiaInstance.batchEvaluate(
+        const { result } = await maiaInstance.batchEvaluateMaia3(
           [fen],
           [rating],
           [rating],
@@ -944,7 +944,7 @@ export const useOpeningDrillController = (
 
       try {
         const boards = Array(MAIA_MODELS.length).fill(node.fen)
-        const { result } = await maiaInstance.batchEvaluate(
+        const { result } = await maiaInstance.batchEvaluateMaia3(
           boards,
           MAIA_ELO_VALUES,
           MAIA_ELO_VALUES,
