@@ -434,7 +434,7 @@ const BrowsePanel: React.FC<{
   const searchPlaceholder = `Search ${categoryLabelPlural.toLowerCase()}...`
 
   const renderTabs = () => (
-    <div className="grid w-full select-none grid-cols-3 items-center justify-between border-b border-glass-border bg-white/[0.02]">
+    <div className="grid w-full select-none grid-cols-3 items-center justify-between border-b border-glass-border bg-white/[0.04]">
       {[
         { label: 'Openings', value: 'openings' as const },
         { label: 'Endgames', value: 'endgames' as const },
@@ -2548,13 +2548,13 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1320px] flex-col items-start justify-start overflow-hidden rounded-xl border border-glass-border bg-[#231d1a] backdrop-blur-md md:h-[90vh]"
+        className="relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1320px] flex-col items-start justify-start overflow-hidden rounded-xl border border-glass-border bg-[#171513] shadow-[0_30px_90px_rgba(0,0,0,0.5)] backdrop-blur-md md:h-[90vh]"
       >
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00) 20%), radial-gradient(ellipse 180% 160% at 0% 100%, rgba(239, 68, 68, 0.08) 0%, transparent 72%)',
+              'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01) 22%, rgba(255,255,255,0) 38%), radial-gradient(ellipse 140% 120% at 50% -10%, rgba(255,255,255,0.06) 0%, transparent 48%), radial-gradient(ellipse 180% 160% at 0% 100%, rgba(127, 29, 29, 0.09) 0%, transparent 70%)',
           }}
         />
         <button
@@ -2571,7 +2571,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         >
           <div>
             <h1 className="text-[19px] font-semibold text-primary">
-              Maia Drill Studio
+              Practice with Maia
             </h1>
             <p className="mt-0.5 text-[13px] text-secondary">
               Select drills, configure settings, practice against Maia 3.

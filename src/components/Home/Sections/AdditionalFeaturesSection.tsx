@@ -135,10 +135,10 @@ export const AdditionalFeaturesSection = ({
   const features: Feature[] = [
     {
       icon: <StarIcon />,
-      title: 'Openings Practice',
+      title: 'Practice',
       description:
         "Drill chess openings against Maia models calibrated to specific rating levels, allowing you to practice against opponents similar to those you'll face.",
-      action: { type: 'link', href: '/openings', label: 'Practice Openings' },
+      action: { type: 'link', href: '/openings', label: 'Practice' },
       iconBgColor: 'bg-human-3/10',
       iconTextColor: 'text-human-3',
     },
