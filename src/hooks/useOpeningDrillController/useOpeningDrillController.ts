@@ -926,23 +926,43 @@ export const useOpeningDrillController = (
   }, [ensureStockfishForNode])
 
   const runBgLoop = useCallback(async () => {
-    if (bgRunningRef.current) return
+    if (bgRunningRef.current) {
+      console.log('[bg] loop already running, skipping')
+      return
+    }
     bgRunningRef.current = true
+    console.log('[bg] loop STARTED, queue size:', bgQueueRef.current.length)
     try {
       while (bgQueueRef.current.length > 0) {
-        if (bgCancelledRef.current) break
+        if (bgCancelledRef.current) {
+          console.log('[bg] cancelled flag set, breaking')
+          break
+        }
         const node = bgQueueRef.current[0]
+        const fen = node.fen.split(' ').slice(0, 3).join(' ')
 
+        console.log('[bg] maia start:', fen)
         await ensureMaiaRef.current(node)
-        if (bgCancelledRef.current) break
+        const hasMaia =
+          node.analysis.maia &&
+          MAIA_MODELS.every((m) => node.analysis.maia?.[m])
+        console.log('[bg] maia done:', fen, 'hasMaia:', hasMaia)
+        if (bgCancelledRef.current) {
+          console.log('[bg] cancelled after maia, breaking')
+          break
+        }
 
+        console.log('[bg] stockfish start:', fen)
         await ensureStockfishRef.current(node)
+        const sfDepth = node.analysis.stockfish?.depth ?? 0
+        console.log('[bg] stockfish done:', fen, 'depth:', sfDepth)
         bgQueueRef.current.shift()
       }
     } catch (error) {
-      console.error('[bg-analysis] error:', error)
+      console.error('[bg] error:', error)
     } finally {
       bgRunningRef.current = false
+      console.log('[bg] loop ENDED, remaining:', bgQueueRef.current.length)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -990,6 +1010,18 @@ export const useOpeningDrillController = (
       return !hasMaia || !hasStockfish
     })
 
+    console.log(
+      '[bg] enqueue effect: drillNodes:',
+      drillNodes.length,
+      'newNodes:',
+      newNodes.length,
+      'queueSize:',
+      bgQueueRef.current.length,
+      'running:',
+      bgRunningRef.current,
+      'cancelled:',
+      bgCancelledRef.current,
+    )
     if (newNodes.length > 0) {
       bgQueueRef.current.push(...newNodes)
       const promise = runBgLoop()
