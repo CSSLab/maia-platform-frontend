@@ -263,7 +263,7 @@ const MobileOpeningPopup: React.FC<MobileOpeningPopupProps> = ({
               className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
               title={addTitle}
             >
-              {isDuplicate ? 'Drill Already Added' : 'Add Drill'}
+              {isDuplicate ? 'Already Added' : 'Add Drill'}
             </button>
           )}
         </div>
@@ -384,7 +384,7 @@ const BrowsePanel: React.FC<{
   }
 
   const renderTabs = () => (
-    <div className="grid w-full select-none grid-cols-3 items-center justify-between overflow-hidden border-b border-glass-border">
+    <div className="grid w-full select-none grid-cols-3 items-center justify-between border-b border-glass-border bg-white/[0.02]">
       {[
         { label: 'Openings', value: 'openings' as const },
         { label: 'Endgames', value: 'endgames' as const },
@@ -400,17 +400,17 @@ const BrowsePanel: React.FC<{
               setActiveTab('browse')
             }}
             aria-pressed={isSelected}
-            className={`relative flex-1 px-3 py-2 text-xs font-medium transition-all duration-200 md:text-sm ${
+            className={`relative flex-1 border-r border-white/5 px-3 py-3 text-xs font-medium transition-all duration-200 last:border-r-0 md:text-sm ${
               isSelected
-                ? 'bg-white/10 text-white'
-                : 'hover:bg-white/8 bg-white/5 text-white/60 hover:text-white/90'
+                ? 'bg-white/[0.06] text-white'
+                : 'bg-transparent text-white/55 hover:bg-white/[0.03] hover:text-white/90'
             }`}
           >
             <span>{label}</span>
             {isSelected && (
               <motion.div
                 layoutId="browse-category-underline"
-                className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-primary/50"
+                className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-human-4/80"
               />
             )}
           </button>
@@ -423,38 +423,40 @@ const BrowsePanel: React.FC<{
     return (
       <div
         id="opening-drill-browse"
-        className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-glass-border`}
+        className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:w-[320px] md:flex-none md:border-r md:border-glass-border`}
       >
         {renderTabs()}
         <form
-          className="flex h-20 flex-col gap-3 border-b border-glass-border p-4"
+          className="flex flex-col gap-2.5 px-4 pb-3 pt-3"
           onSubmit={(e) => {
             e.preventDefault()
             onAddCustomPosition()
           }}
         >
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+          <div className="flex gap-2">
             <input
               type="text"
               value={customInput}
               onChange={(e) => setCustomInput(e.target.value)}
-              placeholder="Drill a custom FEN/PGN"
-              className="h-full flex-1 rounded border border-glass-border bg-white/5 px-3 text-sm text-white placeholder-primary/50 focus:outline-none focus:ring-1 focus:ring-white/20"
+              placeholder="Paste FEN or PGN…"
+              className="flex-1 rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-[9px] text-[13px] text-white placeholder-white/35 focus:outline-none focus:ring-1 focus:ring-white/15"
             />
             <button
               type="submit"
-              className="flex h-10 items-center justify-center rounded border border-human-4/50 bg-human-4/20 px-4 text-xs font-semibold uppercase tracking-wide text-primary transition-colors hover:bg-human-4/30 md:h-10"
+              className="flex-shrink-0 rounded-md bg-human-4/20 px-3.5 py-[9px] text-[12px] font-semibold text-human-2 transition-colors hover:bg-human-4/30 disabled:opacity-40"
               disabled={!customInput.trim()}
             >
-              Add Position
+              Add
             </button>
           </div>
-          {customError && <p className="text-xs text-red-400">{customError}</p>}
+          {customError && (
+            <p className="text-[11px] text-red-400">{customError}</p>
+          )}
         </form>
 
-        <div className="border-b border-glass-border p-4">
+        <div className="px-4 pb-2">
           <div className="relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 !text-[16px] text-white/30">
               search
             </span>
             <input
@@ -462,18 +464,14 @@ const BrowsePanel: React.FC<{
               placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full rounded border border-glass-border bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+              className="w-full rounded-md border border-white/[0.08] bg-white/[0.04] py-[9px] pl-9 pr-3 text-[13px] text-white placeholder-white/35 focus:outline-none focus:ring-1 focus:ring-white/15"
             />
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 p-3 text-xs text-secondary md:p-4">
-          <p>Saved custom positions:</p>
-        </div>
-
-        <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto">
+        <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto px-2">
           {filteredOpenings.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center px-4 text-center text-xs text-secondary md:text-sm">
+            <div className="flex flex-1 items-center justify-center px-4 text-center text-[12px] text-white/35">
               No saved positions yet. Add a FEN or PGN above to get started.
             </div>
           ) : (
@@ -489,19 +487,19 @@ const BrowsePanel: React.FC<{
               return (
                 <div
                   key={opening.id}
-                  className={`group border-b border-white/5 transition-colors ${
+                  className={`group rounded-md transition-colors ${
                     openingIsSelected
-                      ? 'bg-white/5'
+                      ? 'bg-white/[0.08]'
                       : openingIsBeingPreviewed
-                        ? 'bg-white/5'
-                        : 'hover:bg-white/5'
+                        ? 'bg-white/[0.05]'
+                        : 'hover:bg-white/[0.04]'
                   }`}
                 >
                   <div className="flex items-center">
                     <div
                       role="button"
                       tabIndex={0}
-                      className="flex-1 cursor-pointer p-4"
+                      className="flex-1 cursor-pointer px-2.5 py-[8px]"
                       onClick={() => {
                         setPreviewOpening(opening)
                         setPreviewVariation(null)
@@ -532,18 +530,20 @@ const BrowsePanel: React.FC<{
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-medium">{opening.name}</h3>
-                            <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
+                            <h3 className="text-[13px] font-medium">
+                              {opening.name}
+                            </h3>
+                            <span className="rounded bg-human-4/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-human-2">
                               Custom
                             </span>
                           </div>
-                          <p className="text-xs text-secondary">
+                          <p className="text-[11px] text-white/35">
                             {opening.description}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="mr-1 flex items-center gap-1">
+                    <div className="mr-1 flex items-center gap-0.5">
                       {openingIsSelected ? (
                         <button
                           onClick={(e) => {
@@ -553,7 +553,7 @@ const BrowsePanel: React.FC<{
                           className="rounded p-1 text-white/70 transition-colors hover:text-white"
                           title="Remove position from selection"
                         >
-                          <span className="material-symbols-outlined !text-base">
+                          <span className="material-symbols-outlined !text-[18px]">
                             check
                           </span>
                         </button>
@@ -566,7 +566,7 @@ const BrowsePanel: React.FC<{
                           className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
                           title="Add position with current settings"
                         >
-                          <span className="material-symbols-outlined !text-base">
+                          <span className="material-symbols-outlined !text-[18px]">
                             add
                           </span>
                         </button>
@@ -579,7 +579,7 @@ const BrowsePanel: React.FC<{
                         className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary"
                         title="Remove custom position"
                       >
-                        <span className="material-symbols-outlined !text-base">
+                        <span className="material-symbols-outlined !text-[18px]">
                           delete
                         </span>
                       </button>
@@ -594,29 +594,73 @@ const BrowsePanel: React.FC<{
     )
   }
 
+  const renderRow = (
+    label: string,
+    pgn: string,
+    isItemSelected: boolean,
+    isPreviewed: boolean,
+    onSelect: () => void,
+    onToggle: () => void,
+    toggleTitle: string,
+  ) => (
+    <div
+      className={`group flex items-center rounded-md transition-colors ${
+        isItemSelected
+          ? 'bg-white/[0.08]'
+          : isPreviewed
+            ? 'bg-white/[0.05]'
+            : 'hover:bg-white/[0.04]'
+      }`}
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        className="min-w-0 flex-1 cursor-pointer px-2.5 py-[8px]"
+        onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            onSelect()
+          }
+        }}
+      >
+        <p
+          className={`truncate text-[13px] ${
+            isItemSelected ? 'text-white' : 'text-white/70'
+          }`}
+        >
+          {label}
+        </p>
+        {pgn && <p className="truncate text-[11px] text-white/25">{pgn}</p>}
+      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onToggle()
+        }}
+        className={`mr-2 rounded p-0.5 transition-colors ${
+          isItemSelected
+            ? 'text-human-3 hover:text-human-2'
+            : 'text-white/20 hover:text-white/50'
+        }`}
+        title={toggleTitle}
+      >
+        <span className="material-symbols-outlined !text-[18px]">
+          {isItemSelected ? 'check' : 'add'}
+        </span>
+      </button>
+    </div>
+  )
+
   return (
     <div
       id="opening-drill-browse"
-      className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:border-r md:border-glass-border`}
+      className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:w-[320px] md:flex-none md:border-r md:border-glass-border`}
     >
       {renderTabs()}
-      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
-        <h2 className="text-xl font-bold">Select {categoryLabelPlural}</h2>
-        <p className="text-xs text-secondary">
-          Browse and select {categoryLabelPlural.toLowerCase()} to drill.
-        </p>
-      </div>
 
-      <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4 md:hidden">
-        <h2 className="text-lg font-bold">Select {categoryLabelPlural}</h2>
-        <p className="text-xs text-secondary">
-          Choose {categoryLabelPlural.toLowerCase()} to practice
-        </p>
-      </div>
-
-      <div className="border-b border-glass-border p-4">
+      <div className="px-4 pb-2 pt-4">
         <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-secondary">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[15px] text-white/35">
             search
           </span>
           <input
@@ -624,7 +668,7 @@ const BrowsePanel: React.FC<{
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded border border-glass-border bg-white/5 py-2 pl-10 pr-4 text-sm text-white placeholder-white/60 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.06] py-[9px] pl-9 pr-4 text-[13px] text-white placeholder-white/35 focus:border-white/20 focus:outline-none"
           />
         </div>
       </div>
@@ -641,27 +685,33 @@ const BrowsePanel: React.FC<{
           )
           const openingIsBeingPreviewed =
             previewOpening.id === opening.id && !previewVariation
+          const showStandaloneOpening = opening.variations.length === 0
+
           return (
-            <div key={opening.id} className="flex flex-col">
-              <div
-                className={`group transition-colors ${
-                  isMobile
-                    ? openingIsSelected
-                      ? 'bg-white/5'
-                      : ''
-                    : openingIsSelected
-                      ? 'bg-white/5'
-                      : openingIsBeingPreviewed
-                        ? 'bg-white/5'
-                        : 'hover:bg-white/5'
-                }`}
-              >
-                <div className="flex items-center">
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    className="flex-1 cursor-pointer p-4"
-                    onClick={() => {
+            <div key={opening.id} className="px-4 pb-3 pt-4">
+              <div className="px-2.5 pb-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35">
+                  {opening.name}
+                </p>
+                {opening.pgn && opening.variations.length > 0 && (
+                  <p className="mt-0.5 text-[11px] text-white/20">
+                    {opening.pgn}
+                  </p>
+                )}
+                {opening.description && (
+                  <p className="mt-0.5 text-[11px] leading-snug text-white/25">
+                    {opening.description}
+                  </p>
+                )}
+              </div>
+
+              {showStandaloneOpening
+                ? renderRow(
+                    opening.name,
+                    opening.pgn,
+                    openingIsSelected,
+                    openingIsBeingPreviewed,
+                    () => {
                       setPreviewOpening(opening)
                       setPreviewVariation(null)
                       trackOpeningPreviewSelected(
@@ -672,62 +722,20 @@ const BrowsePanel: React.FC<{
                       if (isMobile) {
                         onOpeningClick(opening, null)
                       }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        setPreviewOpening(opening)
-                        setPreviewVariation(null)
-                        trackOpeningPreviewSelected(
-                          opening.name,
-                          opening.id,
-                          false,
-                        )
-                        if (isMobile) {
-                          onOpeningClick(opening, null)
-                        }
+                    },
+                    () => {
+                      if (openingIsSelected) {
+                        removeOpeningSelection(opening, null)
+                      } else {
+                        addQuickSelection(opening, null)
                       }
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-medium">{opening.name}</h3>
-                        <p className="text-sm text-secondary">
-                          {opening.description}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mr-1 flex items-center gap-1">
-                    {openingIsSelected ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          removeOpeningSelection(opening, null)
-                        }}
-                        className="rounded p-1 text-white/70 transition-colors hover:text-white"
-                        title={`Remove ${categoryLabel.toLowerCase()} from selection`}
-                      >
-                        <span className="material-symbols-outlined !text-base">
-                          check
-                        </span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          addQuickSelection(opening, null)
-                        }}
-                        className="rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
-                        title={`Add ${categoryLabel.toLowerCase()} with current settings`}
-                      >
-                        <span className="material-symbols-outlined !text-base">
-                          add
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+                    },
+                    openingIsSelected
+                      ? `Remove ${categoryLabel.toLowerCase()} from selection`
+                      : `Add ${categoryLabel.toLowerCase()} with current settings`,
+                  )
+                : null}
+
               {opening.variations.map((variation) => {
                 const variationIsSelected = selections.some(
                   (selection) =>
@@ -739,89 +747,58 @@ const BrowsePanel: React.FC<{
                   previewVariation?.id === variation.id
 
                 return (
-                  <div
-                    key={variation.id}
-                    className={`group transition-colors ${
-                      isMobile
-                        ? variationIsSelected
-                          ? 'bg-white/5'
-                          : ''
-                        : variationIsSelected
-                          ? 'bg-white/5'
-                          : variationIsBeingPreviewed
-                            ? 'bg-white/5'
-                            : 'hover:bg-white/5'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="flex-1 cursor-pointer px-6 py-1"
-                        onClick={() => {
-                          setPreviewOpening(opening)
-                          setPreviewVariation(variation)
-                          trackOpeningPreviewSelected(
-                            opening.name,
-                            opening.id,
-                            true,
-                            variation.name,
-                          )
-                          if (isMobile) {
-                            onOpeningClick(opening, variation)
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            setPreviewOpening(opening)
-                            setPreviewVariation(variation)
-                            trackOpeningPreviewSelected(
-                              opening.name,
-                              opening.id,
-                              true,
-                              variation.name,
-                            )
-                            if (isMobile) {
-                              onOpeningClick(opening, variation)
-                            }
-                          }
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-secondary">
-                            {variation.name}
-                          </p>
-                        </div>
-                      </div>
-                      {variationIsSelected ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            removeOpeningSelection(opening, variation)
-                          }}
-                          className="mr-3 rounded p-1 text-white/70 transition-colors hover:text-white"
-                          title="Remove variation from selection"
-                        >
-                          <span className="material-symbols-outlined !text-base">
-                            check
-                          </span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            addQuickSelection(opening, variation)
-                          }}
-                          className="mr-3 rounded p-1 text-secondary/60 transition-colors hover:text-secondary disabled:cursor-not-allowed disabled:opacity-30 group-hover:text-secondary/80"
-                          title="Add variation with current settings"
-                        >
-                          <span className="material-symbols-outlined !text-base">
-                            add
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <React.Fragment key={variation.id}>
+                    {renderRow(
+                      variation.name,
+                      (() => {
+                        if (!variation.pgn.startsWith(opening.pgn))
+                          return variation.pgn
+                        const suffix = variation.pgn
+                          .slice(opening.pgn.length)
+                          .trim()
+                        if (!suffix) return ''
+                        // Find the last move number in the parent PGN to determine context
+                        const moveNumMatch = opening.pgn.match(
+                          /(\d+)\.\s*(\S+)\s*(\S+)?\s*$/,
+                        )
+                        if (!moveNumMatch) return suffix
+                        const moveNum = parseInt(moveNumMatch[1])
+                        const hasWhiteReply = !!moveNumMatch[3]
+                        // If parent ended after black's move (both white+black present),
+                        // suffix starts with a new white move
+                        if (hasWhiteReply) {
+                          return `${moveNum + 1}. ${suffix}`
+                        }
+                        // Parent ended after white's move, suffix is black's reply
+                        return `${moveNum}. ...${suffix}`
+                      })(),
+                      variationIsSelected,
+                      variationIsBeingPreviewed,
+                      () => {
+                        setPreviewOpening(opening)
+                        setPreviewVariation(variation)
+                        trackOpeningPreviewSelected(
+                          opening.name,
+                          opening.id,
+                          true,
+                          variation.name,
+                        )
+                        if (isMobile) {
+                          onOpeningClick(opening, variation)
+                        }
+                      },
+                      () => {
+                        if (variationIsSelected) {
+                          removeOpeningSelection(opening, variation)
+                        } else {
+                          addQuickSelection(opening, variation)
+                        }
+                      },
+                      variationIsSelected
+                        ? 'Remove variation from selection'
+                        : 'Add variation with current settings',
+                    )}
+                  </React.Fragment>
                 )
               })}
             </div>
@@ -831,7 +808,7 @@ const BrowsePanel: React.FC<{
     </div>
   )
 }
-const PreviewPanel: React.FC<{
+const DrillStudioPanel: React.FC<{
   previewOpening: Opening
   previewVariation: OpeningVariation | null
   previewFen: string
@@ -846,6 +823,15 @@ const PreviewPanel: React.FC<{
   selectedTraits: EndgameTrait[]
   availableTraits: EndgameTrait[]
   onToggleTrait: (trait: EndgameTrait) => void
+  selections: OpeningSelection[]
+  removeSelection: (id: string) => void
+  onSelectQueueItem: (selection: OpeningSelection) => void
+  handleStartDrilling: () => void
+  selectedMaiaVersion: (typeof MAIA_MODELS_WITH_NAMES)[0]
+  setSelectedMaiaVersion: (version: (typeof MAIA_MODELS_WITH_NAMES)[0]) => void
+  targetMoveNumber: number | null
+  setTargetMoveNumber: (number: number | null) => void
+  showTargetSlider: boolean
 }> = ({
   previewOpening,
   previewVariation,
@@ -861,16 +847,46 @@ const PreviewPanel: React.FC<{
   selectedTraits,
   availableTraits,
   onToggleTrait,
+  selections,
+  removeSelection,
+  onSelectQueueItem,
+  handleStartDrilling,
+  selectedMaiaVersion,
+  setSelectedMaiaVersion,
+  targetMoveNumber,
+  setTargetMoveNumber,
+  showTargetSlider,
 }) => {
   const addDisabled = isDuplicate || isAddDisabled
-  const addButtonLabel = isDuplicate ? 'Drill Already Added' : 'Add to Drill'
+  const addButtonLabel = isDuplicate ? 'Already Added' : 'Add Drill'
   const addButtonTitle = isDuplicate
     ? 'Already added with same settings'
     : disabledReason || undefined
 
+  const getSelectionSubtitle = (selection: OpeningSelection) => {
+    if (
+      selection.opening.categoryType === 'endgame' &&
+      selection.endgameTraits?.length
+    ) {
+      return selection.endgameTraits
+        .map((trait) => ENDGAME_TRAIT_LABELS[trait])
+        .join(', ')
+    }
+    if (selection.variation?.name) {
+      return selection.variation.name
+    }
+    return selection.opening.categoryType === 'custom'
+      ? 'Custom position'
+      : selection.playerColor === 'white'
+        ? 'White'
+        : 'Black'
+  }
+
   const renderEndgameTraitControls = () => (
     <div className="flex flex-col gap-2">
-      <p className="text-xs font-medium md:text-sm">Include traits:</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/35">
+        Included Traits
+      </p>
       {availableTraits.length === 0 ? (
         <p className="text-xs text-secondary">
           No positions available for this selection.
@@ -911,94 +927,241 @@ const PreviewPanel: React.FC<{
   return (
     <div
       id="opening-drill-preview"
-      className="hidden w-full flex-col overflow-hidden md:flex"
+      className="hidden w-full flex-1 flex-col overflow-hidden md:flex"
     >
-      <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
-        <h2 className="text-xl font-bold">Preview {panelLabel}</h2>
-        <p className="text-xs text-secondary">Configure your drill settings</p>
-      </div>
+      <div className="border-l border-glass-border">
+        {/* Scrollable Content */}
+        <div className="red-scrollbar flex h-[calc(90vh-5.5rem)] max-h-[820px] flex-col overflow-y-auto px-6 py-5">
+          <div className="flex flex-col gap-5">
+            {/* Preview: Board + Info side by side */}
+            <div className="flex gap-6">
+              <div className="aspect-square w-[280px] flex-shrink-0 overflow-hidden rounded-md">
+                <Chessground
+                  contained
+                  config={{
+                    viewOnly: true,
+                    fen: previewFen,
+                    coordinates: true,
+                    animation: { enabled: true, duration: 200 },
+                    orientation: isEndgame ? 'white' : selectedColor,
+                  }}
+                />
+              </div>
 
-      <div className="red-scrollbar flex flex-1 flex-col gap-4 overflow-y-scroll p-3 md:p-4">
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium md:text-base">
-            {previewOpening.name}
-            <span className="text-xs font-normal text-secondary md:text-sm">
-              {previewVariation && ` → ${previewVariation.name}`}
-            </span>
-          </p>
-          <p className="text-xs text-secondary">{previewOpening.description}</p>
-        </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <div>
+                  <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35">
+                    Preview
+                  </p>
+                  <h3 className="text-[16px] font-semibold text-white">
+                    {previewVariation?.name || previewOpening.name}
+                  </h3>
+                  <p className="mt-0.5 text-[12px] text-white/45">
+                    {previewVariation ? previewOpening.name : panelLabel} ·{' '}
+                    {previewOpening.description}
+                  </p>
+                </div>
 
-        {isEndgame ? (
-          renderEndgameTraitControls()
-        ) : (
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-medium md:text-sm">Play as:</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedColor('white')}
-                className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
-                  selectedColor === 'white'
-                    ? 'border-glass-border bg-white/10 text-white'
-                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
-                }`}
-              >
-                <div className="relative h-4 w-4 md:h-5 md:w-5">
-                  <Image
-                    src="/assets/pieces/white king.svg"
-                    fill={true}
-                    alt="white king"
-                  />
+                {isEndgame ? (
+                  renderEndgameTraitControls()
+                ) : (
+                  <div className="flex gap-1.5">
+                    {(['white', 'black'] as const).map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={`flex items-center gap-1.5 rounded-md border px-3.5 py-[6px] text-[12px] font-medium capitalize transition-colors ${
+                          selectedColor === color
+                            ? 'border-white/20 bg-white/[0.1] text-white'
+                            : 'border-white/[0.08] bg-white/[0.03] text-white/45 hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <div className="relative h-3 w-3">
+                          <Image
+                            src={`/assets/pieces/${color} king.svg`}
+                            fill={true}
+                            alt={`${color} king`}
+                          />
+                        </div>
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {disabledReason && !isDuplicate ? (
+                  <p className="text-xs text-red-300">{disabledReason}</p>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Settings row: Opponent + Target Moves */}
+            <div className="flex gap-5">
+              <div className="flex flex-1 flex-col gap-1.5">
+                <label
+                  htmlFor="drill-opponent-select"
+                  className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35"
+                >
+                  Opponent
+                </label>
+                <select
+                  id="drill-opponent-select"
+                  value={selectedMaiaVersion.id}
+                  onChange={(e) => {
+                    const version = MAIA_MODELS_WITH_NAMES.find(
+                      (v) => v.id === e.target.value,
+                    )
+                    if (version) {
+                      setSelectedMaiaVersion(version)
+                    }
+                  }}
+                  className="w-full rounded-md border border-white/[0.08] bg-white/[0.06] px-2.5 py-[8px] text-[13px] text-white/90 focus:outline-none"
+                >
+                  {MAIA_MODELS_WITH_NAMES.map((version) => (
+                    <option key={version.id} value={version.id}>
+                      {version.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {showTargetSlider ? (
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35">
+                    Target Moves{' '}
+                    <span className="font-bold normal-case tracking-normal text-white/55">
+                      {targetMoveNumber === null ? '∞' : targetMoveNumber}
+                    </span>
+                  </label>
+                  <div className="pt-2">
+                    <input
+                      type="range"
+                      min="5"
+                      max="21"
+                      value={targetMoveNumber === null ? 21 : targetMoveNumber}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value)
+                        setTargetMoveNumber(val >= 21 ? null : val)
+                      }}
+                      className="w-full accent-human-4"
+                    />
+                    <div className="mt-0.5 flex justify-between text-[10px] text-white/25">
+                      <span>5</span>
+                      <span>∞</span>
+                    </div>
+                  </div>
                 </div>
-                White
-              </button>
-              <button
-                onClick={() => setSelectedColor('black')}
-                className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-colors md:px-3 md:py-2 md:text-sm ${
-                  selectedColor === 'black'
-                    ? 'border-glass-border bg-white/10 text-white'
-                    : 'border-glass-border bg-white/5 text-white/90 hover:bg-white/10'
-                }`}
-              >
-                <div className="relative h-4 w-4 md:h-5 md:w-5">
-                  <Image
-                    src="/assets/pieces/black king.svg"
-                    fill={true}
-                    alt="black king"
-                  />
+              ) : (
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35">
+                    Session Type
+                  </p>
+                  <p className="text-[12px] leading-relaxed text-white/50">
+                    Endgame drills use the selected traits and position pools
+                    instead of a target move count.
+                  </p>
                 </div>
-                Black
-              </button>
+              )}
+            </div>
+
+            {/* Add Drill button */}
+            <button
+              onClick={addSelection}
+              disabled={addDisabled}
+              title={addButtonTitle}
+              className="w-full rounded-md bg-human-4/80 py-2.5 text-[13px] font-semibold text-black transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30 2xl:w-auto 2xl:px-10"
+            >
+              {addButtonLabel}
+            </button>
+
+            {/* Queue */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/35">
+                  Queue
+                </p>
+                <span className="rounded-full bg-human-4/[0.08] px-3 py-0.5 text-xxs font-semibold text-human-2">
+                  {selections.length}
+                </span>
+              </div>
+
+              {selections.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-4 py-10 text-center text-[13px] text-secondary">
+                  Select drills from the library to begin.
+                </div>
+              ) : (
+                <div className="grid max-h-48 grid-cols-1 gap-1 overflow-y-auto 2xl:grid-cols-2">
+                  {selections.map((selection) => {
+                    const isEndgame =
+                      selection.opening.categoryType === 'endgame'
+                    const label = selection.variation
+                      ? `${selection.opening.name}: ${selection.variation.name}`
+                      : selection.opening.name
+                    const meta =
+                      isEndgame && selection.endgameTraits?.length
+                        ? selection.endgameTraits
+                            .map((t) => ENDGAME_TRAIT_LABELS[t])
+                            .join(', ')
+                        : selection.playerColor === 'white'
+                          ? 'White'
+                          : 'Black'
+
+                    const isActive =
+                      previewOpening.id === selection.opening.id &&
+                      (selection.variation
+                        ? previewVariation?.id === selection.variation.id
+                        : !previewVariation)
+
+                    return (
+                      <div
+                        key={selection.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onSelectQueueItem(selection)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ')
+                            onSelectQueueItem(selection)
+                        }}
+                        className={`flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-[7px] transition-colors ${
+                          isActive
+                            ? 'bg-white/[0.08]'
+                            : 'bg-white/[0.04] hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <p className="min-w-0 flex-1 truncate text-[12px] text-white/70">
+                          <span className="font-medium text-white">
+                            {label}
+                          </span>
+                          <span className="text-white/30"> · {meta}</span>
+                        </p>
+                        <button
+                          onClick={() => removeSelection(selection.id)}
+                          className="flex-shrink-0 text-white/25 transition-colors hover:text-white"
+                        >
+                          <span className="material-symbols-outlined !text-[14px]">
+                            close
+                          </span>
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
-        )}
-
-        <div className="flex w-full flex-col items-start justify-center gap-1">
-          <p className="text-xs font-medium md:text-sm">Preview:</p>
-          <div className="aspect-square w-full max-w-[250px] self-center md:max-w-[300px]">
-            <Chessground
-              contained
-              config={{
-                viewOnly: true,
-                fen: previewFen,
-                coordinates: true,
-                animation: { enabled: true, duration: 200 },
-                orientation: isEndgame ? 'white' : selectedColor,
-              }}
-            />
-          </div>
         </div>
-      </div>
 
-      <div className="flex-shrink-0 border-t border-glass-border p-3 md:p-4">
-        <button
-          onClick={addSelection}
-          disabled={addDisabled}
-          className="w-full rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-          title={addButtonTitle}
-        >
-          {addButtonLabel}
-        </button>
+        {/* Fixed footer: Start button */}
+        <div className="px-6 pb-5 pt-1">
+          <button
+            onClick={handleStartDrilling}
+            disabled={selections.length === 0}
+            className="w-full rounded-lg bg-human-4/85 py-3 text-[14px] font-semibold text-black transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
+          >
+            Start Drilling ({selections.length}{' '}
+            {selections.length === 1 ? 'selection' : 'selections'})
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -1011,8 +1174,8 @@ const SelectedPanel: React.FC<{
   handleStartDrilling: () => void
   selectedMaiaVersion: (typeof MAIA_MODELS_WITH_NAMES)[0]
   setSelectedMaiaVersion: (version: (typeof MAIA_MODELS_WITH_NAMES)[0]) => void
-  targetMoveNumber: number
-  setTargetMoveNumber: (number: number) => void
+  targetMoveNumber: number | null
+  setTargetMoveNumber: (number: number | null) => void
   categoryLabel: string
   categoryLabelPlural: string
   showTargetSlider: boolean
@@ -1031,19 +1194,9 @@ const SelectedPanel: React.FC<{
 }) => (
   <div
     id="opening-drill-selected"
-    className={`flex w-full flex-col overflow-hidden ${activeTab !== 'selected' ? 'hidden md:flex' : 'flex'} md:border-l md:border-glass-border`}
+    className={`flex w-full flex-col overflow-hidden ${activeTab !== 'selected' ? 'hidden' : 'flex'}`}
   >
-    <div className="hidden h-20 flex-col justify-center gap-1 border-b border-glass-border p-4 md:flex">
-      <h2 className="text-xl font-bold">
-        Selected {categoryLabelPlural} ({selections.length})
-      </h2>
-      <p className="text-xs text-secondary">
-        Click × to remove from the selection
-      </p>
-    </div>
-
-    {/* Mobile header */}
-    <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4 md:hidden">
+    <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4">
       <h2 className="text-lg font-bold">Selected ({selections.length})</h2>
       <p className="text-xs text-secondary">Tap to remove</p>
     </div>
@@ -1176,21 +1329,23 @@ const SelectedPanel: React.FC<{
       {showTargetSlider && (
         <div className="mb-3 md:mb-4">
           <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">
-            Target Move Count: {targetMoveNumber}
+            Target Move Count:{' '}
+            {targetMoveNumber === null ? '∞' : targetMoveNumber}
           </p>
           <input
             type="range"
             min="5"
-            max="20"
-            value={targetMoveNumber}
-            onChange={(e) =>
-              setTargetMoveNumber(parseInt(e.target.value) || 10)
-            }
+            max="21"
+            value={targetMoveNumber === null ? 21 : targetMoveNumber}
+            onChange={(e) => {
+              const val = parseInt(e.target.value)
+              setTargetMoveNumber(val >= 21 ? null : val)
+            }}
             className="w-full accent-human-4"
           />
           <div className="mt-1 flex justify-between text-xs text-secondary">
             <span>5</span>
-            <span>20</span>
+            <span>∞</span>
           </div>
         </div>
       )}
@@ -1378,7 +1533,9 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   const [selectedColor, setSelectedColor] = useState<'white' | 'black'>(
     initialBrowseCategory === 'endgames' ? 'white' : initialSelectedColor,
   )
-  const [targetMoveNumber, setTargetMoveNumber] = useState(initialTargetMoves)
+  const [targetMoveNumber, setTargetMoveNumber] = useState<number | null>(
+    initialTargetMoves,
+  )
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState<MobileTab>('browse')
   const [initialTourCheck, setInitialTourCheck] = useState(false)
@@ -2382,13 +2539,13 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1400px] flex-col items-start justify-start overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md md:h-[90vh]"
+        className="relative flex h-[90vh] max-h-[900px] w-[98vw] max-w-[1320px] flex-col items-start justify-start overflow-hidden rounded-xl border border-glass-border bg-[#231d1a] backdrop-blur-md md:h-[90vh]"
       >
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              'radial-gradient(ellipse 180% 160% at 0% 100%, rgba(239, 68, 68, 0.10) 0%, transparent 72%)',
+              'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00) 20%), radial-gradient(ellipse 180% 160% at 0% 100%, rgba(239, 68, 68, 0.08) 0%, transparent 72%)',
           }}
         />
         <button
@@ -2401,30 +2558,15 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         {/* Header Section */}
         <div
           id="opening-drill-modal"
-          className="flex w-full flex-col gap-1 border-b border-glass-border p-4"
+          className="flex w-full items-center justify-between border-b border-glass-border px-6 pb-3.5 pt-[18px]"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <div className="flex flex-row items-center gap-3">
-                <h1 className="text-xl font-bold text-primary md:text-2xl">
-                  Opening Drills
-                </h1>
-                <button
-                  type="button"
-                  className="material-symbols-outlined text-lg text-secondary duration-200 hover:text-white focus:outline-none"
-                  onClick={handleStartTour}
-                  title="Start tour"
-                >
-                  help
-                </button>
-              </div>
-
-              <p className="text-xs text-secondary md:text-sm">
-                Practice openings, endgames, or custom positions against Maia.
-                Select drills, choose your color or trait settings, and pick
-                your opponent strength.
-              </p>
-            </div>
+          <div>
+            <h1 className="text-[18px] font-semibold text-primary">
+              Maia Drill Studio
+            </h1>
+            <p className="mt-0.5 text-[12px] text-secondary">
+              Select drills, configure settings, practice against Maia.
+            </p>
           </div>
         </div>
 
@@ -2436,7 +2578,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         />
 
         {/* Main Content - Responsive Layout */}
-        <div className="grid w-full flex-1 grid-cols-1 overflow-hidden md:grid-cols-3">
+        <div className="grid w-full flex-1 grid-cols-1 overflow-hidden md:grid-cols-[320px_minmax(0,1fr)]">
           <BrowsePanel
             activeTab={activeTab}
             filteredOpenings={filteredOpenings}
@@ -2462,7 +2604,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             categoryLabel={categoryLabel}
             categoryLabelPlural={categoryLabelPlural}
           />
-          <PreviewPanel
+          <DrillStudioPanel
             previewOpening={previewOpening}
             previewVariation={previewVariation}
             previewFen={previewFen}
@@ -2477,10 +2619,6 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             selectedTraits={previewSelectedTraits}
             availableTraits={previewAvailableTraits}
             onToggleTrait={(trait) => {
-              const key = getTraitSelectionKey(
-                previewOpening.id,
-                previewVariation?.id ?? null,
-              )
               const current = new Set(previewSelectedTraits)
               if (current.has(trait)) {
                 current.delete(trait)
@@ -2493,7 +2631,24 @@ export const OpeningSelectionModal: React.FC<Props> = ({
                 Array.from(current),
               )
             }}
+            selections={selections}
+            removeSelection={removeSelection}
+            onSelectQueueItem={(selection) => {
+              setPreviewOpening(selection.opening)
+              setPreviewVariation(selection.variation ?? null)
+              setSelectedColor(selection.playerColor)
+            }}
+            handleStartDrilling={handleStartDrilling}
+            selectedMaiaVersion={selectedMaiaVersion}
+            setSelectedMaiaVersion={setSelectedMaiaVersion}
+            targetMoveNumber={targetMoveNumber}
+            setTargetMoveNumber={setTargetMoveNumber}
+            showTargetSlider={browseCategory === 'openings'}
           />
+        </div>
+
+        {/* Mobile-only Selected Panel */}
+        <div className="w-full md:hidden">
           <SelectedPanel
             activeTab={activeTab}
             selections={selections}
