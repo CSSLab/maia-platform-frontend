@@ -74,9 +74,6 @@ const getMaiaOpponentName = (maiaVersion: string) =>
   MAIA3_OPPONENT_RATINGS.find((version) => version.id === maiaVersion)?.name ??
   maiaVersion
 
-const getSelectionTitle = (selection: OpeningSelection) =>
-  selection.opening.name
-
 const getSelectionDetailLine = (selection: OpeningSelection) => {
   if (
     selection.opening.categoryType === 'endgame' &&
@@ -87,10 +84,6 @@ const getSelectionDetailLine = (selection: OpeningSelection) => {
       .join(', ')
   }
 
-  if (selection.variation?.name) {
-    return selection.variation.name
-  }
-
   return selection.opening.categoryType === 'custom' ? 'Custom position' : null
 }
 
@@ -98,6 +91,34 @@ const getSelectionConfigurationTags = (selection: OpeningSelection) => [
   getMaiaOpponentName(selection.maiaVersion),
   selection.playerColor === 'white' ? 'White' : 'Black',
 ]
+
+const getSelectionConfigurationText = (selection: OpeningSelection) => {
+  const items = [...getSelectionConfigurationTags(selection)]
+
+  if (selection.opening.categoryType === 'endgame') {
+    items.push(`${selection.endgamePositions?.length ?? 0} positions`)
+  } else {
+    items.push(
+      selection.targetMoveNumber === null
+        ? '∞ moves'
+        : `${selection.targetMoveNumber} moves`,
+    )
+  }
+
+  return items.join(' · ')
+}
+
+const SelectionTitle: React.FC<{
+  selection: OpeningSelection
+  className?: string
+}> = ({ selection, className = 'text-[13px]' }) => (
+  <p className={`truncate ${className}`}>
+    <span className="font-medium text-white">{selection.opening.name}</span>
+    {selection.variation && (
+      <span className="text-white/55">: {selection.variation.name}</span>
+    )}
+  </p>
+)
 
 interface Props {
   openings: Opening[]
@@ -1163,11 +1184,9 @@ const DrillStudioPanel: React.FC<{
               ) : (
                 <div className="grid max-h-48 grid-cols-1 gap-1 overflow-y-auto 2xl:grid-cols-2">
                   {selections.map((selection) => {
-                    const isEndgame =
-                      selection.opening.categoryType === 'endgame'
                     const detailLine = getSelectionDetailLine(selection)
-                    const configurationTags =
-                      getSelectionConfigurationTags(selection)
+                    const configurationText =
+                      getSelectionConfigurationText(selection)
 
                     const isActive =
                       previewOpening.id === selection.opening.id &&
@@ -1192,30 +1211,15 @@ const DrillStudioPanel: React.FC<{
                         }`}
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium text-white">
-                            {getSelectionTitle(selection)}
-                          </p>
+                          <SelectionTitle selection={selection} />
                           {detailLine && (
                             <p className="truncate text-[11px] text-white/40">
                               {detailLine}
                             </p>
                           )}
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {configurationTags.map((tag) => (
-                              <span
-                                key={`${selection.id}-${tag}`}
-                                className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-medium text-white/60"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                            {isEndgame && (
-                              <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-medium text-white/60">
-                                {selection.endgamePositions?.length ?? 0}{' '}
-                                positions
-                              </span>
-                            )}
-                          </div>
+                          <p className="mt-1 truncate text-[10px] text-white/50">
+                            {configurationText}
+                          </p>
                         </div>
                         <button
                           onClick={(e) => {
@@ -1303,7 +1307,7 @@ const SelectedPanel: React.FC<{
               const isEndgameSelection =
                 getOpeningCategory(selection.opening) === 'endgame'
               const detailLine = getSelectionDetailLine(selection)
-              const configurationTags = getSelectionConfigurationTags(selection)
+              const configurationText = getSelectionConfigurationText(selection)
 
               return (
                 <div
@@ -1331,9 +1335,12 @@ const SelectedPanel: React.FC<{
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-xs font-medium text-primary md:text-sm">
-                            {getSelectionTitle(selection)}
-                          </span>
+                          <div className="min-w-0">
+                            <SelectionTitle
+                              selection={selection}
+                              className="text-xs md:text-sm"
+                            />
+                          </div>
                           {selection.opening.isCustom && (
                             <span className="rounded border border-human-4/40 bg-human-4/10 px-2 py-0.5 text-xxs font-semibold uppercase tracking-wide text-human-2">
                               Custom
@@ -1343,24 +1350,9 @@ const SelectedPanel: React.FC<{
                         {detailLine && (
                           <p className="text-xs text-white/70">{detailLine}</p>
                         )}
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {configurationTags.map((tag) => (
-                            <span
-                              key={`${selection.id}-${tag}`}
-                              className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-medium text-white/60"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {isEndgameSelection && (
-                            <span className="rounded-full border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-medium text-white/60">
-                              {(
-                                selection.endgamePositions?.length ?? 0
-                              ).toLocaleString()}{' '}
-                              positions
-                            </span>
-                          )}
-                        </div>
+                        <p className="mt-1 text-xxs text-secondary">
+                          {configurationText}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -2076,20 +2068,6 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     }
   }, [hasTrackedModalOpen, initialSelections.length])
 
-  // Update the ID to reflect the new settings
-  useEffect(() => {
-    setSelections((prevSelections) =>
-      prevSelections.map((selection) => ({
-        ...selection,
-        maiaVersion: selectedMaiaVersion.id,
-        targetMoveNumber:
-          getOpeningCategory(selection.opening) === 'endgame'
-            ? null
-            : targetMoveNumber,
-      })),
-    )
-  }, [selectedMaiaVersion.id, targetMoveNumber])
-
   const handleStartTour = () => {
     startTour(tourConfigs.openingDrill.id, tourConfigs.openingDrill.steps, true)
   }
@@ -2664,6 +2642,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
               setPreviewOpening(selection.opening)
               setPreviewVariation(selection.variation ?? null)
               setSelectedColor(selection.playerColor)
+              setTargetMoveNumber(selection.targetMoveNumber)
               const maiaVersion = MAIA3_OPPONENT_RATINGS.find(
                 (version) => version.id === selection.maiaVersion,
               )
