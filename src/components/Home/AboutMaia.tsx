@@ -237,9 +237,8 @@ export const AboutMaia = () => {
               Maia is trained to predict human moves rather than to find the
               optimal move in a position. As a result, Maia exhibits common
               human biases and makes many of the same mistakes that humans make.
-              We have trained a set of nine neural network engines, each
-              targeting a specific rating level on the Lichess.org rating scale,
-              from 1100 to 1900.
+              We have trained a neural network engine that can target any rating
+              level on the Lichess.org rating scale, from 600 to 2600.
             </p>
 
             <p className="text-primary/90">

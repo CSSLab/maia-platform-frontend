@@ -1,14 +1,11 @@
-export const MAIA_MODELS = [
-  'maia_kdd_1100',
-  'maia_kdd_1200',
-  'maia_kdd_1300',
-  'maia_kdd_1400',
-  'maia_kdd_1500',
-  'maia_kdd_1600',
-  'maia_kdd_1700',
-  'maia_kdd_1800',
-  'maia_kdd_1900',
-]
+export const MAIA_MODELS = Array.from(
+  { length: 21 },
+  (_, i) => `maia_kdd_${600 + i * 100}`,
+)
+
+export const MAIA_RATINGS = MAIA_MODELS.map((m) =>
+  parseInt(m.replace('maia_kdd_', '')),
+)
 
 export const MAIA_MODELS_WITH_NAMES = MAIA_MODELS.map((model) => ({
   id: model,

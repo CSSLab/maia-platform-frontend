@@ -2,12 +2,20 @@ import { Chess, Move } from 'chess.ts'
 
 import allPossibleMovesDict from './data/all_moves.json'
 import allPossibleMovesReversedDict from './data/all_moves_reversed.json'
+import allPossibleMovesMaia3Dict from './data/all_moves_maia3.json'
+import allPossibleMovesMaia3ReversedDict from './data/all_moves_maia3_reversed.json'
 
 const allPossibleMoves = allPossibleMovesDict as Record<string, number>
 const allPossibleMovesReversed = allPossibleMovesReversedDict as Record<
   number,
   string
 >
+const allPossibleMovesMaia3 = allPossibleMovesMaia3Dict as Record<
+  string,
+  number
+>
+const allPossibleMovesMaia3Reversed =
+  allPossibleMovesMaia3ReversedDict as Record<number, string>
 const eloDict = createEloDict()
 /**
  * Converts a chess board position in FEN notation to a tensor representation.
@@ -304,4 +312,87 @@ function mirrorFEN(fen: string): string {
   return `${mirroredPosition} ${mirroredActiveColor} ${mirroredCastling} ${mirroredEnPassant} ${halfmove} ${fullmove}`
 }
 
-export { preprocess, mirrorMove, allPossibleMovesReversed }
+/**
+ * Tokenizes a board position into maia3 format: (64, 12) piece channels.
+ * The board is always from white's perspective (mirrored if black to move).
+ */
+function boardToMaia3Tokens(fen: string): Float32Array {
+  const tokens = fen.split(' ')
+  const piecePlacement = tokens[0]
+
+  // Piece order: white P,N,B,R,Q,K (0-5), black p,n,b,r,q,k (6-11)
+  const pieceTypes = [
+    'P',
+    'N',
+    'B',
+    'R',
+    'Q',
+    'K',
+    'p',
+    'n',
+    'b',
+    'r',
+    'q',
+    'k',
+  ]
+  const tensor = new Float32Array(64 * 12) // (64, 12) flattened
+
+  const rows = piecePlacement.split('/')
+
+  for (let rank = 0; rank < 8; rank++) {
+    const row = 7 - rank
+    let file = 0
+    for (const char of rows[rank]) {
+      if (isNaN(parseInt(char))) {
+        const pieceIdx = pieceTypes.indexOf(char)
+        if (pieceIdx >= 0) {
+          const square = row * 8 + file // rank * 8 + file = chess square index
+          tensor[square * 12 + pieceIdx] = 1.0
+        }
+        file += 1
+      } else {
+        file += parseInt(char)
+      }
+    }
+  }
+
+  return tensor
+}
+
+/**
+ * Preprocesses a FEN for maia3 inference.
+ * Returns (64, 12) board tokens and a legal moves mask over 4352 moves.
+ * ELO is passed as a raw float (maia3 uses continuous interpolation, not categories).
+ */
+function preprocessMaia3(fen: string): {
+  boardTokens: Float32Array
+  legalMoves: Float32Array
+} {
+  let board = new Chess(fen)
+  if (fen.split(' ')[1] === 'b') {
+    board = new Chess(mirrorFEN(board.fen()))
+  } else if (fen.split(' ')[1] !== 'w') {
+    throw new Error(`Invalid FEN: ${fen}`)
+  }
+
+  const boardTokens = boardToMaia3Tokens(board.fen())
+
+  const legalMoves = new Float32Array(Object.keys(allPossibleMovesMaia3).length)
+  for (const move of board.moves({ verbose: true }) as Move[]) {
+    const promotion = move.promotion ? move.promotion : ''
+    const moveIndex = allPossibleMovesMaia3[move.from + move.to + promotion]
+    if (moveIndex !== undefined) {
+      legalMoves[moveIndex] = 1.0
+    }
+  }
+
+  return { boardTokens, legalMoves }
+}
+
+export {
+  preprocess,
+  preprocessMaia3,
+  mirrorMove,
+  allPossibleMovesReversed,
+  allPossibleMovesMaia3Reversed,
+}

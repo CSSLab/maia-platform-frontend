@@ -67,7 +67,7 @@ export const MaiaRatingInsights: React.FC<Props> = ({ ratingPrediction }) => {
     const upperBound = Math.round(
       ratingPrediction.predictedRating + ratingPrediction.standardDeviation,
     )
-    return `${Math.max(1100, lowerBound)} → ${Math.min(1900, upperBound)}`
+    return `${Math.max(600, lowerBound)} → ${Math.min(2600, upperBound)}`
   }
 
   return (
@@ -160,8 +160,8 @@ export const MaiaRatingInsights: React.FC<Props> = ({ ratingPrediction }) => {
           <span className="font-semibold text-human-2">
             How it&apos;s calculated:{' '}
           </span>
-          We analyze each position before your moves using 9 different Maia
-          models (1100-1900). For each model, we calculate the probability it
+          We analyze each position before your moves using 21 different Maia
+          models (600-2600). For each model, we calculate the probability it
           would play your chosen move. The final rating is the specific level
           that had the highest log likelihood of predicting your actual moves.
         </p>

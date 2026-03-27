@@ -99,7 +99,7 @@ export const useMoveRecommendations = (
     const data = []
     for (const rating of MAIA_MODELS) {
       const entry: { [key: string]: number } = {
-        rating: parseInt(rating.slice(-4)),
+        rating: parseInt(rating.replace('maia_kdd_', '')),
       }
 
       for (const move of candidates) {

@@ -18,6 +18,8 @@ export const MOVE_CLASSIFICATION_THRESHOLDS = {
 } as const
 
 export const DEFAULT_MAIA_MODEL = 'maia_kdd_1500' as const
+export const MAIA_MIN_RATING = 600 as const
+export const MAIA_MAX_RATING = 2600 as const
 export const MIN_STOCKFISH_DEPTH = 12 as const
 export const LEARN_FROM_MISTAKES_DEPTH = 12 as const
 export const STOCKFISH_DEBUG_RERUN_EVENT = 'maia:stockfish-debug-rerun' as const

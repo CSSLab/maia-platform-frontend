@@ -37,6 +37,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
-# Large model weights - hosted on GitHub Releases, not committed to the repo
+# Large model weights
 /public/maia2/*.onnx
 /public/stockfish/*.nnue
+
+# Maia3 training code and checkpoints
+/maia3_code/
+*.pt
