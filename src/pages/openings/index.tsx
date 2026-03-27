@@ -180,6 +180,7 @@ const OpeningsPage: NextPage = () => {
     },
     controller.currentDrill?.playerColor || 'white',
     false, // Disable auto-saving on openings page
+    controller.analysisEnabled || controller.continueAnalyzingMode, // Disable engine analysis during drill play
   )
 
   // Sync analysis controller with current node — only when analysis is active
