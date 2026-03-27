@@ -1,7 +1,7 @@
 import { Chess } from 'chess.ts'
 import { fetchOpeningBookMoves } from 'src/api'
 import { useEffect, useContext, useRef, useState } from 'react'
-import { MAIA_MODELS } from 'src/constants/common'
+import { MAIA_MODELS, MAIA_RATINGS } from 'src/constants/common'
 import {
   STOCKFISH_DEBUG_RERUN_EVENT,
   STOCKFISH_DEBUG_RERUN_KEY,
@@ -58,10 +58,10 @@ export const useEngineAnalysis = (
       throw new Error('Maia engine not initialized')
     }
 
-    const { result } = await maia.maia.batchEvaluate(
-      Array(9).fill(board.fen()),
-      [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900],
-      [1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900],
+    const { result } = await maia.maia.batchEvaluateMaia3(
+      Array(MAIA_RATINGS.length).fill(board.fen()),
+      MAIA_RATINGS,
+      MAIA_RATINGS,
     )
 
     const maiaEvaluations: { [key: string]: MaiaEvaluation } = {}

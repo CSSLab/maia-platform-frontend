@@ -250,9 +250,9 @@ export const AnalysisMaiaWinrateBar: React.FC<AnalysisMaiaWinrateBarProps> = ({
     : 'w-4'
   const tickTextClass = isDesktop
     ? isExpandedDesktop
-      ? 'text-[9px]'
-      : 'text-[8px]'
-    : 'text-[8px]'
+      ? 'text-[8px]'
+      : 'text-[7px]'
+    : 'text-[7px]'
   const bubbleClass = isDesktop
     ? isExpandedDesktop
       ? 'h-6 min-w-[42px] px-2 text-[11px]'

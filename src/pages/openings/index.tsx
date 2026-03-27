@@ -131,7 +131,9 @@ const OpeningsPage: NextPage = () => {
       'maia_kdd_',
       'Maia ',
     )
-    const maiaRating = parseInt(controller.currentDrill.maiaVersion.slice(-4))
+    const maiaRating = parseInt(
+      controller.currentDrill.maiaVersion.replace('maia_kdd_', ''),
+    )
 
     return {
       blackPlayer: {

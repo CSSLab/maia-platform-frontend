@@ -1,7 +1,13 @@
 import { MaiaStatus } from 'src/types'
 import { InferenceSession, Tensor } from 'onnxruntime-web'
 
-import { mirrorMove, preprocess, allPossibleMovesReversed } from './tensor'
+import {
+  mirrorMove,
+  preprocess,
+  preprocessMaia3,
+  allPossibleMovesReversed,
+  allPossibleMovesMaia3Reversed,
+} from './tensor'
 import { MaiaModelStorage } from './storage'
 
 interface MaiaOptions {
@@ -164,6 +170,110 @@ class Maia {
   }
 
   /**
+   * Evaluates a chess position using the Maia3 model.
+   * Maia3 uses continuous ELO (float) instead of categorical buckets,
+   * and outputs WDL logits instead of a single value.
+   */
+  async evaluateMaia3(board: string, eloSelf: number, eloOppo: number) {
+    if (!this.model) {
+      throw new Error('Maia model not initialized')
+    }
+
+    const { boardTokens, legalMoves } = preprocessMaia3(board)
+
+    const feeds: Record<string, Tensor> = {
+      tokens: new Tensor('float32', boardTokens, [1, 64, 12]),
+      elo_self: new Tensor('float32', [eloSelf]),
+      elo_oppo: new Tensor('float32', [eloOppo]),
+    }
+    const { logits_move, logits_value } = await this.model.run(feeds)
+
+    const { policy, value } = processOutputsMaia3(
+      board,
+      logits_move,
+      logits_value,
+      legalMoves,
+    )
+
+    return { policy, value }
+  }
+
+  /**
+   * Evaluates a batch of chess positions using the Maia3 model.
+   */
+  async batchEvaluateMaia3(
+    boards: string[],
+    eloSelfs: number[],
+    eloOppos: number[],
+  ) {
+    if (!this.model) {
+      throw new Error('Maia model not initialized')
+    }
+
+    const batchSize = boards.length
+    const boardInputs: Float32Array[] = []
+    const legalMovesArr: Float32Array[] = []
+
+    for (let i = 0; i < batchSize; i++) {
+      const { boardTokens, legalMoves } = preprocessMaia3(boards[i])
+      boardInputs.push(boardTokens)
+      legalMovesArr.push(legalMoves)
+    }
+
+    const combinedTokens = new Float32Array(batchSize * 64 * 12)
+    for (let i = 0; i < batchSize; i++) {
+      combinedTokens.set(boardInputs[i], i * 64 * 12)
+    }
+
+    const feeds: Record<string, Tensor> = {
+      tokens: new Tensor('float32', combinedTokens, [batchSize, 64, 12]),
+      elo_self: new Tensor('float32', Float32Array.from(eloSelfs), [batchSize]),
+      elo_oppo: new Tensor('float32', Float32Array.from(eloOppos), [batchSize]),
+    }
+
+    const start = performance.now()
+    const { logits_move, logits_value } = await this.model.run(feeds)
+    const end = performance.now()
+
+    const results = []
+    const moveLogitsPerItem = 4352
+    const valueLogitsPerItem = 3
+
+    for (let i = 0; i < batchSize; i++) {
+      const moveStart = i * moveLogitsPerItem
+      const moveEnd = moveStart + moveLogitsPerItem
+      const policyLogits = logits_move.data.slice(
+        moveStart,
+        moveEnd,
+      ) as Float32Array
+      const policyTensor = new Tensor('float32', policyLogits, [
+        moveLogitsPerItem,
+      ])
+
+      const valueStart = i * valueLogitsPerItem
+      const valueEnd = valueStart + valueLogitsPerItem
+      const valueLogits = logits_value.data.slice(
+        valueStart,
+        valueEnd,
+      ) as Float32Array
+      const valueTensor = new Tensor('float32', valueLogits, [
+        valueLogitsPerItem,
+      ])
+
+      const { policy, value } = processOutputsMaia3(
+        boards[i],
+        policyTensor,
+        valueTensor,
+        legalMovesArr[i],
+      )
+
+      results.push({ policy, value })
+    }
+
+    return { result: results, time: end - start }
+  }
+
+  /**
    * Evaluates a batch of chess positions using the Maia model.
    *
    * @param boards - An array of FEN strings representing the chess positions.
@@ -310,6 +420,75 @@ function processOutputs(
   const probs = expLogits.map((expLogit) => expLogit / sumExp)
 
   // Map the probabilities back to their move indices
+  const moveProbs: Record<string, number> = {}
+  for (let i = 0; i < legalMoveIndices.length; i++) {
+    moveProbs[legalMovesMirrored[i]] = probs[i]
+  }
+
+  const sortedMoveProbs = Object.keys(moveProbs)
+    .sort((a, b) => moveProbs[b] - moveProbs[a])
+    .reduce(
+      (acc, key) => {
+        acc[key] = moveProbs[key]
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
+  return { policy: sortedMoveProbs, value: winProb }
+}
+
+/**
+ * Processes maia3 ONNX outputs. Maia3 outputs WDL (win/draw/loss) logits
+ * and uses a 4352-dimensional move space.
+ */
+function processOutputsMaia3(
+  fen: string,
+  logits_move: Tensor,
+  logits_value: Tensor,
+  legalMoves: Float32Array,
+) {
+  const logits = logits_move.data as Float32Array
+  const wdl = logits_value.data as Float32Array
+
+  // Convert WDL logits to win probability via softmax
+  const maxWdl = Math.max(wdl[0], wdl[1], wdl[2])
+  const expW = Math.exp(wdl[0] - maxWdl)
+  const expD = Math.exp(wdl[1] - maxWdl)
+  const expL = Math.exp(wdl[2] - maxWdl)
+  const sumExp = expW + expD + expL
+  // Win probability = P(win) + 0.5 * P(draw)
+  let winProb = (expW + 0.5 * expD) / sumExp
+
+  let black_flag = false
+  if (fen.split(' ')[1] === 'b') {
+    black_flag = true
+    winProb = 1 - winProb
+  }
+
+  winProb = Math.round(winProb * 10000) / 10000
+
+  // Get indices of legal moves
+  const legalMoveIndices = legalMoves
+    .map((value, index) => (value > 0 ? index : -1))
+    .filter((index) => index !== -1)
+
+  const legalMovesMirrored = []
+  for (const moveIndex of legalMoveIndices) {
+    let move = allPossibleMovesMaia3Reversed[moveIndex]
+    if (black_flag) {
+      move = mirrorMove(move)
+    }
+    legalMovesMirrored.push(move)
+  }
+
+  // Softmax over legal move logits
+  const legalLogits = legalMoveIndices.map((idx) => logits[idx])
+  const maxLogit = Math.max(...legalLogits)
+  const expLogits = legalLogits.map((logit) => Math.exp(logit - maxLogit))
+  const sumExpMoves = expLogits.reduce((a, b) => a + b, 0)
+  const probs = expLogits.map((expLogit) => expLogit / sumExpMoves)
+
   const moveProbs: Record<string, number> = {}
   for (let i = 0; i < legalMoveIndices.length; i++) {
     moveProbs[legalMovesMirrored[i]] = probs[i]

@@ -5,7 +5,7 @@
 /**
  * Validates if a rating value is reasonable for chess
  * Chess ratings typically range from around 400 to 3000+
- * Maia models range from 1100-1900, but players can have ratings outside this range
+ * Maia models range from 600-2600, but players can have ratings outside this range
  *
  * @param rating - The rating value to validate
  * @returns true if the rating is valid, false otherwise

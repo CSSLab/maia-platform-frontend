@@ -226,7 +226,7 @@ export const fetchAnalyzedMaiaGame = async (
   const blackPlayer = data['black_player'] as Player
   const whitePlayer = data['white_player'] as Player
 
-  const maiaPattern = /maia_kdd_1\d00/
+  const maiaPattern = /maia_kdd_\d{3,4}/
 
   if (blackPlayer.name && maiaPattern.test(blackPlayer.name)) {
     blackPlayer.name = blackPlayer.name.replace('maia_kdd_', 'Maia ')
