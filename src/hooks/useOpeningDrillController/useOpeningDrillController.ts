@@ -949,29 +949,45 @@ export const useOpeningDrillController = (
       if (bgAnalyzedFensRef.current.has(node.fen)) continue
       bgAnalyzedFensRef.current.add(node.fen)
 
-      // Chain this node's analysis onto the promise chain
+      // Chain this node's analysis onto the promise chain.
+      // Wrapped in try/catch so one failure doesn't break the whole chain.
       bgChainRef.current = bgChainRef.current.then(async () => {
-        if (bgCancelledRef.current) return
-        console.log('[bg] analyzing:', node.fen.split(' ')[0].slice(-20))
-        await ensureMaiaRef.current(node)
-        if (bgCancelledRef.current) return
-        await ensureStockfishRef.current(node)
-        console.log('[bg] done, sf depth:', node.analysis.stockfish?.depth ?? 0)
+        try {
+          if (bgCancelledRef.current) return
+          console.log('[bg] maia start:', node.san || node.move || '?')
+          await ensureMaiaRef.current(node)
+          const hasMaia = !!(
+            node.analysis.maia &&
+            MAIA_MODELS.every((m) => node.analysis.maia?.[m])
+          )
+          console.log('[bg] maia done:', hasMaia, '| sf start')
+          if (bgCancelledRef.current) return
+          await ensureStockfishRef.current(node)
+          console.log(
+            '[bg] sf done, depth:',
+            node.analysis.stockfish?.depth ?? 0,
+          )
+        } catch (error) {
+          console.error('[bg] error analyzing node:', error)
+        }
       })
     }
   }, [currentDrillGame, gameTree, isAnalyzingDrill, treeController.currentNode])
 
-  // Helper: stop background analysis and wait for it to fully settle
-  const stopBackgroundAnalysis = useCallback(async () => {
+  // Stop background analysis. Signals cancellation and stops stockfish so
+  // ensureDrillAnalysis can use stockfish immediately. The chain's remaining
+  // .then() callbacks will see the cancelled flag and return quickly.
+  // Does NOT await the chain — avoids hanging if a step is stuck.
+  const stopBackgroundAnalysis = useCallback(() => {
     bgCancelledRef.current = true
     stockfish.stopEvaluation()
-    await bgChainRef.current
   }, [stockfish])
 
   const ensureDrillAnalysis = useCallback(
     async (drillGame: OpeningDrillGame): Promise<boolean> => {
-      // Stop background loop and wait for it to fully exit before using stockfish
-      await stopBackgroundAnalysis()
+      // Signal background to stop and give the generator a tick to clean up
+      stopBackgroundAnalysis()
+      await delay(50)
 
       const mainLine = drillGame.tree.getMainLine()
       const startingNode = drillGame.openingEndNode || mainLine[0]
