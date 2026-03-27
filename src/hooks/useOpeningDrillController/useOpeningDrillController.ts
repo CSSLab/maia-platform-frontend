@@ -1,5 +1,5 @@
 import { Chess } from 'chess.ts'
-import { fetchGameMove } from 'src/api/play'
+import { fetchGameMove, fetchOpeningBookMoves } from 'src/api/play'
 import { logOpeningDrill } from 'src/api/openings'
 import { useLocalStorage } from '../useLocalStorage'
 import { GameTree, GameNode, Color } from 'src/types'
@@ -34,6 +34,35 @@ const MAIA_ELO_VALUES = MAIA_MODELS.map((model) =>
 )
 
 const DRILL_STOCKFISH_TARGET_DEPTH = 18
+const DRILL_BOOK_SAMPLING_MAX_PLIES = 6
+const DRILL_BOOK_DEBUG_TAG = '[DRILL_BOOK]'
+
+const sampleWeightedMove = (
+  moveWeights: Record<string, number>,
+): string | null => {
+  const entries = Object.entries(moveWeights).filter(
+    ([, weight]) => Number.isFinite(weight) && weight > 0,
+  )
+
+  if (!entries.length) {
+    return null
+  }
+
+  const totalWeight = entries.reduce((sum, [, weight]) => sum + weight, 0)
+  if (totalWeight <= 0) {
+    return entries[0][0]
+  }
+
+  let threshold = Math.random() * totalWeight
+  for (const [move, weight] of entries) {
+    threshold -= weight
+    if (threshold <= 0) {
+      return move
+    }
+  }
+
+  return entries[entries.length - 1][0]
+}
 
 const ensureValidFen = (fen: string): string => {
   const trimmed = fen.trim()
@@ -136,6 +165,20 @@ const expandDrillSelections = (
   })
 
   return expanded
+}
+
+const getRootNode = (node: GameNode): GameNode => {
+  let current = node
+  while (current.parent) {
+    current = current.parent
+  }
+  return current
+}
+
+const createGameTreeFromRootNode = (rootNode: GameNode): GameTree => {
+  const tree = new GameTree(rootNode.fen)
+  ;(tree as unknown as { root: GameNode }).root = rootNode
+  return tree
 }
 
 type DrillCompletionReason =
@@ -305,6 +348,9 @@ export const useOpeningDrillController = (
   >(null)
   const [waitingForMaiaResponse, setWaitingForMaiaResponse] = useState(false)
   const [continueAnalyzingMode, setContinueAnalyzingMode] = useState(false)
+  const loadedCompletedDrillGameRef = useRef<OpeningDrillGame | null>(null)
+  const loadedCompletedDrillFinalNodeRef = useRef<GameNode | null>(null)
+  const loadedCompletedDrillSelectionIdRef = useRef<string | null>(null)
 
   const stockfish = useContext(StockfishEngineContext)
   const maiaEngine = useContext(MaiaEngineContext)
@@ -404,6 +450,18 @@ export const useOpeningDrillController = (
       return
     }
 
+    const loadedCompletedDrillGame = loadedCompletedDrillGameRef.current
+    if (
+      loadedCompletedDrillGame &&
+      loadedCompletedDrillGame.selection.id === currentDrill.id
+    ) {
+      setCurrentDrillGame(loadedCompletedDrillGame)
+      setWaitingForMaiaResponse(false)
+      setContinueAnalyzingMode(true)
+      loadedCompletedDrillGameRef.current = null
+      return
+    }
+
     const startingFen =
       currentDrill.variation?.setupFen ||
       currentDrill.opening.setupFen ||
@@ -452,6 +510,27 @@ export const useOpeningDrillController = (
         treeController.setCurrentNode(currentDrillGame.tree.getRoot())
       }
     }
+  }, [currentDrillGame?.id, treeController])
+
+  useEffect(() => {
+    if (!currentDrillGame) {
+      return
+    }
+
+    const pendingFinalNode = loadedCompletedDrillFinalNodeRef.current
+    const pendingSelectionId = loadedCompletedDrillSelectionIdRef.current
+
+    if (
+      !pendingFinalNode ||
+      !pendingSelectionId ||
+      currentDrillGame.selection.id !== pendingSelectionId
+    ) {
+      return
+    }
+
+    treeController.setCurrentNode(pendingFinalNode)
+    loadedCompletedDrillFinalNodeRef.current = null
+    loadedCompletedDrillSelectionIdRef.current = null
   }, [currentDrillGame?.id, treeController])
 
   const isPlayerTurn = useMemo(() => {
@@ -503,6 +582,53 @@ export const useOpeningDrillController = (
 
     return moveMap
   }, [treeController.currentNode, isPlayerTurn])
+
+  const getDrillMaiaPolicy = useCallback(
+    async (fen: string, maiaVersion: string) => {
+      let retries = 0
+      const maxRetries = 30
+
+      while (
+        maiaStatus !== 'ready' &&
+        retries < maxRetries &&
+        !analysisCancellationRef.current
+      ) {
+        await delay(100)
+        retries++
+      }
+
+      if (
+        maiaStatus !== 'ready' ||
+        !maiaInstance ||
+        analysisCancellationRef.current
+      ) {
+        return null
+      }
+
+      const rating = parseInt(maiaVersion.replace('maia_kdd_', ''), 10)
+      if (!Number.isFinite(rating)) {
+        return null
+      }
+
+      try {
+        const { result } = await maiaInstance.batchEvaluate(
+          [fen],
+          [rating],
+          [rating],
+        )
+
+        return result?.[0]?.policy ?? null
+      } catch (error) {
+        console.warn(
+          DRILL_BOOK_DEBUG_TAG,
+          'Failed to evaluate Maia policy for drill:',
+          error,
+        )
+        return null
+      }
+    },
+    [maiaInstance, maiaStatus],
+  )
 
   // Function to evaluate drill performance by extracting analysis from GameTree nodes
   const evaluateDrillPerformance = useCallback(
@@ -1082,6 +1208,19 @@ export const useOpeningDrillController = (
     setIsAnalyzingDrill(false)
   }, [setIsAnalyzingDrill, stockfish])
 
+  const persistCompletedDrill = useCallback((drill: CompletedDrill) => {
+    setCompletedDrills((prev) => {
+      const alreadyPresent = prev.some((existing) => {
+        return (
+          existing.selection.id === drill.selection.id &&
+          existing.completedAt.getTime() === drill.completedAt.getTime()
+        )
+      })
+
+      return alreadyPresent ? prev : [...prev, drill]
+    })
+  }, [])
+
   const resolveDrillEndReason = useCallback(
     (
       drillGame: OpeningDrillGame,
@@ -1160,7 +1299,7 @@ export const useOpeningDrillController = (
           : performanceData
 
         setCurrentPerformanceData(enrichedPerformanceData)
-        setCompletedDrills((prev) => [...prev, enrichedPerformanceData.drill])
+        persistCompletedDrill(enrichedPerformanceData.drill)
 
         // Simplified: just show the performance modal
 
@@ -1176,6 +1315,7 @@ export const useOpeningDrillController = (
       currentDrillGame,
       ensureDrillAnalysis,
       evaluateDrillPerformance,
+      persistCompletedDrill,
       resolveDrillEndReason,
     ],
   )
@@ -1198,6 +1338,9 @@ export const useOpeningDrillController = (
   )
 
   const moveToNextDrill = useCallback(() => {
+    if (currentPerformanceData?.drill) {
+      persistCompletedDrill(currentPerformanceData.drill)
+    }
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setContinueAnalyzingMode(false)
@@ -1208,7 +1351,7 @@ export const useOpeningDrillController = (
     setDrillAnalysisProgress(getInitialAnalysisProgress())
     setCurrentDrillGame(null)
     assignNextDrill()
-  }, [assignNextDrill])
+  }, [assignNextDrill, currentPerformanceData, persistCompletedDrill])
 
   // Continue analyzing current drill
   const continueAnalyzing = useCallback(() => {
@@ -1247,6 +1390,44 @@ export const useOpeningDrillController = (
   const showCurrentPerformance = useCallback(() => {
     showPerformance()
   }, [showPerformance])
+
+  const loadCompletedDrill = useCallback((completedDrill: CompletedDrill) => {
+    const rootNode = getRootNode(completedDrill.finalNode)
+    const restoredTree = createGameTreeFromRootNode(rootNode)
+    const finalPath = completedDrill.finalNode.getPath()
+    const openingEndNodeIndex = Math.max(
+      0,
+      finalPath.length - completedDrill.allMoves.length - 1,
+    )
+    const openingEndNode =
+      finalPath[openingEndNodeIndex] || restoredTree.getRoot()
+
+    const restoredGame: OpeningDrillGame = {
+      id: completedDrill.selection.id,
+      selection: completedDrill.selection,
+      moves: completedDrill.allMoves,
+      tree: restoredTree,
+      currentFen: completedDrill.finalNode.fen,
+      toPlay:
+        new Chess(completedDrill.finalNode.fen).turn() === 'w'
+          ? 'white'
+          : 'black',
+      openingEndNode,
+      playerMoveCount: completedDrill.totalMoves,
+    }
+
+    loadedCompletedDrillGameRef.current = restoredGame
+    loadedCompletedDrillFinalNodeRef.current = completedDrill.finalNode
+    loadedCompletedDrillSelectionIdRef.current = completedDrill.selection.id
+    setCurrentDrill(completedDrill.selection)
+    setCurrentDrillGame(restoredGame)
+    setAnalysisEnabled(true)
+    setContinueAnalyzingMode(true)
+    setShowPerformanceModal(false)
+    setCurrentPerformanceData(null)
+    setWaitingForMaiaResponse(false)
+    setDrillEndReasonMessage(null)
+  }, [])
 
   // Reset drill to start over
   const resetDrillSession = useCallback(() => {
@@ -1405,18 +1586,122 @@ export const useOpeningDrillController = (
       try {
         // Always respond from the tip of the main line, regardless of current view
         const tipNode = gameTree.getLastMainlineNode()
-        const path = tipNode.getPath()
-        const response = await fetchGameMove(
-          [],
-          currentDrill.maiaVersion,
-          tipNode.fen,
-          null,
-          0,
-          0,
+        const drillStartFen =
+          currentDrillGame.openingEndNode?.fen ||
+          currentDrillGame.tree.getRoot().fen
+        const chess = new Chess(tipNode.fen)
+        const legalMoveSet = new Set(
+          chess
+            .moves({ verbose: true })
+            .map((move) => `${move.from}${move.to}${move.promotion || ''}`),
         )
+        let maiaMove: string | null = null
 
-        console.log('Maia response:', response)
-        const maiaMove = response.top_move
+        if (currentDrillGame.moves.length < DRILL_BOOK_SAMPLING_MAX_PLIES) {
+          try {
+            const openingBookMoves = await fetchOpeningBookMoves(tipNode.fen)
+            const modelBookMoves = openingBookMoves?.[currentDrill.maiaVersion]
+            console.log(DRILL_BOOK_DEBUG_TAG, {
+              source: 'opening-book',
+              fen: tipNode.fen,
+              drillStartFen,
+              maiaVersion: currentDrill.maiaVersion,
+              moveCount: currentDrillGame.moves.length,
+              moves: currentDrillGame.moves,
+              distribution: modelBookMoves || null,
+            })
+            if (modelBookMoves && Object.keys(modelBookMoves).length > 0) {
+              const filteredBookMoves = Object.entries(modelBookMoves).reduce<
+                Record<string, number>
+              >((acc, [move, weight]) => {
+                if (legalMoveSet.has(move) && typeof weight === 'number') {
+                  acc[move] = weight
+                }
+                return acc
+              }, {})
+              maiaMove = sampleWeightedMove(filteredBookMoves)
+              console.log(DRILL_BOOK_DEBUG_TAG, {
+                source: 'opening-book-sampled',
+                fen: tipNode.fen,
+                maiaVersion: currentDrill.maiaVersion,
+                sampledMove: maiaMove,
+                filteredDistribution: filteredBookMoves,
+              })
+            }
+          } catch (error) {
+            console.warn(
+              DRILL_BOOK_DEBUG_TAG,
+              'Failed to fetch opening book moves for drill:',
+              error,
+            )
+          }
+        }
+
+        if (
+          !maiaMove &&
+          currentDrillGame.moves.length < DRILL_BOOK_SAMPLING_MAX_PLIES
+        ) {
+          const maiaPolicy = await getDrillMaiaPolicy(
+            tipNode.fen,
+            currentDrill.maiaVersion,
+          )
+          const filteredPolicy = maiaPolicy
+            ? Object.entries(maiaPolicy).reduce<Record<string, number>>(
+                (acc, [move, weight]) => {
+                  if (
+                    legalMoveSet.has(move) &&
+                    typeof weight === 'number' &&
+                    weight > 0
+                  ) {
+                    acc[move] = weight
+                  }
+                  return acc
+                },
+                {},
+              )
+            : null
+          console.log(DRILL_BOOK_DEBUG_TAG, {
+            source: 'maia-policy',
+            fen: tipNode.fen,
+            drillStartFen,
+            maiaVersion: currentDrill.maiaVersion,
+            moveCount: currentDrillGame.moves.length,
+            moves: currentDrillGame.moves,
+            distribution: filteredPolicy,
+          })
+
+          if (filteredPolicy && Object.keys(filteredPolicy).length > 0) {
+            maiaMove = sampleWeightedMove(filteredPolicy)
+            console.log(DRILL_BOOK_DEBUG_TAG, {
+              source: 'maia-policy-sampled',
+              fen: tipNode.fen,
+              maiaVersion: currentDrill.maiaVersion,
+              sampledMove: maiaMove,
+            })
+          }
+        }
+
+        if (!maiaMove) {
+          const response = await fetchGameMove(
+            currentDrillGame.moves,
+            currentDrill.maiaVersion,
+            drillStartFen,
+            null,
+            0,
+            0,
+          )
+
+          console.log(DRILL_BOOK_DEBUG_TAG, {
+            source: 'fetch-game-move-fallback',
+            fen: tipNode.fen,
+            drillStartFen,
+            maiaVersion: currentDrill.maiaVersion,
+            moveCount: currentDrillGame.moves.length,
+            moves: currentDrillGame.moves,
+            response,
+          })
+          maiaMove = response.top_move
+        }
 
         if (maiaMove && maiaMove.length >= 4) {
           let newNode: GameNode | null = null
@@ -1684,5 +1969,8 @@ export const useOpeningDrillController = (
 
     // Show performance modal for current drill
     showCurrentPerformance,
+
+    // Load a previously completed drill into analysis mode
+    loadCompletedDrill,
   }
 }
