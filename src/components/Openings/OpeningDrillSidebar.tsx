@@ -16,6 +16,7 @@ interface Props {
   analysisEnabled?: boolean
   continueAnalyzingMode?: boolean
   drillTerminationNote?: string
+  showBottomNavigation?: boolean
 }
 
 export const OpeningDrillSidebar: React.FC<Props> = ({
@@ -28,6 +29,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
   analysisEnabled,
   continueAnalyzingMode,
   drillTerminationNote,
+  showBottomNavigation = true,
 }) => {
   const containerClass = embedded
     ? 'flex h-full w-full max-w-full flex-col'
@@ -304,7 +306,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
       </div>
 
       {/* Bottom: Moves + Controller (embedded) */}
-      {tree?.gameTree && currentDrill && (
+      {showBottomNavigation && tree?.gameTree && currentDrill && (
         <div className="flex w-full flex-1 flex-col overflow-hidden border-t border-glass-border">
           <div className="red-scrollbar flex w-full flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <MovesContainer
