@@ -97,7 +97,7 @@ export const Footer: React.FC = () => {
           <div className="mb-2 flex flex-col items-start gap-1 md:mb-0 md:items-center md:gap-0.5">
             <div className="flex items-center gap-2">
               <Image
-                src="/maia-no-bg.png"
+                src="/maia-ios-icon.png"
                 alt="Maia Chess"
                 width={26}
                 height={26}

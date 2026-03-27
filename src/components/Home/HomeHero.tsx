@@ -140,7 +140,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
 
   return (
     <Fragment>
-      <BetaBlurb />
       <div className="relative flex flex-col items-center justify-center gap-4 overflow-hidden pb-6 pt-4 md:gap-14 md:pt-16">
         <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">
           <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[45%] md:gap-8">
@@ -270,23 +269,5 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
         </motion.div>
       </div>
     </Fragment>
-  )
-}
-
-function BetaBlurb() {
-  return (
-    <div className="mt-2 flex items-center justify-center md:mt-10">
-      <div className="select-none rounded-full border border-glass-border bg-black/20 px-6 py-2.5 backdrop-blur-sm transition-all duration-200 hover:border-white/15">
-        <div className="flex flex-row items-center gap-2">
-          <span className="material-symbols-outlined material-symbols-filled text-sm text-white/90">
-            favorite
-          </span>
-          <p className="text-sm text-white/90">
-            Maia Chess is in open beta. You now have full access to the
-            platform!
-          </p>
-        </div>
-      </div>
-    </div>
   )
 }
