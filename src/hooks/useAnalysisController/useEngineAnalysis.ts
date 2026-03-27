@@ -84,6 +84,8 @@ export const useEngineAnalysis = (
     const board = new Chess(currentNode.fen)
     const nodeFen = currentNode.fen
 
+    let maiaCancelled = false
+
     const attemptMaiaAnalysis = async () => {
       const hasSelectedModelAnalysis =
         !!currentNode?.analysis.maia?.[currentMaiaModel]
@@ -111,12 +113,18 @@ export const useEngineAnalysis = (
       inProgressAnalyses.add(nodeFen)
 
       try {
-        if (currentNode.moveNumber <= 5) {
-          const [openingBookMoves, maiaEvaluations] = await Promise.all([
-            fetchOpeningBook(board),
-            inferenceMaiaModel(board),
-          ])
+        const openingBookPromise =
+          currentNode.moveNumber <= 5
+            ? fetchOpeningBook(board)
+            : Promise.resolve(null)
 
+        const maiaEvaluations = await inferenceMaiaModel(board)
+
+        if (maiaCancelled) return
+
+        const openingBookMoves = await openingBookPromise
+
+        if (openingBookMoves && currentNode.moveNumber <= 5) {
           const analysis: { [key: string]: MaiaEvaluation } = {}
           for (const model of MAIA_MODELS) {
             const policySource = Object.keys(openingBookMoves[model] || {})
@@ -135,15 +143,11 @@ export const useEngineAnalysis = (
               ) as MaiaEvaluation['policy'],
             }
           }
-
           currentNode.addMaiaAnalysis(analysis, currentMaiaModel)
-          setAnalysisState((state) => state + 1)
-          return
         } else {
-          const maiaEvaluations = await inferenceMaiaModel(board)
           currentNode.addMaiaAnalysis(maiaEvaluations, currentMaiaModel)
-          setAnalysisState((state) => state + 1)
         }
+        setAnalysisState((state) => state + 1)
       } finally {
         inProgressAnalyses.delete(nodeFen)
       }
@@ -155,6 +159,7 @@ export const useEngineAnalysis = (
     }, 100)
 
     return () => {
+      maiaCancelled = true
       clearTimeout(timeoutId)
     }
   }, [
