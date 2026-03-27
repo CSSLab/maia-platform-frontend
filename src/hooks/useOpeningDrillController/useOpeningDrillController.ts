@@ -903,19 +903,19 @@ export const useOpeningDrillController = (
     [currentMaiaModel, stockfish],
   )
 
-  // Background analysis: run Maia + Stockfish on positions as they are played
-  // so that post-drill analysis is already complete (or nearly so) when the
-  // drill ends.
+  // Background analysis: run Maia + Stockfish on drill positions as they are
+  // played so post-drill analysis has less (or no) work to do.
   //
-  // We use a ref-based queue so the async loop persists across re-renders.
-  // The useEffect only *enqueues* new nodes; the loop processes them
-  // independently of the React lifecycle to avoid being killed on every move.
-  const backgroundQueueRef = useRef<GameNode[]>([])
-  const backgroundRunningRef = useRef(false)
-  const backgroundCancelledRef = useRef(false)
-
-  // Refs to the latest versions of the analysis functions so the long-lived
-  // loop always calls the current closure without needing to restart.
+  // There is a single Stockfish WASM instance, so we MUST NOT run background
+  // and post-drill Stockfish concurrently. When the drill ends we:
+  //   1. Set bgCancelledRef = true (loop exits after current position)
+  //   2. Call stockfish.stopEvaluation() to abort any in-progress eval
+  //   3. Await bgLoopPromiseRef to ensure the loop has fully exited
+  //   4. Only then start ensureDrillAnalysis
+  const bgQueueRef = useRef<GameNode[]>([])
+  const bgRunningRef = useRef(false)
+  const bgCancelledRef = useRef(false)
+  const bgLoopPromiseRef = useRef<Promise<void> | null>(null)
   const ensureMaiaRef = useRef(ensureMaiaForNode)
   const ensureStockfishRef = useRef(ensureStockfishForNode)
   useEffect(() => {
@@ -925,51 +925,29 @@ export const useOpeningDrillController = (
     ensureStockfishRef.current = ensureStockfishForNode
   }, [ensureStockfishForNode])
 
-  // The long-lived loop that drains the queue.
-  // Uses refs for everything so it never needs to be recreated.
-  const runBackgroundLoop = useCallback(async () => {
-    if (backgroundRunningRef.current) return
-    backgroundRunningRef.current = true
-
-    console.log('[bg-analysis] loop started')
+  const runBgLoop = useCallback(async () => {
+    if (bgRunningRef.current) return
+    bgRunningRef.current = true
     try {
-      while (backgroundQueueRef.current.length > 0) {
-        if (backgroundCancelledRef.current) {
-          console.log('[bg-analysis] cancelled, stopping')
-          break
-        }
-        const node = backgroundQueueRef.current[0]
-        console.log(
-          '[bg-analysis] processing node:',
-          node.fen.split(' ').slice(0, 2).join(' '),
-        )
+      while (bgQueueRef.current.length > 0) {
+        if (bgCancelledRef.current) break
+        const node = bgQueueRef.current[0]
 
         await ensureMaiaRef.current(node)
-        if (backgroundCancelledRef.current) break
+        if (bgCancelledRef.current) break
 
-        console.log(
-          '[bg-analysis] maia done, starting stockfish for:',
-          node.fen.split(' ').slice(0, 2).join(' '),
-        )
         await ensureStockfishRef.current(node)
-
-        // Only remove from queue after both analyses complete (or if cancelled)
-        backgroundQueueRef.current.shift()
-        console.log(
-          '[bg-analysis] node complete, remaining:',
-          backgroundQueueRef.current.length,
-        )
+        bgQueueRef.current.shift()
       }
     } catch (error) {
       console.error('[bg-analysis] error:', error)
     } finally {
-      backgroundRunningRef.current = false
-      console.log('[bg-analysis] loop ended')
+      bgRunningRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Enqueue new drill nodes whenever the tree grows
+  // Enqueue new drill positions for background analysis
   useEffect(() => {
     if (!currentDrillGame || isAnalyzingDrill) return
 
@@ -980,8 +958,7 @@ export const useOpeningDrillController = (
       : 0
     const drillNodes = mainLine.slice(startIndex)
 
-    // Track FENs already in the queue to avoid duplicates
-    const queuedFens = new Set(backgroundQueueRef.current.map((n) => n.fen))
+    const queuedFens = new Set(bgQueueRef.current.map((n) => n.fen))
 
     const newNodes = drillNodes.filter((node) => {
       if (queuedFens.has(node.fen)) return false
@@ -995,47 +972,47 @@ export const useOpeningDrillController = (
     })
 
     if (newNodes.length > 0) {
-      console.log(
-        '[bg-analysis] enqueueing',
-        newNodes.length,
-        'nodes, loop running:',
-        backgroundRunningRef.current,
-      )
-      backgroundQueueRef.current.push(...newNodes)
-      runBackgroundLoop()
+      bgQueueRef.current.push(...newNodes)
+      const promise = runBgLoop()
+      if (promise) bgLoopPromiseRef.current = promise
     }
   }, [
     currentDrillGame,
     gameTree,
     isAnalyzingDrill,
-    runBackgroundLoop,
+    runBgLoop,
     treeController.currentNode,
   ])
 
-  // Cancel background analysis when a new drill starts (not on every move).
-  // currentDrillGame changes on every move, so we track the drill ID instead.
-  const backgroundDrillIdRef = useRef<string | null>(null)
+  // Cancel background analysis when a new drill starts
+  const bgDrillIdRef = useRef<string | null>(null)
   useEffect(() => {
     const drillId = currentDrillGame?.id ?? null
-    if (drillId !== backgroundDrillIdRef.current) {
-      // New drill or drill cleared — cancel any running background work
-      backgroundCancelledRef.current = true
-      backgroundQueueRef.current = []
-      backgroundRunningRef.current = false
-
-      backgroundDrillIdRef.current = drillId
+    if (drillId !== bgDrillIdRef.current) {
+      bgCancelledRef.current = true
+      bgQueueRef.current = []
+      bgDrillIdRef.current = drillId
       if (drillId) {
-        // Reset for the new drill
-        backgroundCancelledRef.current = false
+        bgCancelledRef.current = false
       }
     }
   }, [currentDrillGame?.id])
 
+  // Helper: stop background loop and wait for it to fully exit
+  const stopBackgroundAnalysis = useCallback(async () => {
+    bgCancelledRef.current = true
+    bgQueueRef.current = []
+    stockfish.stopEvaluation()
+    if (bgLoopPromiseRef.current) {
+      await bgLoopPromiseRef.current
+      bgLoopPromiseRef.current = null
+    }
+  }, [stockfish])
+
   const ensureDrillAnalysis = useCallback(
     async (drillGame: OpeningDrillGame): Promise<boolean> => {
-      // Stop background analysis so it doesn't compete for stockfish
-      backgroundCancelledRef.current = true
-      backgroundQueueRef.current = []
+      // Stop background loop and wait for it to fully exit before using stockfish
+      await stopBackgroundAnalysis()
 
       const mainLine = drillGame.tree.getMainLine()
       const startingNode = drillGame.openingEndNode || mainLine[0]
@@ -1111,7 +1088,12 @@ export const useOpeningDrillController = (
 
       return !wasCancelled
     },
-    [ensureMaiaForNode, ensureStockfishForNode, setDrillAnalysisProgress],
+    [
+      ensureMaiaForNode,
+      ensureStockfishForNode,
+      setDrillAnalysisProgress,
+      stopBackgroundAnalysis,
+    ],
   )
 
   const cancelDrillAnalysis = useCallback(() => {
