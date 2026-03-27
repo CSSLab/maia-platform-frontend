@@ -914,28 +914,60 @@ export const useOpeningDrillController = (
   const backgroundRunningRef = useRef(false)
   const backgroundCancelledRef = useRef(false)
 
-  // The long-lived loop that drains the queue
+  // Refs to the latest versions of the analysis functions so the long-lived
+  // loop always calls the current closure without needing to restart.
+  const ensureMaiaRef = useRef(ensureMaiaForNode)
+  const ensureStockfishRef = useRef(ensureStockfishForNode)
+  useEffect(() => {
+    ensureMaiaRef.current = ensureMaiaForNode
+  }, [ensureMaiaForNode])
+  useEffect(() => {
+    ensureStockfishRef.current = ensureStockfishForNode
+  }, [ensureStockfishForNode])
+
+  // The long-lived loop that drains the queue.
+  // Uses refs for everything so it never needs to be recreated.
   const runBackgroundLoop = useCallback(async () => {
     if (backgroundRunningRef.current) return
     backgroundRunningRef.current = true
 
+    console.log('[bg-analysis] loop started')
     try {
       while (backgroundQueueRef.current.length > 0) {
-        if (backgroundCancelledRef.current) break
+        if (backgroundCancelledRef.current) {
+          console.log('[bg-analysis] cancelled, stopping')
+          break
+        }
         const node = backgroundQueueRef.current[0]
+        console.log(
+          '[bg-analysis] processing node:',
+          node.fen.split(' ').slice(0, 2).join(' '),
+        )
 
-        await ensureMaiaForNode(node)
+        await ensureMaiaRef.current(node)
         if (backgroundCancelledRef.current) break
 
-        await ensureStockfishForNode(node)
+        console.log(
+          '[bg-analysis] maia done, starting stockfish for:',
+          node.fen.split(' ').slice(0, 2).join(' '),
+        )
+        await ensureStockfishRef.current(node)
 
         // Only remove from queue after both analyses complete (or if cancelled)
         backgroundQueueRef.current.shift()
+        console.log(
+          '[bg-analysis] node complete, remaining:',
+          backgroundQueueRef.current.length,
+        )
       }
+    } catch (error) {
+      console.error('[bg-analysis] error:', error)
     } finally {
       backgroundRunningRef.current = false
+      console.log('[bg-analysis] loop ended')
     }
-  }, [ensureMaiaForNode, ensureStockfishForNode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Enqueue new drill nodes whenever the tree grows
   useEffect(() => {
@@ -963,6 +995,12 @@ export const useOpeningDrillController = (
     })
 
     if (newNodes.length > 0) {
+      console.log(
+        '[bg-analysis] enqueueing',
+        newNodes.length,
+        'nodes, loop running:',
+        backgroundRunningRef.current,
+      )
       backgroundQueueRef.current.push(...newNodes)
       runBackgroundLoop()
     }
@@ -974,17 +1012,31 @@ export const useOpeningDrillController = (
     treeController.currentNode,
   ])
 
-  // Cancel background analysis when drill session resets
+  // Cancel background analysis when a new drill starts (not on every move).
+  // currentDrillGame changes on every move, so we track the drill ID instead.
+  const backgroundDrillIdRef = useRef<string | null>(null)
   useEffect(() => {
-    backgroundCancelledRef.current = false
-    return () => {
+    const drillId = currentDrillGame?.id ?? null
+    if (drillId !== backgroundDrillIdRef.current) {
+      // New drill or drill cleared — cancel any running background work
       backgroundCancelledRef.current = true
       backgroundQueueRef.current = []
+      backgroundRunningRef.current = false
+
+      backgroundDrillIdRef.current = drillId
+      if (drillId) {
+        // Reset for the new drill
+        backgroundCancelledRef.current = false
+      }
     }
-  }, [currentDrillGame])
+  }, [currentDrillGame?.id])
 
   const ensureDrillAnalysis = useCallback(
     async (drillGame: OpeningDrillGame): Promise<boolean> => {
+      // Stop background analysis so it doesn't compete for stockfish
+      backgroundCancelledRef.current = true
+      backgroundQueueRef.current = []
+
       const mainLine = drillGame.tree.getMainLine()
       const startingNode = drillGame.openingEndNode || mainLine[0]
       const startIndex = startingNode
