@@ -39,7 +39,7 @@ interface Props {
   performanceData: DrillPerformanceData
   onContinueAnalyzing: () => void
   onNextDrill: () => void
-  isLastDrill: boolean
+  onReconfigureDrills: () => void
 }
 
 // Helper function to extract move number from FEN string
@@ -769,7 +769,7 @@ const DesktopLayout: React.FC<{
   performanceData: DrillPerformanceData
   onContinueAnalyzing: () => void
   onNextDrill: () => void
-  isLastDrill: boolean
+  onReconfigureDrills: () => void
   gameTree: GameTree
   openingEndNode: GameNode
   playerMoveCount: number
@@ -788,7 +788,7 @@ const DesktopLayout: React.FC<{
   performanceData,
   onContinueAnalyzing,
   onNextDrill,
-  isLastDrill,
+  onReconfigureDrills,
   gameTree,
   openingEndNode,
   playerMoveCount,
@@ -812,9 +812,7 @@ const DesktopLayout: React.FC<{
     {/* Header */}
     <div className="flex items-center justify-between border-b border-glass-border p-4">
       <div>
-        <h2 className="text-xl font-bold text-primary">
-          Opening Analysis Complete
-        </h2>
+        <h2 className="text-xl font-bold text-primary">Drill Review</h2>
         <div className="mt-1">
           <p className="text-base font-medium text-secondary">
             {drill.selection.opening.name}
@@ -1064,23 +1062,29 @@ const DesktopLayout: React.FC<{
     </div>
 
     {/* Action Buttons */}
-    <div className="flex gap-3 border-t border-glass-border p-4">
-      <button
-        onClick={onContinueAnalyzing}
-        className={`${
-          isLastDrill ? 'w-full' : 'flex-1'
-        } rounded border border-glass-border bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10`}
-      >
-        Analyze
-      </button>
-      {!isLastDrill && (
+    <div className="border-t border-glass-border p-4">
+      <div className="flex gap-3">
+        <button
+          onClick={onContinueAnalyzing}
+          className="flex-1 rounded bg-human-4 py-2 font-medium text-white transition-colors hover:bg-human-4/80"
+        >
+          Analyze
+        </button>
         <button
           onClick={onNextDrill}
-          className="flex-1 rounded bg-human-4 py-2 font-medium transition-colors hover:bg-human-4/80"
+          className="flex-1 rounded bg-human-4 py-2 font-medium text-white transition-colors hover:bg-human-4/80"
         >
           Next Drill
         </button>
-      )}
+      </div>
+      <div className="mt-3 flex justify-center">
+        <button
+          onClick={onReconfigureDrills}
+          className="text-sm font-medium text-white/55 transition-colors hover:text-white/80"
+        >
+          Reconfigure Drills
+        </button>
+      </div>
     </div>
   </div>
 )
@@ -1093,7 +1097,7 @@ const MobileLayout: React.FC<{
   performanceData: DrillPerformanceData
   onContinueAnalyzing: () => void
   onNextDrill: () => void
-  isLastDrill: boolean
+  onReconfigureDrills: () => void
   activeTab: 'replay' | 'analysis' | 'insights'
   setActiveTab: (tab: 'replay' | 'analysis' | 'insights') => void
   gameTree: GameTree
@@ -1114,7 +1118,7 @@ const MobileLayout: React.FC<{
   performanceData,
   onContinueAnalyzing,
   onNextDrill,
-  isLastDrill,
+  onReconfigureDrills,
   activeTab,
   setActiveTab,
   gameTree,
@@ -1140,7 +1144,7 @@ const MobileLayout: React.FC<{
     {/* Header */}
     <div className="flex items-center justify-between border-b border-glass-border p-4">
       <div className="min-w-0 flex-1">
-        <h2 className="text-lg font-bold text-primary">Analysis Complete</h2>
+        <h2 className="text-lg font-bold text-primary">Drill Review</h2>
         <div className="mt-1">
           <p className="text-sm font-medium text-secondary">
             {drill.selection.opening.name}
@@ -1280,19 +1284,29 @@ const MobileLayout: React.FC<{
     </div>
 
     {/* Action Buttons */}
-    <div className="flex gap-3 border-t border-glass-border p-4">
-      <button
-        onClick={onContinueAnalyzing}
-        className="flex-1 rounded border border-glass-border bg-white/5 py-2 font-medium backdrop-blur-sm transition-colors hover:bg-white/10"
-      >
-        Analyze
-      </button>
-      <button
-        onClick={onNextDrill}
-        className="flex-1 rounded bg-human-4 py-2 font-medium transition-colors hover:bg-human-4/80"
-      >
-        {isLastDrill ? 'Summary' : 'Next'}
-      </button>
+    <div className="border-t border-glass-border p-4">
+      <div className="flex gap-3">
+        <button
+          onClick={onContinueAnalyzing}
+          className="flex-1 rounded bg-human-4 py-2 font-medium text-white transition-colors hover:bg-human-4/80"
+        >
+          Analyze
+        </button>
+        <button
+          onClick={onNextDrill}
+          className="flex-1 rounded bg-human-4 py-2 font-medium text-white transition-colors hover:bg-human-4/80"
+        >
+          Next Drill
+        </button>
+      </div>
+      <div className="mt-3 flex justify-center">
+        <button
+          onClick={onReconfigureDrills}
+          className="text-sm font-medium text-white/55 transition-colors hover:text-white/80"
+        >
+          Reconfigure Drills
+        </button>
+      </div>
     </div>
   </div>
 )
@@ -1301,7 +1315,7 @@ export const DrillPerformanceModal: React.FC<Props> = ({
   performanceData,
   onContinueAnalyzing,
   onNextDrill,
-  isLastDrill,
+  onReconfigureDrills,
 }) => {
   const { isMobile } = useContext(WindowSizeContext)
   const [activeTab, setActiveTab] = useState<
@@ -1490,7 +1504,7 @@ export const DrillPerformanceModal: React.FC<Props> = ({
           performanceData={performanceData}
           onContinueAnalyzing={onContinueAnalyzing}
           onNextDrill={onNextDrill}
-          isLastDrill={isLastDrill}
+          onReconfigureDrills={onReconfigureDrills}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           gameTree={gameTree}
@@ -1510,7 +1524,7 @@ export const DrillPerformanceModal: React.FC<Props> = ({
           performanceData={performanceData}
           onContinueAnalyzing={onContinueAnalyzing}
           onNextDrill={onNextDrill}
-          isLastDrill={isLastDrill}
+          onReconfigureDrills={onReconfigureDrills}
           gameTree={gameTree}
           openingEndNode={openingEndNode}
           playerMoveCount={playerMoveCount}

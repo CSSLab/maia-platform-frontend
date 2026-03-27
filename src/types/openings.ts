@@ -165,6 +165,7 @@ export interface CompletedDrill {
   goodMoves: string[]
   finalEvaluation: number
   completedAt: Date
+  feedback?: string[]
   // Enhanced analysis data
   moveAnalyses?: MoveAnalysis[]
   accuracyPercentage?: number

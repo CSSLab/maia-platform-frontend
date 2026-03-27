@@ -348,6 +348,9 @@ export const useOpeningDrillController = (
   >(null)
   const [waitingForMaiaResponse, setWaitingForMaiaResponse] = useState(false)
   const [continueAnalyzingMode, setContinueAnalyzingMode] = useState(false)
+  const [isAwaitingExtensionDecision, setIsAwaitingExtensionDecision] =
+    useState(false)
+  const [isCurrentDrillExtended, setIsCurrentDrillExtended] = useState(false)
   const loadedCompletedDrillGameRef = useRef<OpeningDrillGame | null>(null)
   const loadedCompletedDrillFinalNodeRef = useRef<GameNode | null>(null)
   const loadedCompletedDrillSelectionIdRef = useRef<string | null>(null)
@@ -420,6 +423,11 @@ export const useOpeningDrillController = (
   useEffect(() => {
     baseSelectionsRef.current = expandedSelections
     attemptCountersRef.current = {}
+    bgCancelledRef.current = true
+    bgChainRef.current = Promise.resolve()
+    bgAnalyzedFensRef.current = new Set()
+    bgDrillIdRef.current = null
+    stockfish.stopEvaluation()
     setCompletedDrills([])
     setInitialCycleComplete(false)
     setInitialDrillPointer(-1)
@@ -428,6 +436,8 @@ export const useOpeningDrillController = (
     setCurrentPerformanceData(null)
     setCurrentDrillGame(null)
     setDrillEndReasonMessage(null)
+    setIsAwaitingExtensionDecision(false)
+    setIsCurrentDrillExtended(false)
     analysisCancellationRef.current = false
     setDrillAnalysisProgress(getInitialAnalysisProgress())
 
@@ -442,7 +452,7 @@ export const useOpeningDrillController = (
     setCurrentDrillNumber(1)
     setWaitingForMaiaResponse(false)
     setContinueAnalyzingMode(false)
-  }, [expandedSelections, createDrillInstance])
+  }, [expandedSelections, createDrillInstance, stockfish])
 
   useEffect(() => {
     if (!currentDrill) {
@@ -458,6 +468,8 @@ export const useOpeningDrillController = (
       setCurrentDrillGame(loadedCompletedDrillGame)
       setWaitingForMaiaResponse(false)
       setContinueAnalyzingMode(true)
+      setIsAwaitingExtensionDecision(false)
+      setIsCurrentDrillExtended(false)
       loadedCompletedDrillGameRef.current = null
       return
     }
@@ -489,6 +501,8 @@ export const useOpeningDrillController = (
     setCurrentDrillGame(drillGame)
     setWaitingForMaiaResponse(false)
     setContinueAnalyzingMode(false)
+    setIsAwaitingExtensionDecision(false)
+    setIsCurrentDrillExtended(false)
     setDrillEndReasonMessage(null)
   }, [currentDrill])
 
@@ -544,6 +558,10 @@ export const useOpeningDrillController = (
     if (!currentDrillGame || !currentDrill || continueAnalyzingMode)
       return false
 
+    if (isAwaitingExtensionDecision || isCurrentDrillExtended) {
+      return false
+    }
+
     const boardTerminationReason = resolveBoardTerminationReason(
       gameTree.toChess(),
     )
@@ -559,6 +577,8 @@ export const useOpeningDrillController = (
     currentDrill,
     currentDrillGame,
     gameTree,
+    isAwaitingExtensionDecision,
+    isCurrentDrillExtended,
     treeController.currentNode,
   ])
 
@@ -648,10 +668,13 @@ export const useOpeningDrillController = (
 
         if (node.move && node.san) {
           const moveIndex = currentPath.length - 2
-          const isPlayerMove =
-            selection.playerColor === 'white'
-              ? moveIndex % 2 === 0
-              : moveIndex % 2 === 1
+          const prevNode = currentPath[currentPath.length - 2]
+          const moverColor = prevNode
+            ? new Chess(prevNode.fen).turn() === 'w'
+              ? 'white'
+              : 'black'
+            : null
+          const isPlayerMove = moverColor === selection.playerColor
 
           const stockfishEval = node.analysis?.stockfish
           const maiaEval = node.analysis?.maia?.[currentMaiaModel]
@@ -672,7 +695,6 @@ export const useOpeningDrillController = (
 
           const evaluation = stockfishEval?.model_optimal_cp as number
 
-          const prevNode = currentPath[currentPath.length - 2]
           const prevEvaluation = prevNode?.analysis?.stockfish
             ?.model_optimal_cp as number
           const evaluationLoss = Math.abs(evaluation - prevEvaluation)
@@ -710,7 +732,9 @@ export const useOpeningDrillController = (
             san: node.san,
             fen: node.fen,
             fenBeforeMove: prevNode?.fen,
-            moveNumber: Math.ceil((moveIndex + 1) / 2),
+            moveNumber: prevNode
+              ? parseInt(prevNode.fen.split(' ')[5], 10) || 1
+              : 1,
             isPlayerMove,
             evaluation,
             classification,
@@ -1056,12 +1080,11 @@ export const useOpeningDrillController = (
     // If drill changed, reset for the new drill
     if (currentDrillGame.id !== bgDrillIdRef.current) {
       bgCancelledRef.current = true
-      // Let any in-flight work finish with the cancelled flag, then reset
-      bgChainRef.current = bgChainRef.current.then(() => {
-        bgCancelledRef.current = false
-      })
+      stockfish.stopEvaluation()
+      bgChainRef.current = Promise.resolve()
       bgAnalyzedFensRef.current = new Set()
       bgDrillIdRef.current = currentDrillGame.id
+      bgCancelledRef.current = false
     }
 
     const mainLine = gameTree.getMainLine()
@@ -1070,6 +1093,7 @@ export const useOpeningDrillController = (
       ? Math.max(mainLine.indexOf(openingEndNode), 0)
       : 0
     const drillNodes = mainLine.slice(startIndex)
+    const scheduledDrillId = currentDrillGame.id
 
     for (const node of drillNodes) {
       if (bgAnalyzedFensRef.current.has(node.fen)) continue
@@ -1079,7 +1103,12 @@ export const useOpeningDrillController = (
       // Wrapped in try/catch so one failure doesn't break the whole chain.
       bgChainRef.current = bgChainRef.current.then(async () => {
         try {
-          if (bgCancelledRef.current) return
+          if (
+            bgCancelledRef.current ||
+            bgDrillIdRef.current !== scheduledDrillId
+          ) {
+            return
+          }
           console.log('[bg] maia start:', node.san || node.move || '?')
           await ensureMaiaRef.current(node)
           const hasMaia = !!(
@@ -1087,7 +1116,12 @@ export const useOpeningDrillController = (
             MAIA_MODELS.every((m) => node.analysis.maia?.[m])
           )
           console.log('[bg] maia done:', hasMaia, '| sf start')
-          if (bgCancelledRef.current) return
+          if (
+            bgCancelledRef.current ||
+            bgDrillIdRef.current !== scheduledDrillId
+          ) {
+            return
+          }
           await ensureStockfishRef.current(node)
           console.log(
             '[bg] sf done, depth:',
@@ -1098,7 +1132,13 @@ export const useOpeningDrillController = (
         }
       })
     }
-  }, [currentDrillGame, gameTree, isAnalyzingDrill, treeController.currentNode])
+  }, [
+    currentDrillGame,
+    gameTree,
+    isAnalyzingDrill,
+    stockfish,
+    treeController.currentNode,
+  ])
 
   // Stop background analysis. Signals cancellation and stops stockfish so
   // ensureDrillAnalysis can use stockfish immediately. The chain's remaining
@@ -1210,14 +1250,23 @@ export const useOpeningDrillController = (
 
   const persistCompletedDrill = useCallback((drill: CompletedDrill) => {
     setCompletedDrills((prev) => {
-      const alreadyPresent = prev.some((existing) => {
+      const existingIndex = prev.findIndex((existing) => {
         return (
           existing.selection.id === drill.selection.id &&
-          existing.completedAt.getTime() === drill.completedAt.getTime()
+          existing.finalNode.fen === drill.finalNode.fen
         )
       })
 
-      return alreadyPresent ? prev : [...prev, drill]
+      if (existingIndex === -1) {
+        return [...prev, drill]
+      }
+
+      const next = [...prev]
+      next[existingIndex] = {
+        ...next[existingIndex],
+        ...drill,
+      }
+      return next
     })
   }, [])
 
@@ -1233,6 +1282,7 @@ export const useOpeningDrillController = (
       if (boardTerminationReason) return boardTerminationReason
 
       if (
+        !isCurrentDrillExtended &&
         drillGame.selection.targetMoveNumber !== null &&
         drillGame.playerMoveCount >= drillGame.selection.targetMoveNumber
       ) {
@@ -1240,6 +1290,81 @@ export const useOpeningDrillController = (
       }
 
       return null
+    },
+    [isCurrentDrillExtended],
+  )
+
+  const buildPerformanceData = useCallback(
+    async (
+      drillGame: OpeningDrillGame,
+      completionReason?: DrillCompletionReason,
+    ) => {
+      const resolvedReason = resolveDrillEndReason(drillGame, completionReason)
+      const completionNote = resolvedReason
+        ? getDrillEndReasonMessage(resolvedReason, drillGame)
+        : null
+
+      try {
+        await logOpeningDrill({
+          opening_fen: drillGame.selection.variation
+            ? drillGame.selection.variation.fen
+            : drillGame.selection.opening.fen,
+          side_played: drillGame.selection.playerColor,
+          opponent: drillGame.selection.maiaVersion,
+          num_moves: drillGame.moves.length,
+          moves_played_uci: drillGame.moves,
+        })
+      } catch (error) {
+        console.error('Failed to log opening drill:', error)
+      }
+
+      const analysisSuccessful = await ensureDrillAnalysis(drillGame)
+      if (!analysisSuccessful) {
+        return null
+      }
+
+      const performanceData = await evaluateDrillPerformance(drillGame)
+      const feedback = completionNote
+        ? [
+            completionNote,
+            ...performanceData.feedback.filter(
+              (entry) => entry !== completionNote,
+            ),
+          ]
+        : performanceData.feedback
+      const completedDrill = {
+        ...performanceData.drill,
+        feedback,
+      }
+      const enrichedPerformanceData = {
+        ...performanceData,
+        drill: completedDrill,
+        feedback,
+      }
+
+      persistCompletedDrill(completedDrill)
+      return enrichedPerformanceData
+    },
+    [
+      ensureDrillAnalysis,
+      evaluateDrillPerformance,
+      persistCompletedDrill,
+      resolveDrillEndReason,
+    ],
+  )
+
+  const promptExtendCurrentDrill = useCallback(
+    (drillGame: OpeningDrillGame) => {
+      const target = drillGame.selection.targetMoveNumber
+      setIsAwaitingExtensionDecision(true)
+      setIsCurrentDrillExtended(false)
+      setIsAnalyzingDrill(false)
+      setWaitingForMaiaResponse(false)
+      setDrillEndReasonMessage(
+        target !== null
+          ? `Target reached (${drillGame.playerMoveCount}/${target} moves). Extend drill or end with feedback.`
+          : 'Target reached. Extend drill or end with feedback.',
+      )
     },
     [],
   )
@@ -1260,49 +1385,16 @@ export const useOpeningDrillController = (
       }
 
       try {
+        setIsAwaitingExtensionDecision(false)
         setIsAnalyzingDrill(true)
-
-        // Submit drill data to backend once the drill is complete
-        try {
-          await logOpeningDrill({
-            opening_fen: drillGame.selection.variation
-              ? drillGame.selection.variation.fen
-              : drillGame.selection.opening.fen,
-            side_played: drillGame.selection.playerColor,
-            opponent: drillGame.selection.maiaVersion,
-            num_moves: drillGame.moves.length,
-            moves_played_uci: drillGame.moves,
-          })
-        } catch (error) {
-          console.error('Failed to log opening drill:', error)
-          // Continue even if backend submission fails
-        }
-
-        const analysisSuccessful = await ensureDrillAnalysis(drillGame)
-        if (!analysisSuccessful) {
+        const enrichedPerformanceData = await buildPerformanceData(
+          drillGame,
+          completionReason,
+        )
+        if (!enrichedPerformanceData) {
           return
         }
-
-        // Simple performance evaluation without complex analysis tracking
-
-        const performanceData = await evaluateDrillPerformance(drillGame)
-        const enrichedPerformanceData = completionNote
-          ? {
-              ...performanceData,
-              feedback: [
-                completionNote,
-                ...performanceData.feedback.filter(
-                  (entry) => entry !== completionNote,
-                ),
-              ],
-            }
-          : performanceData
-
         setCurrentPerformanceData(enrichedPerformanceData)
-        persistCompletedDrill(enrichedPerformanceData.drill)
-
-        // Simplified: just show the performance modal
-
         setShowPerformanceModal(true)
       } catch (error) {
         console.error('Error completing drill analysis:', error)
@@ -1311,13 +1403,7 @@ export const useOpeningDrillController = (
         setIsAnalyzingDrill(false)
       }
     },
-    [
-      currentDrillGame,
-      ensureDrillAnalysis,
-      evaluateDrillPerformance,
-      persistCompletedDrill,
-      resolveDrillEndReason,
-    ],
+    [buildPerformanceData, currentDrillGame, resolveDrillEndReason],
   )
 
   const completeDrillWithDelay = useCallback(
@@ -1337,21 +1423,47 @@ export const useOpeningDrillController = (
     [completeDrill, resolveDrillEndReason],
   )
 
-  const moveToNextDrill = useCallback(() => {
+  const moveToNextDrill = useCallback(async () => {
     if (currentPerformanceData?.drill) {
       persistCompletedDrill(currentPerformanceData.drill)
+    } else if (currentDrillGame) {
+      const completionReason = isAwaitingExtensionDecision
+        ? 'target_moves_reached'
+        : (resolveDrillEndReason(currentDrillGame) ?? undefined)
+
+      if (completionReason) {
+        try {
+          setIsAnalyzingDrill(true)
+          await buildPerformanceData(currentDrillGame, completionReason)
+        } catch (error) {
+          console.error('Error persisting completed drill:', error)
+        } finally {
+          setIsAnalyzingDrill(false)
+        }
+      }
     }
+
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setContinueAnalyzingMode(false)
     setAnalysisEnabled(false)
+    setIsAwaitingExtensionDecision(false)
+    setIsCurrentDrillExtended(false)
     setDrillEndReasonMessage(null)
     setWaitingForMaiaResponse(false)
     analysisCancellationRef.current = false
     setDrillAnalysisProgress(getInitialAnalysisProgress())
     setCurrentDrillGame(null)
     assignNextDrill()
-  }, [assignNextDrill, currentPerformanceData, persistCompletedDrill])
+  }, [
+    assignNextDrill,
+    buildPerformanceData,
+    currentDrillGame,
+    currentPerformanceData,
+    isAwaitingExtensionDecision,
+    persistCompletedDrill,
+    resolveDrillEndReason,
+  ])
 
   // Continue analyzing current drill
   const continueAnalyzing = useCallback(() => {
@@ -1364,32 +1476,71 @@ export const useOpeningDrillController = (
     setShowPerformanceModal(false)
     setAnalysisEnabled(true)
     setContinueAnalyzingMode(true)
+    setIsAwaitingExtensionDecision(false)
     setWaitingForMaiaResponse(false)
   }, [currentDrillGame, treeController])
+
+  const extendCurrentDrill = useCallback(() => {
+    if (!currentDrillGame || !isAwaitingExtensionDecision) {
+      return
+    }
+
+    setIsCurrentDrillExtended(true)
+    setIsAwaitingExtensionDecision(false)
+    setDrillEndReasonMessage(null)
+    setWaitingForMaiaResponse(true)
+  }, [currentDrillGame, isAwaitingExtensionDecision])
 
   const showPerformance = useCallback(async () => {
     if (!currentDrillGame) return
 
     try {
       setIsAnalyzingDrill(true)
-      const analysisSuccessful = await ensureDrillAnalysis(currentDrillGame)
-      if (!analysisSuccessful) {
-        return
+      const completionReason = isAwaitingExtensionDecision
+        ? 'target_moves_reached'
+        : (resolveDrillEndReason(currentDrillGame) ?? undefined)
+
+      if (completionReason) {
+        const performanceData = await buildPerformanceData(
+          currentDrillGame,
+          completionReason,
+        )
+        if (!performanceData) {
+          return
+        }
+        setCurrentPerformanceData(performanceData)
+      } else {
+        const analysisSuccessful = await ensureDrillAnalysis(currentDrillGame)
+        if (!analysisSuccessful) {
+          return
+        }
+        const performanceData = await evaluateDrillPerformance(currentDrillGame)
+        setCurrentPerformanceData(performanceData)
       }
-      const performanceData = await evaluateDrillPerformance(currentDrillGame)
-      setCurrentPerformanceData(performanceData)
       setShowPerformanceModal(true)
     } catch (error) {
       console.error('Error analyzing current drill performance:', error)
     } finally {
       setIsAnalyzingDrill(false)
     }
-  }, [currentDrillGame, ensureDrillAnalysis, evaluateDrillPerformance])
+  }, [
+    buildPerformanceData,
+    currentDrillGame,
+    ensureDrillAnalysis,
+    evaluateDrillPerformance,
+    isAwaitingExtensionDecision,
+    resolveDrillEndReason,
+  ])
 
   // Shows performance modal for current drill
   const showCurrentPerformance = useCallback(() => {
+    if (currentPerformanceData) {
+      setShowPerformanceModal(true)
+      return
+    }
+
     showPerformance()
-  }, [showPerformance])
+  }, [currentPerformanceData, showPerformance])
 
   const loadCompletedDrill = useCallback((completedDrill: CompletedDrill) => {
     const rootNode = getRootNode(completedDrill.finalNode)
@@ -1423,6 +1574,8 @@ export const useOpeningDrillController = (
     setCurrentDrillGame(restoredGame)
     setAnalysisEnabled(true)
     setContinueAnalyzingMode(true)
+    setIsAwaitingExtensionDecision(false)
+    setIsCurrentDrillExtended(false)
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setWaitingForMaiaResponse(false)
@@ -1432,6 +1585,11 @@ export const useOpeningDrillController = (
   // Reset drill to start over
   const resetDrillSession = useCallback(() => {
     attemptCountersRef.current = {}
+    bgCancelledRef.current = true
+    bgChainRef.current = Promise.resolve()
+    bgAnalyzedFensRef.current = new Set()
+    bgDrillIdRef.current = null
+    stockfish.stopEvaluation()
     setCompletedDrills([])
     setInitialCycleComplete(false)
     setInitialDrillPointer(-1)
@@ -1440,6 +1598,8 @@ export const useOpeningDrillController = (
     setCurrentDrillGame(null)
     setAnalysisEnabled(false)
     setContinueAnalyzingMode(false)
+    setIsAwaitingExtensionDecision(false)
+    setIsCurrentDrillExtended(false)
     setShowPerformanceModal(false)
     setCurrentPerformanceData(null)
     setDrillEndReasonMessage(null)
@@ -1455,7 +1615,7 @@ export const useOpeningDrillController = (
     setCurrentDrill(firstInstance)
     setInitialDrillPointer(0)
     setCurrentDrillNumber(1)
-  }, [createDrillInstance])
+  }, [createDrillInstance, stockfish])
 
   // Make a move for the player
   const makePlayerMove = useCallback(
@@ -1548,11 +1708,12 @@ export const useOpeningDrillController = (
             if (boardTerminationReason) {
               completeDrillWithDelay(updatedGame, boardTerminationReason)
             } else if (
+              !isCurrentDrillExtended &&
               currentDrill &&
               currentDrill.targetMoveNumber !== null &&
               updatedGame.playerMoveCount >= currentDrill.targetMoveNumber
             ) {
-              completeDrillWithDelay(updatedGame, 'target_moves_reached')
+              promptExtendCurrentDrill(updatedGame)
             } else {
               console.log(
                 'Setting waitingForMaiaResponse to true after player move',
@@ -1573,8 +1734,10 @@ export const useOpeningDrillController = (
       currentDrill,
       completeDrillWithDelay,
       continueAnalyzingMode,
+      isCurrentDrillExtended,
       isDrillComplete,
       isAnalyzingDrill,
+      promptExtendCurrentDrill,
       treeController,
     ],
   )
@@ -1914,6 +2077,8 @@ export const useOpeningDrillController = (
     setDrillEndReasonMessage(null)
     setWaitingForMaiaResponse(false)
     setContinueAnalyzingMode(false)
+    setIsAwaitingExtensionDecision(false)
+    setIsCurrentDrillExtended(false)
   }, [currentDrill])
 
   return {
@@ -1927,6 +2092,8 @@ export const useOpeningDrillController = (
     isPlayerTurn,
     isDrillComplete,
     isAtOpeningEnd,
+    isAwaitingExtensionDecision,
+    isCurrentDrillExtended,
     drillEndReasonMessage,
 
     // Tree controller
@@ -1950,6 +2117,7 @@ export const useOpeningDrillController = (
     completeDrill,
     moveToNextDrill,
     continueAnalyzing,
+    extendCurrentDrill,
     endCurrentDrillWithFeedback,
 
     // Analysis
