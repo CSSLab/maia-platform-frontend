@@ -2,6 +2,18 @@ import { useMemo } from 'react'
 import type { Color } from 'src/types'
 import { Chess } from 'chess.ts'
 
+declare module 'react' {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      piece: React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      >
+    }
+  }
+}
+
 type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
 type MaterialCount = Record<PieceType, number>
 
@@ -170,8 +182,7 @@ export const MaterialBalance = ({
 
   const capturedPieceColor = color === 'white' ? 'black' : 'white'
   const capturedPieceFilter =
-    pieceFilter ??
-    capturedPieceColor === 'black'
+    (pieceFilter ?? capturedPieceColor === 'black')
       ? 'drop-shadow(0 0 0.8px rgba(255,255,255,0.82)) drop-shadow(0 0 1.5px rgba(255,255,255,0.28))'
       : 'drop-shadow(0 0 0.8px rgba(0,0,0,0.82)) drop-shadow(0 0 1.5px rgba(0,0,0,0.22))'
 

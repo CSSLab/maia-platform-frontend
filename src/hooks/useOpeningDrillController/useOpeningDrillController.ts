@@ -26,13 +26,14 @@ import {
 } from 'src/types/openings'
 import { useSound } from 'src/hooks/useSound'
 import { MAIA_MODELS } from 'src/constants/common'
-import { MIN_STOCKFISH_DEPTH } from 'src/constants/analysis'
 import { DeepAnalysisProgress, MaiaEvaluation } from 'src/types/analysis'
 import { StockfishEngineContext, MaiaEngineContext } from 'src/contexts'
 
 const MAIA_ELO_VALUES = MAIA_MODELS.map((model) =>
   parseInt(model.replace('maia_kdd_', ''), 10),
 )
+
+const DRILL_STOCKFISH_TARGET_DEPTH = 18
 
 const ensureValidFen = (fen: string): string => {
   const trimmed = fen.trim()
@@ -530,9 +531,12 @@ export const useOpeningDrillController = (
           const maiaEval = node.analysis?.maia?.[currentMaiaModel]
 
           // Check if analysis meets minimum depth requirement
-          if (stockfishEval && stockfishEval.depth < MIN_STOCKFISH_DEPTH) {
+          if (
+            stockfishEval &&
+            stockfishEval.depth < DRILL_STOCKFISH_TARGET_DEPTH
+          ) {
             console.warn(
-              `Stockfish analysis depth ${stockfishEval.depth} is below minimum required depth ${MIN_STOCKFISH_DEPTH} for position ${node.fen}`,
+              `Stockfish analysis depth ${stockfishEval.depth} is below target depth ${DRILL_STOCKFISH_TARGET_DEPTH} for position ${node.fen}`,
             )
           }
 
@@ -813,16 +817,20 @@ export const useOpeningDrillController = (
     async (node: GameNode) => {
       const existingStockfish = node.analysis.stockfish
       if (
-        (existingStockfish && existingStockfish.depth >= MIN_STOCKFISH_DEPTH) ||
+        (existingStockfish &&
+          existingStockfish.depth >= DRILL_STOCKFISH_TARGET_DEPTH) ||
         analysisCancellationRef.current
       ) {
         return
       }
 
       const chess = new Chess(node.fen)
-      const legalMoveCount = chess.moves().length
+      const legalMoves = chess
+        .moves({ verbose: true })
+        .map((move) => `${move.from}${move.to}${move.promotion || ''}`)
+      const legalMoveSet = new Set(legalMoves)
 
-      if (legalMoveCount === 0) {
+      if (legalMoves.length === 0) {
         return
       }
 
@@ -842,10 +850,35 @@ export const useOpeningDrillController = (
         return
       }
 
+      // Build Maia candidate moves for staged search
+      const maiaPolicy = node.analysis.maia?.[currentMaiaModel]?.policy
+      const maiaCandidateMoves: string[] = []
+      if (maiaPolicy) {
+        let cumulative = 0
+        const sortedMoves = Object.entries(maiaPolicy)
+          .filter(([, prob]) => Number.isFinite(prob) && prob > 0)
+          .sort(([, a], [, b]) => b - a)
+        for (const [move, prob] of sortedMoves) {
+          if (!legalMoveSet.has(move)) continue
+          maiaCandidateMoves.push(move)
+          cumulative += prob
+          if (cumulative >= 0.95) break
+        }
+      }
+
+      const playedMove = node.mainChild?.move
+      const forcedCandidateMoves =
+        playedMove && legalMoveSet.has(playedMove) ? [playedMove] : []
+
       const evaluationStream = stockfish.streamEvaluations(
         node.fen,
-        legalMoveCount,
-        MIN_STOCKFISH_DEPTH,
+        legalMoves.length,
+        DRILL_STOCKFISH_TARGET_DEPTH,
+        {
+          maiaCandidateMoves,
+          forcedCandidateMoves,
+          maiaPolicy,
+        },
       )
 
       if (!evaluationStream) {
@@ -859,22 +892,73 @@ export const useOpeningDrillController = (
           }
 
           node.addStockfishAnalysis(evaluation, currentMaiaModel)
-
-          if (evaluation.depth >= MIN_STOCKFISH_DEPTH) {
-            break
-          }
         }
       } catch (error) {
         console.error(
           'Failed to compute Stockfish analysis for drill node:',
           error,
         )
-      } finally {
-        stockfish.stopEvaluation()
       }
     },
     [currentMaiaModel, stockfish],
   )
+
+  // Background analysis: run Maia + Stockfish on positions as they are played
+  // so that post-drill analysis is already complete (or nearly so) when the
+  // drill ends.
+  const backgroundAnalysisQueueRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!currentDrillGame || isAnalyzingDrill) return
+
+    const mainLine = gameTree.getMainLine()
+    const openingEndNode = currentDrillGame.openingEndNode
+    const startIndex = openingEndNode
+      ? Math.max(mainLine.indexOf(openingEndNode), 0)
+      : 0
+    const drillNodes = mainLine.slice(startIndex)
+
+    // Find nodes that still need analysis and haven't been queued yet
+    const nodesNeedingWork = drillNodes.filter((node) => {
+      if (backgroundAnalysisQueueRef.current.has(node.fen)) return false
+      const hasMaia =
+        node.analysis.maia &&
+        MAIA_MODELS.every((model) => node.analysis.maia?.[model])
+      const hasStockfish =
+        node.analysis.stockfish &&
+        node.analysis.stockfish.depth >= DRILL_STOCKFISH_TARGET_DEPTH
+      return !hasMaia || !hasStockfish
+    })
+
+    if (nodesNeedingWork.length === 0) return
+
+    let cancelled = false
+
+    const runBackgroundAnalysis = async () => {
+      for (const node of nodesNeedingWork) {
+        if (cancelled) break
+        backgroundAnalysisQueueRef.current.add(node.fen)
+        await ensureMaiaForNode(node)
+        if (cancelled) break
+        // Let Stockfish finish its current evaluation even if new moves come in
+        await ensureStockfishForNode(node)
+      }
+    }
+
+    runBackgroundAnalysis()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    currentDrillGame,
+    gameTree,
+    isAnalyzingDrill,
+    ensureMaiaForNode,
+    ensureStockfishForNode,
+    // Re-run when tree grows (new moves played)
+    treeController.currentNode,
+  ])
 
   const ensureDrillAnalysis = useCallback(
     async (drillGame: OpeningDrillGame): Promise<boolean> => {
@@ -891,7 +975,7 @@ export const useOpeningDrillController = (
           !maiaData || MAIA_MODELS.some((model) => !maiaData[model])
         const stockfishData = node.analysis.stockfish
         const needsStockfish =
-          !stockfishData || stockfishData.depth < MIN_STOCKFISH_DEPTH
+          !stockfishData || stockfishData.depth < DRILL_STOCKFISH_TARGET_DEPTH
         return needsMaia || needsStockfish
       })
 

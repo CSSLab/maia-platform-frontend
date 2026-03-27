@@ -31,7 +31,7 @@ import {
   trackOpeningRemovedFromSelection,
   trackDrillConfigurationCompleted,
 } from 'src/lib/analytics'
-import { MAIA_MODELS_WITH_NAMES } from 'src/constants/common'
+import { MAIA3_OPPONENT_RATINGS } from 'src/constants/common'
 import {
   ENDGAME_TRAITS,
   ENDGAME_TRAIT_LABELS,
@@ -366,6 +366,36 @@ const BrowsePanel: React.FC<{
 }) => {
   const { isMobile } = useContext(WindowSizeContext)
   const isCustomCategory = browseCategory === 'custom'
+  const [collapsedOpenings, setCollapsedOpenings] = useState<Set<string>>(
+    new Set(),
+  )
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
+    new Set(),
+  )
+
+  const toggleCollapse = (openingId: string) => {
+    setCollapsedOpenings((prev) => {
+      const next = new Set(prev)
+      if (next.has(openingId)) {
+        next.delete(openingId)
+      } else {
+        next.add(openingId)
+      }
+      return next
+    })
+  }
+
+  const toggleCategoryCollapse = (label: string) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(label)) {
+        next.delete(label)
+      } else {
+        next.add(label)
+      }
+      return next
+    })
+  }
 
   const searchPlaceholder = `Search ${categoryLabelPlural.toLowerCase()}...`
 
@@ -418,6 +448,91 @@ const BrowsePanel: React.FC<{
       })}
     </div>
   )
+
+  const OPENING_CATEGORIES: { label: string; ids: string[] }[] = [
+    {
+      label: 'Open Games (1. e4 e5)',
+      ids: [
+        'italian-game',
+        'ruy-lopez',
+        'kings-gambit',
+        'scotch-game',
+        'four-knights-game',
+        'bishops-opening',
+        'vienna-game',
+        'petroff-defense',
+        'philidor-defense',
+      ],
+    },
+    {
+      label: 'Semi-Open (1. e4)',
+      ids: [
+        'sicilian-defense',
+        'french-defense',
+        'caro-kann-defense',
+        'scandinavian-defense',
+        'alekhine-defense',
+        'pirc-defense',
+        'modern-defense',
+      ],
+    },
+    {
+      label: "Queen's Pawn (1. d4)",
+      ids: [
+        'queens-gambit',
+        'catalan-opening',
+        'london-system',
+        'colle-system',
+        'trompowsky-attack',
+        'torre-attack',
+      ],
+    },
+    {
+      label: 'Indian Defenses (1. d4 Nf6)',
+      ids: [
+        'nimzo-indian-defense',
+        'queens-indian-defense',
+        'kings-indian-defense',
+        'grunfeld-defense',
+        'benoni-defense',
+        'budapest-gambit',
+        'dutch-defense',
+      ],
+    },
+    {
+      label: 'Flank Openings',
+      ids: [
+        'english-opening',
+        'reti-opening',
+        'bird-opening',
+        'nimzo-larsen-attack',
+        'sokolsky-opening',
+        'grob-opening',
+      ],
+    },
+  ]
+
+  const categorizedOpenings = useMemo(() => {
+    const categorized = OPENING_CATEGORIES.map((cat) => ({
+      ...cat,
+      openings: cat.ids
+        .map((id) => filteredOpenings.find((o) => o.id === id))
+        .filter(Boolean) as Opening[],
+    })).filter((cat) => cat.openings.length > 0)
+
+    const categorizedIds = new Set(OPENING_CATEGORIES.flatMap((c) => c.ids))
+    const uncategorized = filteredOpenings.filter(
+      (o) => !categorizedIds.has(o.id),
+    )
+    if (uncategorized.length > 0) {
+      categorized.push({
+        label: 'Other',
+        ids: uncategorized.map((o) => o.id),
+        openings: uncategorized,
+      })
+    }
+    return categorized
+  }, [filteredOpenings])
 
   if (isCustomCategory) {
     return (
@@ -624,13 +739,13 @@ const BrowsePanel: React.FC<{
         }}
       >
         <p
-          className={`truncate text-[13px] ${
+          className={`truncate text-[12px] ${
             isItemSelected ? 'text-white' : 'text-white/70'
           }`}
         >
           {label}
         </p>
-        {pgn && <p className="truncate text-[11px] text-white/25">{pgn}</p>}
+        {pgn && <p className="truncate text-[11px] text-white/40">{pgn}</p>}
       </div>
       <button
         onClick={(e) => {
@@ -640,7 +755,7 @@ const BrowsePanel: React.FC<{
         className={`mr-2 rounded p-0.5 transition-colors ${
           isItemSelected
             ? 'text-human-3 hover:text-human-2'
-            : 'text-white/20 hover:text-white/50'
+            : 'text-white/30 hover:text-white/50'
         }`}
         title={toggleTitle}
       >
@@ -668,7 +783,7 @@ const BrowsePanel: React.FC<{
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.06] py-[9px] pl-9 pr-4 text-[13px] text-white placeholder-white/35 focus:border-white/20 focus:outline-none"
+            className="w-full rounded-lg border border-white/[0.08] bg-white/[0.06] py-[9px] pl-9 pr-4 text-[14px] text-white placeholder-white/35 focus:border-white/20 focus:outline-none"
           />
         </div>
       </div>
@@ -677,130 +792,195 @@ const BrowsePanel: React.FC<{
         className="red-scrollbar flex flex-1 flex-col overflow-y-auto"
         style={{ userSelect: 'none' }}
       >
-        {filteredOpenings.map((opening) => {
-          const openingIsSelected = selections.some(
-            (selection) =>
-              selection.opening.id === opening.id &&
-              selection.variation === null,
-          )
-          const openingIsBeingPreviewed =
-            previewOpening.id === opening.id && !previewVariation
-          const showStandaloneOpening = opening.variations.length === 0
-
+        {categorizedOpenings.map((category) => {
+          const isCategoryCollapsed = searchTerm
+            ? false
+            : collapsedCategories.has(category.label)
           return (
-            <div key={opening.id} className="px-4 pb-3 pt-4">
-              <div className="px-2.5 pb-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35">
-                  {opening.name}
+            <div key={category.label}>
+              <div
+                className="flex cursor-pointer items-center gap-1.5 px-3 pb-1 pt-5 transition-colors hover:bg-white/[0.02]"
+                onClick={() => toggleCategoryCollapse(category.label)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ')
+                    toggleCategoryCollapse(category.label)
+                }}
+              >
+                <span
+                  className={`material-symbols-outlined !text-[14px] text-white/35 transition-transform ${isCategoryCollapsed ? '-rotate-90' : ''}`}
+                >
+                  expand_more
+                </span>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/30">
+                  {category.label.replace(/\s*\(.*\)$/, '')}
+                  {category.label.match(/\s*(\(.*\))$/) && (
+                    <span className="normal-case">
+                      {' '}
+                      {category.label.match(/\s*(\(.*\))$/)?.[1]}
+                    </span>
+                  )}
                 </p>
-                {opening.pgn && opening.variations.length > 0 && (
-                  <p className="mt-0.5 text-[11px] text-white/20">
-                    {opening.pgn}
-                  </p>
-                )}
-                {opening.description && (
-                  <p className="mt-0.5 text-[11px] leading-snug text-white/25">
-                    {opening.description}
-                  </p>
-                )}
               </div>
-
-              {showStandaloneOpening
-                ? renderRow(
-                    opening.name,
-                    opening.pgn,
-                    openingIsSelected,
-                    openingIsBeingPreviewed,
-                    () => {
-                      setPreviewOpening(opening)
-                      setPreviewVariation(null)
-                      trackOpeningPreviewSelected(
-                        opening.name,
-                        opening.id,
-                        false,
-                      )
-                      if (isMobile) {
-                        onOpeningClick(opening, null)
-                      }
-                    },
-                    () => {
-                      if (openingIsSelected) {
-                        removeOpeningSelection(opening, null)
-                      } else {
-                        addQuickSelection(opening, null)
-                      }
-                    },
-                    openingIsSelected
-                      ? `Remove ${categoryLabel.toLowerCase()} from selection`
-                      : `Add ${categoryLabel.toLowerCase()} with current settings`,
+              {!isCategoryCollapsed &&
+                category.openings.map((opening) => {
+                  const openingIsSelected = selections.some(
+                    (selection) =>
+                      selection.opening.id === opening.id &&
+                      selection.variation === null,
                   )
-                : null}
+                  const openingIsBeingPreviewed =
+                    previewOpening.id === opening.id && !previewVariation
+                  const showStandaloneOpening = opening.variations.length === 0
+                  const isCollapsed = searchTerm
+                    ? false
+                    : collapsedOpenings.has(opening.id)
+                  const hasVariations = opening.variations.length > 0
 
-              {opening.variations.map((variation) => {
-                const variationIsSelected = selections.some(
-                  (selection) =>
-                    selection.opening.id === opening.id &&
-                    selection.variation?.id === variation.id,
-                )
-                const variationIsBeingPreviewed =
-                  previewOpening.id === opening.id &&
-                  previewVariation?.id === variation.id
+                  return (
+                    <div key={opening.id} className="px-3 pb-0.5 pt-2.5">
+                      <div
+                        className={`flex items-start gap-1.5 rounded-md px-2 py-1.5 transition-colors ${hasVariations ? 'cursor-pointer hover:bg-white/[0.03]' : ''}`}
+                        onClick={() => {
+                          if (hasVariations) toggleCollapse(opening.id)
+                        }}
+                        role={hasVariations ? 'button' : undefined}
+                        tabIndex={hasVariations ? 0 : undefined}
+                        onKeyDown={
+                          hasVariations
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ')
+                                  toggleCollapse(opening.id)
+                              }
+                            : undefined
+                        }
+                      >
+                        {hasVariations && (
+                          <span
+                            className={`material-symbols-outlined mt-0.5 !text-[15px] text-white/30 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                          >
+                            expand_more
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-white/40">
+                            {opening.name}
+                          </p>
+                          {opening.pgn && hasVariations && (
+                            <p className="mt-0.5 text-[12px] normal-case text-white/35">
+                              {opening.pgn}
+                            </p>
+                          )}
+                          {opening.description && (
+                            <p className="mt-0.5 text-[11px] normal-case leading-snug text-white/30">
+                              {opening.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-                return (
-                  <React.Fragment key={variation.id}>
-                    {renderRow(
-                      variation.name,
-                      (() => {
-                        if (!variation.pgn.startsWith(opening.pgn))
-                          return variation.pgn
-                        const suffix = variation.pgn
-                          .slice(opening.pgn.length)
-                          .trim()
-                        if (!suffix) return ''
-                        // Find the last move number in the parent PGN to determine context
-                        const moveNumMatch = opening.pgn.match(
-                          /(\d+)\.\s*(\S+)\s*(\S+)?\s*$/,
-                        )
-                        if (!moveNumMatch) return suffix
-                        const moveNum = parseInt(moveNumMatch[1])
-                        const hasWhiteReply = !!moveNumMatch[3]
-                        // If parent ended after black's move (both white+black present),
-                        // suffix starts with a new white move
-                        if (hasWhiteReply) {
-                          return `${moveNum + 1}. ${suffix}`
-                        }
-                        // Parent ended after white's move, suffix is black's reply
-                        return `${moveNum}. ...${suffix}`
-                      })(),
-                      variationIsSelected,
-                      variationIsBeingPreviewed,
-                      () => {
-                        setPreviewOpening(opening)
-                        setPreviewVariation(variation)
-                        trackOpeningPreviewSelected(
-                          opening.name,
-                          opening.id,
-                          true,
-                          variation.name,
-                        )
-                        if (isMobile) {
-                          onOpeningClick(opening, variation)
-                        }
-                      },
-                      () => {
-                        if (variationIsSelected) {
-                          removeOpeningSelection(opening, variation)
-                        } else {
-                          addQuickSelection(opening, variation)
-                        }
-                      },
-                      variationIsSelected
-                        ? 'Remove variation from selection'
-                        : 'Add variation with current settings',
-                    )}
-                  </React.Fragment>
-                )
-              })}
+                      {!isCollapsed && (
+                        <div className="pl-5">
+                          {showStandaloneOpening
+                            ? renderRow(
+                                opening.name,
+                                opening.pgn,
+                                openingIsSelected,
+                                openingIsBeingPreviewed,
+                                () => {
+                                  setPreviewOpening(opening)
+                                  setPreviewVariation(null)
+                                  trackOpeningPreviewSelected(
+                                    opening.name,
+                                    opening.id,
+                                    false,
+                                  )
+                                  if (isMobile) {
+                                    onOpeningClick(opening, null)
+                                  }
+                                },
+                                () => {
+                                  if (openingIsSelected) {
+                                    removeOpeningSelection(opening, null)
+                                  } else {
+                                    addQuickSelection(opening, null)
+                                  }
+                                },
+                                openingIsSelected
+                                  ? `Remove ${categoryLabel.toLowerCase()} from selection`
+                                  : `Add ${categoryLabel.toLowerCase()} with current settings`,
+                              )
+                            : null}
+
+                          {opening.variations.map((variation) => {
+                            const variationIsSelected = selections.some(
+                              (selection) =>
+                                selection.opening.id === opening.id &&
+                                selection.variation?.id === variation.id,
+                            )
+                            const variationIsBeingPreviewed =
+                              previewOpening.id === opening.id &&
+                              previewVariation?.id === variation.id
+
+                            return (
+                              <React.Fragment key={variation.id}>
+                                {renderRow(
+                                  variation.name,
+                                  (() => {
+                                    if (!variation.pgn.startsWith(opening.pgn))
+                                      return variation.pgn
+                                    const suffix = variation.pgn
+                                      .slice(opening.pgn.length)
+                                      .trim()
+                                    if (!suffix) return ''
+                                    // If suffix already has a move number, return as-is
+                                    if (/^\d+\./.test(suffix)) return suffix
+                                    const moveNumMatch = opening.pgn.match(
+                                      /(\d+)\.\s*(\S+)\s*(\S+)?\s*$/,
+                                    )
+                                    if (!moveNumMatch) return suffix
+                                    const moveNum = parseInt(moveNumMatch[1])
+                                    const hasWhiteReply = !!moveNumMatch[3]
+                                    if (hasWhiteReply) {
+                                      return `${moveNum + 1}. ${suffix}`
+                                    }
+                                    return `${moveNum}. ...${suffix}`
+                                  })(),
+                                  variationIsSelected,
+                                  variationIsBeingPreviewed,
+                                  () => {
+                                    setPreviewOpening(opening)
+                                    setPreviewVariation(variation)
+                                    trackOpeningPreviewSelected(
+                                      opening.name,
+                                      opening.id,
+                                      true,
+                                      variation.name,
+                                    )
+                                    if (isMobile) {
+                                      onOpeningClick(opening, variation)
+                                    }
+                                  },
+                                  () => {
+                                    if (variationIsSelected) {
+                                      removeOpeningSelection(opening, variation)
+                                    } else {
+                                      addQuickSelection(opening, variation)
+                                    }
+                                  },
+                                  variationIsSelected
+                                    ? 'Remove variation from selection'
+                                    : 'Add variation with current settings',
+                                )}
+                              </React.Fragment>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
           )
         })}
@@ -827,8 +1007,8 @@ const DrillStudioPanel: React.FC<{
   removeSelection: (id: string) => void
   onSelectQueueItem: (selection: OpeningSelection) => void
   handleStartDrilling: () => void
-  selectedMaiaVersion: (typeof MAIA_MODELS_WITH_NAMES)[0]
-  setSelectedMaiaVersion: (version: (typeof MAIA_MODELS_WITH_NAMES)[0]) => void
+  selectedMaiaVersion: (typeof MAIA3_OPPONENT_RATINGS)[0]
+  setSelectedMaiaVersion: (version: (typeof MAIA3_OPPONENT_RATINGS)[0]) => void
   targetMoveNumber: number | null
   setTargetMoveNumber: (number: number | null) => void
   showTargetSlider: boolean
@@ -929,9 +1109,9 @@ const DrillStudioPanel: React.FC<{
       id="opening-drill-preview"
       className="hidden w-full flex-1 flex-col overflow-hidden md:flex"
     >
-      <div className="border-l border-glass-border">
+      <div className="flex h-full flex-col border-l border-glass-border">
         {/* Scrollable Content */}
-        <div className="red-scrollbar flex h-[calc(90vh-5.5rem)] max-h-[820px] flex-col overflow-y-auto px-6 py-5">
+        <div className="red-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
           <div className="flex flex-col gap-5">
             {/* Preview: Board + Info side by side */}
             <div className="flex gap-6">
@@ -950,13 +1130,13 @@ const DrillStudioPanel: React.FC<{
 
               <div className="flex min-w-0 flex-1 flex-col gap-3">
                 <div>
-                  <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35">
+                  <p className="mb-0.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-white/35">
                     Preview
                   </p>
-                  <h3 className="text-[16px] font-semibold text-white">
+                  <h3 className="text-[17px] font-semibold text-white">
                     {previewVariation?.name || previewOpening.name}
                   </h3>
-                  <p className="mt-0.5 text-[12px] text-white/45">
+                  <p className="mt-0.5 text-[13px] text-white/45">
                     {previewVariation ? previewOpening.name : panelLabel} ·{' '}
                     {previewOpening.description}
                   </p>
@@ -970,7 +1150,7 @@ const DrillStudioPanel: React.FC<{
                       <button
                         key={color}
                         onClick={() => setSelectedColor(color)}
-                        className={`flex items-center gap-1.5 rounded-md border px-3.5 py-[6px] text-[12px] font-medium capitalize transition-colors ${
+                        className={`flex items-center gap-1.5 rounded-md border px-3.5 py-[6px] text-[13px] font-medium capitalize transition-colors ${
                           selectedColor === color
                             ? 'border-white/20 bg-white/[0.1] text-white'
                             : 'border-white/[0.08] bg-white/[0.03] text-white/45 hover:bg-white/[0.06]'
@@ -995,12 +1175,12 @@ const DrillStudioPanel: React.FC<{
               </div>
             </div>
 
-            {/* Settings row: Opponent + Target Moves */}
+            {/* Settings row: Opponent + Number of Moves */}
             <div className="flex gap-5">
               <div className="flex flex-1 flex-col gap-1.5">
                 <label
                   htmlFor="drill-opponent-select"
-                  className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35"
+                  className="text-[12px] font-semibold uppercase tracking-[0.06em] text-white/35"
                 >
                   Opponent
                 </label>
@@ -1008,16 +1188,16 @@ const DrillStudioPanel: React.FC<{
                   id="drill-opponent-select"
                   value={selectedMaiaVersion.id}
                   onChange={(e) => {
-                    const version = MAIA_MODELS_WITH_NAMES.find(
+                    const version = MAIA3_OPPONENT_RATINGS.find(
                       (v) => v.id === e.target.value,
                     )
                     if (version) {
                       setSelectedMaiaVersion(version)
                     }
                   }}
-                  className="w-full rounded-md border border-white/[0.08] bg-white/[0.06] px-2.5 py-[8px] text-[13px] text-white/90 focus:outline-none"
+                  className="w-full rounded-md border border-white/[0.08] bg-white/[0.06] px-2.5 py-[8px] text-[14px] text-white/90 focus:outline-none"
                 >
-                  {MAIA_MODELS_WITH_NAMES.map((version) => (
+                  {MAIA3_OPPONENT_RATINGS.map((version) => (
                     <option key={version.id} value={version.id}>
                       {version.name}
                     </option>
@@ -1027,8 +1207,8 @@ const DrillStudioPanel: React.FC<{
 
               {showTargetSlider ? (
                 <div className="flex flex-1 flex-col gap-1.5">
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35">
-                    Target Moves{' '}
+                  <label className="text-[12px] font-semibold uppercase tracking-[0.06em] text-white/35">
+                    Number of Moves{' '}
                     <span className="font-bold normal-case tracking-normal text-white/55">
                       {targetMoveNumber === null ? '∞' : targetMoveNumber}
                     </span>
@@ -1053,10 +1233,10 @@ const DrillStudioPanel: React.FC<{
                 </div>
               ) : (
                 <div className="flex flex-1 flex-col gap-1.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-white/35">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-white/35">
                     Session Type
                   </p>
-                  <p className="text-[12px] leading-relaxed text-white/50">
+                  <p className="text-[13px] leading-relaxed text-white/50">
                     Endgame drills use the selected traits and position pools
                     instead of a target move count.
                   </p>
@@ -1069,7 +1249,7 @@ const DrillStudioPanel: React.FC<{
               onClick={addSelection}
               disabled={addDisabled}
               title={addButtonTitle}
-              className="w-full rounded-md bg-human-4/80 py-2.5 text-[13px] font-semibold text-black transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30 2xl:w-auto 2xl:px-10"
+              className="w-full rounded-md bg-human-4/80 py-2.5 text-[14px] font-semibold text-black transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-white/30 2xl:w-auto 2xl:px-10"
             >
               {addButtonLabel}
             </button>
@@ -1077,7 +1257,7 @@ const DrillStudioPanel: React.FC<{
             {/* Queue */}
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/35">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/35">
                   Queue
                 </p>
                 <span className="rounded-full bg-human-4/[0.08] px-3 py-0.5 text-xxs font-semibold text-human-2">
@@ -1086,7 +1266,7 @@ const DrillStudioPanel: React.FC<{
               </div>
 
               {selections.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-4 py-10 text-center text-[13px] text-secondary">
+                <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-4 py-10 text-center text-[14px] text-secondary">
                   Select drills from the library to begin.
                 </div>
               ) : (
@@ -1128,7 +1308,7 @@ const DrillStudioPanel: React.FC<{
                             : 'bg-white/[0.04] hover:bg-white/[0.06]'
                         }`}
                       >
-                        <p className="min-w-0 flex-1 truncate text-[12px] text-white/70">
+                        <p className="min-w-0 flex-1 truncate text-[13px] text-white/70">
                           <span className="font-medium text-white">
                             {label}
                           </span>
@@ -1152,11 +1332,11 @@ const DrillStudioPanel: React.FC<{
         </div>
 
         {/* Fixed footer: Start button */}
-        <div className="px-6 pb-5 pt-1">
+        <div className="flex-shrink-0 border-t border-white/[0.06] px-6 pb-5 pt-4">
           <button
             onClick={handleStartDrilling}
             disabled={selections.length === 0}
-            className="w-full rounded-lg bg-human-4/85 py-3 text-[14px] font-semibold text-black transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
+            className="w-full rounded-lg bg-human-4/85 py-3 text-[15px] font-semibold text-black transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
           >
             Start Drilling ({selections.length}{' '}
             {selections.length === 1 ? 'selection' : 'selections'})
@@ -1172,8 +1352,8 @@ const SelectedPanel: React.FC<{
   selections: OpeningSelection[]
   removeSelection: (id: string) => void
   handleStartDrilling: () => void
-  selectedMaiaVersion: (typeof MAIA_MODELS_WITH_NAMES)[0]
-  setSelectedMaiaVersion: (version: (typeof MAIA_MODELS_WITH_NAMES)[0]) => void
+  selectedMaiaVersion: (typeof MAIA3_OPPONENT_RATINGS)[0]
+  setSelectedMaiaVersion: (version: (typeof MAIA3_OPPONENT_RATINGS)[0]) => void
   targetMoveNumber: number | null
   setTargetMoveNumber: (number: number | null) => void
   categoryLabel: string
@@ -1308,7 +1488,7 @@ const SelectedPanel: React.FC<{
         <select
           value={selectedMaiaVersion.id}
           onChange={(e) => {
-            const version = MAIA_MODELS_WITH_NAMES.find(
+            const version = MAIA3_OPPONENT_RATINGS.find(
               (v) => v.id === e.target.value,
             )
             if (version) {
@@ -1317,7 +1497,7 @@ const SelectedPanel: React.FC<{
           }}
           className="w-full rounded border border-glass-border bg-white/5 p-2 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20 md:text-sm"
         >
-          {MAIA_MODELS_WITH_NAMES.map((version) => (
+          {MAIA3_OPPONENT_RATINGS.map((version) => (
             <option key={version.id} value={version.id}>
               {version.name}
             </option>
@@ -1325,11 +1505,11 @@ const SelectedPanel: React.FC<{
         </select>
       </div>
 
-      {/* Target Move Count Configuration */}
+      {/* Number of Moves Configuration */}
       {showTargetSlider && (
         <div className="mb-3 md:mb-4">
           <p className="mb-1 text-xs font-medium md:mb-2 md:text-sm">
-            Target Move Count:{' '}
+            Number of Moves:{' '}
             {targetMoveNumber === null ? '∞' : targetMoveNumber}
           </p>
           <input
@@ -1515,9 +1695,9 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       ? (firstInitialSelection.variation ?? null)
       : null
   const defaultMaiaVersion =
-    MAIA_MODELS_WITH_NAMES[4] ?? MAIA_MODELS_WITH_NAMES[0]
+    MAIA3_OPPONENT_RATINGS[9] ?? MAIA3_OPPONENT_RATINGS[0]
   const initialMaiaVersion = firstInitialSelection?.maiaVersion
-    ? (MAIA_MODELS_WITH_NAMES.find(
+    ? (MAIA3_OPPONENT_RATINGS.find(
         (model) => model.id === firstInitialSelection.maiaVersion,
       ) ?? defaultMaiaVersion)
     : defaultMaiaVersion
@@ -2561,11 +2741,11 @@ export const OpeningSelectionModal: React.FC<Props> = ({
           className="flex w-full items-center justify-between border-b border-glass-border px-6 pb-3.5 pt-[18px]"
         >
           <div>
-            <h1 className="text-[18px] font-semibold text-primary">
+            <h1 className="text-[19px] font-semibold text-primary">
               Maia Drill Studio
             </h1>
-            <p className="mt-0.5 text-[12px] text-secondary">
-              Select drills, configure settings, practice against Maia.
+            <p className="mt-0.5 text-[13px] text-secondary">
+              Select drills, configure settings, practice against Maia 3.
             </p>
           </div>
         </div>
