@@ -15,6 +15,7 @@ export const useEngineAnalysis = (
   currentMaiaModel: string,
   setAnalysisState: React.Dispatch<React.SetStateAction<number>>,
   targetDepth = 18,
+  enabled = true,
 ) => {
   const maia = useContext(MaiaEngineContext)
   const stockfish = useContext(StockfishEngineContext)
@@ -78,7 +79,7 @@ export const useEngineAnalysis = (
   }
 
   useEffect(() => {
-    if (!currentNode) return
+    if (!currentNode || !enabled) return
 
     const board = new Chess(currentNode.fen)
     const nodeFen = currentNode.fen
@@ -163,10 +164,11 @@ export const useEngineAnalysis = (
     inProgressAnalyses,
     maia,
     setAnalysisState,
+    enabled,
   ])
 
   useEffect(() => {
-    if (!currentNode) return
+    if (!currentNode || !enabled) return
 
     const shouldForceStockfishRerun =
       stockfishDebugRerunToken > lastConsumedStockfishRerunTokenRef.current
@@ -281,5 +283,6 @@ export const useEngineAnalysis = (
     stockfishDebugRerunToken,
     currentNode?.analysis.maia?.[currentMaiaModel]?.policy,
     currentNode?.mainChild?.move,
+    enabled,
   ])
 }

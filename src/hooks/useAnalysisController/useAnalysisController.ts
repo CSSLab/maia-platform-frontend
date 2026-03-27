@@ -26,6 +26,7 @@ export const useAnalysisController = (
   game: AnalyzedGame,
   initialOrientation?: 'white' | 'black',
   enableAutoSave = true,
+  enableEngineAnalysis = true,
 ) => {
   const defaultOrientation = initialOrientation
     ? initialOrientation
@@ -86,6 +87,7 @@ export const useAnalysisController = (
     deepAnalysisController.progress.isAnalyzing
       ? deepAnalysisController.config.targetDepth
       : 18,
+    enableEngineAnalysis,
   )
 
   const availableMoves = useMemo(() => {

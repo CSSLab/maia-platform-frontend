@@ -903,13 +903,40 @@ export const useOpeningDrillController = (
     [currentMaiaModel, stockfish],
   )
 
-  // Background analysis: run Maia + Stockfish on positions as they are played
-  // so that post-drill analysis is already complete (or nearly so) when the
-  // drill ends.
-  const backgroundAnalysisQueueRef = useRef<Set<string>>(new Set())
+  // Background analysis: run Maia + Stockfish on drill positions as they are
+  // played so post-drill analysis has less (or no) work to do.
+  //
+  // Uses a simple promise-chain pattern: each node's analysis is chained onto
+  // a single promise ref. No queue management, no running flags — just append
+  // work to the chain. Nodes are tracked by FEN in a Set to avoid duplicates.
+  const bgChainRef = useRef<Promise<void>>(Promise.resolve())
+  const bgAnalyzedFensRef = useRef<Set<string>>(new Set())
+  const bgCancelledRef = useRef(false)
+  const bgDrillIdRef = useRef<string | null>(null)
+  const ensureMaiaRef = useRef(ensureMaiaForNode)
+  const ensureStockfishRef = useRef(ensureStockfishForNode)
+  useEffect(() => {
+    ensureMaiaRef.current = ensureMaiaForNode
+  }, [ensureMaiaForNode])
+  useEffect(() => {
+    ensureStockfishRef.current = ensureStockfishForNode
+  }, [ensureStockfishForNode])
 
   useEffect(() => {
-    if (!currentDrillGame || isAnalyzingDrill) return
+    if (!currentDrillGame || isAnalyzingDrill) {
+      return
+    }
+
+    // If drill changed, reset for the new drill
+    if (currentDrillGame.id !== bgDrillIdRef.current) {
+      bgCancelledRef.current = true
+      // Let any in-flight work finish with the cancelled flag, then reset
+      bgChainRef.current = bgChainRef.current.then(() => {
+        bgCancelledRef.current = false
+      })
+      bgAnalyzedFensRef.current = new Set()
+      bgDrillIdRef.current = currentDrillGame.id
+    }
 
     const mainLine = gameTree.getMainLine()
     const openingEndNode = currentDrillGame.openingEndNode
@@ -918,50 +945,50 @@ export const useOpeningDrillController = (
       : 0
     const drillNodes = mainLine.slice(startIndex)
 
-    // Find nodes that still need analysis and haven't been queued yet
-    const nodesNeedingWork = drillNodes.filter((node) => {
-      if (backgroundAnalysisQueueRef.current.has(node.fen)) return false
-      const hasMaia =
-        node.analysis.maia &&
-        MAIA_MODELS.every((model) => node.analysis.maia?.[model])
-      const hasStockfish =
-        node.analysis.stockfish &&
-        node.analysis.stockfish.depth >= DRILL_STOCKFISH_TARGET_DEPTH
-      return !hasMaia || !hasStockfish
-    })
+    for (const node of drillNodes) {
+      if (bgAnalyzedFensRef.current.has(node.fen)) continue
+      bgAnalyzedFensRef.current.add(node.fen)
 
-    if (nodesNeedingWork.length === 0) return
-
-    let cancelled = false
-
-    const runBackgroundAnalysis = async () => {
-      for (const node of nodesNeedingWork) {
-        if (cancelled) break
-        backgroundAnalysisQueueRef.current.add(node.fen)
-        await ensureMaiaForNode(node)
-        if (cancelled) break
-        // Let Stockfish finish its current evaluation even if new moves come in
-        await ensureStockfishForNode(node)
-      }
+      // Chain this node's analysis onto the promise chain.
+      // Wrapped in try/catch so one failure doesn't break the whole chain.
+      bgChainRef.current = bgChainRef.current.then(async () => {
+        try {
+          if (bgCancelledRef.current) return
+          console.log('[bg] maia start:', node.san || node.move || '?')
+          await ensureMaiaRef.current(node)
+          const hasMaia = !!(
+            node.analysis.maia &&
+            MAIA_MODELS.every((m) => node.analysis.maia?.[m])
+          )
+          console.log('[bg] maia done:', hasMaia, '| sf start')
+          if (bgCancelledRef.current) return
+          await ensureStockfishRef.current(node)
+          console.log(
+            '[bg] sf done, depth:',
+            node.analysis.stockfish?.depth ?? 0,
+          )
+        } catch (error) {
+          console.error('[bg] error analyzing node:', error)
+        }
+      })
     }
+  }, [currentDrillGame, gameTree, isAnalyzingDrill, treeController.currentNode])
 
-    runBackgroundAnalysis()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    currentDrillGame,
-    gameTree,
-    isAnalyzingDrill,
-    ensureMaiaForNode,
-    ensureStockfishForNode,
-    // Re-run when tree grows (new moves played)
-    treeController.currentNode,
-  ])
+  // Stop background analysis. Signals cancellation and stops stockfish so
+  // ensureDrillAnalysis can use stockfish immediately. The chain's remaining
+  // .then() callbacks will see the cancelled flag and return quickly.
+  // Does NOT await the chain — avoids hanging if a step is stuck.
+  const stopBackgroundAnalysis = useCallback(() => {
+    bgCancelledRef.current = true
+    stockfish.stopEvaluation()
+  }, [stockfish])
 
   const ensureDrillAnalysis = useCallback(
     async (drillGame: OpeningDrillGame): Promise<boolean> => {
+      // Signal background to stop and give the generator a tick to clean up
+      stopBackgroundAnalysis()
+      await delay(50)
+
       const mainLine = drillGame.tree.getMainLine()
       const startingNode = drillGame.openingEndNode || mainLine[0]
       const startIndex = startingNode
@@ -1036,7 +1063,12 @@ export const useOpeningDrillController = (
 
       return !wasCancelled
     },
-    [ensureMaiaForNode, ensureStockfishForNode, setDrillAnalysisProgress],
+    [
+      ensureMaiaForNode,
+      ensureStockfishForNode,
+      setDrillAnalysisProgress,
+      stopBackgroundAnalysis,
+    ],
   )
 
   const cancelDrillAnalysis = useCallback(() => {

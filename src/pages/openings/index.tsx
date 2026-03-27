@@ -180,14 +180,26 @@ const OpeningsPage: NextPage = () => {
     },
     controller.currentDrill?.playerColor || 'white',
     false, // Disable auto-saving on openings page
+    controller.analysisEnabled || controller.continueAnalyzingMode, // Disable engine analysis during drill play
   )
 
-  // Sync analysis controller with current node
+  // Sync analysis controller with current node — only when analysis is active
+  // (post-drill continue-analyzing mode). During drill play, the analysis
+  // controller's auto-stockfish would conflict with background analysis.
   useEffect(() => {
-    if (controller.currentNode && analysisController.setCurrentNode) {
+    if (
+      controller.currentNode &&
+      analysisController.setCurrentNode &&
+      (controller.analysisEnabled || controller.continueAnalyzingMode)
+    ) {
       analysisController.setCurrentNode(controller.currentNode)
     }
-  }, [controller.currentNode, analysisController.setCurrentNode])
+  }, [
+    controller.currentNode,
+    controller.analysisEnabled,
+    controller.continueAnalyzingMode,
+    analysisController.setCurrentNode,
+  ])
 
   // Create game object for MovesContainer
   const gameForContainer = useMemo(() => {
