@@ -116,6 +116,15 @@ const BroadcastAnalysisPage: NextPage = () => {
     false,
   )
 
+  useEffect(() => {
+    if (analysisController.currentMaiaModel !== 'maia_kdd_2600') {
+      analysisController.setCurrentMaiaModel('maia_kdd_2600')
+    }
+  }, [
+    analysisController.currentMaiaModel,
+    analysisController.setCurrentMaiaModel,
+  ])
+
   // Auto-follow live moves for the selected game
   const lastGameMoveCount = useRef(0)
 
