@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Chess } from 'chess.ts'
 import { MAIA_MODELS } from 'src/constants/common'
 import { GameNode, MaiaEvaluation, StockfishEvaluation } from 'src/types'
+import { sortStockfishMoves } from './utils'
 
 export const useMoveRecommendations = (
   currentNode: GameNode | null,
@@ -23,6 +24,7 @@ export const useMoveRecommendations = (
         cp: number
         winrate?: number
         winrate_loss?: number
+        cp_relative?: number
       }[]
       isBlackTurn?: boolean
     } = {
@@ -44,10 +46,14 @@ export const useMoveRecommendations = (
       const cp_relative_vec = moveEvaluation.stockfish.cp_relative_vec || {}
       const winrate_vec = moveEvaluation.stockfish.winrate_vec || {}
       const winrate_loss_vec = moveEvaluation.stockfish.winrate_loss_vec || {}
+      const sortedMoves = sortStockfishMoves(
+        moveEvaluation.stockfish,
+        Object.keys(cp_vec),
+      )
 
-      const stockfish = Object.entries(cp_vec).map(([move, cp]) => ({
+      const stockfish = sortedMoves.map((move) => ({
         move,
-        cp,
+        cp: cp_vec[move] || 0,
         winrate: winrate_vec[move] || 0,
         winrate_loss: winrate_loss_vec[move] || 0,
         cp_relative: cp_relative_vec[move] || 0,
@@ -80,7 +86,10 @@ export const useMoveRecommendations = (
 
     // Get top 3 Stockfish moves
     if (stockfish) {
-      for (const move of Object.keys(stockfish.cp_vec).slice(0, 3)) {
+      for (const move of sortStockfishMoves(
+        stockfish,
+        Object.keys(stockfish.cp_vec),
+      ).slice(0, 3)) {
         if (candidates.find((c) => c[0] === move)) continue
         candidates.push([move, move])
       }
