@@ -141,6 +141,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
   const movesByRatingProps = {
     moves: analysisEnabled ? controller.movesByRating : undefined,
     colorSanMapping: analysisEnabled ? controller.colorSanMapping : {},
+    positionKey: analysisEnabled ? controller.currentNode?.fen : undefined,
   }
 
   const renderHeader = (

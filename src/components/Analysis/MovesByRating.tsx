@@ -8,7 +8,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from 'recharts'
-import { useContext } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ColorSanMapping } from 'src/types'
 import { WindowSizeContext } from 'src/contexts'
 
@@ -16,18 +16,45 @@ interface Props {
   moves: { [key: string]: number }[] | undefined
   colorSanMapping: ColorSanMapping
   isHomePage?: boolean
+  positionKey?: string
 }
 
 export const MovesByRating: React.FC<Props> = ({
   moves,
   colorSanMapping,
   isHomePage = false,
+  positionKey,
 }: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
+  const [displayedMoves, setDisplayedMoves] = useState(moves)
+  const [displayedColorSanMapping, setDisplayedColorSanMapping] =
+    useState(colorSanMapping)
+  const [displayedPositionKey, setDisplayedPositionKey] = useState(positionKey)
+  const lastRenderedPositionKeyRef = useRef<string | undefined>(positionKey)
+  const shouldAnimateSeries =
+    !!displayedPositionKey &&
+    displayedPositionKey !== lastRenderedPositionKeyRef.current
 
-  const maxValue = moves
+  useEffect(() => {
+    if (!moves?.length || !positionKey) return
+    setDisplayedMoves(moves)
+    setDisplayedColorSanMapping(colorSanMapping)
+    setDisplayedPositionKey(positionKey)
+  }, [moves, colorSanMapping, positionKey])
+
+  useEffect(() => {
+    if (!displayedPositionKey) return
+    lastRenderedPositionKeyRef.current = displayedPositionKey
+  }, [displayedPositionKey])
+
+  const moveKeys = useMemo(() => {
+    if (!displayedMoves?.length) return []
+    return Object.keys(displayedMoves[0]).filter((move) => move !== 'rating')
+  }, [displayedMoves])
+
+  const maxValue = displayedMoves
     ? Math.max(
-        ...moves.flatMap((move) =>
+        ...displayedMoves.flatMap((move) =>
           Object.entries(move)
             .filter(([key]) => key !== 'rating')
             .map(([, value]) => value as number),
@@ -48,7 +75,7 @@ export const MovesByRating: React.FC<Props> = ({
       </h2>
       <ResponsiveContainer width="100%" height="90%">
         <AreaChart
-          data={moves}
+          data={displayedMoves}
           margin={{
             left: 0,
             right: isMobile ? 40 : 50,
@@ -99,11 +126,8 @@ export const MovesByRating: React.FC<Props> = ({
             tickFormatter={(value) => `${value}%`}
           />
           <defs>
-            {moves &&
-              Object.keys(moves[0]).map((move, i) => {
-                if (move === 'rating') {
-                  return null
-                }
+            {displayedMoves &&
+              moveKeys.map((move) => {
                 return (
                   <linearGradient
                     key={`color${move}`}
@@ -115,22 +139,22 @@ export const MovesByRating: React.FC<Props> = ({
                   >
                     <stop
                       offset="5%"
-                      stopColor={colorSanMapping[move]?.color ?? '#fff'}
+                      stopColor={displayedColorSanMapping[move]?.color ?? '#fff'}
                       stopOpacity={0.5}
                     />
                     <stop
                       offset="95%"
-                      stopColor={colorSanMapping[move]?.color ?? '#fff'}
+                      stopColor={displayedColorSanMapping[move]?.color ?? '#fff'}
                       stopOpacity={0}
                     />
                   </linearGradient>
                 )
               })}
           </defs>
-          {moves &&
+          {displayedMoves &&
             // First, collect all the end points and sort them by y-position
             (() => {
-              const lastIndex = moves.length - 1
+              const lastIndex = displayedMoves.length - 1
 
               // Define the type for end points
               interface EndPoint {
@@ -142,42 +166,38 @@ export const MovesByRating: React.FC<Props> = ({
                 adjustment?: number
               }
 
-              const endPoints = Object.keys(moves[0])
-                .filter((move) => move !== 'rating')
+              const endPoints = moveKeys
                 .map((move) => {
-                  const value = moves[lastIndex][move] as number
+                  const value = displayedMoves[lastIndex][move] as number
                   return {
                     move,
                     value,
-                    san: colorSanMapping[move]?.san || move,
-                    color: colorSanMapping[move]?.color ?? '#fff',
+                    san: displayedColorSanMapping[move]?.san || move,
+                    color: displayedColorSanMapping[move]?.color ?? '#fff',
                   } as EndPoint
                 })
                 .sort((a, b) => a.value - b.value) // Sort by value (y-position)
 
               // Return the original map function with adjusted positions
-              return Object.keys(moves[0]).map((move, i) => {
-                if (move === 'rating') {
-                  return null
-                }
-
+              return moveKeys.map((move, index) => {
                 const endPoint = endPoints.find((ep) => ep.move === move)
                 const san = endPoint?.san || move
 
                 return (
                   <Area
-                    key={i}
+                    key={index}
                     yAxisId="left"
                     dataKey={move}
                     dot={{
                       r: isMobile ? 2 : 3,
-                      stroke: colorSanMapping[move]?.color ?? '#fff',
+                      stroke: displayedColorSanMapping[move]?.color ?? '#fff',
                       strokeWidth: isMobile ? 2 : 3,
                     }}
-                    stroke={colorSanMapping[move]?.color ?? '#fff'}
+                    stroke={displayedColorSanMapping[move]?.color ?? '#fff'}
                     fill={`url(#color${move})`}
                     strokeWidth={isMobile ? 2 : 3}
                     animationDuration={300}
+                    isAnimationActive={shouldAnimateSeries}
                     name={san}
                     label={(props: {
                       x: number
@@ -231,7 +251,7 @@ export const MovesByRating: React.FC<Props> = ({
                           dy={isMobile ? 3 : 4}
                           fontSize={11}
                           fontWeight={600}
-                          fill={colorSanMapping[move]?.color ?? '#fff'}
+                          fill={displayedColorSanMapping[move]?.color ?? '#fff'}
                           textAnchor="start"
                         >
                           {san}
@@ -298,8 +318,8 @@ export const MovesByRating: React.FC<Props> = ({
               fontSize: 14,
             }}
             iconSize={0}
-            formatter={(value) => {
-              return colorSanMapping[value as string]?.san ?? value
+            formatter={(value: string) => {
+              return displayedColorSanMapping[value as string]?.san ?? value
             }}
           />
         </AreaChart>
