@@ -1121,7 +1121,7 @@ const DrillStudioPanel: React.FC<{
                       setSelectedMaiaVersion(version)
                     }
                   }}
-                  className="maia-native-select w-full rounded-md border border-white/[0.08] bg-white/[0.06] px-2.5 py-[8px] text-[14px] text-white/90 focus:outline-none"
+                  className="edge-dark-select w-full rounded-md border border-white/[0.08] bg-white/[0.06] px-2.5 py-[8px] text-[14px] text-white/90 focus:outline-none"
                 >
                   {MAIA3_OPPONENT_RATINGS.map((version) => (
                     <option key={version.id} value={version.id}>
@@ -1402,7 +1402,7 @@ const SelectedPanel: React.FC<{
               setSelectedMaiaVersion(version)
             }
           }}
-          className="maia-native-select w-full rounded border border-glass-border bg-white/5 p-2 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20 md:text-sm"
+          className="edge-dark-select w-full rounded border border-glass-border bg-white/5 p-2 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-white/20 md:text-sm"
         >
           {MAIA3_OPPONENT_RATINGS.map((version) => (
             <option key={version.id} value={version.id}>

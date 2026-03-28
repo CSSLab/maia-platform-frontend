@@ -82,7 +82,7 @@ export const GameInfo: React.FC<Props> = ({
                   <select
                     ref={maiaSelectRef}
                     value={currentMaiaModel}
-                    className="maia-native-select cursor-pointer appearance-none bg-transparent leading-none focus:outline-none"
+                    className="edge-dark-select cursor-pointer appearance-none bg-transparent leading-none focus:outline-none"
                     onChange={(e) => setCurrentMaiaModel(e.target.value)}
                   >
                     {MAIA_MODELS?.map((model) => (
