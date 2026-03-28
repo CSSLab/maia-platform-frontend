@@ -35,7 +35,7 @@ const PlayHandBrain: React.FC<Props> = ({
   )
 
   return (
-    <PlayControllerContext.Provider value={controller}>
+    <PlayControllerContext.Provider key={id} value={controller}>
       <GameplayInterface boardShapes={controller.boardShapes}>
         <HandBrainPlayControls
           game={controller.game}
