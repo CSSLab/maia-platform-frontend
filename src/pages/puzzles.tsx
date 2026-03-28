@@ -16,7 +16,7 @@ import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import { Chess, PieceSymbol } from 'chess.ts'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
 import {
   fetchPuzzle,
   logPuzzleGuesses,
@@ -38,9 +38,13 @@ import {
   GameBoard,
   PromotionOverlay,
   DownloadModelModal,
-  Highlight,
-  BlunderMeter,
   AnalysisSidebar,
+  AnalysisArrowLegend,
+  AnalysisCompactBlunderMeter,
+  AnalysisMaiaWinrateBar,
+  AnalysisStockfishEvalBar,
+  SimplifiedAnalysisOverview,
+  MovesByRating,
 } from 'src/components'
 import { useTrainingController } from 'src/hooks/useTrainingController'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
@@ -54,7 +58,16 @@ import {
   getAvailableMovesArray,
   requiresPromotion,
 } from 'src/lib/puzzle'
+import { cpToWinrate } from 'src/lib/analysis'
 import { tourConfigs } from 'src/constants/tours'
+
+const EVAL_BAR_RANGE = 4
+const DEFAULT_STOCKFISH_EVAL_BAR = {
+  hasEval: false,
+  pawns: 0,
+  displayPawns: 0,
+  label: '--',
+}
 
 const statsLoader = async () => {
   const stats = await fetchTrainingPlayerStats()
@@ -82,6 +95,7 @@ const TrainPage: NextPage = () => {
   const [lastAttemptedMove, setLastAttemptedMove] = useState<string | null>(
     null,
   )
+  const [solutionMoveSan, setSolutionMoveSan] = useState<string | null>(null)
 
   useEffect(() => {
     if (!initialTourCheck && tourState.ready) {
@@ -107,6 +121,7 @@ const TrainPage: NextPage = () => {
     setStatus('default')
     setUserGuesses([])
     setLastAttemptedMove(null)
+    setSolutionMoveSan(null)
     setCurrentIndex(trainingGames.length)
     setTrainingGames(trainingGames.concat([game]))
     setPreviousGameResults(previousGameResults.concat([{ ...game }]))
@@ -144,6 +159,16 @@ const TrainPage: NextPage = () => {
         newGuesses,
         status === 'forfeit',
       )
+      const solutionMoveUci = response.correct_moves?.[0]
+      const solutionSan =
+        solutionMoveUci && trainingGames[puzzleIdx]
+          ? trainingGames[puzzleIdx].availableMoves?.[solutionMoveUci]?.san ??
+            null
+          : null
+
+      if (solutionSan) {
+        setSolutionMoveSan(solutionSan)
+      }
 
       if (status === 'forfeit') {
         setPreviousGameResults((prev) => {
@@ -243,24 +268,22 @@ const TrainPage: NextPage = () => {
         logGuess={logGuess}
         lastAttemptedMove={lastAttemptedMove}
         setLastAttemptedMove={setLastAttemptedMove}
+        solutionMoveSan={solutionMoveSan}
         gamesController={
-          <>
-            <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-start overflow-auto">
-              <div className="hidden md:block">
-                <PuzzleLog
-                  previousGameResults={previousGameResults}
-                  setCurrentIndex={setCurrentIndex}
-                  embedded
-                />
-              </div>
-              <div className="md:hidden">
-                <PuzzleLog
-                  previousGameResults={previousGameResults}
-                  setCurrentIndex={setCurrentIndex}
-                />
-              </div>
+          <div className="relative bottom-0 flex h-full min-h-[38px] flex-1 flex-col justify-start overflow-auto">
+            <div className="hidden md:block">
+              <PuzzleLog
+                previousGameResults={previousGameResults}
+                setCurrentIndex={setCurrentIndex}
+              />
             </div>
-          </>
+            <div className="md:hidden">
+              <PuzzleLog
+                previousGameResults={previousGameResults}
+                setCurrentIndex={setCurrentIndex}
+              />
+            </div>
+          </div>
         }
       />
     )
@@ -289,6 +312,7 @@ interface Props {
   ) => void
   lastAttemptedMove: string | null
   setLastAttemptedMove: Dispatch<SetStateAction<string | null>>
+  solutionMoveSan: string | null
 }
 
 const Train: React.FC<Props> = ({
@@ -301,6 +325,7 @@ const Train: React.FC<Props> = ({
   logGuess,
   lastAttemptedMove,
   setLastAttemptedMove,
+  solutionMoveSan,
 }: Props) => {
   const controller = useTrainingController(trainingGame)
 
@@ -314,7 +339,7 @@ const Train: React.FC<Props> = ({
     false, // Disable auto-saving on puzzles page
   )
 
-  const { width } = useContext(WindowSizeContext)
+  const { width, height } = useContext(WindowSizeContext)
   const isMobile = useMemo(
     () => width > 0 && width <= TABLET_BREAKPOINT_PX,
     [width],
@@ -327,6 +352,14 @@ const Train: React.FC<Props> = ({
   const [userAnalysisEnabled, setUserAnalysisEnabled] = useState<
     boolean | null
   >(null) // User's choice, null means not set
+  const desktopBoardHeaderStripRef = useRef<HTMLDivElement | null>(null)
+  const desktopBlunderMeterSectionRef = useRef<HTMLDivElement | null>(null)
+  const desktopBoardControllerSectionRef = useRef<HTMLDivElement | null>(null)
+  const [desktopMeasuredHeights, setDesktopMeasuredHeights] = useState({
+    headerPx: 28,
+    blunderMeterPx: 126,
+    boardControllerPx: 44,
+  })
 
   const showAnalysis =
     status === 'correct' || status === 'forfeit' || status === 'archived'
@@ -365,6 +398,307 @@ const Train: React.FC<Props> = ({
     [],
   )
 
+  const compactBlunderMeterData = useMemo(
+    () =>
+      analysisEnabled && showAnalysis
+        ? analysisController.blunderMeter
+        : emptyBlunderMeterData,
+    [
+      analysisEnabled,
+      showAnalysis,
+      analysisController.blunderMeter,
+      emptyBlunderMeterData,
+    ],
+  )
+
+  const rawStockfishEvalBar = useMemo(() => {
+    const stockfish = analysisController.moveEvaluation?.stockfish
+    const sideToMove = analysisController.currentNode?.turn || 'w'
+
+    if (!stockfish) {
+      return {
+        ...DEFAULT_STOCKFISH_EVAL_BAR,
+        depth: 0,
+      }
+    }
+
+    const mateIn = stockfish.mate_vec?.[stockfish.model_move]
+    if (mateIn !== undefined) {
+      const matingColor =
+        mateIn > 0 ? sideToMove : sideToMove === 'w' ? 'b' : 'w'
+      const whitePerspectiveSign = matingColor === 'w' ? 1 : -1
+      return {
+        hasEval: true,
+        pawns: whitePerspectiveSign * EVAL_BAR_RANGE,
+        displayPawns: whitePerspectiveSign * EVAL_BAR_RANGE,
+        label: `M${Math.abs(mateIn)}`,
+        depth: stockfish.depth ?? 0,
+      }
+    }
+
+    const cp =
+      stockfish.model_optimal_cp ?? Object.values(stockfish.cp_vec)[0] ?? 0
+    const rawPawns = cp / 100
+    const clampedPawns = Math.max(
+      -EVAL_BAR_RANGE,
+      Math.min(EVAL_BAR_RANGE, rawPawns),
+    )
+
+    return {
+      hasEval: true,
+      pawns: clampedPawns,
+      displayPawns: rawPawns,
+      label: `${rawPawns > 0 ? '+' : ''}${rawPawns.toFixed(2)}`,
+      depth: stockfish.depth ?? 0,
+    }
+  }, [
+    analysisController.currentNode?.turn,
+    analysisController.moveEvaluation?.stockfish,
+  ])
+
+  const displayedStockfishEvalText = useMemo(() => {
+    if (!analysisEnabled || !showAnalysis || !rawStockfishEvalBar.hasEval) {
+      return '--'
+    }
+
+    if (rawStockfishEvalBar.label.startsWith('M')) {
+      return rawStockfishEvalBar.label
+    }
+
+    const roundedPawns = Math.round(rawStockfishEvalBar.displayPawns * 10) / 10
+    const safePawns = Math.abs(roundedPawns) < 0.05 ? 0 : roundedPawns
+    return `${safePawns > 0 ? '+' : ''}${safePawns.toFixed(1)}`
+  }, [
+    analysisEnabled,
+    showAnalysis,
+    rawStockfishEvalBar.displayPawns,
+    rawStockfishEvalBar.hasEval,
+    rawStockfishEvalBar.label,
+  ])
+
+  const evalPositionPercent = useMemo(() => {
+    const normalized =
+      (rawStockfishEvalBar.pawns + EVAL_BAR_RANGE) / (EVAL_BAR_RANGE * 2)
+    return Math.max(0, Math.min(1, normalized)) * 100
+  }, [rawStockfishEvalBar.pawns])
+
+  const smoothedEvalPosition = useSpring(50, {
+    stiffness: 520,
+    damping: 42,
+    mass: 0.25,
+  })
+  const smoothedEvalVerticalPositionLabel = useTransform(
+    smoothedEvalPosition,
+    (value) => `${100 - value}%`,
+  )
+
+  useEffect(() => {
+    smoothedEvalPosition.set(
+      analysisEnabled && showAnalysis && rawStockfishEvalBar.hasEval
+        ? evalPositionPercent
+        : 50,
+    )
+  }, [
+    analysisEnabled,
+    showAnalysis,
+    rawStockfishEvalBar.hasEval,
+    evalPositionPercent,
+    smoothedEvalPosition,
+  ])
+
+  const currentTurnForBars: 'w' | 'b' = analysisController.currentNode?.turn || 'w'
+
+  const isCurrentPositionCheckmateForBars = useMemo(() => {
+    if (!analysisController.currentNode) return false
+
+    try {
+      const chess = new Chess(analysisController.currentNode.fen)
+      return chess.inCheckmate()
+    } catch {
+      return false
+    }
+  }, [analysisController.currentNode])
+
+  const isInFirst10PlyForBars = useMemo(() => {
+    if (!analysisController.currentNode) return false
+
+    const moveNumber = analysisController.currentNode.moveNumber
+    const turn = analysisController.currentNode.turn
+    const plyFromStart = (moveNumber - 1) * 2 + (turn === 'b' ? 1 : 0)
+    return plyFromStart < 10
+  }, [analysisController.currentNode])
+
+  const rawMaiaWhiteWinBar = useMemo(() => {
+    const stockfishEval = analysisController.moveEvaluation?.stockfish
+
+    if (isCurrentPositionCheckmateForBars) {
+      const percent = currentTurnForBars === 'w' ? 0 : 100
+      return { hasValue: true, percent, label: `${percent.toFixed(1)}%` }
+    }
+
+    if (stockfishEval?.is_checkmate) {
+      const percent = currentTurnForBars === 'w' ? 0 : 100
+      return { hasValue: true, percent, label: `${percent.toFixed(1)}%` }
+    }
+
+    if (
+      stockfishEval?.model_move &&
+      stockfishEval.mate_vec &&
+      stockfishEval.mate_vec[stockfishEval.model_move] !== undefined
+    ) {
+      const mateValue = stockfishEval.mate_vec[stockfishEval.model_move]
+      const deliveringColor =
+        mateValue > 0
+          ? currentTurnForBars
+          : currentTurnForBars === 'w'
+            ? 'b'
+            : 'w'
+      const percent = deliveringColor === 'w' ? 100 : 0
+      return { hasValue: true, percent, label: `${percent.toFixed(1)}%` }
+    }
+
+    if (
+      isInFirst10PlyForBars &&
+      stockfishEval?.model_optimal_cp !== undefined
+    ) {
+      const percent = Math.max(
+        0,
+        Math.min(100, cpToWinrate(stockfishEval.model_optimal_cp) * 100),
+      )
+      return {
+        hasValue: true,
+        percent,
+        label: `${(Math.round(percent * 10) / 10).toFixed(1)}%`,
+      }
+    }
+
+    if (analysisController.moveEvaluation?.maia) {
+      const percent = Math.max(
+        0,
+        Math.min(100, analysisController.moveEvaluation.maia.value * 100),
+      )
+      return {
+        hasValue: true,
+        percent,
+        label: `${(Math.round(percent * 10) / 10).toFixed(1)}%`,
+      }
+    }
+
+    return { hasValue: false, percent: 50, label: '--' }
+  }, [
+    analysisController.moveEvaluation?.maia,
+    analysisController.moveEvaluation?.stockfish,
+    currentTurnForBars,
+    isCurrentPositionCheckmateForBars,
+    isInFirst10PlyForBars,
+  ])
+
+  const maiaWhiteWinPositionPercent = useMemo(
+    () => Math.max(0, Math.min(100, rawMaiaWhiteWinBar.percent)),
+    [rawMaiaWhiteWinBar.percent],
+  )
+  const renderedMaiaWhiteWinBar = useMemo(
+    () =>
+      analysisEnabled && showAnalysis
+        ? rawMaiaWhiteWinBar
+        : { hasValue: false, percent: 50, label: '--' },
+    [analysisEnabled, showAnalysis, rawMaiaWhiteWinBar],
+  )
+
+  const smoothedMaiaWhiteWinPosition = useSpring(50, {
+    stiffness: 520,
+    damping: 42,
+    mass: 0.25,
+  })
+  const smoothedMaiaWhiteWinVerticalPositionLabel = useTransform(
+    smoothedMaiaWhiteWinPosition,
+    (value) => `${100 - value}%`,
+  )
+
+  useEffect(() => {
+    smoothedMaiaWhiteWinPosition.set(
+      analysisEnabled && showAnalysis ? maiaWhiteWinPositionPercent : 50,
+    )
+  }, [
+    analysisEnabled,
+    showAnalysis,
+    maiaWhiteWinPositionPercent,
+    smoothedMaiaWhiteWinPosition,
+  ])
+
+  useEffect(() => {
+    if (isMobile) return
+
+    const headerEl = desktopBoardHeaderStripRef.current
+    const blunderEl = desktopBlunderMeterSectionRef.current
+    const controllerEl = desktopBoardControllerSectionRef.current
+
+    if (!headerEl && !blunderEl && !controllerEl) return
+
+    const next = {
+      headerPx:
+        headerEl?.getBoundingClientRect().height ??
+        desktopMeasuredHeights.headerPx,
+      blunderMeterPx:
+        blunderEl?.getBoundingClientRect().height ??
+        desktopMeasuredHeights.blunderMeterPx,
+      boardControllerPx:
+        controllerEl?.getBoundingClientRect().height ??
+        desktopMeasuredHeights.boardControllerPx,
+    }
+
+    setDesktopMeasuredHeights((prev) => {
+      if (
+        Math.abs(prev.headerPx - next.headerPx) < 0.5 &&
+        Math.abs(prev.blunderMeterPx - next.blunderMeterPx) < 0.5 &&
+        Math.abs(prev.boardControllerPx - next.boardControllerPx) < 0.5
+      ) {
+        return prev
+      }
+
+      return next
+    })
+  }, [desktopMeasuredHeights, isMobile, showAnalysis, status, width])
+
+  const desktopColumnTargetHeightCss = '85vh'
+  const desktopBoardBaselineSizeCss = 'min(42vw, 72vh)'
+  const desktopBoardWidthCapVw = useMemo(() => {
+    if (width >= 1536) return 48
+    if (width >= 1280) return 46
+    return 42
+  }, [width])
+  const desktopBoardHeightCapPx = useMemo(() => {
+    if (height <= 0) return null
+
+    const targetColumnHeightPx = height * 0.85
+    const gapAllowancePx = showAnalysis ? 24 : 12
+    const measuredNonBoardHeightPx =
+      desktopMeasuredHeights.headerPx +
+      (showAnalysis ? desktopMeasuredHeights.blunderMeterPx : 0) +
+      desktopMeasuredHeights.boardControllerPx +
+      gapAllowancePx
+
+    return Math.max(
+      340,
+      Math.floor(targetColumnHeightPx - measuredNonBoardHeightPx),
+    )
+  }, [desktopMeasuredHeights, height, showAnalysis])
+  const desktopBoardSizeCss = useMemo(() => {
+    const heightCapCss =
+      desktopBoardHeightCapPx !== null ? `${desktopBoardHeightCapPx}px` : '72vh'
+    const expandedTargetCss = `min(${desktopBoardWidthCapVw}vw, ${heightCapCss})`
+
+    return `max(${desktopBoardBaselineSizeCss}, ${expandedTargetCss})`
+  }, [
+    desktopBoardBaselineSizeCss,
+    desktopBoardHeightCapPx,
+    desktopBoardWidthCapVw,
+  ])
+  const desktopBoardMinSizeCss = useMemo(
+    () => `calc(max(24rem, ${desktopBoardSizeCss}))`,
+    [desktopBoardSizeCss],
+  )
+
   const currentPlayer = useMemo(() => {
     const currentNode =
       analysisEnabled && showAnalysis
@@ -379,9 +713,9 @@ const Train: React.FC<Props> = ({
   ])
   useEffect(() => {
     if (analysisEnabled && showAnalysis && !analysisSyncedRef.current) {
-      // Set the analysis controller to the current training controller's node
-      // Only sync once when analysis mode is first enabled
-      analysisController.setCurrentNode(controller.currentNode)
+      // Start post-puzzle analysis from the original puzzle position rather
+      // than the solution move that may have just been played.
+      analysisController.setCurrentNode(controller.puzzleStartingNode)
       analysisSyncedRef.current = true
     } else if (!showAnalysis || !analysisEnabled) {
       // Reset sync flag when exiting analysis mode
@@ -391,7 +725,7 @@ const Train: React.FC<Props> = ({
     analysisEnabled,
     showAnalysis,
     analysisController,
-    controller.currentNode,
+    controller.puzzleStartingNode,
   ])
 
   const onSelectSquare = useCallback(
@@ -706,14 +1040,13 @@ const Train: React.FC<Props> = ({
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full w-[90%] flex-row gap-3">
+      <div className="flex h-full flex-row gap-4 w-[92%] xl:w-[94%] xl:gap-5 2xl:w-[97%]">
         <motion.div
-          className="desktop-left-column-container flex flex-col overflow-hidden"
+          className="desktop-left-column-container flex min-h-0 flex-col gap-2"
           variants={itemVariants}
           style={{ willChange: 'transform, opacity' }}
         >
-          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
-            {/* Header */}
+          <div className="w-full overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             <GameInfo title="Puzzles" icon="target" type="train" embedded>
               <div className="flex w-full flex-col justify-start text-sm text-secondary 2xl:text-base">
                 <span>
@@ -732,133 +1065,239 @@ const Train: React.FC<Props> = ({
                 </span>
               </div>
             </GameInfo>
-
-            {/* Puzzle log */}
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="h-3" />
-              {gamesController}
-            </div>
-
-            {/* Stats */}
-            <div className="flex flex-col">
-              <div className="h-3" />
-              <StatsDisplay stats={stats} embedded />
-            </div>
           </div>
+
+          <div className="flex min-h-0 flex-1 overflow-hidden">{gamesController}</div>
+
+          <Feedback
+            status={status}
+            game={trainingGame}
+            setStatus={setStatus}
+            setAndGiveUp={setAndGiveUp}
+            controller={controller}
+            getNewGame={getNewGame}
+            lastAttemptedMove={lastAttemptedMove}
+            setLastAttemptedMove={setLastAttemptedMove}
+            solutionMoveSan={solutionMoveSan}
+          />
+
+          <StatsDisplay stats={stats} />
         </motion.div>
 
         <motion.div
           className="desktop-middle-column-container flex flex-col gap-2"
           variants={itemVariants}
-          style={{ willChange: 'transform, opacity' }}
+          style={{
+            willChange: 'transform, opacity',
+            width: desktopBoardSizeCss,
+            minWidth: desktopBoardMinSizeCss,
+            height: desktopColumnTargetHeightCss,
+          }}
         >
-          <div
-            id="train-page"
-            className="desktop-board-container relative flex aspect-square"
-          >
-            <GameBoard
-              game={trainingGame}
-              currentNode={
-                analysisEnabled && showAnalysis
-                  ? analysisController.currentNode
-                  : controller.currentNode
-              }
+          {showAnalysis ? (
+            <div
+              className="desktop-board-container flex shrink-0 flex-col overflow-visible"
+              style={{
+                width: desktopBoardSizeCss,
+                minWidth: desktopBoardMinSizeCss,
+                height: 'auto',
+                minHeight: 0,
+              }}
+            >
+              <div
+                ref={desktopBoardHeaderStripRef}
+                className="pointer-events-none mb-1 grid w-full grid-cols-[42px_minmax(0,1fr)_42px] items-center gap-3 px-1"
+              >
+                <div className="flex justify-center">
+                  <span className="whitespace-nowrap text-[10px] font-semibold leading-none text-human-2">
+                    White Win %
+                  </span>
+                </div>
+                <div className="flex min-w-0 items-center justify-center">
+                  <AnalysisArrowLegend
+                    labelMode="short"
+                    className="gap-x-3 text-[10px]"
+                  />
+                </div>
+                <div className="flex justify-center">
+                  <span className="whitespace-nowrap text-[10px] font-semibold leading-none text-engine-2">
+                    SF Eval
+                  </span>
+                </div>
+              </div>
+              <div
+                id="train-page"
+                className="grid w-full items-stretch gap-3"
+                style={{
+                  gridTemplateColumns: '42px minmax(0,1fr) 42px',
+                }}
+              >
+                <div className="pointer-events-none flex justify-center py-1">
+                  <AnalysisMaiaWinrateBar
+                    hasValue={renderedMaiaWhiteWinBar.hasValue}
+                    displayText={renderedMaiaWhiteWinBar.label}
+                    labelPositionTop={
+                      smoothedMaiaWhiteWinVerticalPositionLabel
+                    }
+                    disabled={!analysisEnabled}
+                    variant="desktop"
+                  />
+                </div>
+                <div className="relative flex aspect-square w-full">
+                  <GameBoard
+                    game={trainingGame}
+                    currentNode={
+                      analysisEnabled && showAnalysis
+                        ? analysisController.currentNode
+                        : controller.currentNode
+                    }
+                    orientation={
+                      analysisEnabled && showAnalysis
+                        ? analysisController.orientation
+                        : controller.orientation
+                    }
+                    onPlayerMakeMove={onPlayerMakeMove}
+                    availableMoves={
+                      analysisEnabled && showAnalysis
+                        ? analysisController.availableMoves
+                        : controller.availableMovesMapped
+                    }
+                    shapes={
+                      analysisEnabled && showAnalysis
+                        ? hoverArrow
+                          ? [...analysisController.arrows, hoverArrow]
+                          : [...analysisController.arrows]
+                        : hoverArrow
+                          ? [hoverArrow]
+                          : []
+                    }
+                    onSelectSquare={onSelectSquare}
+                    goToNode={
+                      analysisEnabled && showAnalysis
+                        ? analysisController.goToNode
+                        : undefined
+                    }
+                    gameTree={
+                      analysisEnabled && showAnalysis
+                        ? analyzedGame.tree
+                        : undefined
+                    }
+                  />
+                  {promotionFromTo ? (
+                    <PromotionOverlay
+                      player={currentPlayer}
+                      file={promotionFromTo[1].slice(0, 1)}
+                      onPlayerSelectPromotion={onPlayerSelectPromotion}
+                    />
+                  ) : null}
+                </div>
+                <div className="pointer-events-none flex justify-center py-1">
+                  <AnalysisStockfishEvalBar
+                    hasEval={analysisEnabled && showAnalysis}
+                    displayText={displayedStockfishEvalText}
+                    labelPositionTop={smoothedEvalVerticalPositionLabel}
+                    disabled={!analysisEnabled}
+                    variant="desktop"
+                  />
+                </div>
+              </div>
+              <div ref={desktopBlunderMeterSectionRef} className="shrink-0 pt-3">
+                <AnalysisCompactBlunderMeter
+                  variant="desktop"
+                  data={compactBlunderMeterData}
+                  colorSanMapping={
+                    analysisEnabled && showAnalysis
+                      ? analysisController.colorSanMapping
+                      : {}
+                  }
+                  playedMove={
+                    analysisEnabled && showAnalysis
+                      ? (analysisController.currentNode?.mainChild?.move ??
+                          undefined)
+                      : undefined
+                  }
+                  hover={analysisEnabled ? hover : mockHover}
+                  makeMove={analysisEnabled ? makeMove : mockMakeMove}
+                />
+              </div>
+            </div>
+          ) : (
+            <div
+              id="train-page"
+              className="desktop-board-container relative flex aspect-square"
+              style={{
+                width: desktopBoardSizeCss,
+                minWidth: desktopBoardMinSizeCss,
+                height: desktopBoardSizeCss,
+                minHeight: desktopBoardMinSizeCss,
+              }}
+            >
+              <GameBoard
+                game={trainingGame}
+                currentNode={controller.currentNode}
+                orientation={controller.orientation}
+                onPlayerMakeMove={onPlayerMakeMove}
+                availableMoves={controller.availableMovesMapped}
+                shapes={hoverArrow ? [hoverArrow] : []}
+                onSelectSquare={onSelectSquare}
+              />
+              {promotionFromTo ? (
+                <PromotionOverlay
+                  player={currentPlayer}
+                  file={promotionFromTo[1].slice(0, 1)}
+                  onPlayerSelectPromotion={onPlayerSelectPromotion}
+                />
+              ) : null}
+            </div>
+          )}
+          <div ref={desktopBoardControllerSectionRef} className="shrink-0">
+            <BoardController
               orientation={
                 analysisEnabled && showAnalysis
                   ? analysisController.orientation
                   : controller.orientation
               }
-              onPlayerMakeMove={onPlayerMakeMove}
-              availableMoves={
+              setOrientation={
                 analysisEnabled && showAnalysis
-                  ? analysisController.availableMoves
-                  : controller.availableMovesMapped
+                  ? analysisController.setOrientation
+                  : controller.setOrientation
               }
-              shapes={
+              currentNode={
                 analysisEnabled && showAnalysis
-                  ? hoverArrow
-                    ? [...analysisController.arrows, hoverArrow]
-                    : [...analysisController.arrows]
-                  : hoverArrow
-                    ? [hoverArrow]
-                    : []
+                  ? analysisController.currentNode
+                  : controller.currentNode
               }
-              onSelectSquare={onSelectSquare}
+              plyCount={
+                analysisEnabled && showAnalysis
+                  ? analysisController.plyCount
+                  : controller.plyCount
+              }
               goToNode={
                 analysisEnabled && showAnalysis
                   ? analysisController.goToNode
-                  : undefined
+                  : controller.goToNode
+              }
+              goToNextNode={
+                analysisEnabled && showAnalysis
+                  ? analysisController.goToNextNode
+                  : controller.goToNextNode
+              }
+              goToPreviousNode={
+                analysisEnabled && showAnalysis
+                  ? analysisController.goToPreviousNode
+                  : controller.goToPreviousNode
+              }
+              goToRootNode={
+                analysisEnabled && showAnalysis
+                  ? analysisController.goToRootNode
+                  : controller.goToRootNode
               }
               gameTree={
-                analysisEnabled && showAnalysis ? analyzedGame.tree : undefined
+                analysisEnabled && showAnalysis
+                  ? analysisController.gameTree
+                  : controller.gameTree
               }
-            />
-            {promotionFromTo ? (
-              <PromotionOverlay
-                player={currentPlayer}
-                file={promotionFromTo[1].slice(0, 1)}
-                onPlayerSelectPromotion={onPlayerSelectPromotion}
-              />
-            ) : null}
-          </div>
-          <BoardController
-            orientation={
-              analysisEnabled && showAnalysis
-                ? analysisController.orientation
-                : controller.orientation
-            }
-            setOrientation={
-              analysisEnabled && showAnalysis
-                ? analysisController.setOrientation
-                : controller.setOrientation
-            }
-            currentNode={
-              analysisEnabled && showAnalysis
-                ? analysisController.currentNode
-                : controller.currentNode
-            }
-            plyCount={
-              analysisEnabled && showAnalysis
-                ? analysisController.plyCount
-                : controller.plyCount
-            }
-            goToNode={
-              analysisEnabled && showAnalysis
-                ? analysisController.goToNode
-                : controller.goToNode
-            }
-            goToNextNode={
-              analysisEnabled && showAnalysis
-                ? analysisController.goToNextNode
-                : controller.goToNextNode
-            }
-            goToPreviousNode={
-              analysisEnabled && showAnalysis
-                ? analysisController.goToPreviousNode
-                : controller.goToPreviousNode
-            }
-            goToRootNode={
-              analysisEnabled && showAnalysis
-                ? analysisController.goToRootNode
-                : controller.goToRootNode
-            }
-            gameTree={
-              analysisEnabled && showAnalysis
-                ? analysisController.gameTree
-                : controller.gameTree
-            }
-            embedded
-          />
-          <div className="flex w-full flex-1">
-            <Feedback
-              status={status}
-              game={trainingGame}
-              setStatus={setStatus}
-              setAndGiveUp={setAndGiveUp}
-              controller={controller}
-              getNewGame={getNewGame}
-              lastAttemptedMove={lastAttemptedMove}
-              setLastAttemptedMove={setLastAttemptedMove}
+              embedded
             />
           </div>
         </motion.div>
@@ -869,6 +1308,12 @@ const Train: React.FC<Props> = ({
           setHoverArrow={setHoverArrow}
           analysisEnabled={analysisEnabled}
           handleToggleAnalysis={handleToggleAnalysis}
+          hideDetailedBlunderMeter={true}
+          containerStyle={{
+            width: 'clamp(23rem, 27vw, 26rem)',
+            minWidth: '23rem',
+            flexBasis: 'clamp(23rem, 27vw, 26rem)',
+          }}
           itemVariants={itemVariants}
         />
       </div>
@@ -909,55 +1354,144 @@ const Train: React.FC<Props> = ({
               </div>
             </GameInfo>
           </motion.div>
-          <div
-            id="train-page"
-            className="relative flex aspect-square h-[100vw] w-screen"
-          >
-            <GameBoard
-              game={trainingGame}
-              currentNode={
-                analysisEnabled && showAnalysis
-                  ? analysisController.currentNode
-                  : controller.currentNode
-              }
-              orientation={
-                analysisEnabled && showAnalysis
-                  ? analysisController.orientation
-                  : controller.orientation
-              }
-              availableMoves={
-                analysisEnabled && showAnalysis
-                  ? analysisController.availableMoves
-                  : controller.availableMovesMapped
-              }
-              onPlayerMakeMove={onPlayerMakeMove}
-              shapes={
-                analysisEnabled && showAnalysis
-                  ? hoverArrow
-                    ? [...analysisController.arrows, hoverArrow]
-                    : [...analysisController.arrows]
-                  : hoverArrow
-                    ? [hoverArrow]
-                    : []
-              }
-              onSelectSquare={onSelectSquare}
-              goToNode={
-                analysisEnabled && showAnalysis
-                  ? analysisController.goToNode
-                  : undefined
-              }
-              gameTree={
-                analysisEnabled && showAnalysis ? analyzedGame.tree : undefined
-              }
-            />
-            {promotionFromTo ? (
-              <PromotionOverlay
-                player={currentPlayer}
-                file={promotionFromTo[1].slice(0, 1)}
-                onPlayerSelectPromotion={onPlayerSelectPromotion}
+          {showAnalysis ? (
+            <div className="flex w-full flex-col items-center px-3">
+              <div className="pointer-events-none mb-0.5 grid w-full max-w-[560px] grid-cols-[30px_minmax(0,1fr)_30px] items-center gap-3">
+                <div className="flex justify-center">
+                  <span className="translate-y-px whitespace-nowrap text-[8px] font-extrabold leading-none text-human-2">
+                    Maia %
+                  </span>
+                </div>
+                <div className="flex min-w-0 items-center justify-center">
+                  <AnalysisArrowLegend
+                    labelMode="short"
+                    className="translate-y-px justify-center gap-x-3 self-center text-[8px] font-semibold"
+                  />
+                </div>
+                <div className="flex justify-center">
+                  <span className="translate-y-px whitespace-nowrap text-[8px] font-extrabold leading-none text-engine-2">
+                    SF Eval
+                  </span>
+                </div>
+              </div>
+              <div className="grid w-full max-w-[560px] grid-cols-[30px_minmax(0,1fr)_30px] items-stretch gap-3">
+                <div className="pointer-events-none flex min-h-0 min-w-0 justify-center self-stretch">
+                  <AnalysisMaiaWinrateBar
+                    hasValue={renderedMaiaWhiteWinBar.hasValue}
+                    displayText={
+                      renderedMaiaWhiteWinBar.hasValue
+                        ? `${Math.round(renderedMaiaWhiteWinBar.percent)}%`
+                        : '--'
+                    }
+                    labelPositionTop={
+                      smoothedMaiaWhiteWinVerticalPositionLabel
+                    }
+                    disabled={!analysisEnabled}
+                    variant="mobile"
+                  />
+                </div>
+                <div
+                  id="train-page"
+                  className="relative flex aspect-square w-full"
+                >
+                  <GameBoard
+                    game={trainingGame}
+                    currentNode={
+                      analysisEnabled && showAnalysis
+                        ? analysisController.currentNode
+                        : controller.currentNode
+                    }
+                    orientation={
+                      analysisEnabled && showAnalysis
+                        ? analysisController.orientation
+                        : controller.orientation
+                    }
+                    availableMoves={
+                      analysisEnabled && showAnalysis
+                        ? analysisController.availableMoves
+                        : controller.availableMovesMapped
+                    }
+                    onPlayerMakeMove={onPlayerMakeMove}
+                    shapes={
+                      analysisEnabled && showAnalysis
+                        ? hoverArrow
+                          ? [...analysisController.arrows, hoverArrow]
+                          : [...analysisController.arrows]
+                        : hoverArrow
+                          ? [hoverArrow]
+                          : []
+                    }
+                    onSelectSquare={onSelectSquare}
+                    goToNode={
+                      analysisEnabled && showAnalysis
+                        ? analysisController.goToNode
+                        : undefined
+                    }
+                    gameTree={
+                      analysisEnabled && showAnalysis
+                        ? analyzedGame.tree
+                        : undefined
+                    }
+                  />
+                  {promotionFromTo ? (
+                    <PromotionOverlay
+                      player={currentPlayer}
+                      file={promotionFromTo[1].slice(0, 1)}
+                      onPlayerSelectPromotion={onPlayerSelectPromotion}
+                    />
+                  ) : null}
+                </div>
+                <div className="pointer-events-none flex min-h-0 min-w-0 justify-center self-stretch">
+                  <AnalysisStockfishEvalBar
+                    hasEval={analysisEnabled && showAnalysis}
+                    displayText={displayedStockfishEvalText}
+                    labelPositionTop={smoothedEvalVerticalPositionLabel}
+                    disabled={!analysisEnabled}
+                    variant="mobile"
+                  />
+                </div>
+              </div>
+              <AnalysisCompactBlunderMeter
+                className="mb-1.5 mt-3 w-full max-w-[560px]"
+                data={compactBlunderMeterData}
+                colorSanMapping={
+                  analysisEnabled && showAnalysis
+                    ? analysisController.colorSanMapping
+                    : {}
+                }
+                playedMove={
+                  analysisEnabled && showAnalysis
+                    ? (analysisController.currentNode?.mainChild?.move ??
+                        undefined)
+                    : undefined
+                }
+                hover={analysisEnabled ? hover : mockHover}
+                makeMove={analysisEnabled ? makeMove : mockMakeMove}
               />
-            ) : null}
-          </div>
+            </div>
+          ) : (
+            <div
+              id="train-page"
+              className="relative flex aspect-square h-[100vw] w-screen"
+            >
+              <GameBoard
+                game={trainingGame}
+                currentNode={controller.currentNode}
+                orientation={controller.orientation}
+                availableMoves={controller.availableMovesMapped}
+                onPlayerMakeMove={onPlayerMakeMove}
+                shapes={hoverArrow ? [hoverArrow] : []}
+                onSelectSquare={onSelectSquare}
+              />
+              {promotionFromTo ? (
+                <PromotionOverlay
+                  player={currentPlayer}
+                  file={promotionFromTo[1].slice(0, 1)}
+                  onPlayerSelectPromotion={onPlayerSelectPromotion}
+                />
+              ) : null}
+            </div>
+          )}
           <div className="flex h-auto w-full flex-col gap-1">
             <div className="flex-none">
               <BoardController
@@ -1019,6 +1553,7 @@ const Train: React.FC<Props> = ({
                 getNewGame={getNewGame}
                 lastAttemptedMove={lastAttemptedMove}
                 setLastAttemptedMove={setLastAttemptedMove}
+                solutionMoveSan={solutionMoveSan}
               />
             </div>
             <StatsDisplay stats={stats} />
@@ -1051,59 +1586,87 @@ const Train: React.FC<Props> = ({
                 </div>
               )}
 
-              <div className="relative">
-                <Highlight
-                  setCurrentMaiaModel={
-                    analysisEnabled && showAnalysis
-                      ? analysisController.setCurrentMaiaModel
-                      : () => void 0
-                  }
-                  hover={analysisEnabled && showAnalysis ? hover : mockHover}
-                  makeMove={
-                    analysisEnabled && showAnalysis ? makeMove : mockMakeMove
-                  }
-                  currentMaiaModel={
-                    analysisEnabled && showAnalysis
-                      ? analysisController.currentMaiaModel
-                      : 'maia_kdd_1500'
-                  }
-                  recommendations={
-                    analysisEnabled && showAnalysis
-                      ? analysisController.moveRecommendations
-                      : emptyRecommendations
-                  }
-                  moveEvaluation={
-                    analysisEnabled && showAnalysis
-                      ? (analysisController.moveEvaluation as {
-                          maia?: MaiaEvaluation
-                          stockfish?: StockfishEvaluation
-                        })
-                      : {
-                          maia: undefined,
-                          stockfish: undefined,
-                        }
-                  }
-                  colorSanMapping={
-                    analysisEnabled && showAnalysis
-                      ? analysisController.colorSanMapping
-                      : {}
-                  }
-                  boardDescription={
-                    analysisEnabled && showAnalysis
-                      ? analysisController.boardDescription
-                      : {
-                          segments: [
-                            {
-                              type: 'text',
-                              content:
-                                'Complete the puzzle to unlock analysis, or analysis is disabled.',
-                            },
-                          ],
-                        }
-                  }
+              <div className="relative border-t border-glass-border bg-glass backdrop-blur-md">
+                <SimplifiedAnalysisOverview
+                  highlightProps={{
+                    setCurrentMaiaModel:
+                      analysisEnabled && showAnalysis
+                        ? analysisController.setCurrentMaiaModel
+                        : () => void 0,
+                    hover:
+                      analysisEnabled && showAnalysis ? hover : mockHover,
+                    makeMove:
+                      analysisEnabled && showAnalysis
+                        ? makeMove
+                        : mockMakeMove,
+                    currentMaiaModel:
+                      analysisEnabled && showAnalysis
+                        ? analysisController.currentMaiaModel
+                        : 'maia_kdd_1500',
+                    recommendations:
+                      analysisEnabled && showAnalysis
+                        ? analysisController.moveRecommendations
+                        : emptyRecommendations,
+                    moveEvaluation:
+                      analysisEnabled && showAnalysis
+                        ? (analysisController.moveEvaluation as {
+                            maia?: MaiaEvaluation
+                            stockfish?: StockfishEvaluation
+                          })
+                        : {
+                            maia: undefined,
+                            stockfish: undefined,
+                          },
+                    colorSanMapping:
+                      analysisEnabled && showAnalysis
+                        ? analysisController.colorSanMapping
+                        : {},
+                    boardDescription:
+                      analysisEnabled && showAnalysis
+                        ? analysisController.boardDescription
+                        : {
+                            segments: [
+                              {
+                                type: 'text',
+                                content:
+                                  'Complete the puzzle to unlock analysis, or analysis is disabled.',
+                              },
+                            ],
+                          },
+                    currentNode: analysisController.currentNode ?? undefined,
+                    simplified: true,
+                    hideWhiteWinRateSummary: true,
+                    hideStockfishEvalSummary: true,
+                  }}
+                  blunderMeterProps={{
+                    hover:
+                      analysisEnabled && showAnalysis ? hover : mockHover,
+                    makeMove:
+                      analysisEnabled && showAnalysis
+                        ? makeMove
+                        : mockMakeMove,
+                    data:
+                      analysisEnabled && showAnalysis
+                        ? analysisController.blunderMeter
+                        : emptyBlunderMeterData,
+                    colorSanMapping:
+                      analysisEnabled && showAnalysis
+                        ? analysisController.colorSanMapping
+                        : {},
+                    moveEvaluation:
+                      analysisEnabled && showAnalysis
+                        ? analysisController.moveEvaluation
+                        : undefined,
+                    playerToMove:
+                      analysisEnabled && showAnalysis
+                        ? (analysisController.currentNode?.turn ?? 'w')
+                        : 'w',
+                  }}
+                  analysisEnabled={analysisEnabled && showAnalysis}
+                  hideBlunderMeter={true}
                 />
                 {!analysisEnabled && showAnalysis && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-md">
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
                     <div className="rounded border border-glass-border bg-glass p-4 text-center shadow-lg">
                       <span className="material-symbols-outlined mb-1 text-xl text-human-3">
                         lock
@@ -1129,30 +1692,21 @@ const Train: React.FC<Props> = ({
               </div>
 
               <div className="relative">
-                <BlunderMeter
-                  hover={analysisEnabled && showAnalysis ? hover : mockHover}
-                  makeMove={
-                    analysisEnabled && showAnalysis ? makeMove : mockMakeMove
-                  }
-                  data={
+                <MovesByRating
+                  moves={
                     analysisEnabled && showAnalysis
-                      ? analysisController.blunderMeter
-                      : emptyBlunderMeterData
+                      ? analysisController.movesByRating
+                      : undefined
                   }
                   colorSanMapping={
                     analysisEnabled && showAnalysis
                       ? analysisController.colorSanMapping
                       : {}
                   }
-                  moveEvaluation={
+                  positionKey={
                     analysisEnabled && showAnalysis
-                      ? analysisController.moveEvaluation
+                      ? analysisController.currentNode?.fen
                       : undefined
-                  }
-                  playerToMove={
-                    analysisEnabled && showAnalysis
-                      ? (analysisController.currentNode?.turn ?? 'w')
-                      : 'w'
                   }
                 />
                 {!analysisEnabled && showAnalysis && (
