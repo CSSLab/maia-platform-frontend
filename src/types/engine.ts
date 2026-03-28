@@ -26,7 +26,7 @@ export interface MaiaEngine {
   maia?: Maia
   status: MaiaStatus
   progress: number
-  downloadModel: () => void
+  downloadModel: () => Promise<void>
 }
 
 export interface StockfishEngine {
