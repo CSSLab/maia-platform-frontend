@@ -126,14 +126,18 @@ export const DownloadModelModal: React.FC<Props> = ({
           </div>
 
           <div className="mt-4 flex w-full flex-col items-end justify-end gap-2 md:mt-6 md:flex-row">
-            {progress ? (
+            {isDownloading || progress > 0 ? (
               <div className="relative order-2 flex h-8 w-full items-center overflow-hidden rounded-md border border-glass-border bg-glass px-3 md:order-1 md:h-10 md:flex-1">
                 <p className="z-10 text-xs text-white/90 md:text-sm">
-                  {Math.round(progress)}%
+                  {progress > 0
+                    ? `${Math.round(progress)}%`
+                    : 'Starting download...'}
                 </p>
                 <div
-                  className="absolute left-0 top-0 z-0 h-full rounded-l-md bg-human-4 transition-all duration-500 ease-out"
-                  style={{ width: `${progress}%` }}
+                  className={`absolute left-0 top-0 z-0 h-full rounded-l-md bg-human-4 transition-all duration-500 ease-out ${
+                    progress === 0 ? 'animate-pulse' : ''
+                  }`}
+                  style={{ width: `${progress > 0 ? progress : 12}%` }}
                 />
               </div>
             ) : null}

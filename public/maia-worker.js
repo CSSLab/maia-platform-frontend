@@ -116,38 +116,50 @@ self.onmessage = async (e) => {
       }
 
       case 'download': {
+        postMessage({ type: 'status', status: 'downloading' })
+        postMessage({ type: 'progress', progress: 0 })
         const response = await fetch(modelUrl)
         if (!response.ok) throw new Error('Failed to fetch model')
 
-        const reader = response.body.getReader()
-        const contentLength = +(response.headers.get('Content-Length') || 0)
-        const chunks = []
-        let receivedLength = 0
-        let lastReportedProgress = 0
+        let buffer
 
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          chunks.push(value)
-          receivedLength += value.length
-          const currentProgress = Math.floor(
-            (receivedLength / contentLength) * 100,
-          )
-          if (currentProgress >= lastReportedProgress + 10) {
-            postMessage({ type: 'progress', progress: currentProgress })
-            lastReportedProgress = currentProgress
+        if (response.body && typeof response.body.getReader === 'function') {
+          const reader = response.body.getReader()
+          const contentLength = +(response.headers.get('Content-Length') || 0)
+          const chunks = []
+          let receivedLength = 0
+          let lastReportedProgress = 0
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            chunks.push(value)
+            receivedLength += value.length
+
+            if (contentLength > 0) {
+              const currentProgress = Math.floor(
+                (receivedLength / contentLength) * 100,
+              )
+              if (currentProgress >= lastReportedProgress + 10) {
+                postMessage({ type: 'progress', progress: currentProgress })
+                lastReportedProgress = currentProgress
+              }
+            }
           }
-        }
 
-        const buffer = new Uint8Array(receivedLength)
-        let position = 0
-        for (const chunk of chunks) {
-          buffer.set(chunk, position)
-          position += chunk.length
+          buffer = new Uint8Array(receivedLength)
+          let position = 0
+          for (const chunk of chunks) {
+            buffer.set(chunk, position)
+            position += chunk.length
+          }
+        } else {
+          buffer = new Uint8Array(await response.arrayBuffer())
         }
 
         await storeModel(modelUrl, modelVersion, buffer.buffer)
         await initSession(buffer.buffer)
+        postMessage({ type: 'progress', progress: 100 })
         postMessage({ type: 'status', status: 'ready' })
         break
       }
