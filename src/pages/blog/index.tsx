@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { Post } from 'src/types'
 import { getSortedPostsData } from 'src/lib/blog/posts'
 
+const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
+
 export default function Blog({ posts }: { posts: Post[] }) {
   return (
     <>
@@ -20,11 +22,10 @@ export default function Blog({ posts }: { posts: Post[] }) {
           content="Read the latest insights from the Maia Chess team about human-like chess AI, research updates, and platform developments."
         />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://maiachess.com/blog" />
-        <meta
-          property="og:image"
-          content="https://maiachess.com/maia-og-image.png"
-        />
+        <meta property="og:url" content="https://www.maiachess.com/blog" />
+        <meta property="og:image" content={OG_IMAGE_URL} />
+        <meta property="og:image:url" content={OG_IMAGE_URL} />
+        <meta property="og:image:secure_url" content={OG_IMAGE_URL} />
         <meta property="og:site_name" content="Maia Chess" />
 
         {/* Twitter Card */}
@@ -34,15 +35,13 @@ export default function Blog({ posts }: { posts: Post[] }) {
           name="twitter:description"
           content="Read the latest insights from the Maia Chess team about human-like chess AI, research updates, and platform developments."
         />
-        <meta
-          name="twitter:image"
-          content="https://maiachess.com/maia-og-image.png"
-        />
+        <meta name="twitter:image" content={OG_IMAGE_URL} />
+        <meta name="twitter:image:src" content={OG_IMAGE_URL} />
 
         {/* Additional SEO */}
         <meta name="author" content="Maia Chess Team" />
         <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://maiachess.com/blog" />
+        <link rel="canonical" href="https://www.maiachess.com/blog" />
       </Head>
       <div className="relative mx-auto flex h-full w-[90%] flex-col items-start justify-center gap-5 py-[10%] md:py-[2%]">
         <h1 className="text-4xl font-bold">Blog</h1>

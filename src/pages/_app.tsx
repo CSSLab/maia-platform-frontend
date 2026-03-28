@@ -35,6 +35,7 @@ import {
 import { browserPostHogConfig } from 'src/lib/posthog-browser-config'
 
 const openSansClassName = 'font-sans'
+const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
 
 function MaiaPlatform({ Component, pageProps }: AppProps) {
   const router = useRouter()
@@ -100,7 +101,9 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <link rel="apple-touch-icon" href="/maia-ios-icon.png" />
 
             {/* Open Graph meta tags for social media embeds */}
-            <meta property="og:image" content="/embed.png" />
+            <meta property="og:image" content={OG_IMAGE_URL} />
+            <meta property="og:image:url" content={OG_IMAGE_URL} />
+            <meta property="og:image:secure_url" content={OG_IMAGE_URL} />
             <meta property="og:image:alt" content="Maia Chess" />
             <meta property="og:image:type" content="image/png" />
             <meta property="og:image:width" content="1200" />
@@ -109,7 +112,8 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
 
             {/* Twitter Card meta tags */}
             <meta name="twitter:card" content="summary_large_image" />
-            <meta name="twitter:image" content="/embed.png" />
+            <meta name="twitter:image" content={OG_IMAGE_URL} />
+            <meta name="twitter:image:src" content={OG_IMAGE_URL} />
             <meta name="twitter:image:alt" content="Maia Chess" />
           </Head>
 
