@@ -179,12 +179,12 @@ export const useAnalysisController = (
     }
 
     if (moveEvaluation?.stockfish) {
-      const bestMove = Object.entries(moveEvaluation.stockfish.cp_vec)[0]
+      const bestMove = moveEvaluation.stockfish.model_move
       if (bestMove) {
         arrows.push({
           brush: 'blue',
-          orig: bestMove[0].slice(0, 2) as Key,
-          dest: bestMove[0].slice(2, 4) as Key,
+          orig: bestMove.slice(0, 2) as Key,
+          dest: bestMove.slice(2, 4) as Key,
           modifiers: { lineWidth: 8 },
         } as DrawShape)
       }
