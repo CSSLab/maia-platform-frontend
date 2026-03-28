@@ -139,12 +139,16 @@ export const MovesByRating: React.FC<Props> = ({
                   >
                     <stop
                       offset="5%"
-                      stopColor={displayedColorSanMapping[move]?.color ?? '#fff'}
+                      stopColor={
+                        displayedColorSanMapping[move]?.color ?? '#fff'
+                      }
                       stopOpacity={0.5}
                     />
                     <stop
                       offset="95%"
-                      stopColor={displayedColorSanMapping[move]?.color ?? '#fff'}
+                      stopColor={
+                        displayedColorSanMapping[move]?.color ?? '#fff'
+                      }
                       stopOpacity={0}
                     />
                   </linearGradient>
