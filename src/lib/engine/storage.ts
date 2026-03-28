@@ -7,6 +7,16 @@ interface ModelStorage {
   size: number
 }
 
+const MODEL_STORAGE_KEY = 'maia-rapid-model'
+
+function isCompatibleModelCache(
+  modelData: ModelStorage,
+  modelUrl: string,
+  modelVersion: string,
+): boolean {
+  return modelData.version === modelVersion && modelData.url === modelUrl
+}
+
 export class MaiaModelStorage {
   private dbName = 'MaiaModels'
   private storeName = 'models'
@@ -46,7 +56,7 @@ export class MaiaModelStorage {
       const store = transaction.objectStore(this.storeName)
 
       const modelData: ModelStorage = {
-        id: 'maia-rapid-model',
+        id: MODEL_STORAGE_KEY,
         url: modelUrl,
         version: modelVersion,
         data: new Blob([buffer]),
@@ -82,7 +92,7 @@ export class MaiaModelStorage {
       console.log('Storage: Requesting model data...')
       const modelData = await new Promise<ModelStorage | null>(
         (resolve, reject) => {
-          const request = store.get('maia-rapid-model')
+          const request = store.get(MODEL_STORAGE_KEY)
           request.onsuccess = () => {
             console.log(
               'Storage: IndexedDB request successful, result:',
@@ -104,34 +114,23 @@ export class MaiaModelStorage {
         return null
       }
 
-      // Version mismatch = genuinely new model, must re-download.
-      if (modelData.version && modelData.version !== modelVersion) {
-        console.log('Storage: Model version changed, clearing old cache')
-        console.log('Storage: Cached version:', modelData.version)
+      // Maia cache records must match both the expected model version and URL.
+      // Legacy Maia-2 downloads may not include a version field; treating those
+      // as incompatible forces the download modal to appear instead of leaving
+      // analysis in a broken "loaded old model" state.
+      if (!isCompatibleModelCache(modelData, modelUrl, modelVersion)) {
+        console.log(
+          'Storage: Cached Maia model is incompatible, clearing old cache',
+        )
+        console.log('Storage: Cached URL:', modelData.url || '(missing)')
+        console.log(
+          'Storage: Cached version:',
+          modelData.version || '(missing)',
+        )
+        console.log('Storage: Required URL:', modelUrl)
         console.log('Storage: Required version:', modelVersion)
         await this.deleteModel()
         return null
-      }
-
-      // URL changed but same version (e.g. moved hosts) — keep the cache,
-      // just update the stored URL so future loads match immediately.
-      if (modelData.url !== modelUrl || modelData.version !== modelVersion) {
-        console.log('Storage: Updating stored URL/version')
-        try {
-          const rwTx = db.transaction([this.storeName], 'readwrite')
-          const rwStore = rwTx.objectStore(this.storeName)
-          await new Promise<void>((resolve, reject) => {
-            const req = rwStore.put({
-              ...modelData,
-              url: modelUrl,
-              version: modelVersion,
-            })
-            req.onsuccess = () => resolve()
-            req.onerror = () => reject(req.error)
-          })
-        } catch (e) {
-          console.warn('Storage: Failed to update stored URL/version:', e)
-        }
       }
 
       console.log('Storage: Converting Blob to ArrayBuffer...')
@@ -156,7 +155,7 @@ export class MaiaModelStorage {
       const store = transaction.objectStore(this.storeName)
 
       await new Promise<void>((resolve, reject) => {
-        const request = store.delete('maia-rapid-model')
+        const request = store.delete(MODEL_STORAGE_KEY)
         request.onsuccess = () => resolve()
         request.onerror = () => reject(request.error)
       })
@@ -193,7 +192,7 @@ export class MaiaModelStorage {
 
       const modelData = await new Promise<ModelStorage | null>(
         (resolve, reject) => {
-          const request = store.get('maia-rapid-model')
+          const request = store.get(MODEL_STORAGE_KEY)
           request.onsuccess = () => resolve(request.result || null)
           request.onerror = () => reject(request.error)
         },
