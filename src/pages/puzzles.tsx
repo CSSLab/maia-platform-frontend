@@ -162,8 +162,8 @@ const TrainPage: NextPage = () => {
       const solutionMoveUci = response.correct_moves?.[0]
       const solutionSan =
         solutionMoveUci && trainingGames[puzzleIdx]
-          ? trainingGames[puzzleIdx].availableMoves?.[solutionMoveUci]?.san ??
-            null
+          ? (trainingGames[puzzleIdx].availableMoves?.[solutionMoveUci]?.san ??
+            null)
           : null
 
       if (solutionSan) {
@@ -506,7 +506,8 @@ const Train: React.FC<Props> = ({
     smoothedEvalPosition,
   ])
 
-  const currentTurnForBars: 'w' | 'b' = analysisController.currentNode?.turn || 'w'
+  const currentTurnForBars: 'w' | 'b' =
+    analysisController.currentNode?.turn || 'w'
 
   const isCurrentPositionCheckmateForBars = useMemo(() => {
     if (!analysisController.currentNode) return false
@@ -1040,7 +1041,7 @@ const Train: React.FC<Props> = ({
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
     >
-      <div className="flex h-full flex-row gap-4 w-[92%] xl:w-[94%] xl:gap-5 2xl:w-[97%]">
+      <div className="flex h-full w-[92%] flex-row gap-4 xl:w-[94%] xl:gap-5 2xl:w-[97%]">
         <motion.div
           className="desktop-left-column-container flex min-h-0 flex-col gap-2"
           variants={itemVariants}
@@ -1067,7 +1068,9 @@ const Train: React.FC<Props> = ({
             </GameInfo>
           </div>
 
-          <div className="flex min-h-0 flex-1 overflow-hidden">{gamesController}</div>
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {gamesController}
+          </div>
 
           <Feedback
             status={status}
@@ -1136,9 +1139,7 @@ const Train: React.FC<Props> = ({
                   <AnalysisMaiaWinrateBar
                     hasValue={renderedMaiaWhiteWinBar.hasValue}
                     displayText={renderedMaiaWhiteWinBar.label}
-                    labelPositionTop={
-                      smoothedMaiaWhiteWinVerticalPositionLabel
-                    }
+                    labelPositionTop={smoothedMaiaWhiteWinVerticalPositionLabel}
                     disabled={!analysisEnabled}
                     variant="desktop"
                   />
@@ -1201,7 +1202,10 @@ const Train: React.FC<Props> = ({
                   />
                 </div>
               </div>
-              <div ref={desktopBlunderMeterSectionRef} className="shrink-0 pt-3">
+              <div
+                ref={desktopBlunderMeterSectionRef}
+                className="shrink-0 pt-3"
+              >
                 <AnalysisCompactBlunderMeter
                   variant="desktop"
                   data={compactBlunderMeterData}
@@ -1213,7 +1217,7 @@ const Train: React.FC<Props> = ({
                   playedMove={
                     analysisEnabled && showAnalysis
                       ? (analysisController.currentNode?.mainChild?.move ??
-                          undefined)
+                        undefined)
                       : undefined
                   }
                   hover={analysisEnabled ? hover : mockHover}
@@ -1383,9 +1387,7 @@ const Train: React.FC<Props> = ({
                         ? `${Math.round(renderedMaiaWhiteWinBar.percent)}%`
                         : '--'
                     }
-                    labelPositionTop={
-                      smoothedMaiaWhiteWinVerticalPositionLabel
-                    }
+                    labelPositionTop={smoothedMaiaWhiteWinVerticalPositionLabel}
                     disabled={!analysisEnabled}
                     variant="mobile"
                   />
@@ -1462,7 +1464,7 @@ const Train: React.FC<Props> = ({
                 playedMove={
                   analysisEnabled && showAnalysis
                     ? (analysisController.currentNode?.mainChild?.move ??
-                        undefined)
+                      undefined)
                     : undefined
                 }
                 hover={analysisEnabled ? hover : mockHover}
@@ -1593,12 +1595,9 @@ const Train: React.FC<Props> = ({
                       analysisEnabled && showAnalysis
                         ? analysisController.setCurrentMaiaModel
                         : () => void 0,
-                    hover:
-                      analysisEnabled && showAnalysis ? hover : mockHover,
+                    hover: analysisEnabled && showAnalysis ? hover : mockHover,
                     makeMove:
-                      analysisEnabled && showAnalysis
-                        ? makeMove
-                        : mockMakeMove,
+                      analysisEnabled && showAnalysis ? makeMove : mockMakeMove,
                     currentMaiaModel:
                       analysisEnabled && showAnalysis
                         ? analysisController.currentMaiaModel
@@ -1639,12 +1638,9 @@ const Train: React.FC<Props> = ({
                     hideStockfishEvalSummary: true,
                   }}
                   blunderMeterProps={{
-                    hover:
-                      analysisEnabled && showAnalysis ? hover : mockHover,
+                    hover: analysisEnabled && showAnalysis ? hover : mockHover,
                     makeMove:
-                      analysisEnabled && showAnalysis
-                        ? makeMove
-                        : mockMakeMove,
+                      analysisEnabled && showAnalysis ? makeMove : mockMakeMove,
                     data:
                       analysisEnabled && showAnalysis
                         ? analysisController.blunderMeter
