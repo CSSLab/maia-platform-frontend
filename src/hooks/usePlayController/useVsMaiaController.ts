@@ -33,6 +33,7 @@ export const useVsMaiaPlayController = (
 
   useEffect(() => {
     let canceled = false
+    let moveTimeout: ReturnType<typeof setTimeout> | undefined
 
     const makeMaiaMove = async () => {
       if (
@@ -73,7 +74,11 @@ export const useVsMaiaPlayController = (
           const minimumDelayMs = 200 + Math.random() * 100
           const delayMs = Math.max(moveDelay * 1000, minimumDelayMs)
 
-          setTimeout(() => {
+          moveTimeout = setTimeout(() => {
+            if (canceled) {
+              return
+            }
+
             const moveTime = controller.updateClock()
 
             const chess = new Chess(controller.currentNode.fen)
@@ -100,6 +105,10 @@ export const useVsMaiaPlayController = (
 
     return () => {
       canceled = true
+
+      if (moveTimeout) {
+        clearTimeout(moveTimeout)
+      }
     }
   }, [
     controller.game.id,

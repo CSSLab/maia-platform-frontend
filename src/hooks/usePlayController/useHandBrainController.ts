@@ -129,6 +129,7 @@ export const useHandBrainController = (
 
   useEffect(() => {
     let canceled = false
+    let moveTimeout: ReturnType<typeof setTimeout> | undefined
 
     const makeMaiaMove = async () => {
       const maiaClock =
@@ -160,8 +161,12 @@ export const useHandBrainController = (
         return
       }
 
-      setTimeout(
+      moveTimeout = setTimeout(
         () => {
+          if (canceled) {
+            return
+          }
+
           const moveTime = controller.updateClock()
 
           const chess = new Chess(controller.currentNode.fen)
@@ -183,6 +188,10 @@ export const useHandBrainController = (
       makeMaiaMove()
       return () => {
         canceled = true
+
+        if (moveTimeout) {
+          clearTimeout(moveTimeout)
+        }
       }
     }
   }, [

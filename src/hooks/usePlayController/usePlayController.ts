@@ -61,6 +61,7 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
 
   const [treeVersion, setTreeVersion] = useState<number>(0)
   const [resigned, setResigned] = useState<boolean>(false)
+  const [timeExpired, setTimeExpired] = useState<Color | null>(null)
 
   const [baseMinutes, incrementSeconds] =
     config.timeControl == 'unlimited'
@@ -89,15 +90,15 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     const turn = lastNode.turn
     const chess = gameTree.toChess()
 
-    const termination = resigned
-      ? Math.min(whiteClock, blackClock) > 0
+    const termination = timeExpired
+      ? computeTimeTermination(chess, timeExpired)
+      : resigned
         ? ({
             result: turn == 'w' ? '0-1' : '1-0',
             winner: turn == 'w' ? 'black' : 'white',
             type: 'resign',
           } as Termination)
-        : computeTimeTermination(chess, turn == 'w' ? 'white' : 'black')
-      : computeTermination(chess)
+        : computeTermination(chess)
 
     const moves = []
     const rootNode = gameTree.getRoot()
@@ -131,7 +132,7 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
       tree: gameTree,
       turn: turn == 'b' ? 'black' : 'white',
     }
-  }, [gameTree, treeVersion, resigned, whiteClock, blackClock, id])
+  }, [gameTree, treeVersion, resigned, timeExpired, whiteClock, blackClock, id])
 
   const toPlay: Color | null = game.termination ? null : game.turn
   const playerActive = toPlay == config.player
@@ -199,27 +200,41 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     ],
   )
 
+  const expireOnTime = useCallback((color: Color) => {
+    const now = Date.now()
+
+    if (color == 'white') {
+      setWhiteClock(0)
+    } else {
+      setBlackClock(0)
+    }
+
+    setLastMoveTime(now)
+    setTimeExpired(color)
+  }, [])
+
   useEffect(() => {
     if (
-      playerActive &&
+      !game.termination &&
       moveList.length > 1 &&
-      config.timeControl != 'unlimited'
+      config.timeControl != 'unlimited' &&
+      toPlay
     ) {
-      const timeRemaining = config.player == 'white' ? whiteClock : blackClock
+      const activeColor = toPlay
+      const timeRemaining = activeColor == 'white' ? whiteClock : blackClock
       const timeout = setTimeout(() => {
-        updateClock()
-        setResigned(true)
+        expireOnTime(activeColor)
       }, timeRemaining)
 
       return () => clearTimeout(timeout)
     }
   }, [
+    expireOnTime,
+    game.termination,
     blackClock,
     moveList.length,
-    config.player,
-    playerActive,
     config.timeControl,
-    updateClock,
+    toPlay,
     whiteClock,
   ])
 
@@ -253,6 +268,7 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     const newTree = new GameTree(config.startFen || nullFen)
     setGameTree(newTree)
     setResigned(false)
+    setTimeExpired(null)
     setLastMoveTime(0)
     setWhiteClock(initialClockValue)
     setBlackClock(initialClockValue)
