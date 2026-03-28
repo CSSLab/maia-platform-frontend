@@ -14,6 +14,51 @@ type ColorSanMappingResult = {
   }
 }
 
+const getStockfishMoveOrderingScore = (
+  stockfish: StockfishEvaluation,
+  move: string,
+): number => {
+  const winrateLoss = stockfish.winrate_loss_vec?.[move]
+  if (winrateLoss !== undefined) {
+    return winrateLoss
+  }
+
+  const relativeEval = stockfish.cp_relative_vec?.[move]
+  if (relativeEval !== undefined) {
+    return relativeEval
+  }
+
+  const cp = stockfish.cp_vec?.[move]
+  if (cp !== undefined) {
+    return cp
+  }
+
+  return Number.NEGATIVE_INFINITY
+}
+
+export const sortStockfishMoves = (
+  stockfish: StockfishEvaluation,
+  moves: string[],
+): string[] =>
+  [...moves].sort((a, b) => {
+    const scoreDiff =
+      getStockfishMoveOrderingScore(stockfish, b) -
+      getStockfishMoveOrderingScore(stockfish, a)
+
+    if (scoreDiff !== 0) {
+      return scoreDiff
+    }
+
+    const cpDiff =
+      (stockfish.cp_vec?.[b] ?? Number.NEGATIVE_INFINITY) -
+      (stockfish.cp_vec?.[a] ?? Number.NEGATIVE_INFINITY)
+    if (cpDiff !== 0) {
+      return cpDiff
+    }
+
+    return a.localeCompare(b)
+  })
+
 // Unified function to calculate color for a single move
 export const calculateMoveColor = (
   stockfish: StockfishEvaluation | undefined,
@@ -56,6 +101,7 @@ export const generateColorSanMapping = (
 
   const chess = new Chess(fen)
   const moves = chess.moves({ verbose: true })
+  const moveKeys = moves.map((m) => `${m.from}${m.to}${m.promotion || ''}`)
   moves.forEach((m) => {
     const moveKey = `${m.from}${m.to}${m.promotion || ''}`
     mapping[moveKey] = {
@@ -81,51 +127,37 @@ export const generateColorSanMapping = (
       stockfish.winrate_loss_vec &&
       Object.keys(stockfish.winrate_loss_vec).length > 0
     ) {
-      const goodMoves = moves
-        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
-        .filter((move) => {
+      const goodMoves = sortStockfishMoves(
+        stockfish,
+        moveKeys.filter((move) => {
           const winrateLoss = stockfish.winrate_loss_vec?.[move]
           return (
             winrateLoss !== undefined &&
             winrateLoss >= -MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD
           )
-        })
-        .sort((a, b) => {
-          const aLoss = stockfish.winrate_loss_vec?.[a] || 0
-          const bLoss = stockfish.winrate_loss_vec?.[b] || 0
-          return bLoss - aLoss
-        })
-
-      const okMoves = moves
-        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
-        .filter((move) => {
+        }),
+      )
+      const okMoves = sortStockfishMoves(
+        stockfish,
+        moveKeys.filter((move) => {
           const winrateLoss = stockfish.winrate_loss_vec?.[move]
           return (
             winrateLoss !== undefined &&
             winrateLoss >= -MOVE_CLASSIFICATION_THRESHOLDS.BLUNDER_THRESHOLD &&
             winrateLoss < -MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD
           )
-        })
-        .sort((a, b) => {
-          const aLoss = stockfish.winrate_loss_vec?.[a] || 0
-          const bLoss = stockfish.winrate_loss_vec?.[b] || 0
-          return bLoss - aLoss
-        })
-
-      const blunderMoves = moves
-        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
-        .filter((move) => {
+        }),
+      )
+      const blunderMoves = sortStockfishMoves(
+        stockfish,
+        moveKeys.filter((move) => {
           const winrateLoss = stockfish.winrate_loss_vec?.[move]
           return (
             winrateLoss !== undefined &&
             winrateLoss < -MOVE_CLASSIFICATION_THRESHOLDS.BLUNDER_THRESHOLD
           )
-        })
-        .sort((a, b) => {
-          const aLoss = stockfish.winrate_loss_vec?.[a] || 0
-          const bLoss = stockfish.winrate_loss_vec?.[b] || 0
-          return bLoss - aLoss
-        })
+        }),
+      )
 
       goodMoves.forEach((move, i) => {
         mapping[move].color = COLORS.good[Math.min(i, COLORS.good.length - 1)]
@@ -140,30 +172,23 @@ export const generateColorSanMapping = (
           COLORS.blunder[Math.min(i, COLORS.blunder.length - 1)]
       })
     } else {
-      const goodMoves = moves
-        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
-        .filter((move) => stockfish.cp_relative_vec[move] >= -50)
-        .sort(
-          (a, b) => stockfish.cp_relative_vec[b] - stockfish.cp_relative_vec[a],
-        )
-
-      const okMoves = moves
-        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
-        .filter(
-          (move) =>
+      const goodMoves = sortStockfishMoves(
+        stockfish,
+        moveKeys.filter((move) => stockfish.cp_relative_vec[move] >= -50),
+      )
+      const okMoves = sortStockfishMoves(
+        stockfish,
+        moveKeys.filter((move) => {
+          return (
             stockfish.cp_relative_vec[move] >= -150 &&
-            stockfish.cp_relative_vec[move] < -50,
-        )
-        .sort(
-          (a, b) => stockfish.cp_relative_vec[b] - stockfish.cp_relative_vec[a],
-        )
-
-      const blunderMoves = moves
-        .map((m) => `${m.from}${m.to}${m.promotion || ''}`)
-        .filter((move) => stockfish.cp_relative_vec[move] < -150)
-        .sort(
-          (a, b) => stockfish.cp_relative_vec[b] - stockfish.cp_relative_vec[a],
-        )
+            stockfish.cp_relative_vec[move] < -50
+          )
+        }),
+      )
+      const blunderMoves = sortStockfishMoves(
+        stockfish,
+        moveKeys.filter((move) => stockfish.cp_relative_vec[move] < -150),
+      )
 
       goodMoves.forEach((move, i) => {
         mapping[move].color = COLORS.good[Math.min(i, COLORS.good.length - 1)]
