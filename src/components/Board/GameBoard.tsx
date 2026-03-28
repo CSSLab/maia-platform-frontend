@@ -69,6 +69,7 @@ export const GameBoard: React.FC<Props> = ({
   destinationBadges = [],
 }: Props) => {
   const { playMoveSound } = useSound()
+  const boardInstanceKey = game?.id ?? 'board'
 
   const after = useCallback(
     (from: string, to: string) => {
@@ -151,6 +152,7 @@ export const GameBoard: React.FC<Props> = ({
   return (
     <div className="relative h-full w-full">
       <Chessground
+        key={boardInstanceKey}
         contained
         config={{
           movable: {

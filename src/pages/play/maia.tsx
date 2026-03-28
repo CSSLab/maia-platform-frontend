@@ -53,7 +53,7 @@ const PlayMaia: React.FC<Props> = ({
   }, [controller.playerActive, controller.game.termination])
 
   return (
-    <PlayControllerContext.Provider value={controller}>
+    <PlayControllerContext.Provider key={id} value={controller}>
       <GameplayInterface>
         <div id="play-controls">
           <PlayControls

@@ -11,7 +11,7 @@ import {
 import Head from 'next/head'
 import { useUnload } from 'src/hooks/useUnload'
 import type { DrawShape } from 'chessground/draw'
-import { useCallback, useContext, useMemo, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
   AuthContext,
   WindowSizeContext,
@@ -56,6 +56,10 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
+
+  useEffect(() => {
+    setPromotionFromTo(null)
+  }, [game.id])
 
   const onPlayerMakeMove = useCallback(
     (move: [string, string] | null) => {
@@ -199,6 +203,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
             className="relative flex aspect-square w-full max-w-[75vh] flex-shrink-0"
           >
             <GameBoard
+              key={game.id}
               game={game}
               availableMoves={availableMovesMapped}
               onPlayerMakeMove={onPlayerMakeMove}
@@ -272,6 +277,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
             className="relative mx-auto flex aspect-square w-full max-w-3xl"
           >
             <GameBoard
+              key={game.id}
               game={game}
               availableMoves={availableMovesMapped}
               onPlayerMakeMove={onPlayerMakeMove}
