@@ -185,6 +185,13 @@ svg {
   background-color: rgb(var(--color-human-accent4));
 }
 
+.maia-native-select option,
+.maia-native-select optgroup {
+  background-color: rgb(255 255 255);
+  color: rgb(17 24 39);
+  -webkit-text-fill-color: rgb(17 24 39);
+}
+
 .spinner {
   border: 4px solid rgb(var(--color-background4));
   border-left-color: rgb(var(--color-human-accent1));
