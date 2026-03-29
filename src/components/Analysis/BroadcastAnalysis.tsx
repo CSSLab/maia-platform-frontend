@@ -1227,6 +1227,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 <MovesByRating
                   moves={analysisController.movesByRating}
                   colorSanMapping={analysisController.colorSanMapping}
+                  positionKey={analysisController.currentNode?.fen}
                 />
               </div>
             </div>
