@@ -115,12 +115,21 @@ const BroadcastAnalysisPage: NextPage = () => {
     undefined,
     false,
   )
+  const defaultModelAppliedForGameId = useRef<string | null>(null)
 
   useEffect(() => {
-    if (analysisController.currentMaiaModel !== 'maia_kdd_2600') {
-      analysisController.setCurrentMaiaModel('maia_kdd_2600')
-    }
+    const gameId = broadcastController.currentGame?.id
+    if (!gameId) return
+
+    if (defaultModelAppliedForGameId.current === gameId) return
+
+    defaultModelAppliedForGameId.current = gameId
+
+    if (analysisController.currentMaiaModel === 'maia_kdd_2600') return
+
+    analysisController.setCurrentMaiaModel('maia_kdd_2600')
   }, [
+    broadcastController.currentGame?.id,
     analysisController.currentMaiaModel,
     analysisController.setCurrentMaiaModel,
   ])
