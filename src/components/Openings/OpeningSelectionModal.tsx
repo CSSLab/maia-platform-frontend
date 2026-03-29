@@ -139,6 +139,10 @@ interface Props {
   endgames?: Opening[]
   endgameDataset?: EndgameDataset
   initialSelections?: OpeningSelection[]
+  initialCustomDraft?: {
+    input: string
+    name?: string
+  } | null
   onComplete: (configuration: DrillConfiguration) => void
   onClose: () => void
 }
@@ -385,6 +389,8 @@ const BrowsePanel: React.FC<{
   onRemoveCustomOpening: (openingId: string) => void
   browseCategory: 'openings' | 'endgames' | 'custom'
   onBrowseCategoryChange: (category: 'openings' | 'endgames' | 'custom') => void
+  customNameInput: string
+  setCustomNameInput: (value: string) => void
   customInput: string
   setCustomInput: (value: string) => void
   customError: string | null
@@ -405,6 +411,8 @@ const BrowsePanel: React.FC<{
   onRemoveCustomOpening,
   browseCategory,
   onBrowseCategoryChange,
+  customNameInput,
+  setCustomNameInput,
   customInput,
   setCustomInput,
   customError,
@@ -582,6 +590,13 @@ const BrowsePanel: React.FC<{
             onAddCustomPosition()
           }}
         >
+          <input
+            type="text"
+            value={customNameInput}
+            onChange={(e) => setCustomNameInput(e.target.value)}
+            placeholder="Position name"
+            className="w-full rounded-md border border-white/[0.08] bg-white/[0.04] px-3 py-[9px] text-[13px] text-white placeholder-white/35 focus:outline-none focus:ring-1 focus:ring-white/15"
+          />
           <div className="flex gap-2">
             <input
               type="text"
@@ -1454,11 +1469,29 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   endgames = [],
   endgameDataset,
   initialSelections = [],
+  initialCustomDraft = null,
   onComplete,
   onClose,
 }) => {
   const { startTour } = useTour()
   const { isMobile } = useContext(WindowSizeContext)
+  const linkedDraftOpening = useMemo<Opening | null>(
+    () =>
+      initialCustomDraft?.input
+        ? {
+            id: 'linked-custom-draft',
+            name: initialCustomDraft.name?.trim() || 'Custom Position',
+            description: 'Linked custom position draft.',
+            fen: initialCustomDraft.input,
+            pgn: '',
+            variations: [],
+            isCustom: true,
+            setupFen: initialCustomDraft.input,
+            categoryType: 'custom',
+          }
+        : null,
+    [initialCustomDraft],
+  )
 
   const normalizedOpenings = useMemo(
     () =>
@@ -1506,8 +1539,17 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       }
     })
 
+    if (linkedDraftOpening) {
+      unique.set(linkedDraftOpening.id, linkedDraftOpening)
+    }
+
     return Array.from(unique.values())
-  }, [initialSelections, normalizedEndgames, normalizedOpenings])
+  }, [
+    initialSelections,
+    linkedDraftOpening,
+    normalizedEndgames,
+    normalizedOpenings,
+  ])
 
   const fallbackOpening = useMemo<Opening>(
     () => ({
@@ -1551,17 +1593,19 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   const hasEndgames = normalizedEndgames.length > 0
 
   const initialBrowseCategory: 'openings' | 'endgames' | 'custom' =
-    initialSelectionCategory === 'opening'
-      ? 'openings'
-      : initialSelectionCategory === 'endgame'
-        ? 'endgames'
-        : initialSelectionCategory === 'custom'
-          ? 'custom'
-          : hasOpenings
-            ? 'openings'
-            : hasEndgames
-              ? 'endgames'
-              : 'custom'
+    linkedDraftOpening
+      ? 'custom'
+      : initialSelectionCategory === 'opening'
+        ? 'openings'
+        : initialSelectionCategory === 'endgame'
+          ? 'endgames'
+          : initialSelectionCategory === 'custom'
+            ? 'custom'
+            : hasOpenings
+              ? 'openings'
+              : hasEndgames
+                ? 'endgames'
+                : 'custom'
 
   const [browseCategory, setBrowseCategory] = useState<
     'openings' | 'endgames' | 'custom'
@@ -1633,7 +1677,12 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   const [mobilePopupVariation, setMobilePopupVariation] =
     useState<OpeningVariation | null>(null)
   const [mobilePopupOpen, setMobilePopupOpen] = useState(false)
-  const [customInput, setCustomInput] = useState('')
+  const [customNameInput, setCustomNameInput] = useState(
+    initialCustomDraft?.name ?? '',
+  )
+  const [customInput, setCustomInput] = useState(
+    initialCustomDraft?.input ?? '',
+  )
   const [customError, setCustomError] = useState<string | null>(null)
   const getDefaultPreviewByCategory = useCallback(
     (category: 'openings' | 'endgames' | 'custom'): Opening => {
@@ -1944,10 +1993,11 @@ export const OpeningSelectionModal: React.FC<Props> = ({
 
     const finalFen = chess.fen()
     const generatedId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const trimmedCustomName = customNameInput.trim()
 
     const newOpening: Opening = {
       id: generatedId,
-      name: `Custom Position ${customOpenings.length + 1}`,
+      name: trimmedCustomName || `Custom Position ${customOpenings.length + 1}`,
       description:
         detectedFen && !parsedPgn
           ? 'Custom drill created from a supplied FEN.'
@@ -1975,6 +2025,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     setCustomOpenings((prev) => [newOpening, ...prev])
     setPreviewOpening(newOpening)
     setPreviewVariation(null)
+    setCustomNameInput('')
     setCustomInput('')
     setCustomError(null)
     handleBrowseCategoryChange('custom', { preservePreview: true })
@@ -2612,6 +2663,8 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             onRemoveCustomOpening={handleRemoveCustomOpening}
             browseCategory={browseCategory}
             onBrowseCategoryChange={handleBrowseCategoryChange}
+            customNameInput={customNameInput}
+            setCustomNameInput={setCustomNameInput}
             customInput={customInput}
             setCustomInput={setCustomInput}
             customError={customError}

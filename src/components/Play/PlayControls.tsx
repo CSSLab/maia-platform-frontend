@@ -1,15 +1,17 @@
 import { useState } from 'react'
 
-import { BaseGame } from 'src/types'
+import { PlayedGame } from 'src/types'
 import { ResignationConfirmModal } from 'src/components'
 
 interface Props {
-  game: BaseGame
+  game: PlayedGame
   playerActive: boolean
   gameOver: boolean
   resign?: () => void
   offerDraw?: () => void
   playAgain?: () => void
+  returnTo?: () => void
+  returnToLabel?: string
   simulateMaiaTime?: boolean
   setSimulateMaiaTime?: (value: boolean) => void
 }
@@ -21,6 +23,8 @@ export const PlayControls: React.FC<Props> = ({
   resign,
   offerDraw,
   playAgain,
+  returnTo,
+  returnToLabel = 'RETURN',
   simulateMaiaTime,
   setSimulateMaiaTime,
 }: Props) => {
@@ -56,6 +60,14 @@ export const PlayControls: React.FC<Props> = ({
               className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
             >
               PLAY AGAIN
+            </button>
+          ) : null}
+          {returnTo ? (
+            <button
+              onClick={returnTo}
+              className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
+            >
+              {returnToLabel}
             </button>
           ) : null}
         </div>

@@ -82,11 +82,35 @@ interface Props {
   sampleMoves?: boolean
   simulateMaiaTime?: boolean
   startFen?: string
+  returnTo?: string
+  challengeId?: string
+  forcedPlayerColor?: Color
+  modalTitle?: string
+  modalSubtitle?: string
 }
 
 export const PlaySetupModal: React.FC<Props> = (props: Props) => {
   const { setPlaySetupModalProps } = useContext(ModalContext)
-  const { push } = useRouter()
+  const router = useRouter()
+  const { push } = router
+
+  const dismissModal = useCallback(() => {
+    setPlaySetupModalProps(undefined)
+
+    if (
+      props.returnTo &&
+      router.pathname === '/play' &&
+      router.asPath !== props.returnTo
+    ) {
+      push(props.returnTo)
+    }
+  }, [
+    props.returnTo,
+    push,
+    router.asPath,
+    router.pathname,
+    setPlaySetupModalProps,
+  ])
 
   const [timeControl, setTimeControl] = useState<TimeControl>(
     props.timeControl || TimeControlOptions[0],
@@ -118,9 +142,22 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
   const [fen, setFen] = useState<string | undefined>(
     props.startFen ? props.startFen : undefined,
   )
+  const forcedPlayerColor = props.forcedPlayerColor
+  const colorSelectionLocked = forcedPlayerColor !== undefined
+  const positionLocked = forcedPlayerColor !== undefined
 
   const [openMoreOptions, setMoreOptionsOpen] = useState<boolean>(true)
   const compactHandBrainLayout = props.playType === 'handAndBrain'
+  const modalTitle =
+    props.modalTitle ||
+    (props.playType == 'againstMaia'
+      ? 'Play Against Maia'
+      : 'Play Hand and Brain')
+  const modalSubtitle =
+    props.modalSubtitle ||
+    (props.playType == 'againstMaia'
+      ? 'Configure your game settings and choose your side'
+      : 'Team up with Maia in Hand and Brain chess')
 
   const handlePresetSelect = useCallback((preset: TimeControl) => {
     setTimeControl(preset)
@@ -156,7 +193,16 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
 
   const start = useCallback(
     (color: Color | undefined) => {
+      if (
+        forcedPlayerColor &&
+        color !== undefined &&
+        color !== forcedPlayerColor
+      ) {
+        return
+      }
+
       const player = color ?? ['white', 'black'][Math.floor(Math.random() * 2)]
+      const resolvedPlayer = forcedPlayerColor ?? player
 
       if (fen && !new Chess().validateFen(fen).valid) {
         toast.error('Invalid Starting FEN provided')
@@ -169,20 +215,25 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
         push({
           pathname: '/play/maia',
           query: {
-            player: player,
+            player: resolvedPlayer,
             //maiaPartnerVersion: maiaPartnerVersion,
             maiaVersion: maiaVersion,
             timeControl: timeControl,
             sampleMoves: sampleMoves,
             simulateMaiaTime: simulateMaiaTime,
             startFen: fen,
+            returnTo: props.returnTo,
+            challengeId: props.challengeId,
+            forcedColor: forcedPlayerColor,
+            modalTitle: props.modalTitle,
+            modalSubtitle: props.modalSubtitle,
           },
         })
       } else {
         push({
           pathname: '/play/hb',
           query: {
-            player: player,
+            player: resolvedPlayer,
             maiaPartnerVersion: maiaPartnerVersion,
             maiaVersion: maiaVersion,
             timeControl: timeControl,
@@ -204,13 +255,18 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
       sampleMoves,
       simulateMaiaTime,
       fen,
+      forcedPlayerColor,
       isBrain,
+      props.challengeId,
+      props.modalSubtitle,
+      props.modalTitle,
+      props.returnTo,
     ],
   )
 
   return (
     <AnimatePresence>
-      <ModalContainer dismiss={() => setPlaySetupModalProps(undefined)}>
+      <ModalContainer dismiss={dismissModal}>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -231,7 +287,7 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
           <button
             className="absolute right-4 top-4 z-10 text-secondary transition-colors hover:text-primary"
             title="Close"
-            onClick={() => setPlaySetupModalProps(undefined)}
+            onClick={dismissModal}
           >
             <span className="material-symbols-outlined">close</span>
           </button>
@@ -242,16 +298,8 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               compactHandBrainLayout ? 'px-4 py-3' : 'p-4'
             }`}
           >
-            <h2 className="text-xl font-bold text-primary">
-              {props.playType == 'againstMaia'
-                ? 'Play Against Maia'
-                : 'Play Hand and Brain'}
-            </h2>
-            <p className="text-xs text-secondary">
-              {props.playType == 'againstMaia'
-                ? 'Configure your game settings and choose your side'
-                : 'Team up with Maia in Hand and Brain chess'}
-            </p>
+            <h2 className="text-xl font-bold text-primary">{modalTitle}</h2>
+            <p className="text-xs text-secondary">{modalSubtitle}</p>
           </div>
 
           {/* Settings Section */}
@@ -484,11 +532,18 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
                     type="text"
                     value={fen}
                     placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                    readOnly={positionLocked}
                     onChange={(e) => setFen(e.target.value)}
-                    className="w-full rounded border border-glass-border bg-glass px-3 py-2 font-mono text-xs text-white/90 placeholder-white/60 focus:outline-none"
+                    className={`w-full rounded border border-glass-border px-3 py-2 font-mono text-xs placeholder-white/60 focus:outline-none ${
+                      positionLocked
+                        ? 'bg-glass text-white/90'
+                        : 'bg-glass text-white/90'
+                    }`}
                   />
                   <p className="mt-1 text-xs text-secondary">
-                    Enter a valid FEN string to start from a specific position
+                    {positionLocked
+                      ? 'This challenge uses a fixed starting position.'
+                      : 'Enter a valid FEN string to start from a specific position'}
                   </p>
                 </div>
               )}
@@ -508,11 +563,22 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
             >
               Choose your color:
             </p>
+            {colorSelectionLocked ? (
+              <p className="mb-3 text-center text-xs text-secondary">
+                This challenge starts with{' '}
+                {forcedPlayerColor === 'white' ? 'White' : 'Black'} to move.
+              </p>
+            ) : null}
             <div className="flex items-center justify-center gap-4">
               <button
                 onClick={() => start('black')}
                 title="Play as black"
-                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glass-border bg-glass transition-colors hover:bg-glass-stronger"
+                disabled={colorSelectionLocked && forcedPlayerColor !== 'black'}
+                className={`flex h-16 w-16 items-center justify-center rounded border border-glass-border transition-colors ${
+                  colorSelectionLocked && forcedPlayerColor !== 'black'
+                    ? 'cursor-not-allowed bg-glass/40 opacity-40'
+                    : 'cursor-pointer bg-glass hover:bg-glass-stronger'
+                }`}
               >
                 <div className="relative h-10 w-10">
                   <Image
@@ -525,7 +591,12 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start(undefined)}
                 title="Play as random color"
-                className="flex h-20 w-20 cursor-pointer items-center justify-center rounded border border-glass-border bg-glass transition-colors hover:bg-glass-stronger"
+                disabled={colorSelectionLocked}
+                className={`flex h-20 w-20 items-center justify-center rounded border border-glass-border transition-colors ${
+                  colorSelectionLocked
+                    ? 'cursor-not-allowed bg-glass/40 opacity-40'
+                    : 'cursor-pointer bg-glass hover:bg-glass-stronger'
+                }`}
               >
                 <div className="relative h-12 w-12">
                   <Image
@@ -538,7 +609,12 @@ export const PlaySetupModal: React.FC<Props> = (props: Props) => {
               <button
                 onClick={() => start('white')}
                 title="Play as white"
-                className="flex h-16 w-16 cursor-pointer items-center justify-center rounded border border-glass-border bg-glass transition-colors hover:bg-glass-stronger"
+                disabled={colorSelectionLocked && forcedPlayerColor !== 'white'}
+                className={`flex h-16 w-16 items-center justify-center rounded border border-glass-border transition-colors ${
+                  colorSelectionLocked && forcedPlayerColor !== 'white'
+                    ? 'cursor-not-allowed bg-glass/40 opacity-40'
+                    : 'cursor-pointer bg-glass hover:bg-glass-stronger'
+                }`}
               >
                 <div className="relative h-10 w-10">
                   <Image
