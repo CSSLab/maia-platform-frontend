@@ -237,7 +237,7 @@ export const Header: React.FC = () => {
             href="/candidates"
             className={`inline-flex h-[30px] items-center rounded-full border px-3 transition-all duration-200 ${
               router.pathname.startsWith('/candidates')
-                ? 'border-rose-300/45 bg-rose-500/14 !text-rose-100'
+                ? 'bg-rose-500/14 border-rose-300/45 !text-rose-100'
                 : 'border-rose-300/25 bg-rose-500/10 !text-rose-200/90 hover:border-rose-200/40 hover:!text-rose-100'
             }`}
           >
@@ -429,7 +429,7 @@ export const Header: React.FC = () => {
               href="/candidates"
               className={`rounded-full border px-4 py-2 uppercase ${
                 router.pathname.startsWith('/candidates')
-                  ? 'border-rose-300/45 bg-rose-500/14 text-rose-100'
+                  ? 'bg-rose-500/14 border-rose-300/45 text-rose-100'
                   : 'border-rose-300/25 bg-rose-500/10 text-rose-200/90'
               }`}
             >
