@@ -108,7 +108,7 @@ export const CANDIDATES_WARMUP_POSITIONS: CandidatePosition[] = [
     id: 'warmup-take-down-hikaru',
     title: 'Rd1 Challenge 3: Take down Hikaru',
     subtitle:
-      'Fabi has built up a nice advantage against Hikaru, but how do you break though?',
+      'Fabi has built up a nice advantage against Hikaru, but how do you break through?',
     summary:
       'Caruana is pressing against Nakamura. White to move and finish the attack.',
     tag: 'Warm-up',
