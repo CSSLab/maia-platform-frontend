@@ -10,7 +10,16 @@ const PlayPage: NextPage = () => {
   const { setPlaySetupModalProps } = useContext(ModalContext)
   const [launchedModal, setLaunchedModal] = useState<boolean>(false)
 
-  const { fen } = router.query
+  const {
+    fen,
+    returnTo,
+    challengeId,
+    forcedColor,
+    modalTitle,
+    modalSubtitle,
+    maiaVersion,
+    timeControl,
+  } = router.query
 
   useEffect(() => {
     if (!router.isReady) {
@@ -21,10 +30,33 @@ const PlayPage: NextPage = () => {
       setPlaySetupModalProps({
         playType: 'againstMaia',
         startFen: typeof fen == 'string' ? fen : undefined,
+        maiaVersion: typeof maiaVersion == 'string' ? maiaVersion : undefined,
+        timeControl: typeof timeControl == 'string' ? timeControl : undefined,
+        returnTo: typeof returnTo == 'string' ? returnTo : undefined,
+        challengeId: typeof challengeId == 'string' ? challengeId : undefined,
+        forcedPlayerColor:
+          forcedColor === 'white' || forcedColor === 'black'
+            ? forcedColor
+            : undefined,
+        modalTitle: typeof modalTitle == 'string' ? modalTitle : undefined,
+        modalSubtitle:
+          typeof modalSubtitle == 'string' ? modalSubtitle : undefined,
       })
       setLaunchedModal(true)
     }
-  }, [router.isReady, fen, launchedModal, setPlaySetupModalProps])
+  }, [
+    router.isReady,
+    fen,
+    challengeId,
+    forcedColor,
+    launchedModal,
+    maiaVersion,
+    modalSubtitle,
+    modalTitle,
+    returnTo,
+    setPlaySetupModalProps,
+    timeControl,
+  ])
 
   useEffect(() => {
     const handleStart = (url: string) => {

@@ -59,6 +59,7 @@ import endgamesRaw from 'src/constants/endgames.json'
 import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
 import { MAIA_MODELS } from 'src/constants/common'
 import { cpToWinrate } from 'src/lib/analysis'
+import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
 import {
@@ -86,6 +87,26 @@ const OpeningsPage: NextPage = () => {
     () => createEndgameOpenings(endgameDataset),
     [endgameDataset],
   )
+  const linkedCustomDraft = useMemo(() => {
+    if (!router.isReady) return null
+
+    const customFen =
+      typeof router.query.customFen === 'string'
+        ? normalizeFen(router.query.customFen)
+        : ''
+
+    if (!customFen || !isValidFen(customFen)) {
+      return null
+    }
+
+    return {
+      input: customFen,
+      name:
+        typeof router.query.customName === 'string'
+          ? router.query.customName
+          : undefined,
+    }
+  }, [router.isReady, router.query.customFen, router.query.customName])
 
   const handleCloseModal = () => {
     if (drillConfiguration) {
@@ -1144,6 +1165,7 @@ const OpeningsPage: NextPage = () => {
             endgames={endgameOpenings}
             endgameDataset={endgameDataset}
             initialSelections={drillConfiguration?.selections || []}
+            initialCustomDraft={linkedCustomDraft}
             onComplete={handleCompleteSelection}
             onClose={handleCloseModal}
           />

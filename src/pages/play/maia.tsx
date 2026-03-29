@@ -15,6 +15,9 @@ interface Props {
   id: string
   playGameConfig: PlayGameConfig
   playAgain: () => void
+  returnToPath?: string
+  returnToLabel?: string
+  challengeId?: string
   simulateMaiaTime: boolean
   setSimulateMaiaTime: (value: boolean) => void
 }
@@ -23,14 +26,46 @@ const PlayMaia: React.FC<Props> = ({
   id,
   playGameConfig,
   playAgain,
+  returnToPath,
+  returnToLabel,
+  challengeId,
   simulateMaiaTime,
   setSimulateMaiaTime,
 }: Props) => {
+  const router = useRouter()
   const controller = useVsMaiaPlayController(
     id,
     playGameConfig,
     simulateMaiaTime,
   )
+  const returnTo = useMemo(() => {
+    if (!returnToPath) return undefined
+
+    return () => {
+      const completedChallenge =
+        returnToPath.startsWith('/candidates') &&
+        challengeId &&
+        controller.game.termination?.winner === playGameConfig.player
+          ? challengeId
+          : undefined
+
+      if (returnToPath.startsWith('/candidates')) {
+        router.push({
+          pathname: '/candidates',
+          query: completedChallenge ? { completedChallenge } : undefined,
+        })
+        return
+      }
+
+      router.push(returnToPath)
+    }
+  }, [
+    challengeId,
+    controller.game.termination?.winner,
+    playGameConfig.player,
+    returnToPath,
+    router,
+  ])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -65,6 +100,8 @@ const PlayMaia: React.FC<Props> = ({
               controller.setResigned(true)
             }}
             playAgain={playAgain}
+            returnTo={returnTo}
+            returnToLabel={returnToLabel}
             simulateMaiaTime={simulateMaiaTime}
             setSimulateMaiaTime={setSimulateMaiaTime}
           />
@@ -98,6 +135,11 @@ const PlayMaiaPage: NextPage = () => {
     sampleMoves,
     simulateMaiaTime: simulateMaiaTimeQuery,
     startFen,
+    returnTo,
+    challengeId,
+    forcedColor,
+    modalTitle,
+    modalSubtitle,
   } = router.query
 
   const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
@@ -105,6 +147,11 @@ const PlayMaiaPage: NextPage = () => {
       ? true
       : false,
   )
+  const returnToLabel = useMemo(() => {
+    if (typeof returnTo !== 'string') return undefined
+    if (returnTo.startsWith('/candidates')) return 'Back to Candidates'
+    return 'Back to Previous Page'
+  }, [returnTo])
 
   const playGameConfig: PlayGameConfig = useMemo(
     () => ({
@@ -162,6 +209,11 @@ const PlayMaiaPage: NextPage = () => {
             query: {
               id: newGameId,
               ...playGameConfig,
+              returnTo,
+              challengeId,
+              forcedColor,
+              modalTitle,
+              modalSubtitle,
             },
           },
           {
@@ -171,6 +223,11 @@ const PlayMaiaPage: NextPage = () => {
               // so that if the page is manually refreshed
               // the old game ID is not persisted
               ...playGameConfig,
+              returnTo,
+              challengeId,
+              forcedColor,
+              modalTitle,
+              modalSubtitle,
             },
           },
         )
@@ -184,7 +241,16 @@ const PlayMaiaPage: NextPage = () => {
         canceled = true
       }
     }
-  }, [id, playGameConfig, router])
+  }, [
+    challengeId,
+    forcedColor,
+    id,
+    modalSubtitle,
+    modalTitle,
+    playGameConfig,
+    returnTo,
+    router,
+  ])
 
   return (
     <>
@@ -200,7 +266,27 @@ const PlayMaiaPage: NextPage = () => {
           <PlayMaia
             id={id as string}
             playGameConfig={playGameConfig}
-            playAgain={() => setPlaySetupModalProps({ ...playGameConfig })}
+            playAgain={() =>
+              setPlaySetupModalProps({
+                ...playGameConfig,
+                returnTo: typeof returnTo === 'string' ? returnTo : undefined,
+                challengeId:
+                  typeof challengeId === 'string' ? challengeId : undefined,
+                forcedPlayerColor:
+                  forcedColor === 'white' || forcedColor === 'black'
+                    ? forcedColor
+                    : undefined,
+                modalTitle:
+                  typeof modalTitle === 'string' ? modalTitle : undefined,
+                modalSubtitle:
+                  typeof modalSubtitle === 'string' ? modalSubtitle : undefined,
+              })
+            }
+            returnToPath={typeof returnTo === 'string' ? returnTo : undefined}
+            returnToLabel={returnToLabel}
+            challengeId={
+              typeof challengeId === 'string' ? challengeId : undefined
+            }
             simulateMaiaTime={simulateMaiaTime}
             setSimulateMaiaTime={setSimulateMaiaTime}
           />
