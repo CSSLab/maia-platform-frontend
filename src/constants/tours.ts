@@ -135,8 +135,14 @@ export const handBrainTourSteps: TourStep[] = [
   },
 ]
 
+const clickTab = (id: string) => () => {
+  document
+    .getElementById(id)
+    ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+}
+
 const openingDrillTourSteps = (): TourStep[] => {
-  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
 
   return [
     {
@@ -151,16 +157,10 @@ const openingDrillTourSteps = (): TourStep[] => {
       id: 'opening-drill-selection',
       title: 'Select Openings',
       description:
-        'Browse and select the openings you want to practice. You can search for specific variations and  add them using the + button.',
+        'Browse and select the openings you want to practice. You can search for specific variations and add them using the + button.',
       targetId: 'opening-drill-browse',
       placement: isMobile ? 'bottom' : 'right',
-      ...(isMobile && {
-        beforeAction: () => {
-          document
-            .getElementById('opening-drill-browse')
-            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-        },
-      }),
+      ...(isMobile && { beforeAction: clickTab('opening-drill-browse') }),
     },
     {
       id: 'opening-drill-start',
@@ -169,13 +169,7 @@ const openingDrillTourSteps = (): TourStep[] => {
         'Customize your drills by choosing the Maia opponent strength, how many moves in each drill, and how many drills to do. Click "Start Drilling" to start!',
       targetId: isMobile ? 'opening-drill-selected' : 'opening-drill-preview',
       placement: isMobile ? 'bottom' : 'left',
-      ...(isMobile && {
-        beforeAction: () => {
-          document
-            .getElementById('opening-drill-selected')
-            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-        },
-      }),
+      ...(isMobile && { beforeAction: clickTab('opening-drill-selected') }),
     },
     {
       id: 'opening-drill-gameplay',
@@ -186,13 +180,7 @@ const openingDrillTourSteps = (): TourStep[] => {
         ? 'opening-drill-selected-panel'
         : 'opening-drill-queue',
       placement: isMobile ? 'bottom' : 'left',
-      ...(isMobile && {
-        beforeAction: () => {
-          document
-            .getElementById('opening-drill-selected')
-            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-        },
-      }),
+      ...(isMobile && { beforeAction: clickTab('opening-drill-selected') }),
     },
   ]
 }
