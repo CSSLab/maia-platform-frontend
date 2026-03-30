@@ -55,6 +55,12 @@ const accentClasses: Record<CandidatePosition['accent'], string> = {
 const completedAccentClass =
   'border-emerald-300/35 bg-[radial-gradient(circle_at_top,rgba(52,211,153,0.18),transparent_62%),rgba(255,255,255,0.03)]'
 
+const ChallengeSectionTitle: React.FC<{ title: string }> = ({ title }) => (
+  <div className="md:col-span-2 xl:col-span-3">
+    <p className="text-sm uppercase tracking-[0.24em] text-white/40">{title}</p>
+  </div>
+)
+
 const PositionBoard: React.FC<{
   position: CandidatePosition
   completed?: boolean
@@ -184,10 +190,6 @@ export default function CandidatesPage() {
   const [completedChallengeIds, setCompletedChallengeIds] = useState<string[]>(
     [],
   )
-  const positions = useMemo(
-    () => [...CANDIDATES_FEATURED_POSITIONS, ...CANDIDATES_WARMUP_POSITIONS],
-    [],
-  )
   const completedChallengeId =
     typeof router.query.completedChallenge === 'string'
       ? router.query.completedChallenge
@@ -242,7 +244,7 @@ export default function CandidatesPage() {
               FIDE Candidates Tournament 2026
             </h1>
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
-              Round 1
+              Round 2
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
@@ -265,13 +267,30 @@ export default function CandidatesPage() {
               </a>
             </div>
           </header>
-          {positions.map((position) => (
-            <PositionPill
-              key={position.id}
-              position={position}
-              completed={completedChallengeIds.includes(position.id)}
-            />
-          ))}
+          {CANDIDATES_FEATURED_POSITIONS.length > 0 ? (
+            <>
+              <ChallengeSectionTitle title="Round 2 Challenges" />
+              {CANDIDATES_FEATURED_POSITIONS.map((position) => (
+                <PositionPill
+                  key={position.id}
+                  position={position}
+                  completed={completedChallengeIds.includes(position.id)}
+                />
+              ))}
+            </>
+          ) : null}
+          {CANDIDATES_WARMUP_POSITIONS.length > 0 ? (
+            <>
+              <ChallengeSectionTitle title="Round 1 Challenges" />
+              {CANDIDATES_WARMUP_POSITIONS.map((position) => (
+                <PositionPill
+                  key={position.id}
+                  position={position}
+                  completed={completedChallengeIds.includes(position.id)}
+                />
+              ))}
+            </>
+          ) : null}
         </div>
       </main>
     </>

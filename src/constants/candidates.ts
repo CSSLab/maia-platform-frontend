@@ -72,7 +72,48 @@ export const CANDIDATES_EXTRA_IDEAS: CandidateIdea[] = [
 ]
 
 // Drop live tournament moments here as PGN or FEN during the event.
-export const CANDIDATES_FEATURED_POSITIONS: CandidatePosition[] = []
+export const CANDIDATES_FEATURED_POSITIONS: CandidatePosition[] = [
+  {
+    id: 'rd2-defend-like-hikaru',
+    title: 'Rd2 Challenge 1: Defend like Hikaru',
+    subtitle: 'Can you hold the position like Hikaru did?',
+    summary: 'Nakamura is under pressure. Black to move and defend accurately.',
+    tag: 'Featured',
+    accent: 'red',
+    fen: '2r3k1/2q2ppp/5n2/p1p1p3/4P2P/1PQ3P1/P4PB1/2R3K1 b - - 0 25',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd2-pragg-french',
+    title: "Rd2 Challenge 2: Hold off Pragg's French",
+    subtitle:
+      'Can you defend the White side after some inaccuracies in the French?',
+    summary:
+      'White to move in a tense French structure. Defend the position accurately.',
+    tag: 'Featured',
+    accent: 'amber',
+    fen: 'r1b2rk1/6pp/ppqbpn2/2pp4/3P1P2/2N1B3/PPPQB1PP/4RR1K b - - 1 16',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1800',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd2-be-like-bluebaum',
+    title: 'Rd2 Challenge 3: Be like Bluebaum',
+    subtitle:
+      'Bluebaum had less space, but held the draw anyway. Try to do the same.',
+    summary:
+      'Bluebaum-style defense and coordination. Black to move and find the right plan.',
+    tag: 'Featured',
+    accent: 'blue',
+    fen: '4rb1r/pp1k1pp1/2p1nnb1/3p2Np/3P3P/2P1NPP1/PP3K2/R1B2B1R b - - 3 19',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+]
 
 // Warm-up cards keep the page useful before round one begins.
 export const CANDIDATES_WARMUP_POSITIONS: CandidatePosition[] = [
