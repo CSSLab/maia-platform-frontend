@@ -16,6 +16,7 @@ import {
 import { GameTree } from 'src/types'
 
 const CANDIDATES_COMPLETED_STORAGE_KEY = 'maia-candidates-completed'
+const CANDIDATES_BROADCAST_HREF = '/broadcast/BLA70Vds/uLCZwqAK'
 
 const readCompletedChallenges = (): string[] => {
   if (typeof window === 'undefined') return []
@@ -241,6 +242,15 @@ export default function CandidatesPage() {
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
               Round 1
             </p>
+            <Link
+              href={CANDIDATES_BROADCAST_HREF}
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-sky-300/25 bg-sky-500/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:border-sky-200/40 hover:bg-sky-500/15"
+            >
+              <span className="material-symbols-outlined !text-[18px]">
+                live_tv
+              </span>
+              Watch Candidates Broadcast
+            </Link>
           </header>
           {positions.map((position) => (
             <PositionPill
