@@ -154,6 +154,13 @@ const openingDrillTourSteps = (): TourStep[] => {
         'Browse and select the openings you want to practice. You can search for specific variations and  add them using the + button.',
       targetId: 'opening-drill-browse',
       placement: isMobile ? 'bottom' : 'right',
+      ...(isMobile && {
+        beforeAction: () => {
+          document
+            .getElementById('opening-drill-browse')
+            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        },
+      }),
     },
     {
       id: 'opening-drill-start',
@@ -162,6 +169,13 @@ const openingDrillTourSteps = (): TourStep[] => {
         'Customize your drills by choosing the Maia opponent strength, how many moves in each drill, and how many drills to do. Click "Start Drilling" to start!',
       targetId: isMobile ? 'opening-drill-selected' : 'opening-drill-preview',
       placement: isMobile ? 'bottom' : 'left',
+      ...(isMobile && {
+        beforeAction: () => {
+          document
+            .getElementById('opening-drill-selected')
+            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        },
+      }),
     },
     {
       id: 'opening-drill-gameplay',
