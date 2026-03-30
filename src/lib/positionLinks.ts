@@ -112,7 +112,9 @@ export const buildPositionPlayLink = (options: PositionLinkOptions): string => {
   const params = new URLSearchParams()
   const normalizedFen = normalizeFen(options.fen)
   const forcedPlayerColor =
-    options.forcedPlayerColor ?? inferPlayerColorFromFen(normalizedFen)
+    options.forcedPlayerColor ??
+    options.playerColor ??
+    inferPlayerColorFromFen(normalizedFen)
 
   params.set('fen', normalizedFen)
   params.set('maiaVersion', 'maia_kdd_1500')
