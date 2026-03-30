@@ -22,6 +22,25 @@ import {
   parsePGNData,
 } from 'src/api/broadcasts'
 
+const getPreferredBroadcastRound = (
+  broadcast: Broadcast,
+): BroadcastRound | undefined => {
+  const defaultRound = broadcast.rounds.find(
+    (r) => r.id === broadcast.defaultRoundId,
+  )
+  if (defaultRound) return defaultRound
+
+  const liveRound = broadcast.rounds.find((r) => r.ongoing)
+  if (liveRound) return liveRound
+
+  const startedRounds = broadcast.rounds
+    .filter((r) => r.startsAt <= Date.now())
+    .sort((a, b) => b.startsAt - a.startsAt)
+  if (startedRounds.length > 0) return startedRounds[0]
+
+  return broadcast.rounds[0]
+}
+
 export const useBroadcastController = (): BroadcastStreamController => {
   const [broadcastSections, setBroadcastSections] = useState<
     BroadcastSection[]
@@ -209,10 +228,7 @@ export const useBroadcastController = (): BroadcastStreamController => {
         )
         setCurrentBroadcast(broadcast)
         // Auto-select default round if available
-        const defaultRound =
-          broadcast.rounds.find((r) => r.id === broadcast.defaultRoundId) ||
-          broadcast.rounds.find((r) => r.ongoing) ||
-          broadcast.rounds[0]
+        const defaultRound = getPreferredBroadcastRound(broadcast)
         if (defaultRound) {
           setCurrentRound(defaultRound)
         }
