@@ -1196,7 +1196,7 @@ const DrillStudioPanel: React.FC<{
             </button>
 
             {/* Queue */}
-            <div className="flex flex-col gap-3">
+            <div id="opening-drill-queue" className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/35">
                   Queue
@@ -1308,7 +1308,7 @@ const SelectedPanel: React.FC<{
   showTargetSlider,
 }) => (
   <div
-    id="opening-drill-selected"
+    id="opening-drill-selected-panel"
     className={`flex w-full flex-col overflow-hidden ${activeTab !== 'selected' ? 'hidden' : 'flex'}`}
   >
     <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4">

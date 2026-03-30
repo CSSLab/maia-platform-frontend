@@ -182,8 +182,17 @@ const openingDrillTourSteps = (): TourStep[] => {
       title: 'Drill Experience',
       description:
         "During drilling, you'll play through your selected openings against Maia until reaching the target move count. After each drill, you can analyze the moves you played, see how the Maia and Stockfish evaluations changed throughout the game, and learn from your insights.",
-      targetId: 'opening-drill-modal',
-      placement: 'bottom',
+      targetId: isMobile
+        ? 'opening-drill-selected-panel'
+        : 'opening-drill-queue',
+      placement: isMobile ? 'bottom' : 'left',
+      ...(isMobile && {
+        beforeAction: () => {
+          document
+            .getElementById('opening-drill-selected')
+            ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        },
+      }),
     },
   ]
 }
