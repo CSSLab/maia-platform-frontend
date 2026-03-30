@@ -17,6 +17,8 @@ import { GameTree } from 'src/types'
 
 const CANDIDATES_COMPLETED_STORAGE_KEY = 'maia-candidates-completed'
 const CANDIDATES_BROADCAST_HREF = '/broadcast/BLA70Vds/uLCZwqAK'
+const WOMENS_CANDIDATES_BROADCAST_HREF =
+  'https://www.maiachess.com/broadcast/xj4qM8Nw/EMkf0c6e'
 
 const readCompletedChallenges = (): string[] => {
   if (typeof window === 'undefined') return []
@@ -242,15 +244,26 @@ export default function CandidatesPage() {
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
               Round 1
             </p>
-            <Link
-              href={CANDIDATES_BROADCAST_HREF}
-              className="mt-4 inline-flex items-center gap-2 rounded-full border border-sky-300/25 bg-sky-500/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:border-sky-200/40 hover:bg-sky-500/15"
-            >
-              <span className="material-symbols-outlined !text-[18px]">
-                live_tv
-              </span>
-              Watch Candidates Broadcast
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href={CANDIDATES_BROADCAST_HREF}
+                className="inline-flex items-center gap-2 rounded-full border border-rose-300/25 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:border-rose-200/40 hover:bg-rose-500/15"
+              >
+                <span className="material-symbols-outlined !text-[18px]">
+                  live_tv
+                </span>
+                Watch Candidates Broadcast
+              </Link>
+              <a
+                href={WOMENS_CANDIDATES_BROADCAST_HREF}
+                className="inline-flex items-center gap-2 rounded-full border border-rose-300/25 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:border-rose-200/40 hover:bg-rose-500/15"
+              >
+                <span className="material-symbols-outlined !text-[18px]">
+                  live_tv
+                </span>
+                Watch Women&apos;s Candidates Broadcast
+              </a>
+            </div>
           </header>
           {positions.map((position) => (
             <PositionPill
