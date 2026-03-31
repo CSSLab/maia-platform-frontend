@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   CANDIDATES_FEATURED_POSITIONS,
+  CANDIDATES_ROUND_TWO_POSITIONS,
   CANDIDATES_WARMUP_POSITIONS,
   CandidatePosition,
 } from 'src/constants/candidates'
@@ -115,7 +116,8 @@ const PositionBoard: React.FC<{
 const PositionPill: React.FC<{
   position: CandidatePosition
   completed?: boolean
-}> = ({ position, completed = false }) => {
+  compactTitle?: boolean
+}> = ({ position, completed = false, compactTitle = false }) => {
   const playHref = buildPositionPlayLink({
     ...position,
     challengeId: position.id,
@@ -131,8 +133,18 @@ const PositionPill: React.FC<{
       }`}
     >
       <div className="flex h-full flex-col gap-4">
-        <div className="min-w-0 xl:min-h-[150px]">
-          <h2 className="h-[3rem] overflow-hidden text-lg font-semibold leading-[1.5rem] text-primary md:h-[3.5rem] md:text-xl md:leading-[1.75rem]">
+        <div
+          className={`min-w-0 ${
+            compactTitle ? 'xl:min-h-[132px]' : 'xl:min-h-[150px]'
+          }`}
+        >
+          <h2
+            className={`overflow-hidden text-lg font-semibold text-primary md:text-xl ${
+              compactTitle
+                ? 'h-[1.5rem] leading-[1.5rem] md:h-[1.75rem] md:leading-[1.75rem]'
+                : 'h-[3rem] leading-[1.5rem] md:h-[3.5rem] md:leading-[1.75rem]'
+            }`}
+          >
             {position.title}
           </h2>
           <p className="mt-2 text-sm leading-6 text-white/65">
@@ -244,7 +256,7 @@ export default function CandidatesPage() {
               FIDE Candidates Tournament 2026
             </h1>
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
-              Round 2
+              Round 3
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
@@ -269,8 +281,21 @@ export default function CandidatesPage() {
           </header>
           {CANDIDATES_FEATURED_POSITIONS.length > 0 ? (
             <>
-              <ChallengeSectionTitle title="Round 2 Challenges" />
+              <ChallengeSectionTitle title="Round 3 Challenges" />
               {CANDIDATES_FEATURED_POSITIONS.map((position) => (
+                <PositionPill
+                  key={position.id}
+                  position={position}
+                  completed={completedChallengeIds.includes(position.id)}
+                  compactTitle
+                />
+              ))}
+            </>
+          ) : null}
+          {CANDIDATES_ROUND_TWO_POSITIONS.length > 0 ? (
+            <>
+              <ChallengeSectionTitle title="Round 2 Challenges" />
+              {CANDIDATES_ROUND_TWO_POSITIONS.map((position) => (
                 <PositionPill
                   key={position.id}
                   position={position}

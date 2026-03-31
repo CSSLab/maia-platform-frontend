@@ -74,6 +74,50 @@ export const CANDIDATES_EXTRA_IDEAS: CandidateIdea[] = [
 // Drop live tournament moments here as PGN or FEN during the event.
 export const CANDIDATES_FEATURED_POSITIONS: CandidatePosition[] = [
   {
+    id: 'rd3-convert-fabi-win',
+    title: "Rd3 Challenge 1: Convert Fabi's Win",
+    subtitle:
+      "Black resigned here, but could you convert White's win if you had to?",
+    summary:
+      "Caruana's position is winning, but Black is still to move. Play White and convert it.",
+    tag: 'Featured',
+    accent: 'red',
+    fen: '3q1rk1/p3ppb1/6pp/4r3/6P1/1Q5b/PP1PPP1P/R1BNK1R1 b Q - 1 19',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd3-take-down-pragg',
+    title: 'Rd3 Challenge 2: Take Down Pragg',
+    subtitle: 'Can you crash through like Sindarov did against Pragg?',
+    summary:
+      'Sindarov broke through against Praggnanandhaa. Black to move and press the attack.',
+    tag: 'Featured',
+    accent: 'amber',
+    fen: 'r1br2k1/pp2q1pp/8/2b2p2/2P1p3/2Q1P1N1/2BNR1PP/R1K5 b - - 7 24',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd3-bibisara-attack',
+    title: "Rd3 Challenge 3: Bibisara's Attack",
+    subtitle:
+      'Bibisara navigated the complications to take the full point. Try to win with Black!',
+    summary:
+      'A sharp attacking position for Black. Navigate the complications and win.',
+    tag: 'Featured',
+    accent: 'blue',
+    fen: '2rqkb2/1p2pp2/p6p/n2PB3/2P3r1/Pp2R3/2bN1PP1/R1Q2BK1 b - - 4 22',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+]
+
+export const CANDIDATES_ROUND_TWO_POSITIONS: CandidatePosition[] = [
+  {
     id: 'rd2-defend-like-hikaru',
     title: 'Rd2 Challenge 1: Defend like Hikaru',
     subtitle: 'Can you hold the position like Hikaru did?',
