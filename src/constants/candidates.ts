@@ -74,6 +74,51 @@ export const CANDIDATES_EXTRA_IDEAS: CandidateIdea[] = [
 // Drop live tournament moments here as PGN or FEN during the event.
 export const CANDIDATES_FEATURED_POSITIONS: CandidatePosition[] = [
   {
+    id: 'rd4-sindarov-breakthrough',
+    title: "Rd4 Challenge 1: Sindarov's Breakthrough",
+    subtitle:
+      "Can you break through against Black's damaged structure? (Sindarov—Caruana)",
+    summary:
+      "White to move in a sharp position against Caruana's damaged structure. Break through and win.",
+    tag: 'Featured',
+    accent: 'red',
+    fen: '3q4/3r1pkp/5b2/2Rp1p2/Pp4r1/4B1P1/1P2QP1P/3R2K1 w - - 0 28',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd4-convert-like-zhu',
+    title: 'Rd4 Challenge 2: Convert Like Zhu',
+    subtitle:
+      'Black is two pawns up. Deal with the light square pressure and convert the win. (Deshmukh—Zhu)',
+    summary:
+      'Black is materially ahead but must handle light-square pressure to finish the conversion.',
+    tag: 'Featured',
+    accent: 'amber',
+    fen: 'r4r2/1p3qpk/2ppb2p/p2n1p2/P1Bb3P/1Q4P1/1P1BRPN1/R5K1 b - - 1 23',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd4-giri-wandering-king',
+    title: "Rd4 Challenge 3: Giri's Wandering King",
+    subtitle:
+      'Black has long-term advantages, but can you consolidate and win? (Esipenko—Giri)',
+    summary:
+      "Giri's king is active and Black has long-term trumps. Consolidate the edge and convert.",
+    tag: 'Featured',
+    accent: 'blue',
+    fen: '1kr4r/1p2bp1p/Q1b1p3/2pq3N/4N3/5P2/PR4PP/1R4K1 b - - 0 23',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+]
+
+export const CANDIDATES_ROUND_THREE_POSITIONS: CandidatePosition[] = [
+  {
     id: 'rd3-convert-fabi-win',
     title: "Rd3 Challenge 1: Convert Fabi's Win",
     subtitle:

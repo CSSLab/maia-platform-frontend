@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   CANDIDATES_FEATURED_POSITIONS,
+  CANDIDATES_ROUND_THREE_POSITIONS,
   CANDIDATES_ROUND_TWO_POSITIONS,
   CANDIDATES_WARMUP_POSITIONS,
   CandidatePosition,
@@ -256,7 +257,7 @@ export default function CandidatesPage() {
               FIDE Candidates Tournament 2026
             </h1>
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
-              Round 3
+              Round 4
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
@@ -281,13 +282,24 @@ export default function CandidatesPage() {
           </header>
           {CANDIDATES_FEATURED_POSITIONS.length > 0 ? (
             <>
-              <ChallengeSectionTitle title="Round 3 Challenges" />
+              <ChallengeSectionTitle title="Round 4 Challenges" />
               {CANDIDATES_FEATURED_POSITIONS.map((position) => (
                 <PositionPill
                   key={position.id}
                   position={position}
                   completed={completedChallengeIds.includes(position.id)}
-                  compactTitle
+                />
+              ))}
+            </>
+          ) : null}
+          {CANDIDATES_ROUND_THREE_POSITIONS.length > 0 ? (
+            <>
+              <ChallengeSectionTitle title="Round 3 Challenges" />
+              {CANDIDATES_ROUND_THREE_POSITIONS.map((position) => (
+                <PositionPill
+                  key={position.id}
+                  position={position}
+                  completed={completedChallengeIds.includes(position.id)}
                 />
               ))}
             </>
