@@ -74,6 +74,51 @@ export const CANDIDATES_EXTRA_IDEAS: CandidateIdea[] = [
 // Drop live tournament moments here as PGN or FEN during the event.
 export const CANDIDATES_FEATURED_POSITIONS: CandidatePosition[] = [
   {
+    id: 'rd8-hikaru-technique',
+    title: "Rd8 Challenge 1: Hikaru's Technique",
+    subtitle:
+      'Fabi blundered and it became "a matter of technique" for Hikaru to convert. Can you finish the job? (Nakamura—Caruana)',
+    summary:
+      'Hikaru has a winning rook ending. White to move and convert cleanly.',
+    tag: 'Featured',
+    accent: 'red',
+    fen: '7k/R5R1/2p2p2/p6p/2P1P3/7P/r4rP1/6K1 w - - 1 33',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd8-press-like-lagno',
+    title: 'Rd8 Challenge 2: Press like Lagno',
+    subtitle:
+      "Black didn't take on e5 when she could have. Try to press the advantage with White. (Lagno—Goryachkina)",
+    summary:
+      'White has the initiative after Black declined a central capture. Keep pressing and convert the edge.',
+    tag: 'Featured',
+    accent: 'amber',
+    fen: 'r3r1k1/p1pp2bp/bnp3p1/2q1Pp2/2P5/1P4P1/P1QN1PBP/R1B1R1K1 w - f6 0 16',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1800',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd8-knights-over-bishops',
+    title: 'Rd8 Challenge 3: Knights over Bishops',
+    subtitle:
+      'Black has two knights and an extra pawn versus two bishops. Use them to win like Zhu did! (Tan–Zhu)',
+    summary:
+      'A complex minor-piece ending with Black pressing. Coordinate the knights and convert.',
+    tag: 'Featured',
+    accent: 'blue',
+    fen: '1r6/4k1p1/1pR1np2/p3p2P/P3B1n1/6B1/1P6/5K2 b - - 3 50',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+]
+
+export const CANDIDATES_ROUND_FOUR_POSITIONS: CandidatePosition[] = [
+  {
     id: 'rd4-sindarov-breakthrough',
     title: "Rd4 Challenge 1: Sindarov's Breakthrough",
     subtitle:
