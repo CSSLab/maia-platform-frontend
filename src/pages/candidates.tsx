@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   CANDIDATES_FEATURED_POSITIONS,
+  CANDIDATES_ROUND_FOUR_POSITIONS,
   CANDIDATES_ROUND_THREE_POSITIONS,
   CANDIDATES_ROUND_TWO_POSITIONS,
   CANDIDATES_WARMUP_POSITIONS,
@@ -62,6 +63,9 @@ const ChallengeSectionTitle: React.FC<{ title: string }> = ({ title }) => (
     <p className="text-sm uppercase tracking-[0.24em] text-white/40">{title}</p>
   </div>
 )
+
+const shouldCompactTitles = (positions: CandidatePosition[]) =>
+  positions.every((position) => position.title.length <= 38)
 
 const PositionBoard: React.FC<{
   position: CandidatePosition
@@ -136,14 +140,14 @@ const PositionPill: React.FC<{
       <div className="flex h-full flex-col gap-4">
         <div
           className={`min-w-0 ${
-            compactTitle ? 'xl:min-h-[132px]' : 'xl:min-h-[150px]'
+            compactTitle ? 'xl:min-h-[122px]' : 'xl:min-h-[150px]'
           }`}
         >
           <h2
-            className={`overflow-hidden text-lg font-semibold text-primary md:text-xl ${
+            className={`text-lg font-semibold leading-[1.5rem] text-primary md:text-xl md:leading-[1.75rem] ${
               compactTitle
-                ? 'h-[1.5rem] leading-[1.5rem] md:h-[1.75rem] md:leading-[1.75rem]'
-                : 'h-[3rem] leading-[1.5rem] md:h-[3.5rem] md:leading-[1.75rem]'
+                ? 'xl:h-[1.75rem]'
+                : 'xl:h-[3.5rem] xl:overflow-hidden'
             }`}
           >
             {position.title}
@@ -203,6 +207,19 @@ export default function CandidatesPage() {
   const [completedChallengeIds, setCompletedChallengeIds] = useState<string[]>(
     [],
   )
+  const compactFeaturedTitles = shouldCompactTitles(
+    CANDIDATES_FEATURED_POSITIONS,
+  )
+  const compactRoundFourTitles = shouldCompactTitles(
+    CANDIDATES_ROUND_FOUR_POSITIONS,
+  )
+  const compactRoundThreeTitles = shouldCompactTitles(
+    CANDIDATES_ROUND_THREE_POSITIONS,
+  )
+  const compactRoundTwoTitles = shouldCompactTitles(
+    CANDIDATES_ROUND_TWO_POSITIONS,
+  )
+  const compactRoundOneTitles = shouldCompactTitles(CANDIDATES_WARMUP_POSITIONS)
   const completedChallengeId =
     typeof router.query.completedChallenge === 'string'
       ? router.query.completedChallenge
@@ -257,7 +274,7 @@ export default function CandidatesPage() {
               FIDE Candidates Tournament 2026
             </h1>
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
-              Round 4
+              Round 8
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
@@ -282,12 +299,26 @@ export default function CandidatesPage() {
           </header>
           {CANDIDATES_FEATURED_POSITIONS.length > 0 ? (
             <>
-              <ChallengeSectionTitle title="Round 4 Challenges" />
+              <ChallengeSectionTitle title="Round 8 Challenges" />
               {CANDIDATES_FEATURED_POSITIONS.map((position) => (
                 <PositionPill
                   key={position.id}
                   position={position}
                   completed={completedChallengeIds.includes(position.id)}
+                  compactTitle={compactFeaturedTitles}
+                />
+              ))}
+            </>
+          ) : null}
+          {CANDIDATES_ROUND_FOUR_POSITIONS.length > 0 ? (
+            <>
+              <ChallengeSectionTitle title="Round 4 Challenges" />
+              {CANDIDATES_ROUND_FOUR_POSITIONS.map((position) => (
+                <PositionPill
+                  key={position.id}
+                  position={position}
+                  completed={completedChallengeIds.includes(position.id)}
+                  compactTitle={compactRoundFourTitles}
                 />
               ))}
             </>
@@ -300,6 +331,7 @@ export default function CandidatesPage() {
                   key={position.id}
                   position={position}
                   completed={completedChallengeIds.includes(position.id)}
+                  compactTitle={compactRoundThreeTitles}
                 />
               ))}
             </>
@@ -312,6 +344,7 @@ export default function CandidatesPage() {
                   key={position.id}
                   position={position}
                   completed={completedChallengeIds.includes(position.id)}
+                  compactTitle={compactRoundTwoTitles}
                 />
               ))}
             </>
@@ -324,6 +357,7 @@ export default function CandidatesPage() {
                   key={position.id}
                   position={position}
                   completed={completedChallengeIds.includes(position.id)}
+                  compactTitle={compactRoundOneTitles}
                 />
               ))}
             </>
