@@ -74,6 +74,51 @@ export const CANDIDATES_EXTRA_IDEAS: CandidateIdea[] = [
 // Drop live tournament moments here as PGN or FEN during the event.
 export const CANDIDATES_FEATURED_POSITIONS: CandidatePosition[] = [
   {
+    id: 'rd9-attack-bluebaum-king',
+    title: "Rd9 Challenge 1: Attack Bluebaum's King",
+    subtitle:
+      'Sindarov made a rare mistake, missing 24. ...Qb7! Can you win from this position? (Bluebaum—Sindarov)',
+    summary:
+      "Black has attacking chances after Sindarov's mistake. Keep the initiative and finish the job.",
+    tag: 'Featured',
+    accent: 'red',
+    fen: 'rr4k1/1qp2ppp/2b1p3/6P1/P2QPP2/8/P1B4P/2KRR3 b - - 2 25',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd9-grind-like-giri',
+    title: 'Rd9 Challenge 2: Grind like Giri',
+    subtitle:
+      "Giri strategically outplayed Fabi and eventually won, ending the American's hopes. Can you convert this position? (Caruana—Giri)",
+    summary:
+      'Black has the better structure and king activity. Grind the endgame like Giri and convert.',
+    tag: 'Featured',
+    accent: 'amber',
+    fen: '4b3/2p3pk/1q1p1p1p/3Pp3/1pP1P3/1P1QP2P/r1N3PK/2R5 b - - 3 35',
+    playerColor: 'black',
+    maiaVersion: 'maia_kdd_1800',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd9-walk-pragg-tightrope',
+    title: "Rd9 Challenge 3: Walk Pragg's Tightrope",
+    subtitle:
+      "Pragg couldn't quite convert, missing 42.b4! Can you walk the tightrope after this move? (Praggnanandhaa—Wei)",
+    summary:
+      'White is balancing attack and defense in a sharp position. Stay precise and find the win.',
+    tag: 'Featured',
+    accent: 'blue',
+    fen: '5r2/p1Q3pk/b2Np2p/1p6/1P3P2/7P/1P1q2PK/5R2 w - - 1 43',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+]
+
+export const CANDIDATES_ROUND_EIGHT_POSITIONS: CandidatePosition[] = [
+  {
     id: 'rd8-hikaru-technique',
     title: "Rd8 Challenge 1: Hikaru's Technique",
     subtitle:
