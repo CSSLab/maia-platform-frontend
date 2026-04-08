@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   CANDIDATES_FEATURED_POSITIONS,
+  CANDIDATES_ROUND_EIGHT_POSITIONS,
   CANDIDATES_ROUND_FOUR_POSITIONS,
   CANDIDATES_ROUND_THREE_POSITIONS,
   CANDIDATES_ROUND_TWO_POSITIONS,
@@ -210,6 +211,9 @@ export default function CandidatesPage() {
   const compactFeaturedTitles = shouldCompactTitles(
     CANDIDATES_FEATURED_POSITIONS,
   )
+  const compactRoundEightTitles = shouldCompactTitles(
+    CANDIDATES_ROUND_EIGHT_POSITIONS,
+  )
   const compactRoundFourTitles = shouldCompactTitles(
     CANDIDATES_ROUND_FOUR_POSITIONS,
   )
@@ -274,7 +278,7 @@ export default function CandidatesPage() {
               FIDE Candidates Tournament 2026
             </h1>
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
-              Round 8
+              Round 9
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
@@ -299,13 +303,26 @@ export default function CandidatesPage() {
           </header>
           {CANDIDATES_FEATURED_POSITIONS.length > 0 ? (
             <>
-              <ChallengeSectionTitle title="Round 8 Challenges" />
+              <ChallengeSectionTitle title="Round 9 Challenges" />
               {CANDIDATES_FEATURED_POSITIONS.map((position) => (
                 <PositionPill
                   key={position.id}
                   position={position}
                   completed={completedChallengeIds.includes(position.id)}
                   compactTitle={compactFeaturedTitles}
+                />
+              ))}
+            </>
+          ) : null}
+          {CANDIDATES_ROUND_EIGHT_POSITIONS.length > 0 ? (
+            <>
+              <ChallengeSectionTitle title="Round 8 Challenges" />
+              {CANDIDATES_ROUND_EIGHT_POSITIONS.map((position) => (
+                <PositionPill
+                  key={position.id}
+                  position={position}
+                  completed={completedChallengeIds.includes(position.id)}
+                  compactTitle={compactRoundEightTitles}
                 />
               ))}
             </>
