@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import {
   CANDIDATES_FEATURED_POSITIONS,
+  CANDIDATES_ROUND_NINE_POSITIONS,
   CANDIDATES_ROUND_EIGHT_POSITIONS,
   CANDIDATES_ROUND_FOUR_POSITIONS,
   CANDIDATES_ROUND_THREE_POSITIONS,
@@ -186,10 +187,10 @@ const PositionPill: React.FC<{
         <div className="mt-auto flex justify-center">
           <Link
             href={playHref}
-            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-primary transition ${
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-primary shadow-[0_8px_24px_rgba(0,0,0,0.2)] transition ${
               completed
-                ? 'border border-emerald-300/30 bg-emerald-500/10 hover:border-emerald-200/45 hover:bg-emerald-500/15'
-                : 'border border-rose-300/25 bg-rose-500/10 hover:border-rose-200/40 hover:bg-rose-500/15'
+                ? 'bg-emerald-400/18 hover:bg-emerald-400/24 border border-emerald-200/55 hover:border-emerald-100/70'
+                : 'bg-rose-400/18 hover:bg-rose-400/24 border border-rose-200/50 hover:border-rose-100/65'
             }`}
           >
             <span className="material-symbols-outlined !text-[18px]">
@@ -210,6 +211,9 @@ export default function CandidatesPage() {
   )
   const compactFeaturedTitles = shouldCompactTitles(
     CANDIDATES_FEATURED_POSITIONS,
+  )
+  const compactRoundNineTitles = shouldCompactTitles(
+    CANDIDATES_ROUND_NINE_POSITIONS,
   )
   const compactRoundEightTitles = shouldCompactTitles(
     CANDIDATES_ROUND_EIGHT_POSITIONS,
@@ -278,7 +282,7 @@ export default function CandidatesPage() {
               FIDE Candidates Tournament 2026
             </h1>
             <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
-              Round 9
+              Round 10
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Link
@@ -303,13 +307,26 @@ export default function CandidatesPage() {
           </header>
           {CANDIDATES_FEATURED_POSITIONS.length > 0 ? (
             <>
-              <ChallengeSectionTitle title="Round 9 Challenges" />
+              <ChallengeSectionTitle title="Round 10 Challenges" />
               {CANDIDATES_FEATURED_POSITIONS.map((position) => (
                 <PositionPill
                   key={position.id}
                   position={position}
                   completed={completedChallengeIds.includes(position.id)}
                   compactTitle={compactFeaturedTitles}
+                />
+              ))}
+            </>
+          ) : null}
+          {CANDIDATES_ROUND_NINE_POSITIONS.length > 0 ? (
+            <>
+              <ChallengeSectionTitle title="Round 9 Challenges" />
+              {CANDIDATES_ROUND_NINE_POSITIONS.map((position) => (
+                <PositionPill
+                  key={position.id}
+                  position={position}
+                  completed={completedChallengeIds.includes(position.id)}
+                  compactTitle={compactRoundNineTitles}
                 />
               ))}
             </>
