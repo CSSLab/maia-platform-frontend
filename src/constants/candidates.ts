@@ -74,6 +74,51 @@ export const CANDIDATES_EXTRA_IDEAS: CandidateIdea[] = [
 // Drop live tournament moments here as PGN or FEN during the event.
 export const CANDIDATES_FEATURED_POSITIONS: CandidatePosition[] = [
   {
+    id: 'rd10-death-stare-follow-up',
+    title: 'Rd10 Challenge 1: Death Stare Follow-Up',
+    subtitle:
+      'Pragg blundered and Sindarov gave him the death stare before finding the best continuation. Can you cash this in for a big win? (Sindarov—Praggnanandhaa)',
+    summary:
+      'White has a crushing attack after Pragg blundered. Find the clean follow-up and cash in.',
+    tag: 'Featured',
+    accent: 'red',
+    fen: 'r5k1/pppb1R2/4q2r/4P3/4Q3/2P1P1Pp/P6P/5RK1 w - - 5 24',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd10-push-em',
+    title: "Rd10 Challenge 2: Push 'Em",
+    subtitle:
+      'White has the upper hand with pawns that can march down the board. (Assaubayeva—Zhu)',
+    summary:
+      'White has connected passers and active pieces. Push the pawns and convert.',
+    tag: 'Featured',
+    accent: 'amber',
+    fen: '4q1k1/5pb1/2p3p1/P2r3p/1PRp3P/3N1QP1/3R1PK1/r7 w - - 3 38',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1800',
+    targetMoveNumber: 8,
+  },
+  {
+    id: 'rd10-navigate-strategic-complexity',
+    title: 'Rd10 Challenge 3: Navigate Strategic Complexity',
+    subtitle:
+      'Giri had an interesting position against Nakamura but it fizzled out in the end. Can you do better? (Giri—Nakamura)',
+    summary:
+      'White has a rich strategic middlegame. Navigate the complications and improve on the game result.',
+    tag: 'Featured',
+    accent: 'blue',
+    fen: '3rr1k1/p2b1pp1/1ppqnn1p/3p4/3P4/1QN1P1NP/PP3PP1/1B1RR1K1 w - - 8 17',
+    playerColor: 'white',
+    maiaVersion: 'maia_kdd_1900',
+    targetMoveNumber: 8,
+  },
+]
+
+export const CANDIDATES_ROUND_NINE_POSITIONS: CandidatePosition[] = [
+  {
     id: 'rd9-attack-bluebaum-king',
     title: "Rd9 Challenge 1: Attack Bluebaum's King",
     subtitle:
