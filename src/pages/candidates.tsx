@@ -189,8 +189,8 @@ const PositionPill: React.FC<{
             href={playHref}
             className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-primary shadow-[0_8px_24px_rgba(0,0,0,0.2)] transition ${
               completed
-                ? 'bg-emerald-400/18 hover:bg-emerald-400/24 border border-emerald-200/55 hover:border-emerald-100/70'
-                : 'bg-rose-400/18 hover:bg-rose-400/24 border border-rose-200/50 hover:border-rose-100/65'
+                ? 'bg-emerald-500/30 hover:bg-emerald-500/34 border border-emerald-100/70 hover:border-emerald-50/80'
+                : 'bg-rose-500/30 hover:bg-rose-500/34 border border-rose-100/65 hover:border-rose-50/75'
             }`}
           >
             <span className="material-symbols-outlined !text-[18px]">
