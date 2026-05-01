@@ -135,40 +135,55 @@ export const handBrainTourSteps: TourStep[] = [
   },
 ]
 
-export const openingDrillTourSteps: TourStep[] = [
-  {
-    id: 'opening-drill-overview',
-    title: 'Welcome to Opening Drills',
-    description:
-      'Practice your openings by drilling specific openings against Maia. First select the openings you want to practice, configure drill settings, and practice them repeatedly until they become second nature. You can track your progress and analyze your performance after each drill.',
-    targetId: 'opening-drill-modal',
-    placement: 'bottom',
-  },
-  {
-    id: 'opening-drill-selection',
-    title: 'Select Openings',
-    description:
-      'Browse and select the openings you want to practice. You can search for specific variations and  add them using the + button.',
-    targetId: 'opening-drill-browse',
-    placement: 'right',
-  },
-  {
-    id: 'opening-drill-start',
-    title: 'Start Drilling',
-    description:
-      'Customize your drills by choosing the Maia opponent strength, how many moves in each drill, and how many drills to do. Click "Start Drilling" to start!',
-    targetId: 'opening-drill-selected',
-    placement: 'left',
-  },
-  {
-    id: 'opening-drill-gameplay',
-    title: 'Drill Experience',
-    description:
-      "During drilling, you'll play through your selected openings against Maia until reaching the target move count. After each drill, you can analyze the moves you played, see how the Maia and Stockfish evaluations changed throughout the game, and learn from your insights.",
-    targetId: 'opening-drill-modal',
-    placement: 'bottom',
-  },
-]
+const clickTab = (id: string) => () => {
+  document
+    .getElementById(id)
+    ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+}
+
+const openingDrillTourSteps = (): TourStep[] => {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+
+  return [
+    {
+      id: 'opening-drill-overview',
+      title: 'Welcome to Opening Drills',
+      description:
+        'Practice your openings by drilling specific openings against Maia. First select the openings you want to practice, configure drill settings, and practice them repeatedly until they become second nature. You can track your progress and analyze your performance after each drill.',
+      targetId: 'opening-drill-modal',
+      placement: 'bottom',
+    },
+    {
+      id: 'opening-drill-selection',
+      title: 'Select Openings',
+      description:
+        'Browse and select the openings you want to practice. You can search for specific variations and add them using the + button.',
+      targetId: 'opening-drill-browse',
+      placement: isMobile ? 'bottom' : 'right',
+      ...(isMobile && { beforeAction: clickTab('opening-drill-browse') }),
+    },
+    {
+      id: 'opening-drill-start',
+      title: 'Start Drilling',
+      description:
+        'Customize your drills by choosing the Maia opponent strength, how many moves in each drill, and how many drills to do. Click "Start Drilling" to start!',
+      targetId: isMobile ? 'opening-drill-selected' : 'opening-drill-preview',
+      placement: isMobile ? 'bottom' : 'left',
+      ...(isMobile && { beforeAction: clickTab('opening-drill-selected') }),
+    },
+    {
+      id: 'opening-drill-gameplay',
+      title: 'Drill Experience',
+      description:
+        "During drilling, you'll play through your selected openings against Maia until reaching the target move count. After each drill, you can analyze the moves you played, see how the Maia and Stockfish evaluations changed throughout the game, and learn from your insights.",
+      targetId: isMobile
+        ? 'opening-drill-selected-panel'
+        : 'opening-drill-queue',
+      placement: isMobile ? 'bottom' : 'left',
+      ...(isMobile && { beforeAction: clickTab('opening-drill-selected') }),
+    },
+  ]
+}
 
 export const tourConfigs = {
   analysis: {
@@ -199,6 +214,6 @@ export const tourConfigs = {
   openingDrill: {
     id: 'openingDrill',
     name: 'Opening Drill Tour',
-    steps: openingDrillTourSteps,
+    steps: openingDrillTourSteps(),
   },
 }

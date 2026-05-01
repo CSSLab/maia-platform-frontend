@@ -347,7 +347,7 @@ const TabNavigation: React.FC<{
   const { isMobile } = useContext(WindowSizeContext)
 
   return (
-    <div className="flex w-full border-b border-glass-border md:hidden">
+    <div className="flex w-full border-b border-glass-border lg:hidden">
       <button
         {...(isMobile ? { id: 'opening-drill-browse' } : {})}
         onClick={() => setActiveTab('browse')}
@@ -580,7 +580,7 @@ const BrowsePanel: React.FC<{
     return (
       <div
         id="opening-drill-browse"
-        className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:w-[320px] md:flex-none md:border-r md:border-glass-border`}
+        className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden lg:flex' : 'flex'} lg:w-[320px] lg:flex-none lg:border-r lg:border-glass-border`}
       >
         {renderTabs()}
         <form
@@ -778,7 +778,7 @@ const BrowsePanel: React.FC<{
   return (
     <div
       id="opening-drill-browse"
-      className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden md:flex' : 'flex'} md:w-[320px] md:flex-none md:border-r md:border-glass-border`}
+      className={`flex w-full flex-col overflow-hidden ${activeTab !== 'browse' ? 'hidden lg:flex' : 'flex'} lg:w-[320px] lg:flex-none lg:border-r lg:border-glass-border`}
     >
       {renderTabs()}
 
@@ -1053,7 +1053,7 @@ const DrillStudioPanel: React.FC<{
   return (
     <div
       id="opening-drill-preview"
-      className="hidden w-full flex-1 flex-col overflow-hidden md:flex"
+      className="hidden w-full flex-1 flex-col overflow-hidden lg:flex"
     >
       <div className="flex h-full flex-col border-l border-glass-border">
         {/* Scrollable Content */}
@@ -1201,7 +1201,7 @@ const DrillStudioPanel: React.FC<{
             </button>
 
             {/* Queue */}
-            <div className="flex flex-col gap-3">
+            <div id="opening-drill-queue" className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/35">
                   Queue
@@ -1313,7 +1313,7 @@ const SelectedPanel: React.FC<{
   showTargetSlider,
 }) => (
   <div
-    id="opening-drill-selected"
+    id="opening-drill-selected-panel"
     className={`flex w-full flex-col overflow-hidden ${activeTab !== 'selected' ? 'hidden' : 'flex'}`}
   >
     <div className="flex h-16 flex-col justify-center gap-1 border-b border-glass-border p-4">
@@ -2653,7 +2653,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         />
 
         {/* Main Content - Responsive Layout */}
-        <div className="grid w-full flex-1 grid-cols-1 overflow-hidden md:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="grid w-full flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)]">
           <BrowsePanel
             activeTab={activeTab}
             filteredOpenings={filteredOpenings}
@@ -2728,7 +2728,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         </div>
 
         {/* Mobile-only Selected Panel */}
-        <div className="w-full md:hidden">
+        <div className="w-full lg:hidden">
           <SelectedPanel
             activeTab={activeTab}
             selections={selections}

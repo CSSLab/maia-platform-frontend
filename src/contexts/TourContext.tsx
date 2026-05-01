@@ -16,6 +16,7 @@ export interface TourStep {
   targetId: string
   placement?: 'top' | 'bottom' | 'left' | 'right'
   offset?: { x: number; y: number }
+  beforeAction?: () => void | Promise<void>
 }
 
 export interface TourState {
@@ -497,6 +498,10 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
   const handleNext = useCallback(async () => {
     if (tourState.currentStep < tourState.steps.length - 1) {
       const nextStepIndex = tourState.currentStep + 1
+      const nextStepData = tourState.steps[nextStepIndex]
+      if (nextStepData?.beforeAction) {
+        await nextStepData.beforeAction()
+      }
       await preScrollToTarget(nextStepIndex)
       nextStep()
     } else {
@@ -504,7 +509,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     }
   }, [
     tourState.currentStep,
-    tourState.steps.length,
+    tourState.steps,
     nextStep,
     endTour,
     preScrollToTarget,
@@ -513,10 +518,14 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
   const handlePrevious = useCallback(async () => {
     if (tourState.currentStep > 0) {
       const prevStepIndex = tourState.currentStep - 1
+      const prevStepData = tourState.steps[prevStepIndex]
+      if (prevStepData?.beforeAction) {
+        await prevStepData.beforeAction()
+      }
       await preScrollToTarget(prevStepIndex)
       prevStep()
     }
-  }, [tourState.currentStep, prevStep, preScrollToTarget])
+  }, [tourState.currentStep, tourState.steps, prevStep, preScrollToTarget])
 
   // Update Joyride steps when tour state changes
   useEffect(() => {
