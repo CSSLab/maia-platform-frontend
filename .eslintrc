@@ -1,5 +1,6 @@
 {
   "root": true,
+  "ignorePatterns": ["next-env.d.ts"],
   "plugins": ["@typescript-eslint", "prettier", "react", "react-hooks"],
   "extends": [
     "next/core-web-vitals",
