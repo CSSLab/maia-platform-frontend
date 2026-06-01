@@ -43,6 +43,14 @@ const teamMembers = [
     github: 'lilv98',
   },
   {
+    image: '/assets/team/daniel.png',
+    name: 'Daniel Monroe',
+    website: 'https://daniel-monroe.github.io/',
+    institution: 'University of Toronto',
+    role: 'Model Developer',
+    github: 'daniel-monroe',
+  },
+  {
     image: '/assets/team/kevin.jpg',
     name: 'Kevin Thomas',
     website: 'https://kevinjosethomas.com/',
@@ -75,19 +83,44 @@ const teamMembers = [
   },
 ]
 
-const researchPapers = {
+interface Paper {
+  title: string
+  link: string
+  description: string
+  image?: string
+  shortName?: string
+}
+
+const researchPapers: {
+  maia1: Paper
+  maia2: Paper
+  maia3: Paper
+  others: Paper[]
+} = {
   maia1: {
     title:
       'Aligning Superhuman AI with Human Behavior: Chess as a Model System',
     link: 'https://www.cs.toronto.edu/~ashton/pubs/maia-kdd2020.pdf',
     description:
       'This paper introduces Maia, a chess engine trained to imitate real human moves at different rating levels. Instead of always picking the best move, Maia predicts what a human player of a given skill would actually play. This makes it ideal for training, game analysis, and even coaching, as it helps players learn from realistic decisions rather than computer perfection. It was the first AI to prioritize human-likeness over engine strength, making it a powerful tool for improvement.',
+    image: 'maia1',
+    shortName: 'Maia 1',
   },
   maia2: {
     title: 'Maia‑2: A Unified Model for Human‑AI Alignment in Chess',
     link: 'https://www.cs.toronto.edu/~ashton/pubs/maia2-neurips2024.pdf',
     description:
       "Maia‑2 is the evolution of Maia into a single model that can simulate any skill level in chess. Instead of using separate models for different ratings, it understands and adapts to your level in real time. Whether you're a beginner or a master, Maia‑2 predicts the moves players like you would actually make. It's built to feel human, teach naturally, and support personalized analysis without needing to toggle between bots.",
+    image: 'maia2',
+    shortName: 'Maia 2',
+  },
+  maia3: {
+    title: 'Chessformer: A Unified Architecture for Chess Modeling',
+    link: 'https://arxiv.org/abs/2605.19091',
+    description:
+      'Introduces Chessformer, a transformer-based architecture that unifies chess modeling to capture how human players make decisions across a wide range of skill levels.',
+    image: 'maia3',
+    shortName: 'Maia 3',
   },
   others: [
     {
@@ -125,7 +158,7 @@ const PaperCard = ({
   featured = false,
   className = '',
 }: {
-  paper: typeof researchPapers.maia1
+  paper: Paper
   featured?: boolean
   className?: string
 }) => (
@@ -146,7 +179,7 @@ const PaperCard = ({
     {featured && (
       <div className="aspect-[4/3] w-full overflow-hidden">
         <img
-          src={`/assets/papers/${paper.title.includes('Maia‑2') ? 'maia2' : 'maia1'}.jpg`}
+          src={`/assets/papers/${paper.image}.jpg`}
           alt={`${paper.title} paper preview`}
           className="h-full w-full object-cover object-top"
         />
@@ -172,7 +205,7 @@ const PaperCard = ({
           rel="noreferrer"
           className="inline-flex w-full items-center justify-center bg-human-4/80 px-5 py-3 font-medium text-primary transition duration-200 hover:bg-human-4"
         >
-          Read {paper.title.includes('Maia‑2') ? 'Maia 2' : 'Maia 1'} Paper
+          Read {paper.shortName} Paper
         </a>
       )}
     </div>
@@ -248,46 +281,17 @@ export const AboutMaia = () => {
           </div>
         </div>
         <div className="mx-auto max-w-[95%] px-2 pt-16 md:max-w-[90%] md:px-4">
-          {/* Layout for screens < 1280px */}
-          <div className="xl:hidden">
-            {/* Featured papers in a row */}
-            <div className="mb-6 grid grid-rows-2 gap-6 md:grid-cols-2 md:grid-rows-none">
-              <PaperCard
-                paper={researchPapers.maia1}
-                featured={true}
-                className=""
-              />
-              <PaperCard
-                paper={researchPapers.maia2}
-                featured={true}
-                className=""
-              />
-            </div>
-            {/* Other papers in a row */}
-            <div className="grid grid-rows-2 gap-4 sm:grid-cols-4 sm:grid-rows-none">
-              {researchPapers.others.map((paper, index) => (
-                <PaperCard key={index} paper={paper} className="flex-1" />
-              ))}
-            </div>
+          {/* Featured papers */}
+          <div className="mb-6 grid gap-6 md:grid-cols-3">
+            <PaperCard paper={researchPapers.maia1} featured={true} />
+            <PaperCard paper={researchPapers.maia2} featured={true} />
+            <PaperCard paper={researchPapers.maia3} featured={true} />
           </div>
-
-          {/* Layout for screens >= 1280px (original layout) */}
-          <div className="hidden xl:grid xl:grid-cols-3 xl:gap-6">
-            <PaperCard
-              paper={researchPapers.maia1}
-              featured={true}
-              className=""
-            />
-            <PaperCard
-              paper={researchPapers.maia2}
-              featured={true}
-              className=""
-            />
-            <div className="flex flex-col gap-4">
-              {researchPapers.others.map((paper, index) => (
-                <PaperCard key={index} paper={paper} className="flex-1" />
-              ))}
-            </div>
+          {/* Other papers in two columns */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {researchPapers.others.map((paper, index) => (
+              <PaperCard key={index} paper={paper} />
+            ))}
           </div>
         </div>
       </section>
