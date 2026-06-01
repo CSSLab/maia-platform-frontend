@@ -98,8 +98,8 @@ export const ExportGame: React.FC<Props> = (props) => {
   }
 
   return (
-    <div className="flex w-full flex-col gap-2">
-      <div className="flex w-full flex-col gap-0.5">
+    <div className="flex w-full min-w-0 flex-col gap-2 overflow-hidden">
+      <div className="flex w-full min-w-0 flex-col gap-0.5">
         <div className="flex w-full items-center justify-between">
           <p className="select-none text-xs font-semibold tracking-wider text-secondary">
             FEN
@@ -117,14 +117,14 @@ export const ExportGame: React.FC<Props> = (props) => {
           role="button"
           tabIndex={0}
           onClick={() => copy(fen)}
-          className="border-1 group flex w-full cursor-pointer overflow-x-hidden rounded border border-white/5 p-1"
+          className="border-1 group flex w-full min-w-0 cursor-pointer overflow-x-hidden rounded border border-white/5 p-1"
         >
-          <p className="whitespace-nowrap text-xxs text-secondary group-hover:text-secondary/80">
+          <p className="min-w-0 overflow-hidden whitespace-nowrap text-xxs text-secondary group-hover:text-secondary/80">
             {fen}
           </p>
         </div>
       </div>
-      <div className="flex w-full flex-col gap-0.5">
+      <div className="flex w-full min-w-0 flex-col gap-0.5">
         <div className="flex w-full items-center justify-between">
           <div className="flex w-full items-center">
             <p className="select-none text-xs font-semibold tracking-wider text-secondary">
@@ -144,7 +144,7 @@ export const ExportGame: React.FC<Props> = (props) => {
           role="button"
           tabIndex={0}
           onClick={() => copy(pgn)}
-          className="group flex w-full cursor-pointer overflow-x-hidden overflow-y-scroll rounded border border-white/5 p-1"
+          className="group flex h-40 max-h-40 min-h-40 w-full min-w-0 cursor-pointer overflow-x-hidden overflow-y-scroll rounded border border-white/5 p-1"
         >
           <p className="whitespace-pre-wrap text-xxs text-secondary group-hover:text-secondary/80">
             {pgn}

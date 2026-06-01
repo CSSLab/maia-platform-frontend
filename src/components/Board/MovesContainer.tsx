@@ -162,11 +162,36 @@ export const MovesContainer: React.FC<
   ])
 
   useEffect(() => {
-    if (currentMoveRef.current && containerRef.current) {
-      currentMoveRef.current.scrollIntoView({
+    const move = currentMoveRef.current
+    const container = containerRef.current
+    if (!move || !container) return
+
+    // scrollIntoView walks every scrollable ancestor up to the document body,
+    // so it can shift the whole page if the moves panel sits near a viewport
+    // edge. Scroll the moves panel directly instead, leaving everything above
+    // it alone.
+    const moveRect = move.getBoundingClientRect()
+    const containerRect = container.getBoundingClientRect()
+
+    let topDelta = 0
+    if (moveRect.top < containerRect.top) {
+      topDelta = moveRect.top - containerRect.top
+    } else if (moveRect.bottom > containerRect.bottom) {
+      topDelta = moveRect.bottom - containerRect.bottom
+    }
+
+    let leftDelta = 0
+    if (moveRect.left < containerRect.left) {
+      leftDelta = moveRect.left - containerRect.left
+    } else if (moveRect.right > containerRect.right) {
+      leftDelta = moveRect.right - containerRect.right
+    }
+
+    if (topDelta !== 0 || leftDelta !== 0) {
+      container.scrollTo({
+        top: container.scrollTop + topDelta,
+        left: container.scrollLeft + leftDelta,
         behavior: 'smooth',
-        block: 'nearest',
-        inline: 'nearest',
       })
     }
   }, [controller.currentNode])
