@@ -7,7 +7,7 @@ import Chessground from '@react-chess/chessground'
 import { BaseGame, GameNode, Color } from 'src/types'
 import { MoveClassificationIcon } from 'src/components/Common/MoveIcons'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
-import { useCallback, useMemo, Dispatch, SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, Dispatch, SetStateAction } from 'react'
 
 interface MoveClassification {
   blunder: boolean
@@ -70,6 +70,19 @@ export const GameBoard: React.FC<Props> = ({
 }: Props) => {
   const { playMoveSound } = useSound()
   const boardInstanceKey = game?.id ?? 'board'
+
+  // After every position change, post-render layout shifts (stats panel,
+  // move list) can move the board without changing its size, leaving
+  // Chessground's cached bounds stale. Dispatching resize clears the cache
+  // so the next click re-measures from the correct DOM position.
+  // Chessground registers a permanent window.resize → bounds.clear() listener
+  // at init, so this is the correct low-impact way to invalidate it.
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      window.dispatchEvent(new Event('resize'))
+    }, 50)
+    return () => window.clearTimeout(timeout)
+  }, [currentNode])
 
   const after = useCallback(
     (from: string, to: string) => {
