@@ -39,6 +39,14 @@ import {
   EndgameCategoryData,
   EndgameMotifData,
 } from 'src/lib/endgames'
+import {
+  cloneDrillConfiguration,
+  getDrillConfigurationSignature,
+  readSavedDrillPresets,
+  SavedDrillPreset,
+  upsertSavedDrillPreset,
+  writeSavedDrillPresets,
+} from 'src/lib/savedDrills'
 
 type MobileTab = 'browse' | 'selected'
 
@@ -91,12 +99,16 @@ const SelectionTitle: React.FC<{
   selection: OpeningSelection
   className?: string
 }> = ({ selection, className = 'text-[13px]' }) => (
-  <p className={`truncate ${className}`}>
-    <span className="font-medium text-white">{selection.opening.name}</span>
+  <div className="min-w-0">
+    <p className={`truncate font-medium text-white ${className}`}>
+      {selection.variation ? selection.variation.name : selection.opening.name}
+    </p>
     {selection.variation && (
-      <span className="text-white/55">: {selection.variation.name}</span>
+      <p className="truncate text-[11px] leading-snug text-white/55">
+        {selection.opening.name}
+      </p>
     )}
-  </p>
+  </div>
 )
 
 const SelectionConfigurationLine: React.FC<{
@@ -374,6 +386,144 @@ const TabNavigation: React.FC<{
   )
 }
 
+const getPresetSelection = (preset: SavedDrillPreset) =>
+  preset.configuration.selections[0] ?? null
+
+const SavedDrillPresetRow: React.FC<{
+  preset: SavedDrillPreset
+  isSelected: boolean
+  onSelect: (preset: SavedDrillPreset) => void
+  onRemove: (presetId: string) => void
+}> = ({ preset, isSelected, onSelect, onRemove }) => {
+  const selection = getPresetSelection(preset)
+
+  if (!selection) {
+    return null
+  }
+
+  const isEndgame = getOpeningCategory(selection.opening) === 'endgame'
+  const detailLine = getSelectionDetailLine(selection)
+
+  return (
+    <div
+      className={`group mx-3 mb-1 flex items-start gap-2 rounded-md px-2.5 py-2 transition-colors ${
+        isSelected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => onSelect(preset)}
+        className="flex min-w-0 flex-1 items-start gap-2 text-left"
+      >
+        {isEndgame ? (
+          <span className="material-symbols-outlined mt-0.5 !text-[17px] text-human-3">
+            trophy
+          </span>
+        ) : (
+          <div className="relative mt-0.5 h-4 w-4 flex-shrink-0">
+            <Image
+              src={`/assets/pieces/${selection.playerColor} king.svg`}
+              fill={true}
+              alt={`${selection.playerColor} king`}
+            />
+          </div>
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block break-words text-[12px] font-medium leading-snug text-white/90">
+            {selection.variation
+              ? selection.variation.name
+              : selection.opening.name}
+          </span>
+          {selection.variation && (
+            <span className="block break-words text-[11px] leading-snug text-white/50">
+              {selection.opening.name}
+            </span>
+          )}
+          {detailLine && (
+            <span className="block break-words text-[11px] leading-snug text-white/45">
+              {detailLine}
+            </span>
+          )}
+          <SelectionConfigurationLine
+            selection={selection}
+            className="mt-1 text-[10px] text-white/45"
+          />
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          onRemove(preset.id)
+        }}
+        className="mt-0.5 flex-shrink-0 rounded p-1 text-white/25 transition-colors hover:bg-white/[0.05] hover:text-red-300"
+        aria-label={`Remove ${preset.name}`}
+        title="Remove saved drill"
+      >
+        <span className="material-symbols-outlined !text-[16px]">delete</span>
+      </button>
+    </div>
+  )
+}
+
+const SavedDrillsCategory: React.FC<{
+  presets: SavedDrillPreset[]
+  selectedPresetId: string | null
+  isCollapsed: boolean
+  onToggle: () => void
+  onSelect: (preset: SavedDrillPreset) => void
+  onRemove: (presetId: string) => void
+}> = ({
+  presets,
+  selectedPresetId,
+  isCollapsed,
+  onToggle,
+  onSelect,
+  onRemove,
+}) => {
+  if (!presets.length) {
+    return null
+  }
+
+  return (
+    <div>
+      <div
+        className="flex cursor-pointer items-center gap-1.5 px-3 pb-1 pt-5 transition-colors hover:bg-white/[0.02]"
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            onToggle()
+          }
+        }}
+      >
+        <span
+          className={`material-symbols-outlined !text-[14px] text-white/35 transition-transform ${
+            isCollapsed ? '-rotate-90' : ''
+          }`}
+        >
+          expand_more
+        </span>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-white/30">
+          Saved Drills
+          <span className="normal-case"> ({presets.length})</span>
+        </p>
+      </div>
+      {!isCollapsed &&
+        presets.map((preset) => (
+          <SavedDrillPresetRow
+            key={preset.id}
+            preset={preset}
+            isSelected={selectedPresetId === preset.id}
+            onSelect={onSelect}
+            onRemove={onRemove}
+          />
+        ))}
+    </div>
+  )
+}
+
 // Left Panel - Opening Selection
 const BrowsePanel: React.FC<{
   activeTab: MobileTab
@@ -397,6 +547,11 @@ const BrowsePanel: React.FC<{
   onAddCustomPosition: () => void
   categoryLabel: string
   categoryLabelPlural: string
+  savedDrillPresets: SavedDrillPreset[]
+  selectedSavedDrillPresetId: string | null
+  onSelectSavedDrillPreset: (preset: SavedDrillPreset) => void
+  onRemoveSavedDrillPreset: (presetId: string) => void
+  onClearSelectedSavedDrillPreset: () => void
 }> = ({
   activeTab,
   filteredOpenings,
@@ -419,6 +574,11 @@ const BrowsePanel: React.FC<{
   onAddCustomPosition,
   categoryLabel,
   categoryLabelPlural,
+  savedDrillPresets,
+  selectedSavedDrillPresetId,
+  onSelectSavedDrillPreset,
+  onRemoveSavedDrillPreset,
+  onClearSelectedSavedDrillPreset,
 }) => {
   const { isMobile } = useContext(WindowSizeContext)
   const isCustomCategory = browseCategory === 'custom'
@@ -454,6 +614,41 @@ const BrowsePanel: React.FC<{
   }
 
   const searchPlaceholder = `Search ${categoryLabelPlural.toLowerCase()}...`
+
+  const savedDrillCategoryPresets = useMemo(() => {
+    const activeCategory =
+      browseCategory === 'endgames'
+        ? 'endgame'
+        : browseCategory === 'custom'
+          ? 'custom'
+          : 'opening'
+    const loweredSearchTerm = searchTerm.trim().toLowerCase()
+
+    return savedDrillPresets.filter((preset) => {
+      const selection = getPresetSelection(preset)
+      if (!selection) return false
+      if (getOpeningCategory(selection.opening) !== activeCategory) return false
+
+      if (!loweredSearchTerm) return true
+
+      const searchableText = [
+        selection.opening.name,
+        selection.variation?.name,
+        selection.opening.description,
+        getMaiaOpponentName(selection.maiaVersion),
+        selection.playerColor,
+        selection.targetMoveNumber === null
+          ? 'infinite moves'
+          : `${selection.targetMoveNumber} moves`,
+        getSelectionDetailLine(selection),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
+      return searchableText.includes(loweredSearchTerm)
+    })
+  }, [browseCategory, savedDrillPresets, searchTerm])
 
   const renderTabs = () => (
     <div className="grid w-full select-none grid-cols-3 items-center justify-between border-b border-glass-border bg-white/[0.04]">
@@ -634,7 +829,18 @@ const BrowsePanel: React.FC<{
         </div>
 
         <div className="red-scrollbar flex flex-1 flex-col overflow-y-auto px-2">
-          {filteredOpenings.length === 0 ? (
+          <SavedDrillsCategory
+            presets={savedDrillCategoryPresets}
+            selectedPresetId={selectedSavedDrillPresetId}
+            isCollapsed={
+              searchTerm ? false : collapsedCategories.has('Saved Drills')
+            }
+            onToggle={() => toggleCategoryCollapse('Saved Drills')}
+            onSelect={onSelectSavedDrillPreset}
+            onRemove={onRemoveSavedDrillPreset}
+          />
+          {filteredOpenings.length === 0 &&
+          savedDrillCategoryPresets.length === 0 ? (
             <div className="flex flex-1 items-center justify-center px-4 text-center text-[12px] text-white/35">
               No saved positions yet. Add a FEN or PGN above to get started.
             </div>
@@ -658,6 +864,7 @@ const BrowsePanel: React.FC<{
                       tabIndex={0}
                       className="flex-1 cursor-pointer px-2.5 py-[8px]"
                       onClick={() => {
+                        onClearSelectedSavedDrillPreset()
                         setPreviewOpening(opening)
                         setPreviewVariation(null)
                         trackOpeningPreviewSelected(
@@ -671,6 +878,7 @@ const BrowsePanel: React.FC<{
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
+                          onClearSelectedSavedDrillPreset()
                           setPreviewOpening(opening)
                           setPreviewVariation(null)
                           trackOpeningPreviewSelected(
@@ -762,6 +970,7 @@ const BrowsePanel: React.FC<{
     opening: Opening,
     variation: OpeningVariation | null,
   ) => {
+    onClearSelectedSavedDrillPreset()
     setPreviewOpening(opening)
     setPreviewVariation(variation)
     trackOpeningPreviewSelected(
@@ -801,6 +1010,16 @@ const BrowsePanel: React.FC<{
         className="red-scrollbar flex flex-1 flex-col overflow-y-auto"
         style={{ userSelect: 'none' }}
       >
+        <SavedDrillsCategory
+          presets={savedDrillCategoryPresets}
+          selectedPresetId={selectedSavedDrillPresetId}
+          isCollapsed={
+            searchTerm ? false : collapsedCategories.has('Saved Drills')
+          }
+          onToggle={() => toggleCategoryCollapse('Saved Drills')}
+          onSelect={onSelectSavedDrillPreset}
+          onRemove={onRemoveSavedDrillPreset}
+        />
         {categorizedOpenings.map((category) => {
           const isCategoryCollapsed = searchTerm
             ? false
@@ -972,6 +1191,9 @@ const DrillStudioPanel: React.FC<{
   removeSelection: (id: string) => void
   onSelectQueueItem: (selection: OpeningSelection) => void
   handleStartDrilling: () => void
+  handleSaveCurrentDrill: () => void
+  isCurrentDrillSaved: boolean
+  canSaveCurrentDrill: boolean
   selectedMaiaVersion: (typeof MAIA3_OPPONENT_RATINGS)[0]
   setSelectedMaiaVersion: (version: (typeof MAIA3_OPPONENT_RATINGS)[0]) => void
   targetMoveNumber: number | null
@@ -996,6 +1218,9 @@ const DrillStudioPanel: React.FC<{
   removeSelection,
   onSelectQueueItem,
   handleStartDrilling,
+  handleSaveCurrentDrill,
+  isCurrentDrillSaved,
+  canSaveCurrentDrill,
   selectedMaiaVersion,
   setSelectedMaiaVersion,
   targetMoveNumber,
@@ -1273,14 +1498,28 @@ const DrillStudioPanel: React.FC<{
 
         {/* Fixed footer: Start button */}
         <div className="flex-shrink-0 border-t border-white/[0.06] px-6 pb-5 pt-4">
-          <button
-            onClick={handleStartDrilling}
-            disabled={selections.length === 0}
-            className="w-full rounded-lg bg-human-4/85 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
-          >
-            Start Drilling ({selections.length}{' '}
-            {selections.length === 1 ? 'selection' : 'selections'})
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSaveCurrentDrill}
+              disabled={!canSaveCurrentDrill}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.05] px-4 py-3 text-[13px] font-semibold text-white/75 transition-colors hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              title={isCurrentDrillSaved ? 'Saved' : 'Save'}
+            >
+              <span className="material-symbols-outlined !text-[17px]">
+                {isCurrentDrillSaved ? 'bookmark' : 'bookmark_add'}
+              </span>
+              <span>{isCurrentDrillSaved ? 'Saved' : 'Save'}</span>
+            </button>
+            <button
+              onClick={handleStartDrilling}
+              disabled={selections.length === 0}
+              className="flex-1 rounded-lg bg-human-4/85 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-human-4 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/35"
+            >
+              Start Drilling ({selections.length}{' '}
+              {selections.length === 1 ? 'selection' : 'selections'})
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1292,6 +1531,9 @@ const SelectedPanel: React.FC<{
   selections: OpeningSelection[]
   removeSelection: (id: string) => void
   handleStartDrilling: () => void
+  handleSaveCurrentDrill: () => void
+  isCurrentDrillSaved: boolean
+  canSaveCurrentDrill: boolean
   selectedMaiaVersion: (typeof MAIA3_OPPONENT_RATINGS)[0]
   setSelectedMaiaVersion: (version: (typeof MAIA3_OPPONENT_RATINGS)[0]) => void
   targetMoveNumber: number | null
@@ -1304,6 +1546,9 @@ const SelectedPanel: React.FC<{
   selections,
   removeSelection,
   handleStartDrilling,
+  handleSaveCurrentDrill,
+  isCurrentDrillSaved,
+  canSaveCurrentDrill,
   selectedMaiaVersion,
   setSelectedMaiaVersion,
   targetMoveNumber,
@@ -1457,14 +1702,28 @@ const SelectedPanel: React.FC<{
         </div>
       )}
 
-      <button
-        onClick={handleStartDrilling}
-        disabled={selections.length === 0}
-        className="w-full rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        Start Drilling ({selections.length}{' '}
-        {selections.length === 1 ? 'selection' : 'selections'})
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handleSaveCurrentDrill}
+          disabled={!canSaveCurrentDrill}
+          className="flex items-center justify-center gap-1 rounded border border-glass-border bg-white/5 px-3 py-2 text-xs font-medium text-white/80 backdrop-blur-sm transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          title={isCurrentDrillSaved ? 'Saved' : 'Save'}
+        >
+          <span className="material-symbols-outlined !text-[16px]">
+            {isCurrentDrillSaved ? 'bookmark' : 'bookmark_add'}
+          </span>
+          <span>{isCurrentDrillSaved ? 'Saved' : 'Save'}</span>
+        </button>
+        <button
+          onClick={handleStartDrilling}
+          disabled={selections.length === 0}
+          className="flex-1 rounded border border-glass-border bg-white/5 py-2 text-sm font-medium text-white backdrop-blur-sm transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Start Drilling ({selections.length}{' '}
+          {selections.length === 1 ? 'selection' : 'selections'})
+        </button>
+      </div>
     </div>
   </div>
 )
@@ -1689,6 +1948,17 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     initialCustomDraft?.input ?? '',
   )
   const [customError, setCustomError] = useState<string | null>(null)
+  const [savedDrillPresets, setSavedDrillPresets] = useState<
+    SavedDrillPreset[]
+  >([])
+  const [selectedSavedDrillPresetId, setSelectedSavedDrillPresetId] = useState<
+    string | null
+  >(null)
+
+  useEffect(() => {
+    setSavedDrillPresets(readSavedDrillPresets())
+  }, [])
+
   const getDefaultPreviewByCategory = useCallback(
     (category: 'openings' | 'endgames' | 'custom'): Opening => {
       if (category === 'openings') {
@@ -1714,6 +1984,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       setMobilePopupOpen(false)
       setMobilePopupOpening(null)
       setMobilePopupVariation(null)
+      setSelectedSavedDrillPresetId(null)
 
       if (!preservePreview) {
         const nextPreview = getDefaultPreviewByCategory(category)
@@ -2208,10 +2479,12 @@ export const OpeningSelectionModal: React.FC<Props> = ({
       {
         playerColor = selectedColor,
         maiaVersion = selectedMaiaVersion.id,
+        targetMoves = targetMoveNumber,
         traits = [],
       }: {
         playerColor?: 'white' | 'black'
         maiaVersion?: string
+        targetMoves?: number | null
         traits?: EndgameTrait[]
       } = {},
     ) => {
@@ -2233,11 +2506,14 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             return existingTraits === normalizedTraits
           }
 
-          return selection.playerColor === playerColor
+          return (
+            selection.playerColor === playerColor &&
+            selection.targetMoveNumber === targetMoves
+          )
         }) ?? null
       )
     },
-    [selectedColor, selectedMaiaVersion.id, selections],
+    [selectedColor, selectedMaiaVersion.id, selections, targetMoveNumber],
   )
 
   const isDuplicateSelection = useCallback(
@@ -2473,48 +2749,277 @@ export const OpeningSelectionModal: React.FC<Props> = ({
     return !!findMatchingSelection(opening, variation, { traits })
   }
 
+  const persistSavedDrillPresets = useCallback(
+    (nextPresets: SavedDrillPreset[]) => {
+      setSavedDrillPresets(writeSavedDrillPresets(nextPresets))
+    },
+    [],
+  )
+
+  // The drill currently configured in the preview (opening + variation + the
+  // live opponent / color / move-count settings). Saving uses this when the
+  // queue is empty so tweaking a loaded preset's settings can be saved as a
+  // distinct drill — its signature already keys on rating, color and moves.
+  const currentDrillSelection = useMemo<OpeningSelection | null>(() => {
+    const category = getOpeningCategory(previewOpening)
+
+    if (category === 'endgame') {
+      const selectedTraits = getSelectedEndgameTraits(
+        previewOpening,
+        previewVariation,
+      )
+      if (!selectedTraits.length) return null
+
+      const positions = buildEndgamePositions(
+        previewOpening,
+        previewVariation,
+        selectedTraits,
+      )
+      if (!positions.length) return null
+
+      return {
+        id: `endgame-${previewOpening.id}-${previewVariation?.id || 'all'}-${selectedTraits
+          .slice()
+          .sort()
+          .join('-')}-${selectedMaiaVersion.id}`,
+        opening: previewOpening,
+        variation: previewVariation,
+        playerColor: 'white',
+        maiaVersion: selectedMaiaVersion.id,
+        targetMoveNumber: null,
+        endgameTraits: selectedTraits,
+        endgamePositions: positions,
+        endgameScope: previewVariation ? 'motif' : 'category',
+      }
+    }
+
+    return {
+      id: `${previewOpening.id}-${previewVariation?.id || 'main'}-${selectedColor}-${selectedMaiaVersion.id}`,
+      opening: previewOpening,
+      variation: previewVariation,
+      playerColor: selectedColor,
+      maiaVersion: selectedMaiaVersion.id,
+      targetMoveNumber,
+    }
+  }, [
+    previewOpening,
+    previewVariation,
+    selectedColor,
+    selectedMaiaVersion.id,
+    targetMoveNumber,
+    getSelectedEndgameTraits,
+    buildEndgamePositions,
+  ])
+
+  // What "Save" acts on: the queue when it has drills, otherwise the single
+  // drill configured in the preview.
+  const drillsToSave = useMemo<OpeningSelection[]>(() => {
+    if (selections.length > 0) return selections
+    return currentDrillSelection ? [currentDrillSelection] : []
+  }, [selections, currentDrillSelection])
+
+  const canSaveCurrentDrill = drillsToSave.length > 0
+
+  const currentSelectionSignatures = useMemo(
+    () =>
+      drillsToSave.map((selection) =>
+        getDrillConfigurationSignature({ selections: [selection] }),
+      ),
+    [drillsToSave],
+  )
+
+  const isCurrentDrillSaved = useMemo(
+    () =>
+      currentSelectionSignatures.length > 0 &&
+      currentSelectionSignatures.every((signature) =>
+        savedDrillPresets.some((preset) => preset.signature === signature),
+      ),
+    [currentSelectionSignatures, savedDrillPresets],
+  )
+
+  const hydrateCustomOpeningsFromSelections = useCallback(
+    (nextSelections: OpeningSelection[]) => {
+      const savedCustomOpenings = nextSelections
+        .map((selection) => selection.opening)
+        .filter(
+          (opening) =>
+            opening.isCustom ||
+            (opening.categoryType ?? 'opening') === 'custom',
+        )
+        .map((opening) => ({
+          ...opening,
+          isCustom: true,
+          categoryType: 'custom' as const,
+          variations: (opening.variations || []).map((variation) => ({
+            ...variation,
+            isCustom: true,
+          })),
+        }))
+
+      if (!savedCustomOpenings.length) {
+        return
+      }
+
+      setCustomOpenings((previousCustomOpenings) => {
+        const merged = new Map<string, Opening>()
+
+        previousCustomOpenings.forEach((opening) => {
+          merged.set(opening.id, opening)
+        })
+
+        savedCustomOpenings.forEach((opening) => {
+          merged.set(opening.id, opening)
+        })
+
+        return Array.from(merged.values())
+      })
+    },
+    [],
+  )
+
+  const handleSelectSavedDrillPreset = useCallback(
+    (preset: SavedDrillPreset) => {
+      const configuration = cloneDrillConfiguration(preset.configuration)
+      const selection = configuration.selections[0] ?? null
+
+      if (!selection) {
+        return
+      }
+
+      hydrateCustomOpeningsFromSelections([selection])
+      setSelectedSavedDrillPresetId(preset.id)
+
+      if (
+        getOpeningCategory(selection.opening) === 'endgame' &&
+        selection.endgameTraits
+      ) {
+        const key = getTraitSelectionKey(
+          selection.opening.id,
+          selection.variation?.id ?? null,
+        )
+        setEndgameTraitSelections((previousSelections) => ({
+          ...previousSelections,
+          [key]: selection.endgameTraits ?? [],
+        }))
+      }
+
+      const category = getOpeningCategory(selection.opening)
+      setBrowseCategory(
+        category === 'endgame'
+          ? 'endgames'
+          : category === 'custom'
+            ? 'custom'
+            : 'openings',
+      )
+      setPreviewOpening(selection.opening)
+      setPreviewVariation(selection.variation ?? null)
+      setSelectedColor(category === 'endgame' ? 'white' : selection.playerColor)
+      setTargetMoveNumber(selection.targetMoveNumber)
+      setSelectedMaiaVersion(
+        MAIA3_OPPONENT_RATINGS.find(
+          (version) => version.id === selection.maiaVersion,
+        ) ?? defaultMaiaVersion,
+      )
+      setSearchTerm('')
+
+      if (isMobile) {
+        setMobilePopupOpening(selection.opening)
+        setMobilePopupVariation(selection.variation ?? null)
+        setMobilePopupOpen(true)
+      } else {
+        setMobilePopupOpen(false)
+        setMobilePopupOpening(null)
+        setMobilePopupVariation(null)
+      }
+
+      setActiveTab('browse')
+    },
+    [defaultMaiaVersion, hydrateCustomOpeningsFromSelections, isMobile],
+  )
+
+  const handleSaveCurrentDrill = useCallback(() => {
+    if (!drillsToSave.length) {
+      return
+    }
+
+    const nextPresets = upsertSavedDrillPreset(
+      { selections: drillsToSave },
+      savedDrillPresets,
+    )
+    persistSavedDrillPresets(nextPresets)
+  }, [drillsToSave, persistSavedDrillPresets, savedDrillPresets])
+
+  const handleRemoveSavedDrillPreset = useCallback(
+    (presetId: string) => {
+      persistSavedDrillPresets(
+        savedDrillPresets.filter((preset) => preset.id !== presetId),
+      )
+      setSelectedSavedDrillPresetId((currentPresetId) =>
+        currentPresetId === presetId ? null : currentPresetId,
+      )
+    },
+    [persistSavedDrillPresets, savedDrillPresets],
+  )
+
+  const startDrillConfiguration = useCallback(
+    (configuration: DrillConfiguration) => {
+      if (configuration.selections.length === 0) {
+        return
+      }
+
+      const clonedConfiguration = cloneDrillConfiguration(configuration)
+      const drillSelections = clonedConfiguration.selections
+
+      if (drillSelections.length === 0) {
+        return
+      }
+
+      // Track drill configuration completion
+      const uniqueOpenings = new Set(drillSelections.map((s) => s.opening.id))
+        .size
+      const numericTargets = drillSelections
+        .map((selection) =>
+          typeof selection.targetMoveNumber === 'number'
+            ? selection.targetMoveNumber
+            : null,
+        )
+        .filter((value): value is number => value !== null)
+      const averageTargetMoves =
+        numericTargets.length > 0
+          ? numericTargets.reduce((sum, value) => sum + value, 0) /
+            numericTargets.length
+          : 0
+      const maiaVersionsUsed = [
+        ...new Set(drillSelections.map((s) => s.maiaVersion)),
+      ]
+      const colorDistribution = drillSelections.reduce(
+        (acc, s) => {
+          acc[s.playerColor]++
+          return acc
+        },
+        { white: 0, black: 0 },
+      )
+
+      trackDrillConfigurationCompleted(
+        drillSelections.length,
+        drillSelections.length,
+        uniqueOpenings,
+        averageTargetMoves,
+        maiaVersionsUsed,
+        colorDistribution,
+      )
+
+      onComplete(clonedConfiguration)
+    },
+    [onComplete],
+  )
+
   const handleStartDrilling = () => {
     if (selections.length === 0) {
       return
     }
 
-    const configuration: DrillConfiguration = {
-      selections,
-    }
-
-    // Track drill configuration completion
-    const uniqueOpenings = new Set(selections.map((s) => s.opening.id)).size
-    const numericTargets = selections
-      .map((selection) =>
-        typeof selection.targetMoveNumber === 'number'
-          ? selection.targetMoveNumber
-          : null,
-      )
-      .filter((value): value is number => value !== null)
-    const averageTargetMoves =
-      numericTargets.length > 0
-        ? numericTargets.reduce((sum, value) => sum + value, 0) /
-          numericTargets.length
-        : 0
-    const maiaVersionsUsed = [...new Set(selections.map((s) => s.maiaVersion))]
-    const colorDistribution = selections.reduce(
-      (acc, s) => {
-        acc[s.playerColor]++
-        return acc
-      },
-      { white: 0, black: 0 },
-    )
-
-    trackDrillConfigurationCompleted(
-      selections.length,
-      selections.length, // Use selections length for drill count
-      uniqueOpenings,
-      averageTargetMoves,
-      maiaVersionsUsed,
-      colorDistribution,
-    )
-
-    onComplete(configuration)
+    startDrillConfiguration({ selections })
   }
 
   const previewCategoryType = getOpeningCategory(previewOpening)
@@ -2676,6 +3181,13 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             onAddCustomPosition={handleAddCustomPosition}
             categoryLabel={categoryLabel}
             categoryLabelPlural={categoryLabelPlural}
+            savedDrillPresets={savedDrillPresets}
+            selectedSavedDrillPresetId={selectedSavedDrillPresetId}
+            onSelectSavedDrillPreset={handleSelectSavedDrillPreset}
+            onRemoveSavedDrillPreset={handleRemoveSavedDrillPreset}
+            onClearSelectedSavedDrillPreset={() =>
+              setSelectedSavedDrillPresetId(null)
+            }
           />
           <DrillStudioPanel
             previewOpening={previewOpening}
@@ -2719,6 +3231,9 @@ export const OpeningSelectionModal: React.FC<Props> = ({
               }
             }}
             handleStartDrilling={handleStartDrilling}
+            handleSaveCurrentDrill={handleSaveCurrentDrill}
+            isCurrentDrillSaved={isCurrentDrillSaved}
+            canSaveCurrentDrill={canSaveCurrentDrill}
             selectedMaiaVersion={selectedMaiaVersion}
             setSelectedMaiaVersion={setSelectedMaiaVersion}
             targetMoveNumber={targetMoveNumber}
@@ -2741,6 +3256,9 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             categoryLabel={categoryLabel}
             categoryLabelPlural={categoryLabelPlural}
             showTargetSlider={browseCategory === 'openings'}
+            handleSaveCurrentDrill={handleSaveCurrentDrill}
+            isCurrentDrillSaved={isCurrentDrillSaved}
+            canSaveCurrentDrill={canSaveCurrentDrill}
           />
         </div>
 
