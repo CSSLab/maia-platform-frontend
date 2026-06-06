@@ -758,6 +758,23 @@ const BrowsePanel: React.FC<{
     </div>
   )
 
+  const selectBrowseItem = (
+    opening: Opening,
+    variation: OpeningVariation | null,
+  ) => {
+    setPreviewOpening(opening)
+    setPreviewVariation(variation)
+    trackOpeningPreviewSelected(
+      opening.name,
+      opening.id,
+      !!variation,
+      variation?.name,
+    )
+    if (isMobile) {
+      onOpeningClick(opening, variation)
+    }
+  }
+
   return (
     <div
       id="opening-drill-browse"
@@ -819,7 +836,6 @@ const BrowsePanel: React.FC<{
                 category.openings.map((opening) => {
                   const openingIsBeingPreviewed =
                     previewOpening.id === opening.id && !previewVariation
-                  const showStandaloneOpening = opening.variations.length === 0
                   const isCollapsed = searchTerm
                     ? false
                     : collapsedOpenings.has(opening.id)
@@ -828,30 +844,51 @@ const BrowsePanel: React.FC<{
                   return (
                     <div key={opening.id} className="px-3 pb-0.5 pt-2.5">
                       <div
-                        className={`flex items-start gap-1.5 rounded-md px-2 py-1.5 transition-colors ${hasVariations ? 'cursor-pointer hover:bg-white/[0.03]' : ''}`}
-                        onClick={() => {
-                          if (hasVariations) toggleCollapse(opening.id)
+                        role="button"
+                        tabIndex={0}
+                        className={`flex items-start gap-1.5 rounded-md px-2 py-1.5 transition-colors ${
+                          openingIsBeingPreviewed
+                            ? 'bg-white/[0.05]'
+                            : 'cursor-pointer hover:bg-white/[0.03]'
+                        }`}
+                        onClick={() => selectBrowseItem(opening, null)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            selectBrowseItem(opening, null)
+                          }
                         }}
-                        role={hasVariations ? 'button' : undefined}
-                        tabIndex={hasVariations ? 0 : undefined}
-                        onKeyDown={
-                          hasVariations
-                            ? (e) => {
-                                if (e.key === 'Enter' || e.key === ' ')
-                                  toggleCollapse(opening.id)
-                              }
-                            : undefined
-                        }
                       >
-                        {hasVariations && (
-                          <span
-                            className={`material-symbols-outlined mt-0.5 !text-[15px] text-white/30 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                        {hasVariations ? (
+                          <button
+                            type="button"
+                            aria-label={
+                              isCollapsed
+                                ? `Expand ${opening.name} variations`
+                                : `Collapse ${opening.name} variations`
+                            }
+                            className="mt-0.5 rounded p-0.5 text-white/30 transition-colors hover:bg-white/[0.05] hover:text-white/60"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleCollapse(opening.id)
+                            }}
                           >
-                            expand_more
-                          </span>
+                            <span
+                              className={`material-symbols-outlined !text-[15px] transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
+                            >
+                              expand_more
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="mt-0.5 w-[23px] flex-shrink-0" />
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-[12px] font-semibold uppercase tracking-[0.04em] text-white/40">
+                          <p
+                            className={`text-[12px] font-semibold uppercase tracking-[0.04em] ${
+                              openingIsBeingPreviewed
+                                ? 'text-white'
+                                : 'text-white/40'
+                            }`}
+                          >
                             {opening.name}
                           </p>
                           {opening.pgn && hasVariations && (
@@ -869,26 +906,6 @@ const BrowsePanel: React.FC<{
 
                       {!isCollapsed && (
                         <div className="pl-5">
-                          {showStandaloneOpening
-                            ? renderRow(
-                                opening.name,
-                                opening.pgn,
-                                openingIsBeingPreviewed,
-                                () => {
-                                  setPreviewOpening(opening)
-                                  setPreviewVariation(null)
-                                  trackOpeningPreviewSelected(
-                                    opening.name,
-                                    opening.id,
-                                    false,
-                                  )
-                                  if (isMobile) {
-                                    onOpeningClick(opening, null)
-                                  }
-                                },
-                              )
-                            : null}
-
                           {opening.variations.map((variation) => {
                             const variationIsBeingPreviewed =
                               previewOpening.id === opening.id &&
@@ -919,19 +936,7 @@ const BrowsePanel: React.FC<{
                                     return `${moveNum}. ...${suffix}`
                                   })(),
                                   variationIsBeingPreviewed,
-                                  () => {
-                                    setPreviewOpening(opening)
-                                    setPreviewVariation(variation)
-                                    trackOpeningPreviewSelected(
-                                      opening.name,
-                                      opening.id,
-                                      true,
-                                      variation.name,
-                                    )
-                                    if (isMobile) {
-                                      onOpeningClick(opening, variation)
-                                    }
-                                  },
+                                  () => selectBrowseItem(opening, variation),
                                 )}
                               </React.Fragment>
                             )

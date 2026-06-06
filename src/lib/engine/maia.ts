@@ -24,11 +24,18 @@ interface PendingInference {
   reject: (error: Error) => void
 }
 
+interface PendingDownload {
+  resolve: () => void
+  reject: (error: Error) => void
+}
+
 class Maia {
   private worker: Worker | null = null
   private options: MaiaOptions
   private storage: MaiaModelStorage
   private pendingInferences: Map<number, PendingInference> = new Map()
+  private pendingDownload: PendingDownload | null = null
+  private downloadPromise: Promise<void> | null = null
   private nextRequestId = 0
 
   constructor(options: MaiaOptions) {
@@ -50,6 +57,12 @@ class Maia {
       switch (msg.type) {
         case 'status':
           this.options.setStatus(msg.status)
+          if (msg.status === 'ready') {
+            this.options.setProgress(100)
+            this.pendingDownload?.resolve()
+            this.pendingDownload = null
+            this.downloadPromise = null
+          }
           break
 
         case 'progress':
@@ -66,6 +79,9 @@ class Maia {
           } else {
             this.options.setError(msg.message)
             this.options.setStatus('error')
+            this.pendingDownload?.reject(new Error(msg.message))
+            this.pendingDownload = null
+            this.downloadPromise = null
           }
           break
         }
@@ -86,8 +102,12 @@ class Maia {
 
     this.worker.onerror = (err) => {
       console.error('Maia worker error:', err)
-      this.options.setError(err.message || 'Worker crashed')
+      const error = new Error(err.message || 'Worker crashed')
+      this.options.setError(error.message)
       this.options.setStatus('error')
+      this.pendingDownload?.reject(error)
+      this.pendingDownload = null
+      this.downloadPromise = null
     }
 
     this.worker.postMessage({ type: 'init', modelUrl, modelVersion })
@@ -95,7 +115,18 @@ class Maia {
 
   public async downloadModel() {
     if (!this.worker) throw new Error('Worker not initialized')
-    this.worker.postMessage({ type: 'download' })
+    if (this.downloadPromise) {
+      return this.downloadPromise
+    }
+
+    this.options.setProgress(0)
+
+    this.downloadPromise = new Promise<void>((resolve, reject) => {
+      this.pendingDownload = { resolve, reject }
+      this.worker!.postMessage({ type: 'download' })
+    })
+
+    return this.downloadPromise
   }
 
   public async getStorageInfo() {

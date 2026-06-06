@@ -96,7 +96,7 @@ export const BroadcastGameList: React.FC<BroadcastGameListProps> = ({
             id="round-selector"
             value={selectedRoundId}
             onChange={(e) => handleRoundChange(e.target.value)}
-            className="w-full rounded-md border border-glass-border bg-glass px-2 py-1 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-human-4"
+            className="edge-dark-select w-full rounded-md border border-glass-border bg-glass px-2 py-1 text-xs text-white/90 backdrop-blur-sm focus:outline-none focus:ring-1 focus:ring-human-4"
           >
             {broadcastController.currentBroadcast.rounds.map((round) => (
               <option key={round.id} value={round.id}>

@@ -58,7 +58,7 @@ import openings from 'src/constants/maia_openings_expanded.json'
 import endgamesRaw from 'src/constants/endgames.json'
 import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
 import { MAIA_MODELS } from 'src/constants/common'
-import { cpToWinrate } from 'src/lib/analysis'
+import { cpToWinrate, getHumanWhiteWinProbability } from 'src/lib/analysis'
 import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
@@ -494,10 +494,14 @@ const OpeningsPage: NextPage = () => {
         label: `${(Math.round(percent * 10) / 10).toFixed(1)}%`,
       }
     }
-    if (analysisController.moveEvaluation?.maia) {
+    const humanWhiteWinProbability = getHumanWhiteWinProbability(
+      analysisController.moveEvaluation?.maia,
+      stockfishEval,
+    )
+    if (humanWhiteWinProbability !== null) {
       const percent = Math.max(
         0,
-        Math.min(100, analysisController.moveEvaluation.maia.value * 100),
+        Math.min(100, humanWhiteWinProbability * 100),
       )
       return {
         hasValue: true,

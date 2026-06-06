@@ -14,7 +14,7 @@ import type { DrawBrushes, DrawShape } from 'chessground/draw'
 
 import { WindowSizeContext } from 'src/contexts'
 import { MAIA_MODELS } from 'src/constants/common'
-import { cpToWinrate } from 'src/lib'
+import { cpToWinrate, getHumanWhiteWinProbability } from 'src/lib'
 import {
   AnalysisArrowLegend,
   AnalysisCompactBlunderMeter,
@@ -519,10 +519,14 @@ export const BroadcastAnalysis: React.FC<Props> = ({
       }
     }
 
-    if (analysisController.moveEvaluation?.maia) {
+    const humanWhiteWinProbability = getHumanWhiteWinProbability(
+      analysisController.moveEvaluation?.maia,
+      stockfishEval,
+    )
+    if (humanWhiteWinProbability !== null) {
       const percent = Math.max(
         0,
-        Math.min(100, analysisController.moveEvaluation.maia.value * 100),
+        Math.min(100, humanWhiteWinProbability * 100),
       )
       return {
         hasValue: true,

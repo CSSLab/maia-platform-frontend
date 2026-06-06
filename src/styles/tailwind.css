@@ -161,6 +161,16 @@ svg {
   scrollbar-width: none;
 }
 
+.edge-dark-select {
+  color-scheme: dark;
+}
+
+.edge-dark-select option,
+.edge-dark-select optgroup {
+  background-color: rgb(var(--color-backdrop));
+  color: rgb(var(--color-text-primary));
+}
+
 .red-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--color-human-accent3)) rgb(var(--color-backdrop) / 0.22);

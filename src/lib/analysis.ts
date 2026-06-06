@@ -5,6 +5,7 @@ import {
   RawMove,
   MistakePosition,
   MoveValueMapping,
+  MaiaEvaluation,
   StockfishEvaluation,
   CachedEngineAnalysisEntry,
 } from 'src/types'
@@ -605,4 +606,56 @@ export const cpToWinrate = (cp: number | string, allowNaN = false): number => {
     }
     throw error
   }
+}
+
+export const calculateWeightedMaiaWinrate = (
+  maiaPolicy?: MaiaEvaluation['policy'],
+  stockfishWinrates?: StockfishEvaluation['winrate_vec'],
+): number | null => {
+  if (!maiaPolicy || !stockfishWinrates) {
+    return null
+  }
+
+  let totalWeight = 0
+  let weightedWinrate = 0
+
+  for (const [move, probability] of Object.entries(maiaPolicy)) {
+    if (!Number.isFinite(probability) || probability <= 0) {
+      continue
+    }
+
+    const winrate = stockfishWinrates[move]
+    if (!Number.isFinite(winrate)) {
+      continue
+    }
+
+    totalWeight += probability
+    weightedWinrate += probability * winrate
+  }
+
+  if (totalWeight <= 0) {
+    return null
+  }
+
+  return weightedWinrate / totalWeight
+}
+
+export const getHumanWhiteWinProbability = (
+  maiaEvaluation?: MaiaEvaluation,
+  stockfishEvaluation?: StockfishEvaluation,
+): number | null => {
+  const weightedWinrate = calculateWeightedMaiaWinrate(
+    maiaEvaluation?.policy,
+    stockfishEvaluation?.winrate_vec,
+  )
+
+  if (weightedWinrate !== null) {
+    return Math.max(0, Math.min(1, weightedWinrate))
+  }
+
+  if (maiaEvaluation && Number.isFinite(maiaEvaluation.value)) {
+    return Math.max(0, Math.min(1, maiaEvaluation.value))
+  }
+
+  return null
 }

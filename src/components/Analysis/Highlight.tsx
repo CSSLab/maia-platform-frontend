@@ -1,5 +1,5 @@
 import { Chess } from 'chess.ts'
-import { cpToWinrate } from 'src/lib'
+import { cpToWinrate, getHumanWhiteWinProbability } from 'src/lib'
 import { MoveTooltip } from './MoveTooltip'
 import { InteractiveDescription } from './InteractiveDescription'
 import { useState, useEffect, useRef, useContext } from 'react'
@@ -340,9 +340,16 @@ export const Highlight: React.FC<Props> = ({
     if (isInFirst10Ply && stockfishEval?.model_optimal_cp !== undefined) {
       const stockfishWinRate = cpToWinrate(stockfishEval.model_optimal_cp)
       return `${Math.round(stockfishWinRate * 1000) / 10}%`
-    } else if (moveEvaluation?.maia) {
-      return `${Math.round(moveEvaluation.maia.value * 1000) / 10}%`
     }
+
+    const humanWhiteWinProbability = getHumanWhiteWinProbability(
+      moveEvaluation?.maia,
+      stockfishEval,
+    )
+    if (humanWhiteWinProbability !== null) {
+      return `${Math.round(humanWhiteWinProbability * 1000) / 10}%`
+    }
+
     return '...'
   }
 
@@ -427,7 +434,7 @@ export const Highlight: React.FC<Props> = ({
                       ref={maiaHeaderSelectRef}
                       value={currentMaiaModel}
                       onChange={(e) => setCurrentMaiaModel(e.target.value)}
-                      className="pointer-events-none absolute inset-0 h-full w-full appearance-none opacity-0"
+                      className="edge-dark-select pointer-events-none absolute inset-0 h-full w-full appearance-none opacity-0"
                     >
                       {MAIA_MODELS.map((model) => (
                         <option
@@ -448,7 +455,7 @@ export const Highlight: React.FC<Props> = ({
                     ref={maiaHeaderSelectRef}
                     value={currentMaiaModel}
                     onChange={(e) => setCurrentMaiaModel(e.target.value)}
-                    className={`cursor-pointer appearance-none bg-transparent text-center ${splitTitleTextClass} text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80`}
+                    className={`edge-dark-select cursor-pointer appearance-none bg-transparent text-center ${splitTitleTextClass} text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80`}
                   >
                     {MAIA_MODELS.map((model) => (
                       <option

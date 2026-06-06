@@ -11,6 +11,9 @@ import {
 import { StockfishModelStorage } from './stockfishStorage'
 
 const DEFAULT_NNUE_FETCH_TIMEOUT_MS = 30000
+const DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS = 15000
+const STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS = 1500
+const STOCKFISH_CACHE_WRITE_TIMEOUT_MS = 5000
 type StockfishInitPhase =
   | 'idle'
   | 'loading-module'
@@ -1784,6 +1787,39 @@ const fetchWithTimeout = async (
   }
 }
 
+const withTimeout = async <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> => {
+  if (timeoutMs <= 0) {
+    return promise
+  }
+
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
+const getStockfishModuleInitTimeoutMs = (): number => {
+  const raw = process.env.NEXT_PUBLIC_STOCKFISH_MODULE_INIT_TIMEOUT_MS
+  const parsed = raw ? parseInt(raw, 10) : NaN
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS
+}
+
 const loadNnueModel = async (
   modelUrl: string,
   storage: StockfishModelStorage,
@@ -1792,7 +1828,14 @@ const loadNnueModel = async (
   forceRefresh = false,
 ): Promise<ArrayBuffer> => {
   if (!forceRefresh) {
-    const cachedModel = await storage.getModel(modelUrl)
+    const cachedModel = await withTimeout(
+      storage.getModel(modelUrl),
+      STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
+      `Timed out while checking cached Stockfish model: ${modelUrl}`,
+    ).catch((error) => {
+      console.warn(error)
+      return null
+    })
     if (cachedModel) {
       return cachedModel
     }
@@ -1807,7 +1850,13 @@ const loadNnueModel = async (
   }
 
   const buffer = await response.arrayBuffer()
-  await storage.storeModel(modelUrl, buffer)
+  void withTimeout(
+    storage.storeModel(modelUrl, buffer),
+    STOCKFISH_CACHE_WRITE_TIMEOUT_MS,
+    `Timed out while caching Stockfish model: ${modelUrl}`,
+  ).catch((error) => {
+    console.warn(error)
+  })
   return buffer
 }
 
@@ -1839,16 +1888,24 @@ const setupStockfish = async (
     process.env.NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL ??
     'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
   const storage = new StockfishModelStorage()
-  await storage.requestPersistentStorage()
   const timeoutMs = getNnueFetchTimeoutMs()
+  const moduleInitTimeoutMs = getStockfishModuleInitTimeoutMs()
   let nnueUrls: [string, string] | null = null
+
+  void storage.requestPersistentStorage().catch((error) => {
+    console.warn('Failed to request persistent storage for Stockfish:', error)
+  })
 
   const createInstance = async (): Promise<StockfishWeb> => {
     onPhaseChange?.('loading-module')
-    return makeModule.default({
-      wasmMemory: sharedWasmMemory(2560),
-      locateFile: (name: string) => `/stockfish/${name}`,
-    })
+    return withTimeout(
+      makeModule.default({
+        wasmMemory: sharedWasmMemory(2560),
+        locateFile: (name: string) => `/stockfish/${name}`,
+      }),
+      moduleInitTimeoutMs,
+      `Stockfish module initialization timed out after ${moduleInitTimeoutMs}ms`,
+    )
   }
 
   const loadWeightsIntoInstance = async (

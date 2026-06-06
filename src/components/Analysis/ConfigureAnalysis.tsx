@@ -45,15 +45,11 @@ export const ConfigureAnalysis: React.FC<Props> = ({
         <div className="relative inline-flex w-full items-center">
           <select
             value={currentMaiaModel}
-            className="w-full cursor-pointer appearance-none rounded border border-glass-border bg-glass py-[5px] pl-2.5 pr-6 text-xs text-white/90 outline-none transition duration-200 hover:bg-glass-stronger"
+            className="edge-dark-select w-full cursor-pointer appearance-none rounded border border-glass-border bg-glass py-[5px] pl-2.5 pr-6 text-xs text-white/90 outline-none transition duration-200 hover:bg-glass-stronger"
             onChange={(e) => setCurrentMaiaModel(e.target.value)}
           >
             {MAIA_MODELS.map((model) => (
-              <option
-                value={model}
-                key={model}
-                className="bg-transparent text-white"
-              >
+              <option value={model} key={model}>
                 {model.replace('maia_kdd_', 'Maia ')}
               </option>
             ))}

@@ -64,7 +64,7 @@ import { tourConfigs } from 'src/constants/tours'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
-import { cpToWinrate } from 'src/lib'
+import { cpToWinrate, getHumanWhiteWinProbability } from 'src/lib'
 
 const EVAL_BAR_RANGE = 4
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
@@ -1082,10 +1082,14 @@ const Analysis: React.FC<Props> = ({
       }
     }
 
-    if (controller.moveEvaluation?.maia) {
+    const humanWhiteWinProbability = getHumanWhiteWinProbability(
+      controller.moveEvaluation?.maia,
+      stockfishEval,
+    )
+    if (humanWhiteWinProbability !== null) {
       const percent = Math.max(
         0,
-        Math.min(100, controller.moveEvaluation.maia.value * 100),
+        Math.min(100, humanWhiteWinProbability * 100),
       )
       return {
         hasValue: true,

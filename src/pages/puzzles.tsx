@@ -58,7 +58,7 @@ import {
   getAvailableMovesArray,
   requiresPromotion,
 } from 'src/lib/puzzle'
-import { cpToWinrate } from 'src/lib/analysis'
+import { cpToWinrate, getHumanWhiteWinProbability } from 'src/lib/analysis'
 import { tourConfigs } from 'src/constants/tours'
 
 const EVAL_BAR_RANGE = 4
@@ -573,10 +573,14 @@ const Train: React.FC<Props> = ({
       }
     }
 
-    if (analysisController.moveEvaluation?.maia) {
+    const humanWhiteWinProbability = getHumanWhiteWinProbability(
+      analysisController.moveEvaluation?.maia,
+      stockfishEval,
+    )
+    if (humanWhiteWinProbability !== null) {
       const percent = Math.max(
         0,
-        Math.min(100, analysisController.moveEvaluation.maia.value * 100),
+        Math.min(100, humanWhiteWinProbability * 100),
       )
       return {
         hasValue: true,

@@ -7,6 +7,8 @@ import { Post } from 'src/types'
 import { Markdown } from 'src/components'
 import { getSortedPostsData, getPostData } from 'src/lib/blog/posts'
 
+const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
+
 interface BlogPostProps {
   post: Post
 }
@@ -30,22 +32,19 @@ const BlogPost = ({ post }: BlogPostProps) => {
         <meta property="og:type" content="article" />
         <meta
           property="og:url"
-          content={`https://maiachess.com/blog/${post.id}`}
+          content={`https://www.maiachess.com/blog/${post.id}`}
         />
-        <meta
-          property="og:image"
-          content={`https://maiachess.com${post.image}`}
-        />
+        <meta property="og:image" content={OG_IMAGE_URL} />
+        <meta property="og:image:url" content={OG_IMAGE_URL} />
+        <meta property="og:image:secure_url" content={OG_IMAGE_URL} />
         <meta property="og:site_name" content="Maia Chess" />
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={post.title} />
         <meta name="twitter:description" content={post.excerpt} />
-        <meta
-          name="twitter:image"
-          content={`https://maiachess.com${post.image}`}
-        />
+        <meta name="twitter:image" content={OG_IMAGE_URL} />
+        <meta name="twitter:image:src" content={OG_IMAGE_URL} />
 
         {/* Article specific */}
         <meta property="article:published_time" content={post.date} />
@@ -57,7 +56,10 @@ const BlogPost = ({ post }: BlogPostProps) => {
         {/* Additional SEO */}
         <meta name="author" content="Maia Chess Team" />
         <meta name="robots" content="index, follow" />
-        <link rel="canonical" href={`https://maiachess.com/blog/${post.id}`} />
+        <link
+          rel="canonical"
+          href={`https://www.maiachess.com/blog/${post.id}`}
+        />
       </Head>
       <div className="relative flex h-full flex-col items-center justify-center gap-5 py-[10%] md:py-[2%]">
         <div className="flex max-w-[90%] flex-col items-center justify-center overflow-x-hidden md:max-w-[80ch]">

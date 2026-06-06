@@ -7,7 +7,7 @@ import { motion } from 'framer-motion'
 import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { useBroadcastController } from 'src/hooks/useBroadcastController'
-import { Broadcast } from 'src/types'
+import { Broadcast, BroadcastRound } from 'src/types'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 15 },
@@ -21,6 +21,25 @@ const staggerContainer = {
       staggerChildren: 0.05,
     },
   },
+}
+
+const getPreferredBroadcastRound = (
+  broadcast: Broadcast,
+): BroadcastRound | undefined => {
+  const defaultRound = broadcast.rounds.find(
+    (r) => r.id === broadcast.defaultRoundId,
+  )
+  if (defaultRound) return defaultRound
+
+  const liveRound = broadcast.rounds.find((r) => r.ongoing)
+  if (liveRound) return liveRound
+
+  const startedRounds = broadcast.rounds
+    .filter((r) => r.startsAt <= Date.now())
+    .sort((a, b) => b.startsAt - a.startsAt)
+  if (startedRounds.length > 0) return startedRounds[0]
+
+  return broadcast.rounds[0]
 }
 
 const BroadcastsPage: NextPage = () => {
@@ -43,10 +62,7 @@ const BroadcastsPage: NextPage = () => {
   }, [loadBroadcasts])
 
   const handleSelectBroadcast = (broadcast: Broadcast) => {
-    const defaultRound =
-      broadcast.rounds.find((r) => r.id === broadcast.defaultRoundId) ||
-      broadcast.rounds.find((r) => r.ongoing) ||
-      broadcast.rounds[0]
+    const defaultRound = getPreferredBroadcastRound(broadcast)
 
     if (defaultRound) {
       router.push(`/broadcast/${broadcast.tour.id}/${defaultRound.id}`)
@@ -210,7 +226,11 @@ const BroadcastsPage: NextPage = () => {
                     const ongoingRounds = broadcast.rounds.filter(
                       (r) => r.ongoing,
                     )
+                    const startedRounds = broadcast.rounds.filter(
+                      (r) => r.startsAt <= Date.now(),
+                    )
                     const hasOngoingRounds = ongoingRounds.length > 0
+                    const hasStartedRounds = startedRounds.length > 0
                     const isActive =
                       section.type.includes('active') ||
                       section.type.includes('community')
@@ -272,18 +292,18 @@ const BroadcastsPage: NextPage = () => {
 
                         <button
                           onClick={() => handleSelectBroadcast(broadcast)}
-                          disabled={!hasOngoingRounds && !isPast}
+                          disabled={!hasStartedRounds && !isPast}
                           className={`border-t py-2 text-sm font-medium tracking-wide transition-all duration-300 ${
                             hasOngoingRounds
                               ? 'border-red-500/30 bg-red-500/20 text-red-400 group-hover:bg-red-500/30'
-                              : isPast
+                              : hasStartedRounds || isPast
                                 ? 'border-glass-border bg-white/5 text-white/60 group-hover:bg-white/10 group-hover:text-white/80'
                                 : 'cursor-not-allowed border-glass-border bg-white/5 text-white/40'
                           }`}
                         >
                           {hasOngoingRounds
                             ? 'Watch Live'
-                            : isPast
+                            : hasStartedRounds || isPast
                               ? 'View Tournament'
                               : 'Coming Soon'}
                         </button>
