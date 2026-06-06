@@ -103,7 +103,7 @@ const researchPapers: {
     link: 'https://www.cs.toronto.edu/~ashton/pubs/maia-kdd2020.pdf',
     description:
       'This paper introduces Maia, a chess engine trained to imitate real human moves at different rating levels. Instead of always picking the best move, Maia predicts what a human player of a given skill would actually play. This makes it ideal for training, game analysis, and even coaching, as it helps players learn from realistic decisions rather than computer perfection. It was the first AI to prioritize human-likeness over engine strength, making it a powerful tool for improvement.',
-    image: 'maia1',
+    image: 'maia1.jpg',
     shortName: 'Maia 1',
   },
   maia2: {
@@ -111,7 +111,7 @@ const researchPapers: {
     link: 'https://www.cs.toronto.edu/~ashton/pubs/maia2-neurips2024.pdf',
     description:
       "Maia‑2 is the evolution of Maia into a single model that can simulate any skill level in chess. Instead of using separate models for different ratings, it understands and adapts to your level in real time. Whether you're a beginner or a master, Maia‑2 predicts the moves players like you would actually make. It's built to feel human, teach naturally, and support personalized analysis without needing to toggle between bots.",
-    image: 'maia2',
+    image: 'maia2.jpg',
     shortName: 'Maia 2',
   },
   maia3: {
@@ -119,7 +119,7 @@ const researchPapers: {
     link: 'https://arxiv.org/abs/2605.19091',
     description:
       'Introduces Chessformer, a transformer-based architecture that unifies chess modeling to capture how human players make decisions across a wide range of skill levels.',
-    image: 'maia3',
+    image: 'maia3.png',
     shortName: 'Maia 3',
   },
   others: [
@@ -179,7 +179,7 @@ const PaperCard = ({
     {featured && (
       <div className="aspect-[4/3] w-full overflow-hidden">
         <img
-          src={`/assets/papers/${paper.image}.jpg`}
+          src={`/assets/papers/${paper.image}`}
           alt={`${paper.title} paper preview`}
           className="h-full w-full object-cover object-top"
         />
