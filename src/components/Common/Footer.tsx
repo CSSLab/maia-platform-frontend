@@ -18,12 +18,16 @@ export const Footer: React.FC = () => {
       title: 'Research',
       links: [
         {
-          href: 'https://arxiv.org/abs/2006.01855',
-          text: "Maia Paper (KDD '20)",
+          href: 'https://arxiv.org/abs/2605.19091',
+          text: "Maia-3 Paper (ICLR '26)",
         },
         {
           href: 'https://www.cs.toronto.edu/~ashton/pubs/maia2-neurips2024.pdf',
           text: "Maia-2 Paper (NeurIPS '24)",
+        },
+        {
+          href: 'https://arxiv.org/abs/2006.01855',
+          text: "Maia Paper (KDD '20)",
         },
         {
           href: 'https://csslab.cs.toronto.edu/research/',
@@ -32,15 +36,19 @@ export const Footer: React.FC = () => {
       ],
     },
     {
-      title: 'Opensource',
+      title: 'Open-Source',
       links: [
         {
-          href: 'https://github.com/CSSLab/maia-chess',
-          text: 'Maia Model',
+          href: 'https://github.com/CSSLab/maia3',
+          text: 'Maia-3 Model',
         },
         {
           href: 'https://github.com/CSSLab/maia2',
           text: 'Maia-2 Model',
+        },
+        {
+          href: 'https://github.com/CSSLab/maia-chess',
+          text: 'Maia Model',
         },
         {
           href: 'https://github.com/csslab/maia-platform-frontend',
@@ -153,7 +161,7 @@ export const Footer: React.FC = () => {
           </div>
         </div>
         <p className="text-left text-sm text-secondary md:text-center md:text-xs">
-          © 2025 Maia Chess. All rights reserved.
+          © 2026 Maia Chess. All rights reserved.
         </p>
       </div>
     </div>
