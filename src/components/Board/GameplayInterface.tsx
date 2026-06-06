@@ -161,7 +161,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
     <>
       <div className="flex h-full flex-1 flex-col justify-center gap-1 py-2 md:py-4">
         <div className="mx-auto mt-2 flex w-[90%] flex-row items-start justify-between gap-3">
-          <div className="flex h-[75vh] min-w-[16rem] max-w-[22rem] flex-shrink-0 flex-col">
+          <div className="flex h-[75vh] max-h-[75vh] min-h-[75vh] w-[22rem] min-w-[22rem] max-w-[22rem] flex-shrink-0 flex-col overflow-hidden">
             <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
               <GameInfo
                 icon="swords"
@@ -219,7 +219,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
               />
             ) : null}
           </div>
-          <div className="flex h-[75vh] min-w-[18rem] flex-grow flex-col gap-2">
+          <div className="flex h-[75vh] min-w-0 flex-grow basis-[18rem] flex-col gap-2 overflow-hidden">
             {timeControl != 'unlimited' ? (
               <GameClock
                 player={orientation == 'white' ? 'black' : 'white'}
