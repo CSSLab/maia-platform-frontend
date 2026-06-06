@@ -10,9 +10,12 @@ export const TimeControlOptionNames = [
   'Unlimited',
 ]
 
+export const MaiaMoveSelectionModes = ['move_matching', 'value_head'] as const
+
 // To fix some weird inconsistency between vercel and local:
 // eslint-disable-next-line prettier/prettier
 export type TimeControl = (typeof TimeControlOptions)[number]
+export type MaiaMoveSelectionMode = (typeof MaiaMoveSelectionModes)[number]
 
 export type PlayType = 'againstMaia' | 'handAndBrain'
 
@@ -23,6 +26,7 @@ export interface PlayGameConfig {
   playType: PlayType
   isBrain: boolean
   sampleMoves: boolean
+  maiaMoveSelectionMode?: MaiaMoveSelectionMode
   simulateMaiaTime?: boolean
   startFen?: string
   maiaPartnerVersion?: string
