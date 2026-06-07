@@ -23,8 +23,16 @@ export interface IPlayControllerContext extends BaseTreeControllerContext {
   reset: ReturnType<typeof usePlayController>['reset']
   makePlayerMove: ReturnType<typeof usePlayController>['makePlayerMove']
   updateClock: ReturnType<typeof usePlayController>['updateClock']
+  updateClockForColor: ReturnType<
+    typeof usePlayController
+  >['updateClockForColor']
   setCurrentNode: ReturnType<typeof usePlayController>['setCurrentNode']
   addMoveWithTime: ReturnType<typeof usePlayController>['addMoveWithTime']
+  premovesEnabled: ReturnType<typeof usePlayController>['premovesEnabled']
+  queuedPremove: ReturnType<typeof usePlayController>['queuedPremove']
+  setPremove: ReturnType<typeof usePlayController>['setPremove']
+  clearPremove: ReturnType<typeof usePlayController>['clearPremove']
+  premoveResetKey: ReturnType<typeof usePlayController>['premoveResetKey']
 }
 
 const fn = () => {
@@ -62,6 +70,7 @@ export const PlayControllerContext =
     reset: fn,
     makePlayerMove: fn,
     updateClock: fn,
+    updateClockForColor: fn,
     gameTree: defaultGameTree,
     currentNode: defaultGameTree.getRoot(),
     setCurrentNode: fn,
@@ -70,4 +79,9 @@ export const PlayControllerContext =
     goToPreviousNode: fn,
     goToRootNode: fn,
     addMoveWithTime: fn,
+    premovesEnabled: false,
+    queuedPremove: null,
+    setPremove: fn,
+    clearPremove: fn,
+    premoveResetKey: 0,
   })

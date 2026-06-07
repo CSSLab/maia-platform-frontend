@@ -28,12 +28,17 @@ interface Props {
   availableMoves?: Map<string, string[]>
   onSelectSquare?: (square: Key) => void
   onPlayerMakeMove?: (move: [string, string]) => void
+  onSetPremove?: (move: [string, string]) => void
+  onUnsetPremove?: () => void
   setCurrentSquare?: Dispatch<SetStateAction<Key | null>>
   shapes?: DrawShape[]
   brushes?: DrawBrushes
   goToNode?: (node: GameNode) => void
   gameTree?: any
   destinationBadges?: DestinationBadge[]
+  movableColor?: Color | 'both'
+  premovesEnabled?: boolean
+  premoveResetKey?: number
 }
 
 const getBoardSquarePosition = (square: string, orientation: Color) => {
@@ -64,12 +69,17 @@ export const GameBoard: React.FC<Props> = ({
   orientation = 'white',
   availableMoves,
   onPlayerMakeMove,
+  onSetPremove,
+  onUnsetPremove,
   setCurrentSquare,
   onSelectSquare,
   destinationBadges = [],
+  movableColor = 'both',
+  premovesEnabled = false,
+  premoveResetKey = 0,
 }: Props) => {
   const { playMoveSound } = useSound()
-  const boardInstanceKey = game?.id ?? 'board'
+  const boardInstanceKey = `${game?.id ?? 'board'}-${premoveResetKey}`
 
   const after = useCallback(
     (from: string, to: string) => {
@@ -146,6 +156,9 @@ export const GameBoard: React.FC<Props> = ({
         ? ((currentNode.turn === 'w' ? 'white' : 'black') as 'white' | 'black')
         : false,
       orientation: orientation as 'white' | 'black',
+      turnColor: (currentNode.turn === 'w' ? 'white' : 'black') as
+        | 'white'
+        | 'black',
     }
   }, [currentNode, game, orientation])
 
@@ -157,9 +170,21 @@ export const GameBoard: React.FC<Props> = ({
         config={{
           movable: {
             free: false,
+            color: movableColor,
             dests: availableMoves as any,
             events: {
               after,
+            },
+          },
+          premovable: {
+            enabled: premovesEnabled,
+            events: {
+              set: (from, to) => {
+                onSetPremove && onSetPremove([from, to])
+              },
+              unset: () => {
+                onUnsetPremove && onUnsetPremove()
+              },
             },
           },
           events: {
@@ -176,6 +201,7 @@ export const GameBoard: React.FC<Props> = ({
           lastMove: boardConfig.lastMove as Key[],
           check: boardConfig.check as boolean | 'white' | 'black' | undefined,
           orientation: boardConfig.orientation,
+          turnColor: boardConfig.turnColor,
         }}
       />
       {destinationBadges.length > 0 ? (

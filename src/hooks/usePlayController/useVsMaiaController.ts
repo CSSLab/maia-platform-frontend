@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chess } from 'chess.ts'
-import { PlayGameConfig } from 'src/types'
+import { PlayGameConfig, QueuedPremove } from 'src/types'
 import { backOff } from 'exponential-backoff'
 import { useStats } from 'src/hooks/useStats'
 import { usePlayController } from 'src/hooks/usePlayController'
@@ -17,6 +17,8 @@ const playStatsLoader = async () => {
   }
 }
 
+const PREMOVE_SOUND_DELAY_MS = 120
+
 export const useVsMaiaPlayController = (
   id: string,
   playGameConfig: PlayGameConfig,
@@ -25,9 +27,52 @@ export const useVsMaiaPlayController = (
   const controller = usePlayController(id, playGameConfig)
   const [stats, incrementStats, updateRating] = useStats(playStatsLoader)
   const { playMoveSound } = useSound()
+  const [queuedPremove, setQueuedPremove] = useState<QueuedPremove | null>(null)
+  const queuedPremoveRef = useRef<QueuedPremove | null>(null)
+  const [premoveResetKey, setPremoveResetKey] = useState(0)
 
-  const makePlayerMove = async (moveUci: string) => {
-    const moveTime = controller.updateClock()
+  const clearPremove = useCallback(() => {
+    if (!queuedPremoveRef.current) {
+      return
+    }
+
+    queuedPremoveRef.current = null
+    setQueuedPremove(null)
+    setPremoveResetKey((prev) => prev + 1)
+  }, [])
+
+  const setPremove = useCallback((from: string, to: string) => {
+    const nextPremove = { from, to }
+    queuedPremoveRef.current = nextPremove
+    setQueuedPremove(nextPremove)
+  }, [])
+
+  const getLegalPremoveUci = useCallback(
+    (fen: string, premove: QueuedPremove): string | null => {
+      const chess = new Chess(fen)
+      const matchingMoves = chess
+        .moves({ verbose: true })
+        .filter((move) => move.from === premove.from && move.to === premove.to)
+
+      if (matchingMoves.length === 0) {
+        return null
+      }
+
+      const matchingPromotion =
+        matchingMoves.find((move) => move.promotion === 'q') || matchingMoves[0]
+
+      return (
+        matchingPromotion.from +
+        matchingPromotion.to +
+        (matchingPromotion.promotion || '')
+      )
+    },
+    [],
+  )
+
+  const makePlayerMove = async (moveUci: string, moveTimeOverride?: number) => {
+    const moveTime = moveTimeOverride ?? controller.updateClock()
+    clearPremove()
     controller.addMoveWithTime(moveUci, moveTime)
   }
 
@@ -79,24 +124,66 @@ export const useVsMaiaPlayController = (
               return
             }
 
-            const moveTime = controller.updateClock()
-
             const chess = new Chess(controller.currentNode.fen)
+            const moveTime = controller.updateClock()
             const destinationSquare = nextMove.slice(2, 4)
             const isCapture = !!chess.get(destinationSquare)
+            const moveResult = chess.move(nextMove, { sloppy: true })
 
             controller.addMoveWithTime(nextMove, moveTime)
             playMoveSound(isCapture)
+
+            const legalPremoveUci =
+              moveResult && queuedPremoveRef.current
+                ? getLegalPremoveUci(chess.fen(), queuedPremoveRef.current)
+                : null
+
+            if (queuedPremoveRef.current) {
+              clearPremove()
+            }
+
+            if (legalPremoveUci) {
+              const premoveDestination = legalPremoveUci.slice(2, 4)
+              const isPremoveCapture = !!chess.get(premoveDestination)
+
+              controller.updateClockForColor(controller.player, 0, true)
+              controller.addMoveWithTime(legalPremoveUci, 0)
+              setTimeout(
+                () => playMoveSound(isPremoveCapture),
+                PREMOVE_SOUND_DELAY_MS,
+              )
+            }
           }, delayMs)
         } else {
-          const moveTime = controller.updateClock()
-
           const chess = new Chess(controller.currentNode.fen)
+          const moveTime = controller.updateClock()
           const destinationSquare = nextMove.slice(2, 4)
           const isCapture = !!chess.get(destinationSquare)
+          const moveResult = chess.move(nextMove, { sloppy: true })
 
           controller.addMoveWithTime(nextMove, moveTime)
           playMoveSound(isCapture)
+
+          const legalPremoveUci =
+            moveResult && queuedPremoveRef.current
+              ? getLegalPremoveUci(chess.fen(), queuedPremoveRef.current)
+              : null
+
+          if (queuedPremoveRef.current) {
+            clearPremove()
+          }
+
+          if (legalPremoveUci) {
+            const premoveDestination = legalPremoveUci.slice(2, 4)
+            const isPremoveCapture = !!chess.get(premoveDestination)
+
+            controller.updateClockForColor(controller.player, 0, true)
+            controller.addMoveWithTime(legalPremoveUci, 0)
+            setTimeout(
+              () => playMoveSound(isPremoveCapture),
+              PREMOVE_SOUND_DELAY_MS,
+            )
+          }
         }
       }
     }
@@ -118,6 +205,8 @@ export const useVsMaiaPlayController = (
     playGameConfig.maiaVersion,
     playGameConfig.startFen,
     simulateMaiaTime,
+    clearPremove,
+    getLegalPremoveUci,
   ])
 
   useEffect(() => {
@@ -167,6 +256,11 @@ export const useVsMaiaPlayController = (
   return {
     ...controller,
     makePlayerMove,
+    premovesEnabled: true,
+    queuedPremove,
+    setPremove,
+    clearPremove,
+    premoveResetKey,
     stats,
   }
 }
