@@ -38,3 +38,8 @@ export interface AvailableMove {
   to: string
   promotion?: string
 }
+
+export interface QueuedPremove {
+  from: string
+  to: string
+}

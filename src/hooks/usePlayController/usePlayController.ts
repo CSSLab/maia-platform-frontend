@@ -1,6 +1,6 @@
 import { Color, Check, GameTree, Termination, PlayGameConfig } from 'src/types'
 import { AllStats } from '../useStats'
-import { PlayedGame } from 'src/types/play'
+import { PlayedGame, QueuedPremove } from 'src/types/play'
 import { Chess, Piece, SQUARES } from 'chess.ts'
 import { useTreeController } from '../useTreeController'
 import { useMemo, useState, useCallback, useEffect } from 'react'
@@ -165,9 +165,13 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     return { availableMoves, pieces }
   }, [controller.currentNode, playerActive, game.termination, treeVersion])
 
-  const updateClock = useCallback(
-    (overrideTime: number | undefined = undefined): number => {
-      if (moveList.length < 2) {
+  const updateClockForColor = useCallback(
+    (
+      color: Color,
+      overrideTime: number | undefined = undefined,
+      forceClockUpdate = false,
+    ): number => {
+      if (moveList.length < 2 && !forceClockUpdate) {
         return 0 // Clock does not start until first two moves made
       }
 
@@ -176,7 +180,7 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
         overrideTime === undefined ? now - lastMoveTime : overrideTime
 
       if (lastMoveTime > 0) {
-        if (toPlay == 'white') {
+        if (color == 'white') {
           setWhiteClock(
             Math.max(whiteClock - elapsed + incrementSeconds * 1000, 0),
           )
@@ -190,14 +194,18 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
       setLastMoveTime(now)
       return elapsed
     },
-    [
-      moveList.length,
-      lastMoveTime,
-      toPlay,
-      whiteClock,
-      blackClock,
-      incrementSeconds,
-    ],
+    [moveList.length, lastMoveTime, whiteClock, blackClock, incrementSeconds],
+  )
+
+  const updateClock = useCallback(
+    (overrideTime: number | undefined = undefined): number => {
+      if (!toPlay) {
+        return 0
+      }
+
+      return updateClockForColor(toPlay, overrideTime)
+    },
+    [toPlay, updateClockForColor],
   )
 
   const expireOnTime = useCallback((color: Color) => {
@@ -275,10 +283,21 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     setTreeVersion((prev) => prev + 1)
   }
 
-  const makePlayerMove = async (moveUci: string): Promise<void> => {
+  const makePlayerMove = async (
+    _moveUci: string,
+    _moveTimeOverride?: number,
+  ): Promise<void> => {
     throw new Error(
       'makePlayerMove should be overridden by the consuming component',
     )
+  }
+
+  const queuedPremove = null as QueuedPremove | null
+  const setPremove = (_from: string, _to: string) => {
+    return
+  }
+  const clearPremove = () => {
+    return
   }
 
   const stats: AllStats = {
@@ -322,5 +341,11 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     reset,
     makePlayerMove,
     updateClock,
+    updateClockForColor,
+    premovesEnabled: false,
+    queuedPremove,
+    setPremove,
+    clearPremove,
+    premoveResetKey: 0,
   }
 }

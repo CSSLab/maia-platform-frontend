@@ -42,12 +42,17 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
     currentNode,
     setCurrentNode,
     maiaVersion,
+    playerActive,
     goToRootNode,
     goToNextNode,
     availableMoves,
     makePlayerMove,
     setOrientation,
     goToPreviousNode,
+    premovesEnabled,
+    setPremove,
+    clearPremove,
+    premoveResetKey,
   } = useContext(PlayControllerContext)
 
   const { user } = useContext(AuthContext)
@@ -70,15 +75,16 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
 
         if (matching.length > 1) {
           // Multiple matching moves (i.e. promotion)
+          clearPremove()
           setPromotionFromTo(move)
-        } else {
+        } else if (matching[0]) {
           const moveUci =
             matching[0].from + matching[0].to + (matching[0].promotion ?? '')
           makePlayerMove(moveUci)
         }
       }
     },
-    [availableMoves, makePlayerMove, setPromotionFromTo],
+    [availableMoves, clearPremove, makePlayerMove, setPromotionFromTo],
   )
 
   const onPlayerSelectPromotion = useCallback(
@@ -207,9 +213,16 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
               game={game}
               availableMoves={availableMovesMapped}
               onPlayerMakeMove={onPlayerMakeMove}
+              onSetPremove={([from, to]) => setPremove(from, to)}
+              onUnsetPremove={clearPremove}
               shapes={props.boardShapes}
               currentNode={currentNode}
               orientation={orientation}
+              movableColor={player}
+              premovesEnabled={
+                premovesEnabled && !game.termination && !playerActive
+              }
+              premoveResetKey={premoveResetKey}
             />
             {promotionFromTo ? (
               <PromotionOverlay
@@ -281,9 +294,16 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
               game={game}
               availableMoves={availableMovesMapped}
               onPlayerMakeMove={onPlayerMakeMove}
+              onSetPremove={([from, to]) => setPremove(from, to)}
+              onUnsetPremove={clearPremove}
               shapes={props.boardShapes}
               currentNode={currentNode}
               orientation={orientation}
+              movableColor={player}
+              premovesEnabled={
+                premovesEnabled && !game.termination && !playerActive
+              }
+              premoveResetKey={premoveResetKey}
             />
             {promotionFromTo ? (
               <PromotionOverlay
