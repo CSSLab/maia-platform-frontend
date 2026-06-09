@@ -1,18 +1,65 @@
 import Head from 'next/head'
+import dynamic from 'next/dynamic'
 import type { NextPage } from 'next'
 import React, { useCallback, useContext, useEffect, useRef } from 'react'
 
-import { ModalContext } from 'src/contexts'
-import {
-  HomeHero,
-  AboutMaia,
-  PlaySection,
-  AnalysisSection,
-  TrainSection,
-  AdditionalFeaturesSection,
-  PageNavigation,
-} from 'src/components'
+import { ModalContext } from 'src/contexts/ModalContext'
+import { AboutMaia } from 'src/components/Home/AboutMaia'
+import { HomeHero } from 'src/components/Home/HomeHero'
+import { PageNavigation } from 'src/components/Home/PageNavigation'
 import { GameCarousel } from 'src/components/Home/GameCarousel'
+
+const HomeSectionFallback = ({ id }: { id: string }) => (
+  <section
+    id={id}
+    className="relative min-h-[60vh] w-full bg-transparent"
+    aria-busy="true"
+  />
+)
+
+const PlaySection = dynamic(
+  () =>
+    import('src/components/Home/Sections/PlaySection').then(
+      (mod) => mod.PlaySection,
+    ),
+  {
+    ssr: false,
+    loading: () => <HomeSectionFallback id="play-section" />,
+  },
+)
+
+const AnalysisSection = dynamic(
+  () =>
+    import('src/components/Home/Sections/AnalysisSection').then(
+      (mod) => mod.AnalysisSection,
+    ),
+  {
+    ssr: false,
+    loading: () => <HomeSectionFallback id="analysis-section" />,
+  },
+)
+
+const TrainSection = dynamic(
+  () =>
+    import('src/components/Home/Sections/TrainSection').then(
+      (mod) => mod.TrainSection,
+    ),
+  {
+    ssr: false,
+    loading: () => <HomeSectionFallback id="train-section" />,
+  },
+)
+
+const AdditionalFeaturesSection = dynamic(
+  () =>
+    import('src/components/Home/Sections/AdditionalFeaturesSection').then(
+      (mod) => mod.AdditionalFeaturesSection,
+    ),
+  {
+    ssr: false,
+    loading: () => <HomeSectionFallback id="more-features" />,
+  },
+)
 
 const Home: NextPage = () => {
   const { setPlaySetupModalProps } = useContext(ModalContext)

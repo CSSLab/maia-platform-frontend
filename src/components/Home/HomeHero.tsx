@@ -8,7 +8,8 @@ import {
 
 import { PlayType } from 'src/types'
 import { getGlobalStats } from 'src/api'
-import { AuthContext, ModalContext } from 'src/contexts'
+import { AuthContext } from 'src/contexts/AuthContext'
+import { ModalContext } from 'src/contexts/ModalContext'
 import { AnimatedNumber } from 'src/components/Common/AnimatedNumber'
 
 interface Props {
@@ -125,17 +126,45 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
   // Fetch global stats and set up periodic updates
   useEffect(() => {
     const fetchGlobalStats = async () => {
-      const data = await getGlobalStats()
-      setGlobalStats(data)
+      try {
+        const data = await getGlobalStats()
+        setGlobalStats(data)
+      } catch (error) {
+        console.error('Error fetching global stats:', error)
+      }
     }
 
-    // Fetch immediately
-    fetchGlobalStats()
+    const windowWithIdleCallback = window as Window & {
+      requestIdleCallback?: (
+        callback: IdleRequestCallback,
+        options?: IdleRequestOptions,
+      ) => number
+      cancelIdleCallback?: (handle: number) => void
+    }
+
+    const idleHandle = windowWithIdleCallback.requestIdleCallback?.(
+      fetchGlobalStats,
+      {
+        timeout: 2000,
+      },
+    )
+    const timeoutId =
+      idleHandle === undefined
+        ? window.setTimeout(fetchGlobalStats, 800)
+        : undefined
 
     // Update every 5 minutes
     const interval = setInterval(fetchGlobalStats, 5 * 60 * 1000)
 
-    return () => clearInterval(interval)
+    return () => {
+      if (idleHandle !== undefined) {
+        windowWithIdleCallback.cancelIdleCallback?.(idleHandle)
+      }
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId)
+      }
+      clearInterval(interval)
+    }
   }, [])
 
   return (

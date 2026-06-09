@@ -1,5 +1,5 @@
 import React, { useContext } from 'react'
-import { AuthContext } from 'src/contexts'
+import { AuthContext } from 'src/contexts/AuthContext'
 
 export const FeedbackButton: React.FC = () => {
   const { user } = useContext(AuthContext)

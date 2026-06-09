@@ -181,7 +181,10 @@ export const GameCarousel: React.FC = () => {
   const router = useRouter()
   const [games, setGames] = useState<GameData[]>(SAMPLE_GAMES)
   const [isPaused, setIsPaused] = useState(false)
+  const [isCarouselVisible, setIsCarouselVisible] = useState(false)
+  const [shouldLoadLiveGames, setShouldLoadLiveGames] = useState(false)
   const abortController = useRef<AbortController | null>(null)
+  const sectionRef = useRef<HTMLElement>(null)
   const carouselRef = useRef<HTMLDivElement>(null)
 
   const handleGameStart = useCallback((gameData: StreamedGame) => {
@@ -300,7 +303,7 @@ export const GameCarousel: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (isPaused || !carouselRef.current) return
+    if (isPaused || !isCarouselVisible || !carouselRef.current) return
 
     const scroll = () => {
       if (carouselRef.current) {
@@ -317,18 +320,74 @@ export const GameCarousel: React.FC = () => {
 
     const interval = setInterval(scroll, 20)
     return () => clearInterval(interval)
-  }, [isPaused])
+  }, [isPaused, isCarouselVisible])
 
   useEffect(() => {
-    fetchNewGame()
-    fetchBroadcast()
+    const section = sectionRef.current
+
+    if (!section || typeof IntersectionObserver === 'undefined') {
+      setIsCarouselVisible(true)
+      setShouldLoadLiveGames(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsCarouselVisible(entry.isIntersecting)
+
+        if (entry.isIntersecting) {
+          setShouldLoadLiveGames(true)
+        }
+      },
+      { rootMargin: '300px 0px' },
+    )
+
+    observer.observe(section)
+
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!shouldLoadLiveGames) return
+
+    const startLiveFeeds = () => {
+      fetchNewGame()
+      fetchBroadcast()
+    }
+
+    const windowWithIdleCallback = window as Window & {
+      requestIdleCallback?: (
+        callback: IdleRequestCallback,
+        options?: IdleRequestOptions,
+      ) => number
+      cancelIdleCallback?: (handle: number) => void
+    }
+
+    if (windowWithIdleCallback.requestIdleCallback) {
+      const idleHandle = windowWithIdleCallback.requestIdleCallback(
+        startLiveFeeds,
+        {
+          timeout: 2500,
+        },
+      )
+
+      return () => {
+        windowWithIdleCallback.cancelIdleCallback?.(idleHandle)
+        if (abortController.current) {
+          abortController.current.abort()
+        }
+      }
+    }
+
+    const timeoutId = window.setTimeout(startLiveFeeds, 1000)
 
     return () => {
+      window.clearTimeout(timeoutId)
       if (abortController.current) {
         abortController.current.abort()
       }
     }
-  }, [fetchNewGame, fetchBroadcast])
+  }, [fetchNewGame, fetchBroadcast, shouldLoadLiveGames])
 
   const handleGameClick = useCallback(
     (game: GameData) => {
@@ -340,7 +399,10 @@ export const GameCarousel: React.FC = () => {
   )
 
   return (
-    <section className="relative w-full overflow-y-visible py-6">
+    <section
+      ref={sectionRef}
+      className="relative w-full overflow-y-visible py-6"
+    >
       <div className="relative mb-10 w-full overflow-y-visible">
         <motion.div
           ref={carouselRef}
