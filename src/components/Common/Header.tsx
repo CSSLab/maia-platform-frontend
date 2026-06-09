@@ -7,7 +7,9 @@ import { useRouter } from 'next/router'
 import { DiscordIcon } from './Icons'
 import { useCallback, useContext, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AuthContext, ModalContext, WindowSizeContext } from 'src/contexts'
+import { AuthContext } from 'src/contexts/AuthContext'
+import { ModalContext } from 'src/contexts/ModalContext'
+import { WindowSizeContext } from 'src/contexts/WindowSizeContext'
 import { LeaderboardNavBadge } from '../Leaderboard/LeaderboardNavBadge'
 import { useLeaderboardStatus } from 'src/hooks/useLeaderboardStatus'
 
@@ -233,16 +235,6 @@ export const Header: React.FC = () => {
               BROADCASTS
             </Link>
           )}
-          <Link
-            href="/candidates"
-            className={`inline-flex h-[30px] items-center rounded-full border px-3 transition-all duration-200 ${
-              router.pathname.startsWith('/candidates')
-                ? 'bg-rose-500/14 border-rose-300/45 !text-rose-100'
-                : 'border-rose-300/25 bg-rose-500/10 !text-rose-200/90 hover:border-rose-200/40 hover:!text-rose-100'
-            }`}
-          >
-            CANDIDATES
-          </Link>
           <div
             className="relative"
             onMouseEnter={() => setShowMoreDropdown(true)}
@@ -424,16 +416,6 @@ export const Header: React.FC = () => {
             </Link>
             <Link href="/broadcast" className="uppercase">
               Broadcasts
-            </Link>
-            <Link
-              href="/candidates"
-              className={`rounded-full border px-4 py-2 uppercase ${
-                router.pathname.startsWith('/candidates')
-                  ? 'bg-rose-500/14 border-rose-300/45 text-rose-100'
-                  : 'border-rose-300/25 bg-rose-500/10 text-rose-200/90'
-              }`}
-            >
-              Candidates
             </Link>
             <Link href="/leaderboard" className="uppercase">
               Leaderboard
