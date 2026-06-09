@@ -83,8 +83,18 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
           <Head>
             <link rel="icon" type="image/png" href="/favicon.png" />
             <link
+              rel="preconnect"
+              href="https://fonts.gstatic.com"
+              crossOrigin="anonymous"
+            />
+            {/*
+              Pin the optical-size and grade axes (only wght 200-400 and FILL
+              0/1 are actually used) so Google serves a ~1.1MB instance instead
+              of the full ~3.8MB variable font.
+            */}
+            <link
               rel="stylesheet"
-              href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
+              href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200..400,0..1,0&display=block"
             />
 
             <meta name="apple-mobile-web-app-capable" content="yes" />
