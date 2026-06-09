@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { TeamMember } from './TeamMember'
 import { useInView } from 'react-intersection-observer'
@@ -177,11 +178,13 @@ const PaperCard = ({
       </span>
     </div>
     {featured && (
-      <div className="aspect-[4/3] w-full overflow-hidden">
-        <img
+      <div className="relative aspect-[4/3] w-full overflow-hidden">
+        <Image
           src={`/assets/papers/${paper.image}`}
           alt={`${paper.title} paper preview`}
-          className="h-full w-full object-cover object-top"
+          fill
+          sizes="(min-width: 768px) 33vw, 95vw"
+          className="object-cover object-top"
         />
       </div>
     )}

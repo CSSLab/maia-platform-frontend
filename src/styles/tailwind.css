@@ -35,6 +35,26 @@ h5 {
   margin: 0;
 }
 
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
 .material-symbols-filled {
   font-variation-settings:
     'FILL' 1,
@@ -163,7 +183,8 @@ svg {
 
 .red-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgb(var(--color-human-accent3)) rgb(var(--color-backdrop) / 0.22);
+  scrollbar-color: rgb(var(--color-human-accent3))
+    rgb(var(--color-backdrop) / 0.22);
 }
 
 .red-scrollbar::-webkit-scrollbar {

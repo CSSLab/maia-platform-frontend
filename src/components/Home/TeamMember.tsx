@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { GithubIcon } from 'src/components/Common/Icons'
 interface TeamMemberProps {
@@ -31,9 +32,12 @@ export const TeamMember = ({
         ease: 'easeOut',
       }}
     >
-      <img
+      <Image
         src={image}
-        className="h-24 w-24 rounded-full md:h-40 md:w-40"
+        width={160}
+        height={160}
+        sizes="(min-width: 768px) 160px, 96px"
+        className="h-24 w-24 rounded-full object-cover md:h-40 md:w-40"
         alt={name}
       />
       <div className="flex flex-col">

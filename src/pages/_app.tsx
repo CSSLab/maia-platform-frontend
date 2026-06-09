@@ -9,33 +9,35 @@ import { Analytics } from '@vercel/analytics/react'
 import { PostHogProvider } from 'posthog-js/react'
 import { SoundProvider } from 'src/contexts/SoundContext'
 
-import {
-  AuthContextProvider,
-  ModalContextProvider,
-  WindowSizeContextProvider,
-  AnalysisListContextProvider,
-  MaiaEngineContextProvider,
-  StockfishEngineContextProvider,
-  SettingsProvider,
-  TourProvider as TourContextProvider,
-} from 'src/contexts'
+import { AnalysisListContextProvider } from 'src/contexts/AnalysisListContext'
+import { AuthContextProvider } from 'src/contexts/AuthContext'
+import { MaiaEngineContextProvider } from 'src/contexts/MaiaEngineContext'
+import { ModalContextProvider } from 'src/contexts/ModalContext'
+import { SettingsProvider } from 'src/contexts/SettingsContext'
+import { StockfishEngineContextProvider } from 'src/contexts/StockfishEngineContext'
+import { TourProvider as TourContextProvider } from 'src/contexts/TourContext'
+import { WindowSizeContextProvider } from 'src/contexts/WindowSizeContext'
 import 'src/styles/tailwind.css'
 import 'src/styles/themes.css'
 import 'react-tooltip/dist/react-tooltip.css'
 import 'node_modules/chessground/assets/chessground.base.css'
 import 'node_modules/chessground/assets/chessground.brown.css'
 import 'node_modules/chessground/assets/chessground.cburnett.css'
-import {
-  Footer,
-  Compose,
-  ErrorBoundary,
-  Header,
-  FeedbackButton,
-} from 'src/components'
+import { Compose } from 'src/components/Common/Compose'
+import { ErrorBoundary } from 'src/components/Common/ErrorBoundary'
+import { FeedbackButton } from 'src/components/Common/FeedbackButton'
+import { Footer } from 'src/components/Common/Footer'
+import { Header } from 'src/components/Common/Header'
 import { browserPostHogConfig } from 'src/lib/posthog-browser-config'
 
 const openSansClassName = 'font-sans'
 const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
+// Only wght 200-400 and FILL 0/1 are actually used, so pin opsz=24/GRAD=0 and
+// narrow the ranges: Google serves a ~1.1MB instance instead of the full
+// ~3.8MB variable font. The material-symbols-ready guard hides icons until the
+// font loads, so display=swap never flashes the ligature text.
+const MATERIAL_SYMBOLS_STYLESHEET =
+  'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200..400,0..1,0&display=swap'
 
 function MaiaPlatform({ Component, pageProps }: AppProps) {
   const router = useRouter()
@@ -64,6 +66,28 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
     })
   }, [])
 
+  useEffect(() => {
+    const root = document.documentElement
+    const markMaterialSymbolsReady = () => {
+      root.classList.add('material-symbols-ready')
+    }
+
+    if (!('fonts' in document)) {
+      markMaterialSymbolsReady()
+      return
+    }
+
+    if (document.fonts.check('24px "Material Symbols Outlined"')) {
+      markMaterialSymbolsReady()
+      return
+    }
+
+    document.fonts
+      .load('24px "Material Symbols Outlined"')
+      .then(markMaterialSymbolsReady)
+      .catch(() => undefined)
+  }, [])
+
   return (
     <PostHogProvider client={posthog}>
       <TourContextProvider>
@@ -82,9 +106,22 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
         >
           <Head>
             <link rel="icon" type="image/png" href="/favicon.png" />
+            <link rel="preconnect" href="https://fonts.googleapis.com" />
             <link
-              rel="stylesheet"
-              href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
+              rel="preconnect"
+              href="https://fonts.gstatic.com"
+              crossOrigin="anonymous"
+            />
+            <link rel="preload" as="style" href={MATERIAL_SYMBOLS_STYLESHEET} />
+            <link rel="stylesheet" href={MATERIAL_SYMBOLS_STYLESHEET} />
+            <noscript>
+              <link rel="stylesheet" href={MATERIAL_SYMBOLS_STYLESHEET} />
+            </noscript>
+            <style
+              dangerouslySetInnerHTML={{
+                __html:
+                  'html:not(.material-symbols-ready) .material-symbols-outlined{visibility:hidden}',
+              }}
             />
 
             <meta name="apple-mobile-web-app-capable" content="yes" />

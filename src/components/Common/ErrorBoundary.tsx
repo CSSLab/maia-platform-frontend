@@ -1,10 +1,15 @@
 import Link from 'next/link'
 import Head from 'next/head'
+import dynamic from 'next/dynamic'
 import { Component } from 'react'
-import Chessground from '@react-chess/chessground'
 import { Header } from './Header'
 import { Footer } from './Footer'
 import { trackErrorEncountered } from 'src/lib/analytics'
+
+const ErrorChessground = dynamic(() => import('@react-chess/chessground'), {
+  ssr: false,
+  loading: () => <div className="h-full w-full rounded bg-glass" />,
+})
 
 interface Props {
   children: React.ReactNode
@@ -109,7 +114,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex flex-1 flex-col items-center justify-center gap-8 p-6">
               <div className="flex max-w-2xl flex-col items-center gap-6 text-center">
                 <div className="h-[200px] w-[200px] opacity-75">
-                  <Chessground
+                  <ErrorChessground
                     contained
                     config={{
                       fen: 'rn1qkb1r/ppp1pBpp/5n2/4N3/8/2N5/PPPP1PPP/R1BbK2R b KQkq - 0 7',
