@@ -6,7 +6,8 @@ import type { DrawShape } from 'chessground/draw'
 import Chessground from '@react-chess/chessground'
 import { useInView } from 'react-intersection-observer'
 import { useContext, useState, useEffect } from 'react'
-import { ModalContext, AuthContext } from 'src/contexts'
+import { AuthContext } from 'src/contexts/AuthContext'
+import { ModalContext } from 'src/contexts/ModalContext'
 
 const DEMO_POSITION = {
   fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R b KQkq - 0 1',

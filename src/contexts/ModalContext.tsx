@@ -1,13 +1,22 @@
-import { PlaySetupModal } from 'src/components'
-import React, { ComponentProps, ReactNode, useState } from 'react'
+import dynamic from 'next/dynamic'
+import React, { ReactNode, useState } from 'react'
+import type { PlaySetupModalProps } from 'src/components/Common/PlaySetupModal'
+
+const PlaySetupModal = dynamic(
+  () =>
+    import('src/components/Common/PlaySetupModal').then(
+      (mod) => mod.PlaySetupModal,
+    ),
+  { ssr: false },
+)
 
 const fn = () => {
   throw new Error('poorly provided ModalContext')
 }
 
 interface IModalContext {
-  playSetupModalProps?: ComponentProps<typeof PlaySetupModal>
-  setPlaySetupModalProps: (arg0?: ComponentProps<typeof PlaySetupModal>) => void
+  playSetupModalProps?: PlaySetupModalProps
+  setPlaySetupModalProps: (arg0?: PlaySetupModalProps) => void
 }
 
 export const ModalContext = React.createContext<IModalContext>({
@@ -20,7 +29,7 @@ export const ModalContextProvider: React.FC<{ children: ReactNode }> = ({
   children: ReactNode
 }) => {
   const [playSetupModalProps, setPlaySetupModalProps] = useState<
-    ComponentProps<typeof PlaySetupModal> | undefined
+    PlaySetupModalProps | undefined
   >(undefined)
 
   return (

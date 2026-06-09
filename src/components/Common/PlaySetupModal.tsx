@@ -12,7 +12,7 @@ import {
   TimeControlOptionNames,
   TimeControlOptions,
 } from 'src/types'
-import { ModalContext } from 'src/contexts'
+import { ModalContext } from 'src/contexts/ModalContext'
 import { ModalContainer } from './ModalContainer'
 
 const maiaOptions = [
@@ -72,7 +72,7 @@ function OptionSelect<T>({
   )
 }
 
-interface Props {
+export interface PlaySetupModalProps {
   playType: PlayType
   player?: Color
   timeControl?: TimeControl
@@ -89,7 +89,9 @@ interface Props {
   modalSubtitle?: string
 }
 
-export const PlaySetupModal: React.FC<Props> = (props: Props) => {
+export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
+  props: PlaySetupModalProps,
+) => {
   const { setPlaySetupModalProps } = useContext(ModalContext)
   const router = useRouter()
   const { push } = router
