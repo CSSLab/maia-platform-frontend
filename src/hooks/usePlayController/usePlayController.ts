@@ -5,6 +5,32 @@ import { Chess, Piece, SQUARES } from 'chess.ts'
 import { useTreeController } from '../useTreeController'
 import { useMemo, useState, useCallback, useEffect } from 'react'
 
+type MaiaClockState = {
+  whiteRemainingMs: number
+  blackRemainingMs: number
+  whiteInitialMs: number
+  blackInitialMs: number
+  remainingAtMs: number
+  turnColor: Color | null
+  activeColor: Color | null
+  lifecycle: 'not_started' | 'ongoing' | 'finished'
+  result: 'white_wins' | 'black_wins' | 'draw' | null
+}
+
+type MaiaClockStateWindow = Window &
+  typeof globalThis & {
+    __MaiaClockState?: MaiaClockState
+  }
+
+// Expose Maia clock state for integrations such as ChessConnect.
+const publishMaiaClockState = (clockState: MaiaClockState) => {
+  ;(window as MaiaClockStateWindow).__MaiaClockState = clockState
+}
+
+const clearMaiaClockState = () => {
+  delete (window as MaiaClockStateWindow).__MaiaClockState
+}
+
 const nullFen = new Chess().fen()
 
 const computeTermination = (chess: Chess): Termination | undefined => {
@@ -136,6 +162,56 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
 
   const toPlay: Color | null = game.termination ? null : game.turn
   const playerActive = toPlay == config.player
+
+  // Keep the external clock state in sync with the controller state.
+  useEffect(() => {
+    const lifecycle = game.termination
+      ? 'finished'
+      : moveList.length > 1
+        ? 'ongoing'
+        : 'not_started'
+    const result =
+      game.termination?.winner === 'white'
+        ? 'white_wins'
+        : game.termination?.winner === 'black'
+          ? 'black_wins'
+          : game.termination?.winner === 'none'
+            ? 'draw'
+            : null
+    const activeColor =
+      config.timeControl != 'unlimited' &&
+      lifecycle === 'ongoing' &&
+      lastMoveTime > 0
+        ? toPlay
+        : null
+
+    publishMaiaClockState({
+      whiteRemainingMs: whiteClock,
+      blackRemainingMs: blackClock,
+      whiteInitialMs: initialClockValue,
+      blackInitialMs: initialClockValue,
+      remainingAtMs: lastMoveTime,
+      turnColor: toPlay,
+      activeColor,
+      lifecycle,
+      result,
+    })
+  }, [
+    blackClock,
+    config.timeControl,
+    game.termination,
+    initialClockValue,
+    lastMoveTime,
+    moveList.length,
+    toPlay,
+    whiteClock,
+  ])
+
+  useEffect(() => {
+    return () => {
+      clearMaiaClockState()
+    }
+  }, [])
 
   const { availableMoves, pieces } = useMemo(() => {
     if (!controller.currentNode) return { availableMoves: [], pieces: {} }
