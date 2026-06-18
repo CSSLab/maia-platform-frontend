@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const withTM = require('next-transpile-modules')(['@react-chess/chessground'])
-
-module.exports = withTM({
+module.exports = {
+  transpilePackages: ['@react-chess/chessground'],
   reactStrictMode: false,
   output: 'standalone',
   async redirects() {
@@ -53,4 +50,4 @@ module.exports = withTM({
     ]
   },
   skipTrailingSlashRedirect: true,
-})
+}
