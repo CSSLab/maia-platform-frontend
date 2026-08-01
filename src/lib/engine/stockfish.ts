@@ -628,7 +628,6 @@ class Engine {
       }
     } finally {
       if (this.stockfish) {
-        this.stockfish.listen = originalListen
         this.stockfish.uci('setoption name MultiPV value 100')
       }
     }
