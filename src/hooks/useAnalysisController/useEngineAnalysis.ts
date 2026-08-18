@@ -208,6 +208,10 @@ export const useEngineAnalysis = (
         return
       }
 
+      if (currentNode.analysis.stockfish) {
+        currentNode.analysis.stockfish.done = false
+      }
+
       const chess = new Chess(currentNode.fen)
       const legalMoves = new Set(
         chess
@@ -266,6 +270,10 @@ export const useEngineAnalysis = (
             console.error('Stockfish evaluation error:', error)
           }
         }
+      }
+
+      if (currentNode.analysis.stockfish) {
+        currentNode.analysis.stockfish.done = true
       }
     }
 
