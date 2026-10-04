@@ -2,6 +2,7 @@ import React from 'react'
 import { AnalyzedGame } from 'src/types'
 
 import { ContinueAgainstMaia } from 'src/components'
+import { MaiaWorkerSettings } from 'src/components/Common/MaiaWorkerSettings'
 
 interface Props {
   currentMaiaModel: string
@@ -58,6 +59,9 @@ export const ConfigureAnalysis: React.FC<Props> = ({
             keyboard_arrow_down
           </span>
         </div>
+      </div>
+      <div className="w-full">
+        <MaiaWorkerSettings id="review-maia-workers" />
       </div>
       {onAnalyzeEntireGame && (
         <button

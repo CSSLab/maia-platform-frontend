@@ -45,6 +45,8 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
     return model
   }, [])
 
+  useEffect(() => () => maia.dispose(), [maia])
+
   const downloadModel = useCallback(async () => {
     try {
       setStatus('downloading')

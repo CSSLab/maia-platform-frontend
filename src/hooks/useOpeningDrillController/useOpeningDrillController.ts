@@ -28,12 +28,13 @@ import { useSound } from 'src/hooks/useSound'
 import { MAIA_MODELS } from 'src/constants/common'
 import { DeepAnalysisProgress, MaiaEvaluation } from 'src/types/analysis'
 import { StockfishEngineContext, MaiaEngineContext } from 'src/contexts'
+import { getDrillReviewDepth } from 'src/lib/engine/drillReviewSettings'
+import { waitForStockfishReady } from 'src/lib/engine/waitForStockfishReady'
 
 const MAIA_ELO_VALUES = MAIA_MODELS.map((model) =>
   parseInt(model.replace('maia_kdd_', ''), 10),
 )
 
-const DRILL_STOCKFISH_TARGET_DEPTH = 18
 const DRILL_BOOK_SAMPLING_MAX_PLIES = 6
 const DRILL_BOOK_DEBUG_TAG = '[DRILL_BOOK]'
 
@@ -655,7 +656,7 @@ export const useOpeningDrillController = (
     async (drillGame: OpeningDrillGame): Promise<DrillPerformanceData> => {
       const { selection } = drillGame
       const finalNode = treeController.currentNode || drillGame.tree.getRoot()
-      // Use the centralized minimum depth constant
+      const targetDepth = getDrillReviewDepth()
 
       const moveAnalyses: MoveAnalysis[] = []
       const evaluationChart: EvaluationPoint[] = []
@@ -680,12 +681,9 @@ export const useOpeningDrillController = (
           const maiaEval = node.analysis?.maia?.[currentMaiaModel]
 
           // Check if analysis meets minimum depth requirement
-          if (
-            stockfishEval &&
-            stockfishEval.depth < DRILL_STOCKFISH_TARGET_DEPTH
-          ) {
+          if (stockfishEval && stockfishEval.depth < targetDepth) {
             console.warn(
-              `Stockfish analysis depth ${stockfishEval.depth} is below target depth ${DRILL_STOCKFISH_TARGET_DEPTH} for position ${node.fen}`,
+              `Stockfish analysis depth ${stockfishEval.depth} is below target depth ${targetDepth} for position ${node.fen}`,
             )
           }
 
@@ -964,12 +962,15 @@ export const useOpeningDrillController = (
   )
 
   const ensureStockfishForNode = useCallback(
-    async (node: GameNode) => {
+    async (
+      node: GameNode,
+      isCancelled: () => boolean = () => analysisCancellationRef.current,
+    ) => {
+      const targetDepth = getDrillReviewDepth()
       const existingStockfish = node.analysis.stockfish
       if (
-        (existingStockfish &&
-          existingStockfish.depth >= DRILL_STOCKFISH_TARGET_DEPTH) ||
-        analysisCancellationRef.current
+        (existingStockfish && existingStockfish.depth >= targetDepth) ||
+        isCancelled()
       ) {
         return
       }
@@ -984,19 +985,7 @@ export const useOpeningDrillController = (
         return
       }
 
-      let retries = 0
-      const maxRetries = 50
-
-      while (
-        !stockfish.isReady() &&
-        retries < maxRetries &&
-        !analysisCancellationRef.current
-      ) {
-        await delay(100)
-        retries++
-      }
-
-      if (!stockfish.isReady() || analysisCancellationRef.current) {
+      if (!(await waitForStockfishReady(stockfish, isCancelled))) {
         return
       }
 
@@ -1023,7 +1012,7 @@ export const useOpeningDrillController = (
       const evaluationStream = stockfish.streamEvaluations(
         node.fen,
         legalMoves.length,
-        DRILL_STOCKFISH_TARGET_DEPTH,
+        targetDepth,
         {
           maiaCandidateMoves,
           forcedCandidateMoves,
@@ -1037,7 +1026,7 @@ export const useOpeningDrillController = (
 
       try {
         for await (const evaluation of evaluationStream) {
-          if (analysisCancellationRef.current) {
+          if (isCancelled()) {
             break
           }
 
@@ -1122,7 +1111,10 @@ export const useOpeningDrillController = (
           ) {
             return
           }
-          await ensureStockfishRef.current(node)
+          await ensureStockfishRef.current(
+            node,
+            () => bgCancelledRef.current || analysisCancellationRef.current,
+          )
           console.log(
             '[bg] sf done, depth:',
             node.analysis.stockfish?.depth ?? 0,
@@ -1151,6 +1143,7 @@ export const useOpeningDrillController = (
 
   const ensureDrillAnalysis = useCallback(
     async (drillGame: OpeningDrillGame): Promise<boolean> => {
+      const targetDepth = getDrillReviewDepth()
       // Signal background to stop and give the generator a tick to clean up
       stopBackgroundAnalysis()
       await delay(50)
@@ -1168,7 +1161,7 @@ export const useOpeningDrillController = (
           !maiaData || MAIA_MODELS.some((model) => !maiaData[model])
         const stockfishData = node.analysis.stockfish
         const needsStockfish =
-          !stockfishData || stockfishData.depth < DRILL_STOCKFISH_TARGET_DEPTH
+          !stockfishData || stockfishData.depth < targetDepth
         return needsMaia || needsStockfish
       })
 
@@ -1214,6 +1207,10 @@ export const useOpeningDrillController = (
         }
 
         await ensureStockfishForNode(node)
+        if (stockfish.getInitializationError()) {
+          analysisCancellationRef.current = true
+          break
+        }
       }
 
       const wasCancelled = analysisCancellationRef.current
@@ -1234,6 +1231,7 @@ export const useOpeningDrillController = (
       ensureStockfishForNode,
       setDrillAnalysisProgress,
       stopBackgroundAnalysis,
+      stockfish,
     ],
   )
 

@@ -19,6 +19,7 @@ import {
   EndgamePositionDetail,
 } from 'src/types'
 import { ModalContainer } from '../Common/ModalContainer'
+import { MaiaWorkerSettings } from '../Common/MaiaWorkerSettings'
 import { useTour } from 'src/contexts'
 import { tourConfigs } from 'src/constants/tours'
 import { WindowSizeContext } from 'src/contexts/WindowSizeContext'
@@ -1415,6 +1416,8 @@ const DrillStudioPanel: React.FC<{
               )}
             </div>
 
+            <MaiaWorkerSettings id="drill-desktop-workers" showDrillDepth />
+
             {/* Add Drill button */}
             <button
               onClick={addSelection}
@@ -1701,6 +1704,10 @@ const SelectedPanel: React.FC<{
           </div>
         </div>
       )}
+
+      <div className="mb-3">
+        <MaiaWorkerSettings id="drill-mobile-workers" showDrillDepth />
+      </div>
 
       <div className="flex gap-2">
         <button

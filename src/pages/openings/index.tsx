@@ -54,6 +54,7 @@ import {
   AnalysisStockfishEvalBar,
 } from 'src/components/Analysis/BoardChrome'
 import { MaterialBalance } from 'src/components/Common/MaterialBalance'
+import { MaiaWorkerSettings } from 'src/components/Common/MaiaWorkerSettings'
 import openings from 'src/constants/maia_openings_expanded.json'
 import endgamesRaw from 'src/constants/endgames.json'
 import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
@@ -631,7 +632,7 @@ const OpeningsPage: NextPage = () => {
     () => `calc(max(24rem, ${desktopBoardSizeCss}))`,
     [desktopBoardSizeCss],
   )
-  const desktopConfigPanelHeightCss = '9.5rem'
+  const desktopConfigPanelHeightCss = 'clamp(14rem, 30vh, 18rem)'
   const desktopSidebarContentHeightCss = `calc(${desktopColumnTargetHeightCss} - ${desktopConfigPanelHeightCss} - 0.75rem)`
   const desktopBarChromeSize: 'compact' | 'expanded' =
     width >= 1360 ? 'expanded' : 'compact'
@@ -1258,6 +1259,10 @@ const OpeningsPage: NextPage = () => {
             <div className="flex flex-col gap-3 px-4 py-3">
               {renderLiveDrillSummary()}
               {renderDrillProgress()}
+              <MaiaWorkerSettings
+                id="drill-live-desktop-workers"
+                showDrillDepth
+              />
               {renderDrillActionButtons()}
             </div>
           </div>
@@ -1335,6 +1340,10 @@ const OpeningsPage: NextPage = () => {
               </div>
               <div className="flex flex-col gap-3 px-4 py-3">
                 {renderDrillProgress()}
+                <MaiaWorkerSettings
+                  id="drill-live-mobile-workers"
+                  showDrillDepth
+                />
                 {renderDrillActionButtons(true)}
               </div>
             </div>

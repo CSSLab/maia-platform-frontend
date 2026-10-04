@@ -33,6 +33,7 @@ export interface StockfishEngine {
   error: string | null
   status: StockfishStatus
   isReady: () => boolean
+  getInitializationError: () => string | null
   stopEvaluation: () => void
   streamEvaluations: (
     fen: string,

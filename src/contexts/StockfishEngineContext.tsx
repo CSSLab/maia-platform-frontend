@@ -20,7 +20,6 @@ import {
 import Engine from 'src/lib/engine/stockfish'
 
 const STOCKFISH_LOADING_TOAST_DELAY_MS = 800
-const STOCKFISH_DEBUG_LOADING_KEY = 'maia.stockfishDebugLoading'
 const SF_STRATEGY_KEY = 'maia.stockfishMoveMapStrategy'
 const SF_DIAGNOSTICS_KEY = 'maia.stockfishDiagnostics'
 const SF_DEBUG_PANEL_KEY = 'maia.stockfishDebugPanel'
@@ -36,29 +35,7 @@ const isTruthy = (value: string | null | undefined): boolean => {
   return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase())
 }
 
-const isStockfishDebugLoadingEnabled = (): boolean => {
-  if (typeof window !== 'undefined') {
-    try {
-      const localValue = window.localStorage.getItem(
-        STOCKFISH_DEBUG_LOADING_KEY,
-      )
-      if (localValue !== null) return isTruthy(localValue)
-    } catch {
-      // ignore localStorage access failures
-    }
-  }
-
-  return isTruthy(process.env.NEXT_PUBLIC_STOCKFISH_DEBUG_LOADING)
-}
-
-const getStockfishLoadingLabel = (
-  engine: Engine | null,
-  debugLoadingEnabled: boolean,
-): string => {
-  if (!debugLoadingEnabled) {
-    return 'Loading Stockfish...'
-  }
-
+const getStockfishLoadingLabel = (engine: Engine | null): string => {
   if (!engine) return 'Loading Stockfish...'
 
   switch (engine.initializationPhase) {
@@ -67,7 +44,7 @@ const getStockfishLoadingLabel = (
     case 'downloading-nnue':
       return 'Downloading Stockfish model weights...'
     case 'loading-nnue':
-      return 'Loading Stockfish from local cache...'
+      return 'Loading Stockfish model weights...'
     case 'loading-module':
       return 'Starting Stockfish engine...'
     default:
@@ -924,6 +901,11 @@ export const StockfishEngineContext = React.createContext<StockfishEngine>({
   isReady: () => {
     throw new Error('poorly provided StockfishEngineContext, missing isReady')
   },
+  getInitializationError: () => {
+    throw new Error(
+      'poorly provided StockfishEngineContext, missing getInitializationError',
+    )
+  },
   status: 'loading',
   error: null,
 })
@@ -942,11 +924,8 @@ export const StockfishEngineContextProvider: React.FC<{
   const [error, setError] = useState<string | null>(
     () => engineRef.current?.initializationError ?? null,
   )
-  const [debugLoadingEnabled] = useState<boolean>(() =>
-    isStockfishDebugLoadingEnabled(),
-  )
   const [loadingLabel, setLoadingLabel] = useState<string>(() =>
-    getStockfishLoadingLabel(engineRef.current, debugLoadingEnabled),
+    getStockfishLoadingLabel(engineRef.current),
   )
   const toastId = useRef<string | null>(null)
   const loadingToastTimerRef = useRef<number | null>(null)
@@ -980,13 +959,18 @@ export const StockfishEngineContextProvider: React.FC<{
     return engineRef.current?.ready ?? false
   }, [])
 
+  const getInitializationError = useCallback(
+    () => engineRef.current?.initializationError ?? null,
+    [],
+  )
+
   useEffect(() => {
     const checkEngineStatus = () => {
       const engine = engineRef.current
       if (!engine) return
 
       setLoadingLabel((prev) => {
-        const next = getStockfishLoadingLabel(engine, debugLoadingEnabled)
+        const next = getStockfishLoadingLabel(engine)
         return prev === next ? prev : next
       })
 
@@ -1005,7 +989,7 @@ export const StockfishEngineContextProvider: React.FC<{
     const interval = setInterval(checkEngineStatus, 100)
 
     return () => clearInterval(interval)
-  }, [debugLoadingEnabled])
+  }, [])
 
   // Toast notifications for Stockfish engine status
   useEffect(() => {
@@ -1043,7 +1027,7 @@ export const StockfishEngineContextProvider: React.FC<{
         loadingToastTimerRef.current = null
         if (!toastId.current && engineRef.current && !engineRef.current.ready) {
           toastId.current = toast.loading(
-            getStockfishLoadingLabel(engineRef.current, debugLoadingEnabled),
+            getStockfishLoadingLabel(engineRef.current),
           )
         }
       }, STOCKFISH_LOADING_TOAST_DELAY_MS)
@@ -1079,17 +1063,25 @@ export const StockfishEngineContextProvider: React.FC<{
         toast.error(message)
       }
     }
-  }, [status, error, loadingLabel, debugLoadingEnabled])
+  }, [status, error, loadingLabel])
 
   const contextValue = useMemo(
     () => ({
       streamEvaluations,
       stopEvaluation,
       isReady,
+      getInitializationError,
       status,
       error,
     }),
-    [streamEvaluations, stopEvaluation, isReady, status, error],
+    [
+      streamEvaluations,
+      stopEvaluation,
+      isReady,
+      getInitializationError,
+      status,
+      error,
+    ],
   )
 
   return (

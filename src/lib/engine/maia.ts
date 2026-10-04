@@ -7,6 +7,10 @@ import {
   allPossibleMovesMaia3Reversed,
 } from './tensor'
 import { MaiaModelStorage } from './storage'
+import {
+  getMaiaWorkerSettings,
+  MAIA_WORKER_SETTINGS_EVENT,
+} from './workerSettings'
 
 interface MaiaOptions {
   model: string
@@ -22,6 +26,16 @@ interface PendingInference {
     logitsValue: Float32Array
   }) => void
   reject: (error: Error) => void
+  slot: WorkerSlot
+}
+
+interface WorkerSlot {
+  worker: Worker
+  ready: boolean
+  pending: number
+  resolveReady: () => void
+  rejectReady: (error: Error) => void
+  readyPromise: Promise<void>
 }
 
 interface PendingDownload {
@@ -29,19 +43,53 @@ interface PendingDownload {
   reject: (error: Error) => void
 }
 
+const SECONDARY_WORKER_STARTUP_TIMEOUT_MS = 5_000
+
 class Maia {
-  private worker: Worker | null = null
+  private workers: WorkerSlot[] = []
   private options: MaiaOptions
   private storage: MaiaModelStorage
   private pendingInferences: Map<number, PendingInference> = new Map()
   private pendingDownload: PendingDownload | null = null
   private downloadPromise: Promise<void> | null = null
   private nextRequestId = 0
+  private disposed = false
+  private modelUrl: string
+  private modelVersion: string
 
   constructor(options: MaiaOptions) {
     this.options = options
+    this.modelUrl = options.model
+    this.modelVersion = options.modelVersion
     this.storage = new MaiaModelStorage()
     this.initialize(options.model, options.modelVersion)
+    if (typeof window !== 'undefined') {
+      window.addEventListener(
+        MAIA_WORKER_SETTINGS_EVENT,
+        this.onSettingsChanged,
+      )
+    }
+  }
+
+  private onSettingsChanged = () => {
+    const desired = this.desiredWorkerCount()
+    // Do not terminate an in-flight inference; excess workers are retired when idle.
+    this.trimWorkers(desired)
+  }
+
+  private desiredWorkerCount() {
+    const settings = getMaiaWorkerSettings()
+    return settings.enabled ? settings.count : 1
+  }
+
+  private trimWorkers(desired: number) {
+    for (let i = this.workers.length - 1; i >= desired; i--) {
+      const slot = this.workers[i]
+      if (slot.pending !== 0) continue
+      slot.worker.terminate()
+      slot.rejectReady(new Error('Maia worker disabled'))
+      this.workers.splice(i, 1)
+    }
   }
 
   private initialize(modelUrl: string, modelVersion: string) {
@@ -49,24 +97,53 @@ class Maia {
       return
     }
 
-    this.worker = new Worker('/maia-worker.js')
+    this.createWorker(modelUrl, modelVersion)
+  }
 
-    this.worker.onmessage = (e) => {
+  private createWorker(modelUrl: string, modelVersion: string): WorkerSlot {
+    const worker = new Worker('/maia-worker.js')
+    let resolveReady!: () => void
+    let rejectReady!: (error: Error) => void
+    const readyPromise = new Promise<void>((resolve, reject) => {
+      resolveReady = resolve
+      rejectReady = reject
+    })
+    // The primary worker can report no-cache before a download; secondary
+    // workers are only created after that download has completed.
+    readyPromise.catch(() => undefined)
+    const slot: WorkerSlot = {
+      worker,
+      ready: false,
+      pending: 0,
+      resolveReady,
+      rejectReady,
+      readyPromise,
+    }
+    this.workers.push(slot)
+    const primary = this.workers.length === 1
+
+    worker.onmessage = (e) => {
       const msg = e.data
 
       switch (msg.type) {
         case 'status':
-          this.options.setStatus(msg.status)
+          if (primary) this.options.setStatus(msg.status)
           if (msg.status === 'ready') {
-            this.options.setProgress(100)
-            this.pendingDownload?.resolve()
-            this.pendingDownload = null
-            this.downloadPromise = null
+            slot.ready = true
+            slot.resolveReady()
+            if (primary) {
+              this.options.setProgress(100)
+              this.pendingDownload?.resolve()
+              this.pendingDownload = null
+              this.downloadPromise = null
+            }
+          } else if (msg.status === 'no-cache' && !primary) {
+            this.failWorker(slot, new Error('Maia model cache unavailable'))
           }
           break
 
         case 'progress':
-          this.options.setProgress(msg.progress)
+          if (primary) this.options.setProgress(msg.progress)
           break
 
         case 'error': {
@@ -75,13 +152,10 @@ class Maia {
             if (pending) {
               pending.reject(new Error(msg.message))
               this.pendingInferences.delete(msg.id)
+              slot.pending--
             }
           } else {
-            this.options.setError(msg.message)
-            this.options.setStatus('error')
-            this.pendingDownload?.reject(new Error(msg.message))
-            this.pendingDownload = null
-            this.downloadPromise = null
+            this.failWorker(slot, new Error(msg.message))
           }
           break
         }
@@ -94,27 +168,102 @@ class Maia {
               logitsValue: new Float32Array(msg.logitsValue),
             })
             this.pendingInferences.delete(msg.id)
+            slot.pending--
+            this.trimWorkers(this.desiredWorkerCount())
           }
           break
         }
       }
     }
 
-    this.worker.onerror = (err) => {
+    worker.onerror = (err) => {
       console.error('Maia worker error:', err)
-      const error = new Error(err.message || 'Worker crashed')
+      this.failWorker(slot, new Error(err.message || 'Worker crashed'))
+    }
+
+    try {
+      worker.postMessage({ type: 'init', modelUrl, modelVersion })
+    } catch (error) {
+      this.failWorker(
+        slot,
+        error instanceof Error
+          ? error
+          : new Error('Could not start Maia worker'),
+      )
+      throw error
+    }
+    return slot
+  }
+
+  private failWorker(slot: WorkerSlot, error: Error) {
+    slot.rejectReady(error)
+    for (const [id, pending] of this.pendingInferences) {
+      if (pending.slot !== slot) continue
+      pending.reject(error)
+      this.pendingInferences.delete(id)
+    }
+    slot.pending = 0
+    if (slot === this.workers[0]) {
       this.options.setError(error.message)
       this.options.setStatus('error')
       this.pendingDownload?.reject(error)
       this.pendingDownload = null
       this.downloadPromise = null
+    } else {
+      slot.worker.terminate()
+      this.workers = this.workers.filter((worker) => worker !== slot)
     }
+  }
 
-    this.worker.postMessage({ type: 'init', modelUrl, modelVersion })
+  public dispose() {
+    this.disposed = true
+    if (typeof window !== 'undefined') {
+      window.removeEventListener(
+        MAIA_WORKER_SETTINGS_EVENT,
+        this.onSettingsChanged,
+      )
+    }
+    this.pendingDownload?.reject(new Error('Maia engine disposed'))
+    this.pendingDownload = null
+    this.downloadPromise = null
+    for (const slot of this.workers) {
+      slot.worker.terminate()
+      slot.rejectReady(new Error('Maia engine disposed'))
+    }
+    for (const pending of this.pendingInferences.values()) {
+      pending.reject(new Error('Maia engine disposed'))
+    }
+    this.pendingInferences.clear()
+    this.workers = []
+  }
+
+  private async availableWorkers(batchSize: number): Promise<WorkerSlot[]> {
+    const desired = Math.min(batchSize, this.desiredWorkerCount())
+    this.trimWorkers(desired)
+    if (desired === 1 || !this.workers[0]?.ready)
+      return this.workers.slice(0, 1)
+    while (this.workers.length < desired && !this.disposed) {
+      try {
+        this.createWorker(this.modelUrl, this.modelVersion)
+      } catch (error) {
+        console.warn('Could not start an additional Maia worker:', error)
+        break
+      }
+    }
+    const candidates = this.workers.slice(0, desired)
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    await Promise.race([
+      Promise.allSettled(candidates.map((slot) => slot.readyPromise)),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(resolve, SECONDARY_WORKER_STARTUP_TIMEOUT_MS)
+      }),
+    ])
+    if (timeout) clearTimeout(timeout)
+    return candidates.filter((slot) => slot.ready)
   }
 
   public async downloadModel() {
-    if (!this.worker) throw new Error('Worker not initialized')
+    if (!this.workers[0]) throw new Error('Worker not initialized')
     if (this.downloadPromise) {
       return this.downloadPromise
     }
@@ -123,7 +272,7 @@ class Maia {
 
     this.downloadPromise = new Promise<void>((resolve, reject) => {
       this.pendingDownload = { resolve, reject }
-      this.worker!.postMessage({ type: 'download' })
+      this.workers[0].worker.postMessage({ type: 'download' })
     })
 
     return this.downloadPromise
@@ -142,28 +291,36 @@ class Maia {
     eloSelfs: Float32Array,
     eloOppos: Float32Array,
     batchSize: number,
+    slot = this.workers[0],
   ): Promise<{ logitsMove: Float32Array; logitsValue: Float32Array }> {
-    if (!this.worker) {
+    if (!slot) {
       return Promise.reject(new Error('Worker not initialized'))
     }
 
     const id = this.nextRequestId++
 
     return new Promise((resolve, reject) => {
-      this.pendingInferences.set(id, { resolve, reject })
+      this.pendingInferences.set(id, { resolve, reject, slot })
+      slot.pending++
 
       // Transfer ArrayBuffers for zero-copy send
-      this.worker!.postMessage(
-        {
-          type: 'inference',
-          id,
-          tokens: tokens.buffer,
-          eloSelfs: eloSelfs.buffer,
-          eloOppos: eloOppos.buffer,
-          batchSize,
-        },
-        [tokens.buffer, eloSelfs.buffer, eloOppos.buffer],
-      )
+      try {
+        slot.worker.postMessage(
+          {
+            type: 'inference',
+            id,
+            tokens: tokens.buffer,
+            eloSelfs: eloSelfs.buffer,
+            eloOppos: eloOppos.buffer,
+            batchSize,
+          },
+          [tokens.buffer, eloSelfs.buffer, eloOppos.buffer],
+        )
+      } catch (error) {
+        this.pendingInferences.delete(id)
+        slot.pending--
+        reject(error)
+      }
     })
   }
 
@@ -195,6 +352,10 @@ class Maia {
     eloOppos: number[],
   ) {
     const batchSize = boards.length
+    if (batchSize === 0) return { result: [], time: 0 }
+    if (eloSelfs.length !== batchSize || eloOppos.length !== batchSize) {
+      throw new Error('Maia batch inputs must have the same length')
+    }
     const boardInputs: Float32Array[] = []
     const legalMovesArr: Float32Array[] = []
 
@@ -204,18 +365,47 @@ class Maia {
       legalMovesArr.push(legalMoves)
     }
 
-    const combinedTokens = new Float32Array(batchSize * 64 * 12)
-    for (let i = 0; i < batchSize; i++) {
-      combinedTokens.set(boardInputs[i], i * 64 * 12)
-    }
-
     const start = performance.now()
-    const { logitsMove, logitsValue } = await this.runInference(
-      combinedTokens,
-      Float32Array.from(eloSelfs),
-      Float32Array.from(eloOppos),
-      batchSize,
+    const slots = await this.availableWorkers(batchSize)
+    if (slots.length === 0) throw new Error('No Maia workers available')
+    const chunkSize = Math.ceil(batchSize / slots.length)
+    const chunks = await Promise.all(
+      slots.map(async (slot, index) => {
+        const offset = index * chunkSize
+        const count = Math.min(chunkSize, batchSize - offset)
+        if (count <= 0) return null
+        const run = (target: WorkerSlot) => {
+          const tokens = new Float32Array(count * 64 * 12)
+          for (let i = 0; i < count; i++) {
+            tokens.set(boardInputs[offset + i], i * 64 * 12)
+          }
+          return this.runInference(
+            tokens,
+            Float32Array.from(eloSelfs.slice(offset, offset + count)),
+            Float32Array.from(eloOppos.slice(offset, offset + count)),
+            count,
+            target,
+          )
+        }
+        let output
+        try {
+          output = await run(slot)
+        } catch (error) {
+          if (slot === this.workers[0]) throw error
+          // A secondary session may fail under memory pressure. Preserve the
+          // analysis by running that chunk on the primary worker instead.
+          output = await run(this.workers[0])
+        }
+        return { offset, output }
+      }),
     )
+    const logitsMove = new Float32Array(batchSize * 4352)
+    const logitsValue = new Float32Array(batchSize * 3)
+    for (const chunk of chunks) {
+      if (!chunk) continue
+      logitsMove.set(chunk.output.logitsMove, chunk.offset * 4352)
+      logitsValue.set(chunk.output.logitsValue, chunk.offset * 3)
+    }
     const end = performance.now()
 
     const results = []
