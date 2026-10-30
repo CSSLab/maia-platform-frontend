@@ -1897,6 +1897,36 @@ const shouldRetryNnueLoad = (error: unknown): boolean => {
   )
 }
 
+/**
+ * lila-stockfish-web starts one pthread worker per
+ * `navigator.hardwareConcurrency` when a module is created and waits for all
+ * of them to load. The site searches with Stockfish's default single thread,
+ * which needs two (UCI loop and search), so a 16-32 core desktop started 16-32
+ * workers per engine (160 on a large server). Creating the module while a
+ * smaller count is reported keeps the pool small; any further threads are
+ * still started on demand.
+ */
+const STOCKFISH_PTHREAD_POOL_SIZE = 4
+
+const withPthreadPoolCap = <T>(create: () => T): T => {
+  const cores = navigator.hardwareConcurrency
+  if (!(cores > STOCKFISH_PTHREAD_POOL_SIZE)) return create()
+  try {
+    Object.defineProperty(navigator, 'hardwareConcurrency', {
+      configurable: true,
+      get: () => STOCKFISH_PTHREAD_POOL_SIZE,
+    })
+  } catch {
+    return create()
+  }
+  try {
+    // The pool is created synchronously inside the module factory.
+    return create()
+  } finally {
+    Reflect.deleteProperty(navigator, 'hardwareConcurrency')
+  }
+}
+
 const setupStockfish = async (
   onPhaseChange?: (phase: StockfishInitPhase) => void,
 ): Promise<StockfishWeb> => {
@@ -1973,7 +2003,7 @@ const setupStockfish = async (
   }
 
   try {
-    let instance = await createInstance()
+    let instance = await withPthreadPoolCap(createInstance)
     nnueUrls = [
       `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`,
       `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`,
@@ -1992,7 +2022,7 @@ const setupStockfish = async (
       )
       await Promise.all(nnueUrls.map((url) => storage.deleteModel(url)))
 
-      instance = await createInstance()
+      instance = await withPthreadPoolCap(createInstance)
       await loadWeightsIntoInstance(instance, true)
     }
 
