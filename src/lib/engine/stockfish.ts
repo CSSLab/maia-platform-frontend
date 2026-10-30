@@ -53,6 +53,7 @@ type AnalysisRunContext = {
   maiaCandidateMoves: string[]
   forcedCandidateMoves: string[]
   maiaPolicy: Record<string, number>
+  getMaiaCandidates?: StockfishStreamOptions['getMaiaCandidates']
   kSf: number
   targetDepth: number
   analysisStartedAtMs: number
@@ -190,17 +191,13 @@ class Engine {
       const moveMapStrategy = this.resolveMoveMapStrategy(options)
       this.currentMoveMapStrategy = moveMapStrategy
       this.currentDiagnosticsToConsole = this.resolveDiagnosticsToConsole()
-      const maiaCandidateMoves = Array.from(
-        new Set(options?.maiaCandidateMoves || []),
-      ).filter((move) => this.moves.includes(move))
+      const { maiaCandidateMoves, maiaPolicy } = legalMaiaCandidates(
+        options,
+        this.moves,
+      )
       const forcedCandidateMoves = Array.from(
         new Set(options?.forcedCandidateMoves || []),
       ).filter((move) => this.moves.includes(move))
-      const maiaPolicy = Object.fromEntries(
-        Object.entries(options?.maiaPolicy || {}).filter(
-          ([move, prob]) => this.moves.includes(move) && Number.isFinite(prob),
-        ),
-      )
       const kSfFromOptions = Number.isFinite(options?.kSf)
         ? Math.max(1, Math.floor(options?.kSf || 1))
         : undefined
@@ -212,6 +209,7 @@ class Engine {
         maiaCandidateMoves,
         forcedCandidateMoves,
         maiaPolicy,
+        getMaiaCandidates: options?.getMaiaCandidates,
         kSf: kSfFromOptions || 0,
         targetDepth,
         analysisStartedAtMs: this.currentAnalysisStartedAtMs,
@@ -294,6 +292,18 @@ class Engine {
 
   private isActiveRun(positionId: string): boolean {
     return this.isEvaluating && this.currentPositionId === positionId
+  }
+
+  /** Takes up Maia's moves if they have arrived since the run started. */
+  private refreshMaiaCandidates(runContext: AnalysisRunContext) {
+    if (!runContext.getMaiaCandidates) return
+    const latest = legalMaiaCandidates(
+      runContext.getMaiaCandidates(),
+      runContext.legalMoves,
+    )
+    if (latest.maiaCandidateMoves.length === 0) return
+    runContext.maiaCandidateMoves = latest.maiaCandidateMoves
+    runContext.maiaPolicy = latest.maiaPolicy
   }
 
   /**
@@ -790,13 +800,17 @@ class Engine {
           runContext.kSf > 0 ? runContext.kSf : 4,
         ),
       )
-      const maiaTopMoves = runContext.maiaCandidateMoves.slice(
-        0,
-        MAX_MAIA_DEEPEN_MOVES,
-      )
-      const targetDeepeningMoves = Array.from(
-        new Set([...maiaTopMoves, ...runContext.forcedCandidateMoves]),
-      )
+      // Maia's policy often arrives during the screening search (the page
+      // asks for it at the same time); it is used from here on.
+      this.refreshMaiaCandidates(runContext)
+      const getTargetDeepeningMoves = () =>
+        Array.from(
+          new Set([
+            ...runContext.maiaCandidateMoves.slice(0, MAX_MAIA_DEEPEN_MOVES),
+            ...runContext.forcedCandidateMoves,
+          ]),
+        )
+      let targetDeepeningMoves = getTargetDeepeningMoves()
       const maiaMidDepth = Math.min(MAIA_MID_DEPTH, targetDepth)
 
       if (maiaMidDepth > plan.screeningDepth) {
@@ -917,6 +931,10 @@ class Engine {
         yield streamingEval
       }
 
+      // Maia's moves that arrived after the screening search still get
+      // deepened to the target depth.
+      this.refreshMaiaCandidates(runContext)
+      targetDeepeningMoves = getTargetDeepeningMoves()
       for (const move of targetDeepeningMoves) {
         if (!this.isActiveRun(runContext.positionId)) {
           return
@@ -1768,6 +1786,23 @@ class Engine {
     }
   }
 }
+
+/** Maia's candidate moves and policy, keeping only legal moves. */
+const legalMaiaCandidates = (
+  options:
+    | Pick<StockfishStreamOptions, 'maiaCandidateMoves' | 'maiaPolicy'>
+    | undefined,
+  legalMoves: string[],
+) => ({
+  maiaCandidateMoves: Array.from(
+    new Set(options?.maiaCandidateMoves || []),
+  ).filter((move) => legalMoves.includes(move)),
+  maiaPolicy: Object.fromEntries(
+    Object.entries(options?.maiaPolicy || {}).filter(
+      ([move, prob]) => legalMoves.includes(move) && Number.isFinite(prob),
+    ),
+  ),
+})
 
 const sharedWasmMemory = (lo: number, hi = 32767): WebAssembly.Memory => {
   let shrink = 4 // 32767 -> 24576 -> 16384 -> 12288 -> 8192 -> 6144 -> etc

@@ -263,26 +263,35 @@ export const useEngineAnalysis = (
           .moves({ verbose: true })
           .map((move) => `${move.from}${move.to}${move.promotion || ''}`),
       )
-      const maiaPolicy = currentNode.analysis.maia?.[currentMaiaModel]?.policy
-      const maiaCandidateMoves: string[] = []
       const playedMove = currentNode.mainChild?.move
       const forcedCandidateMoves =
         playedMove && legalMoves.has(playedMove) ? [playedMove] : []
 
-      if (maiaPolicy) {
-        let cumulative = 0
-        const sortedMaiaMoves = Object.entries(maiaPolicy)
-          .filter(([, prob]) => Number.isFinite(prob) && prob > 0)
-          .sort(([, a], [, b]) => b - a)
+      // Maia's likely moves (95% of its policy). Stockfish reads them again
+      // when it reaches the phases that use them, so a policy that arrives
+      // during the search (usually ~0.3 s after a move) is used without
+      // restarting the search.
+      const readMaiaCandidates = () => {
+        const maiaPolicy = currentNode.analysis.maia?.[currentMaiaModel]?.policy
+        const maiaCandidateMoves: string[] = []
 
-        for (const [move, prob] of sortedMaiaMoves) {
-          if (!legalMoves.has(move)) continue
-          maiaCandidateMoves.push(move)
-          cumulative += prob
-          if (cumulative >= 0.95) {
-            break
+        if (maiaPolicy) {
+          let cumulative = 0
+          const sortedMaiaMoves = Object.entries(maiaPolicy)
+            .filter(([, prob]) => Number.isFinite(prob) && prob > 0)
+            .sort(([, a], [, b]) => b - a)
+
+          for (const [move, prob] of sortedMaiaMoves) {
+            if (!legalMoves.has(move)) continue
+            maiaCandidateMoves.push(move)
+            cumulative += prob
+            if (cumulative >= 0.95) {
+              break
+            }
           }
         }
+
+        return { maiaCandidateMoves, maiaPolicy }
       }
 
       const evaluationStream = stockfish.streamEvaluations(
@@ -290,9 +299,9 @@ export const useEngineAnalysis = (
         chess.moves().length,
         targetDepth,
         {
-          maiaCandidateMoves,
+          ...readMaiaCandidates(),
           forcedCandidateMoves,
-          maiaPolicy,
+          getMaiaCandidates: readMaiaCandidates,
         },
       )
 
@@ -335,7 +344,6 @@ export const useEngineAnalysis = (
     setAnalysisState,
     targetDepth,
     stockfishDebugRerunToken,
-    currentNode?.analysis.maia?.[currentMaiaModel]?.policy,
     currentNode?.mainChild?.move,
     enabled,
   ])

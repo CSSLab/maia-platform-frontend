@@ -205,6 +205,43 @@ describe('Stockfish Engine run hand-over', () => {
     expect(fake.searching).toBe(false)
   })
 
+  it('takes up Maia moves that arrive during the search, without restarting', async () => {
+    const { engine, fake } = makeEngine()
+    let candidates: string[] = []
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8, {
+      getMaiaCandidates: () => ({
+        maiaCandidateMoves: candidates,
+        maiaPolicy: { g1f3: 0.6 },
+      }),
+    })
+    const first = await run.next()
+    // Maia's policy arrives while the screening search runs.
+    candidates = ['g1f3']
+
+    expect(await drain(run, first)).toBe(8)
+    expect(fake.log.filter((c) => c === 'ucinewgame')).toHaveLength(1)
+    expect(fake.log).toContain('go depth 8 searchmoves g1f3')
+  })
+
+  it('deepens Maia moves that arrive after the screening search', async () => {
+    const { engine, fake } = makeEngine()
+    let candidates: string[] = []
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8, {
+      getMaiaCandidates: () => ({ maiaCandidateMoves: candidates }),
+    })
+    // Screening yields depths 1-4; the multi-PV search follows.
+    let seen = 0
+    let maxDepth = 0
+    for await (const evaluation of run) {
+      maxDepth = Math.max(maxDepth, evaluation.depth)
+      if (++seen === 6) candidates = ['g1f3']
+    }
+
+    expect(maxDepth).toBe(8)
+    expect(fake.log.filter((c) => c === 'ucinewgame')).toHaveLength(1)
+    expect(fake.log).toContain('go depth 8 searchmoves g1f3')
+  })
+
   it('reaches the target depth after a restart for the same position', async () => {
     const { engine } = makeEngine()
 
