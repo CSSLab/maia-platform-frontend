@@ -150,6 +150,40 @@ describe('Stockfish Engine run hand-over', () => {
     expect(maxDepth).toBe(8)
   })
 
+  it('finishes a new run while the old one keeps reading', async () => {
+    const { engine } = makeEngine()
+    // No played move to deepen: after screening the old run goes straight
+    // to its multi-PV search.
+    const oldRun = engine.streamEvaluations(START, legalMoveCount(START), 8)
+    await oldRun.next()
+    // As on the page, the old run is still being read when the new one
+    // (Maia's policy has arrived) starts, and is closed only afterwards.
+    let oldClosed = false
+    const readOld = (async () => {
+      for (;;) {
+        const next = await oldRun.next()
+        if (next.done || oldClosed) break
+      }
+      await oldRun.return(undefined)
+    })()
+
+    const newRun = engine.streamEvaluations(START, legalMoveCount(START), 8, {
+      maiaCandidateMoves: ['e2e4'],
+    })
+    const firstNew = newRun.next()
+    oldClosed = true
+
+    const timeout = new Promise<number>((_, reject) =>
+      setTimeout(() => reject(new Error('new run stalled')), 5000),
+    )
+    const maxDepth = await Promise.race([
+      firstNew.then((first) => drain(newRun, first)),
+      timeout,
+    ])
+    expect(maxDepth).toBe(8)
+    await readOld
+  })
+
   it('stops an abandoned search before resetting MultiPV', async () => {
     const { engine, fake } = makeEngine()
 

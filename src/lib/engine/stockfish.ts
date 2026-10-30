@@ -409,7 +409,13 @@ class Engine {
     elapsedMs: number
     moves: RootSearchResult[]
   }> {
-    if (!this.stockfish || requestedMultiPv <= 0) {
+    // A superseded run must not reach waitForReady: its listener would take
+    // the new run's `readyok` and then detach the new run's listener.
+    if (
+      !this.stockfish ||
+      requestedMultiPv <= 0 ||
+      !this.isActiveRun(runContext.positionId)
+    ) {
       return
     }
 
