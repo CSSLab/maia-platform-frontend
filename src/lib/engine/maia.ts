@@ -24,6 +24,20 @@ interface PendingInference {
   reject: (error: Error) => void
 }
 
+export interface MaiaInferenceOptions {
+  /** Drops the request if it is aborted before it reaches the worker. */
+  signal?: AbortSignal
+}
+
+interface QueuedInference extends PendingInference {
+  id: number
+  message: Record<string, unknown>
+  transfer: Transferable[]
+  signal?: AbortSignal
+}
+
+const abortError = () => new DOMException('Inference aborted', 'AbortError')
+
 interface PendingDownload {
   resolve: () => void
   reject: (error: Error) => void
@@ -34,6 +48,12 @@ class Maia {
   private options: MaiaOptions
   private storage: MaiaModelStorage
   private pendingInferences: Map<number, PendingInference> = new Map()
+  /**
+   * Requests wait here and go to the worker one at a time, so stale ones can
+   * be dropped (the worker would otherwise run every queued request in order).
+   */
+  private queue: QueuedInference[] = []
+  private inFlightId: number | null = null
   private pendingDownload: PendingDownload | null = null
   private downloadPromise: Promise<void> | null = null
   private nextRequestId = 0
@@ -76,6 +96,7 @@ class Maia {
               pending.reject(new Error(msg.message))
               this.pendingInferences.delete(msg.id)
             }
+            this.inferenceSettled(msg.id)
           } else {
             this.options.setError(msg.message)
             this.options.setStatus('error')
@@ -95,6 +116,7 @@ class Maia {
             })
             this.pendingInferences.delete(msg.id)
           }
+          this.inferenceSettled(msg.id)
           break
         }
       }
@@ -108,6 +130,12 @@ class Maia {
       this.pendingDownload?.reject(error)
       this.pendingDownload = null
       this.downloadPromise = null
+      for (const pending of Array.from(this.pendingInferences.values())) {
+        pending.reject(error)
+      }
+      this.pendingInferences.clear()
+      for (const job of this.queue.splice(0)) job.reject(error)
+      this.inFlightId = null
     }
 
     this.worker.postMessage({ type: 'init', modelUrl, modelVersion })
@@ -142,19 +170,21 @@ class Maia {
     eloSelfs: Float32Array,
     eloOppos: Float32Array,
     batchSize: number,
+    options: MaiaInferenceOptions = {},
   ): Promise<{ logitsMove: Float32Array; logitsValue: Float32Array }> {
     if (!this.worker) {
       return Promise.reject(new Error('Worker not initialized'))
     }
+    const { signal } = options
+    if (signal?.aborted) return Promise.reject(abortError())
 
     const id = this.nextRequestId++
 
     return new Promise((resolve, reject) => {
-      this.pendingInferences.set(id, { resolve, reject })
-
-      // Transfer ArrayBuffers for zero-copy send
-      this.worker!.postMessage(
-        {
+      const job: QueuedInference = {
+        id,
+        // Transfer the ArrayBuffers for a zero-copy send
+        message: {
           type: 'inference',
           id,
           tokens: tokens.buffer,
@@ -162,9 +192,44 @@ class Maia {
           eloOppos: eloOppos.buffer,
           batchSize,
         },
-        [tokens.buffer, eloSelfs.buffer, eloOppos.buffer],
+        transfer: [tokens.buffer, eloSelfs.buffer, eloOppos.buffer],
+        signal,
+        resolve,
+        reject,
+      }
+      signal?.addEventListener(
+        'abort',
+        () => {
+          const index = this.queue.indexOf(job)
+          if (index >= 0) {
+            this.queue.splice(index, 1)
+            reject(abortError())
+          }
+        },
+        { once: true },
       )
+      this.queue.push(job)
+      this.pumpInferences()
     })
+  }
+
+  /** Sends the oldest queued request when the worker is free. */
+  private pumpInferences() {
+    if (this.inFlightId !== null || !this.worker) return
+    const job = this.queue.shift()
+    if (!job) return
+    this.pendingInferences.set(job.id, {
+      resolve: job.resolve,
+      reject: job.reject,
+    })
+    this.inFlightId = job.id
+    this.worker.postMessage(job.message, job.transfer)
+  }
+
+  private inferenceSettled(id: number) {
+    if (id !== this.inFlightId) return
+    this.inFlightId = null
+    this.pumpInferences()
   }
 
   /**
@@ -193,6 +258,7 @@ class Maia {
     boards: string[],
     eloSelfs: number[],
     eloOppos: number[],
+    options?: MaiaInferenceOptions,
   ) {
     const batchSize = boards.length
     const boardInputs: Float32Array[] = []
@@ -215,6 +281,7 @@ class Maia {
       Float32Array.from(eloSelfs),
       Float32Array.from(eloOppos),
       batchSize,
+      options,
     )
     const end = performance.now()
 

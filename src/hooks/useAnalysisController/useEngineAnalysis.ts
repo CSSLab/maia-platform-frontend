@@ -51,7 +51,10 @@ export const useEngineAnalysis = (
     }
   }, [])
 
-  async function inferenceMaiaModel(board: Chess): Promise<{
+  async function inferenceMaiaModel(
+    board: Chess,
+    signal: AbortSignal,
+  ): Promise<{
     [key: string]: MaiaEvaluation
   }> {
     if (!maia.maia) {
@@ -62,6 +65,7 @@ export const useEngineAnalysis = (
       Array(MAIA_RATINGS.length).fill(board.fen()),
       MAIA_RATINGS,
       MAIA_RATINGS,
+      { signal },
     )
 
     const maiaEvaluations: { [key: string]: MaiaEvaluation } = {}
@@ -85,6 +89,9 @@ export const useEngineAnalysis = (
     const nodeFen = currentNode.fen
 
     let maiaCancelled = false
+    // Drops this position's Maia request if the user moves on before it
+    // reaches the Maia worker (requests otherwise pile up while paging).
+    const maiaController = new AbortController()
 
     const attemptMaiaAnalysis = async () => {
       const hasSelectedModelAnalysis =
@@ -118,7 +125,16 @@ export const useEngineAnalysis = (
             ? fetchOpeningBook(board)
             : Promise.resolve(null)
 
-        const maiaEvaluations = await inferenceMaiaModel(board)
+        let maiaEvaluations: { [key: string]: MaiaEvaluation }
+        try {
+          maiaEvaluations = await inferenceMaiaModel(
+            board,
+            maiaController.signal,
+          )
+        } catch (error) {
+          if (maiaController.signal.aborted) return
+          throw error
+        }
 
         if (maiaCancelled) return
 
@@ -160,6 +176,7 @@ export const useEngineAnalysis = (
 
     return () => {
       maiaCancelled = true
+      maiaController.abort()
       clearTimeout(timeoutId)
     }
   }, [
