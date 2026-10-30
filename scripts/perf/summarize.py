@@ -83,31 +83,38 @@ def stalls(d):
 
 
 print('## Paging (warm cache; seconds from the key press or click)\n')
-print('| game | cores | build | Maia shown, 8 steps (median, max) | first SF depth, 8 steps (median, max) | steps with SF d12 within 2.6 s | Maia after 10 rapid presses | jumps: Maia / SF d12 (median) | SF froze |')
-print('|---|---|---|---|---|---|---|---|---|')
+print('| game | cores | build | runs | Maia shown after a step (median, max) | first SF depth after a step (median, max) | steps with SF d12 within 2.6 s | Maia after 10 rapid presses | jumps: Maia / SF d12 / SF d18 (median) | SF froze |')
+print('|---|---|---|---|---|---|---|---|---|---|')
+
+
+def mm(vals):
+    vv = [v for v in vals if v is not None]
+    missing = len(vals) - len(vv)
+    txt = f"{s(med(vv))}, {s(max(vv))}" if vv else '–'
+    return txt + (f' ({missing} of {len(vals)} none)' if missing else '')
+
+
+def med_none(vals):
+    vv = [v for v in vals if v is not None]
+    txt = s(med(vv)) if vv else '–'
+    missing = len(vals) - len(vv)
+    return txt + (f' ({missing}/{len(vals)} none)' if missing else '')
+
+
 for g in games:
     for c in cores:
         for tag, name in [('base', 'main'), ('new', 'branch')]:
-            runs = load(f'paging-{tag}-{g}-c{c}.json')
+            runs = load(f'paging-{tag}-{g}-c{c}.json') + load(f'paging-{tag}-{g}-c{c}-r*.json')
             if not runs:
                 continue
-            d = runs[0]
-            steps = [p for p in d['paging'] if p['name'].startswith('step')]
-            rapid = [p for p in d['paging'] if p['name'].startswith('after 10')]
-            jumps = [p for p in d['paging'] if p['name'].startswith('jump')]
-            sm = [p['maia'] for p in steps]
-            ss = [p['sf'] for p in steps]
-            missing_m = sum(1 for v in sm if v is None)
-            missing_s = sum(1 for v in ss if v is None)
+            steps = [p for d in runs for p in d['paging'] if p['name'].startswith('step')]
+            rapid = [p['maia'] for d in runs for p in d['paging'] if p['name'].startswith('after 10')]
+            jumps = [p for d in runs for p in d['paging'] if p['name'].startswith('jump')]
             d12 = sum(1 for p in steps if p['sfD12'] is not None)
             cc = '160' if c == 'real' else c
-
-            def mm(vals, missing):
-                vv = [v for v in vals if v is not None]
-                txt = f"{s(med(vv))}, {s(max(vv))}" if vv else '–'
-                return txt + (f' ({missing} of {len(vals)} none)' if missing else '')
-            print(f"| {g} | {cc} | {name} | {mm(sm, missing_m)} | {mm(ss, missing_s)} | {d12} of {len(steps)} | "
-                  f"{s(rapid[0]['maia']) if rapid else '–'} | {s(med([p['maia'] for p in jumps]))} / {s(med([p['sfD12'] for p in jumps]))} | {stalls(d)} |")
+            print(f"| {g} | {cc} | {name} | {len(runs)} | {mm([p['maia'] for p in steps])} | {mm([p['sf'] for p in steps])} | "
+                  f"{d12} of {len(steps)} | {s(med(rapid))} | {med_none([p['maia'] for p in jumps])} / "
+                  f"{med_none([p['sfD12'] for p in jumps])} / {med_none([p['sfD18'] for p in jumps])} | {sum(stalls(d) for d in runs)} |")
 print()
 for tag, name in [('base', 'main'), ('new', 'branch')]:
     runs = load(f'*-{tag}-*.json')
