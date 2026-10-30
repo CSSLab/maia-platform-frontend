@@ -1,6 +1,6 @@
 import { Chess } from 'chess.ts'
 import { fetchOpeningBookMoves } from 'src/api'
-import { useEffect, useContext, useRef, useState } from 'react'
+import { startTransition, useEffect, useContext, useRef, useState } from 'react'
 import { MAIA_MODELS, MAIA_RATINGS } from 'src/constants/common'
 import {
   STOCKFISH_DEBUG_RERUN_EVENT,
@@ -11,6 +11,14 @@ import { MaiaEngineContext, StockfishEngineContext } from 'src/contexts'
 
 /** Ratings per Maia request after the selected one (~0.5 s for 10). */
 const MAIA_BATCH_SIZE = 10
+
+/**
+ * Shortest time between re-renders for Stockfish's updates. Each re-renders
+ * the analysis page (50-85 ms once Maia's data is on screen), and Stockfish's
+ * output is handled on the main thread, so rendering every depth slowed the
+ * search itself 2-3 times.
+ */
+const STOCKFISH_RENDER_INTERVAL_MS = 150
 
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
@@ -307,6 +315,15 @@ export const useEngineAnalysis = (
 
       if (evaluationStream && !cancelled) {
         const nodeForAnalysis = currentNode // Capture the node reference
+        let lastRenderAt = 0
+        let pendingRender: ReturnType<typeof setTimeout> | null = null
+        const render = () => {
+          pendingRender = null
+          lastRenderAt = performance.now()
+          // A transition renders in short slices, so the engine's messages
+          // are handled in between instead of waiting for the whole page.
+          startTransition(() => setAnalysisState((state) => state + 1))
+        }
         try {
           for await (const evaluation of evaluationStream) {
             if (
@@ -317,7 +334,14 @@ export const useEngineAnalysis = (
               break
             }
             nodeForAnalysis.addStockfishAnalysis(evaluation, currentMaiaModel)
-            setAnalysisState((state) => state + 1)
+            // The first update renders at once, later ones at most every
+            // STOCKFISH_RENDER_INTERVAL_MS (the last one always renders).
+            const wait =
+              lastRenderAt + STOCKFISH_RENDER_INTERVAL_MS - performance.now()
+            if (wait <= 0) render()
+            else if (pendingRender === null) {
+              pendingRender = setTimeout(render, wait)
+            }
           }
         } catch (error) {
           if (!cancelled) {

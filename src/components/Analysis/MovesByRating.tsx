@@ -8,7 +8,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from 'recharts'
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ColorSanMapping } from 'src/types'
 import { WindowSizeContext } from 'src/contexts'
 
@@ -19,7 +19,7 @@ interface Props {
   positionKey?: string
 }
 
-export const MovesByRating: React.FC<Props> = ({
+const MovesByRatingChart: React.FC<Props> = ({
   moves,
   colorSanMapping,
   isHomePage = false,
@@ -331,3 +331,7 @@ export const MovesByRating: React.FC<Props> = ({
     </div>
   )
 }
+
+// Re-renders only when its props change: the analysis page re-renders on
+// every engine update, and each chart render takes tens of milliseconds.
+export const MovesByRating = memo(MovesByRatingChart)

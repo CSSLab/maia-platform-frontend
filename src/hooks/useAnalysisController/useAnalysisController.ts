@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useCallback,
 } from 'react'
@@ -21,6 +22,19 @@ import { useAutoSave } from './useAutoSave'
 import { MaiaEngineContext } from 'src/contexts/MaiaEngineContext'
 import { generateColorSanMapping, calculateBlunderMeter } from './utils'
 import { StockfishEngineContext } from 'src/contexts/StockfishEngineContext'
+
+/**
+ * Returns the previous value while its content is unchanged. The analysis
+ * page re-renders on every engine update; with stable values, memoised
+ * children such as the moves-by-rating chart skip those that change nothing
+ * they show.
+ */
+const useContentStable = <T>(value: T): T => {
+  const ref = useRef<{ key: string; value: T } | null>(null)
+  const key = JSON.stringify(value) ?? ''
+  if (!ref.current || ref.current.key !== key) ref.current = { key, value }
+  return ref.current.value
+}
 
 export const useAnalysisController = (
   game: AnalyzedGame,
@@ -109,14 +123,16 @@ export const useAnalysisController = (
     return moveMap
   }, [controller.currentNode])
 
-  const colorSanMapping = useMemo(() => {
-    if (!controller.currentNode) return {}
+  const colorSanMapping = useContentStable(
+    useMemo(() => {
+      if (!controller.currentNode) return {}
 
-    return generateColorSanMapping(
-      controller.currentNode.analysis.stockfish,
-      controller.currentNode.fen,
-    )
-  }, [controller.currentNode, analysisState])
+      return generateColorSanMapping(
+        controller.currentNode.analysis.stockfish,
+        controller.currentNode.fen,
+      )
+    }, [controller.currentNode, analysisState]),
+  )
 
   const moveEvaluation = useMemo(() => {
     if (!controller.currentNode) return null
@@ -135,13 +151,14 @@ export const useAnalysisController = (
 
   const {
     recommendations: moveRecommendations,
-    movesByRating,
+    movesByRating: latestMovesByRating,
     moveMap,
   } = useMoveRecommendations(
     controller.currentNode || null,
     moveEvaluation,
     currentMaiaModel,
   )
+  const movesByRating = useContentStable(latestMovesByRating)
 
   const boardDescription = useBoardDescription(
     controller.currentNode || null,

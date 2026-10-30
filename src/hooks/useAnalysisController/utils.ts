@@ -1,4 +1,4 @@
-import { Chess } from 'chess.ts'
+import { Chess, Move } from 'chess.ts'
 import { COLORS, MOVE_CLASSIFICATION_THRESHOLDS } from 'src/constants/analysis'
 import {
   BlunderInfo,
@@ -93,14 +93,32 @@ export const calculateMoveColor = (
   return '#FFF'
 }
 
+const verboseMovesCache = new Map<string, readonly Move[]>()
+
+/**
+ * A position's legal moves with their SAN. chess.ts plays every move to
+ * compute SAN, and the analysis page needs them on each Stockfish update, so
+ * the last few positions are kept.
+ */
+export const getVerboseMoves = (fen: string): readonly Move[] => {
+  let moves = verboseMovesCache.get(fen)
+  if (!moves) {
+    moves = new Chess(fen).moves({ verbose: true })
+    verboseMovesCache.set(fen, moves)
+    if (verboseMovesCache.size > 64) {
+      verboseMovesCache.delete(verboseMovesCache.keys().next().value as string)
+    }
+  }
+  return moves
+}
+
 export const generateColorSanMapping = (
   stockfish: StockfishEvaluation | undefined,
   fen: string,
 ): ColorSanMappingResult => {
   const mapping: ColorSanMappingResult = {}
 
-  const chess = new Chess(fen)
-  const moves = chess.moves({ verbose: true })
+  const moves = getVerboseMoves(fen)
   const moveKeys = moves.map((m) => `${m.from}${m.to}${m.promotion || ''}`)
   moves.forEach((m) => {
     const moveKey = `${m.from}${m.to}${m.promotion || ''}`

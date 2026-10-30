@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Chess } from 'chess.ts'
 import { MAIA_MODELS } from 'src/constants/common'
 import { GameNode, MaiaEvaluation, StockfishEvaluation } from 'src/types'
-import { sortStockfishMoves } from './utils'
+import { getVerboseMoves, sortStockfishMoves } from './utils'
 
 export const useMoveRecommendations = (
   currentNode: GameNode | null,
@@ -128,8 +128,7 @@ export const useMoveRecommendations = (
     }
 
     // Get ALL legal moves from the current position
-    const chess = new Chess(currentNode.fen)
-    const legalMoves = chess.moves({ verbose: true })
+    const legalMoves = getVerboseMoves(currentNode.fen)
 
     // Create a set of all legal moves in UCI format
     const allLegalMoves = new Set(
