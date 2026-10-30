@@ -1,5 +1,4 @@
 import { MaiaStatus } from 'src/types'
-import { Tensor } from 'onnxruntime-web'
 
 import {
   mirrorMove,
@@ -7,6 +6,20 @@ import {
   allPossibleMovesMaia3Reversed,
 } from './tensor'
 import { MaiaModelStorage } from './storage'
+
+/**
+ * Holds the logits the Maia worker returns. onnxruntime-web's Tensor was used
+ * for this, but importing it put the whole ORT runtime (~480 KB of minified
+ * JS) in the bundle every page loads; inference runs in the worker, which
+ * loads ORT itself.
+ */
+class Tensor {
+  constructor(
+    readonly type: 'float32',
+    readonly data: Float32Array,
+    readonly dims: readonly number[],
+  ) {}
+}
 
 interface MaiaOptions {
   model: string
