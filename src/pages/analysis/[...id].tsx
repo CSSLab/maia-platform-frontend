@@ -23,7 +23,12 @@ import {
   StockfishEvaluation,
   GameNode,
 } from 'src/types'
-import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
+import {
+  AuthContext,
+  WindowSizeContext,
+  TreeControllerContext,
+  useTour,
+} from 'src/contexts'
 import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import {
@@ -220,6 +225,39 @@ const applyCustomPgnResultOverride = (
   }
 }
 
+/**
+ * Lichess PGN requests started before AnalysisPage mounts (it waits for the
+ * account to load), by game id. Each is used once, so opening a game again
+ * fetches it again.
+ */
+const prefetchedLichessPgns = new Map<string, Promise<string>>()
+
+const prefetchLichessPgn = (gameId: string) => {
+  if (prefetchedLichessPgns.has(gameId)) return
+  const request = fetchPgnOfLichessGame(gameId)
+  // If the prefetch fails, the page makes its own request.
+  request.catch(() => prefetchedLichessPgns.delete(gameId))
+  prefetchedLichessPgns.set(gameId, request)
+}
+
+const takeLichessPgn = (gameId: string): Promise<string> => {
+  const request = prefetchedLichessPgns.get(gameId)
+  prefetchedLichessPgns.delete(gameId)
+  return request ?? fetchPgnOfLichessGame(gameId)
+}
+
+/**
+ * Starts fetching a game's stored engine analysis, which needs only its id,
+ * so it loads alongside the game rather than after it. If it is back by the
+ * time the game is set, it is applied before the first render.
+ */
+const requestGameAnalysisCache = (gameId: string) => {
+  const request = retrieveGameAnalysisCache(gameId)
+  // Handled by loadGameAnalysisCache; this covers a failed game fetch.
+  request.catch(() => undefined)
+  return request
+}
+
 const AnalysisPage: NextPage = () => {
   const { startTour, tourState } = useTour()
 
@@ -240,21 +278,30 @@ const AnalysisPage: NextPage = () => {
     }
   }, [initialTourCheck, startTour, tourState.ready])
   const [currentId, setCurrentId] = useState<string[]>(id as string[])
+  const [storedAnalysisRevision, setStoredAnalysisRevision] = useState(0)
 
-  const loadGameAnalysisCache = useCallback(async (game: AnalyzedGame) => {
-    if (!game.id || game.type === 'tournament') {
-      return
-    }
-
-    try {
-      const storedAnalysis = await retrieveGameAnalysisCache(game.id)
-      if (storedAnalysis && storedAnalysis.positions.length > 0) {
-        applyEngineAnalysisData(game.tree, storedAnalysis.positions)
+  const loadGameAnalysisCache = useCallback(
+    async (
+      game: AnalyzedGame,
+      storedAnalysisRequest?: ReturnType<typeof retrieveGameAnalysisCache>,
+    ) => {
+      if (!game.id || game.type === 'tournament') {
+        return
       }
-    } catch (error) {
-      console.warn('Failed to load stored analysis:', error)
-    }
-  }, [])
+
+      try {
+        const storedAnalysis = await (storedAnalysisRequest ??
+          retrieveGameAnalysisCache(game.id))
+        if (storedAnalysis && storedAnalysis.positions.length > 0) {
+          applyEngineAnalysisData(game.tree, storedAnalysis.positions)
+          setStoredAnalysisRevision((revision) => revision + 1)
+        }
+      } catch (error) {
+        console.warn('Failed to load stored analysis:', error)
+      }
+    },
+    [],
+  )
 
   const getAndSetWorldChampionshipGame = useCallback(
     async (
@@ -291,6 +338,7 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
+      const storedAnalysisRequest = requestGameAnalysisCache(id)
       const game = await fetchAnalyzedPgnGame(id, pgn)
 
       if (setCurrentMove) setCurrentMove(0)
@@ -301,7 +349,10 @@ const AnalysisPage: NextPage = () => {
       })
       setCurrentId([id, 'lichess'])
 
-      await loadGameAnalysisCache({ ...game, type: 'lichess' })
+      await loadGameAnalysisCache(
+        { ...game, type: 'lichess' },
+        storedAnalysisRequest,
+      )
 
       if (updateUrl) {
         router.push(`/analysis/${id}/lichess`, undefined, { shallow: true })
@@ -317,6 +368,7 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
+      const storedAnalysisRequest = requestGameAnalysisCache(id)
       const rawGame = await fetchAnalyzedMaiaGame(id, type)
       const game =
         type === 'custom' ? applyCustomPgnResultOverride(id, rawGame) : rawGame
@@ -325,7 +377,7 @@ const AnalysisPage: NextPage = () => {
 
       setAnalyzedGame({ ...game, type })
       setCurrentId([id, type])
-      await loadGameAnalysisCache({ ...game, type })
+      await loadGameAnalysisCache({ ...game, type }, storedAnalysisRequest)
 
       if (updateUrl) {
         router.push(`/analysis/${id}/${type}`, undefined, {
@@ -346,7 +398,7 @@ const AnalysisPage: NextPage = () => {
 
       if (needsNewGame) {
         if (queryId[1] === 'lichess') {
-          const pgn = await fetchPgnOfLichessGame(queryId[0])
+          const pgn = await takeLichessPgn(queryId[0])
           getAndSetLichessGame(queryId[0], pgn, undefined, false)
         } else if (['play', 'hand', 'brain', 'custom'].includes(queryId[1])) {
           getAndSetUserGame(
@@ -377,6 +429,7 @@ const AnalysisPage: NextPage = () => {
           getAndSetTournamentGame={getAndSetWorldChampionshipGame}
           getAndSetLichessGame={getAndSetLichessGame}
           getAndSetUserGame={getAndSetUserGame}
+          storedAnalysisRevision={storedAnalysisRevision}
           router={router}
         />
       ) : (
@@ -409,6 +462,8 @@ interface Props {
     setCurrentMove?: Dispatch<SetStateAction<number>>,
     updateUrl?: boolean,
   ) => Promise<void>
+  /** Bumped when stored engine analysis has been applied to the game tree. */
+  storedAnalysisRevision: number
   router: ReturnType<typeof useRouter>
 }
 
@@ -418,7 +473,7 @@ const Analysis: React.FC<Props> = ({
   getAndSetTournamentGame,
   getAndSetLichessGame,
   getAndSetUserGame,
-
+  storedAnalysisRevision,
   router,
 }: Props) => {
   const { width, height } = useContext(WindowSizeContext)
@@ -494,6 +549,12 @@ const Analysis: React.FC<Props> = ({
   >('not-learning')
 
   const controller = useAnalysisController(analyzedGame)
+  const { refreshAnalysis } = controller
+  useEffect(() => {
+    // Stored analysis can arrive after the game is on screen: show it, and let
+    // the engine effects see that the position is already analysed.
+    if (storedAnalysisRevision > 0) refreshAnalysis()
+  }, [storedAnalysisRevision, refreshAnalysis])
   const userGamePovOrientation = useMemo(() => {
     if (!['play', 'hand', 'brain'].includes(analyzedGame.type)) {
       return null
@@ -2306,6 +2367,18 @@ const Analysis: React.FC<Props> = ({
 }
 
 export default function AuthenticatedAnalysisPage() {
+  const { query } = useRouter()
+  const { user } = useContext(AuthContext)
+
+  useEffect(() => {
+    // AnalysisPage mounts once the account has loaded; the game's PGN does not
+    // depend on it, so start fetching it now.
+    const queryId = query.id
+    if (!user && Array.isArray(queryId) && queryId[1] === 'lichess') {
+      prefetchLichessPgn(queryId[0])
+    }
+  }, [query.id, user])
+
   return (
     <AuthenticatedWrapper>
       <AnalysisPage />

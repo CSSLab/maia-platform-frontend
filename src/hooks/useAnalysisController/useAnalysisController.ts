@@ -39,6 +39,10 @@ export const useAnalysisController = (
   const controller = useTreeController(game.tree, defaultOrientation)
 
   const [analysisState, setAnalysisState] = useState(0)
+  const refreshAnalysis = useCallback(
+    () => setAnalysisState((state) => state + 1),
+    [],
+  )
   const inProgressAnalyses = useMemo(() => new Set<string>(), [])
 
   const autoSaveController = useAutoSave({
@@ -264,5 +268,7 @@ export const useAnalysisController = (
       autoSave: autoSaveController.autoSave,
     },
     learnFromMistakes: learnFromMistakesController,
+    /** Re-reads the analysis stored on the tree's nodes. */
+    refreshAnalysis,
   }
 }
