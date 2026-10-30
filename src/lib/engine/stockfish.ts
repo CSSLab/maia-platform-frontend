@@ -1881,6 +1881,33 @@ const loadNnueModel = async (
   return buffer
 }
 
+/**
+ * lila-stockfish-web copies a net into the engine through `Module.HEAPU8`, a
+ * view of the shared WASM memory that it renews only when the main thread
+ * grows the memory. The engine's own threads grow it while starting (from 160
+ * to 284 MB on every load in a headless test), so the view is out of date,
+ * and when the net lands past its end the copy fails with "offset is out of
+ * bounds" (1 load in 9 in that test). Setup then cleared the cached nets,
+ * downloaded them again (78 MB) and started a second engine. Renewing the
+ * view before each copy avoids that.
+ */
+const setNnueBuffer = (
+  instance: StockfishWeb,
+  buffer: ArrayBuffer,
+  index: number,
+) => {
+  const emscriptenModule = instance as StockfishWeb & {
+    HEAPU8?: Uint8Array
+    wasmMemory?: WebAssembly.Memory
+  }
+  const memory = emscriptenModule.wasmMemory
+  const view = emscriptenModule.HEAPU8
+  if (memory && view && view.buffer.byteLength !== memory.buffer.byteLength) {
+    emscriptenModule.HEAPU8 = new Uint8Array(memory.buffer)
+  }
+  instance.setNnueBuffer(new Uint8Array(buffer), index)
+}
+
 const shouldRetryNnueLoad = (error: unknown): boolean => {
   if (error instanceof RangeError) {
     return true
@@ -1998,8 +2025,8 @@ const setupStockfish = async (
     ])
 
     onPhaseChange?.('loading-nnue')
-    instance.setNnueBuffer(new Uint8Array(buffers[0]), 0)
-    instance.setNnueBuffer(new Uint8Array(buffers[1]), 1)
+    setNnueBuffer(instance, buffers[0], 0)
+    setNnueBuffer(instance, buffers[1], 1)
   }
 
   try {
