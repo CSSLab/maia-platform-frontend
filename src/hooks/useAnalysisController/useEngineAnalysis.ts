@@ -9,6 +9,9 @@ import {
 import { GameNode, MaiaEvaluation } from 'src/types'
 import { MaiaEngineContext, StockfishEngineContext } from 'src/contexts'
 
+/** Ratings per Maia request after the selected one (~0.5 s for 10). */
+const MAIA_BATCH_SIZE = 10
+
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
   inProgressAnalyses: Set<string>,
@@ -53,6 +56,7 @@ export const useEngineAnalysis = (
 
   async function inferenceMaiaModel(
     board: Chess,
+    models: string[],
     signal: AbortSignal,
   ): Promise<{
     [key: string]: MaiaEvaluation
@@ -61,15 +65,18 @@ export const useEngineAnalysis = (
       throw new Error('Maia engine not initialized')
     }
 
+    const ratings = models.map(
+      (model) => MAIA_RATINGS[MAIA_MODELS.indexOf(model)],
+    )
     const { result } = await maia.maia.batchEvaluateMaia3(
-      Array(MAIA_RATINGS.length).fill(board.fen()),
-      MAIA_RATINGS,
-      MAIA_RATINGS,
+      Array(ratings.length).fill(board.fen()),
+      ratings,
+      ratings,
       { signal },
     )
 
     const maiaEvaluations: { [key: string]: MaiaEvaluation } = {}
-    MAIA_MODELS.forEach((model, index) => {
+    models.forEach((model, index) => {
       maiaEvaluations[model] = result[index]
     })
 
@@ -94,11 +101,12 @@ export const useEngineAnalysis = (
     const maiaController = new AbortController()
 
     const attemptMaiaAnalysis = async () => {
-      const hasSelectedModelAnalysis =
-        !!currentNode?.analysis.maia?.[currentMaiaModel]
+      const hasAllModelAnalysis = MAIA_MODELS.every(
+        (model) => !!currentNode?.analysis.maia?.[model],
+      )
       if (
         !currentNode ||
-        hasSelectedModelAnalysis ||
+        hasAllModelAnalysis ||
         inProgressAnalyses.has(nodeFen)
       )
         return
@@ -125,45 +133,69 @@ export const useEngineAnalysis = (
             ? fetchOpeningBook(board)
             : Promise.resolve(null)
 
-        let maiaEvaluations: { [key: string]: MaiaEvaluation }
-        try {
-          maiaEvaluations = await inferenceMaiaModel(
-            board,
-            maiaController.signal,
+        // The selected rating first (one position, ~0.1 s), so its moves
+        // show at once; then the other ratings (~0.05 s each), in batches
+        // so that a newer position never waits long behind them. They are
+        // added together, keeping what the node already has.
+        const others = MAIA_MODELS.filter((model) => model !== currentMaiaModel)
+        const stages = [
+          MAIA_MODELS.includes(currentMaiaModel) ? [currentMaiaModel] : [],
+          others,
+        ]
+        for (const stage of stages) {
+          const missing = stage.filter(
+            (model) => !currentNode.analysis.maia?.[model],
           )
-        } catch (error) {
-          if (maiaController.signal.aborted) return
-          throw error
-        }
+          if (missing.length === 0) continue
 
-        if (maiaCancelled) return
-
-        const openingBookMoves = await openingBookPromise
-
-        if (openingBookMoves && currentNode.moveNumber <= 5) {
-          const analysis: { [key: string]: MaiaEvaluation } = {}
-          for (const model of MAIA_MODELS) {
-            const policySource = Object.keys(openingBookMoves[model] || {})
-              .length
-              ? openingBookMoves[model]
-              : maiaEvaluations[model].policy
-
-            const sortedPolicy = Object.entries(policySource).sort(
-              ([, a], [, b]) => (b as number) - (a as number),
-            )
-
-            analysis[model] = {
-              value: maiaEvaluations[model].value,
-              policy: Object.fromEntries(
-                sortedPolicy,
-              ) as MaiaEvaluation['policy'],
+          let maiaEvaluations: { [key: string]: MaiaEvaluation } = {}
+          try {
+            for (let i = 0; i < missing.length; i += MAIA_BATCH_SIZE) {
+              Object.assign(
+                maiaEvaluations,
+                await inferenceMaiaModel(
+                  board,
+                  missing.slice(i, i + MAIA_BATCH_SIZE),
+                  maiaController.signal,
+                ),
+              )
             }
+          } catch (error) {
+            if (maiaController.signal.aborted) return
+            throw error
           }
-          currentNode.addMaiaAnalysis(analysis, currentMaiaModel)
-        } else {
-          currentNode.addMaiaAnalysis(maiaEvaluations, currentMaiaModel)
+
+          if (maiaCancelled) return
+
+          const openingBookMoves = await openingBookPromise
+
+          if (openingBookMoves && currentNode.moveNumber <= 5) {
+            const analysis: { [key: string]: MaiaEvaluation } = {}
+            for (const model of missing) {
+              const policySource = Object.keys(openingBookMoves[model] || {})
+                .length
+                ? openingBookMoves[model]
+                : maiaEvaluations[model].policy
+
+              const sortedPolicy = Object.entries(policySource).sort(
+                ([, a], [, b]) => (b as number) - (a as number),
+              )
+
+              analysis[model] = {
+                value: maiaEvaluations[model].value,
+                policy: Object.fromEntries(
+                  sortedPolicy,
+                ) as MaiaEvaluation['policy'],
+              }
+            }
+            maiaEvaluations = analysis
+          }
+          currentNode.addMaiaAnalysis(
+            { ...currentNode.analysis.maia, ...maiaEvaluations },
+            currentMaiaModel,
+          )
+          setAnalysisState((state) => state + 1)
         }
-        setAnalysisState((state) => state + 1)
       } finally {
         inProgressAnalyses.delete(nodeFen)
       }

@@ -8,6 +8,7 @@ import {
   StockfishEvaluation,
   CachedEngineAnalysisEntry,
 } from 'src/types'
+import { MAIA_MODELS } from 'src/constants/common'
 
 export function convertBackendEvalToStockfishEval(
   possibleMoves: MoveValueMapping,
@@ -152,7 +153,11 @@ export const collectEngineAnalysisData = (
   const mainLine = gameTree.getMainLine()
 
   mainLine.forEach((node, index) => {
-    if (!node.analysis.maia && !node.analysis.stockfish) {
+    // The analysis page adds the selected rating before the others; a
+    // position left before the rest arrived is stored without Maia (and
+    // analysed again when loaded) rather than with some ratings missing.
+    const hasAllMaia = MAIA_MODELS.every((model) => node.analysis.maia?.[model])
+    if (!hasAllMaia && !node.analysis.stockfish) {
       return
     }
 
@@ -161,7 +166,7 @@ export const collectEngineAnalysisData = (
       fen: node.fen,
     }
 
-    if (node.analysis.maia) {
+    if (hasAllMaia) {
       position.maia = node.analysis.maia
     }
 
