@@ -169,8 +169,11 @@ class Engine {
         global.gc()
       }
 
-      // Stop any previous evaluation
-      this.stopEvaluation()
+      // Stop any previous evaluation. `stop` goes out even if the previous
+      // run is already closed: its last search may still be running, and the
+      // `ucinewgame` below would wait for it to finish.
+      this.isEvaluating = false
+      this.sendMessage('stop')
       this.store = {}
       this.legalMoveCount = legalMoveCount
       const board = new Chess(fen)
@@ -293,6 +296,19 @@ class Engine {
     return this.isEvaluating && this.currentPositionId === positionId
   }
 
+  /**
+   * Hands the engine's output back to `onMessage`, but only if `listener` is
+   * still the one installed. A run that was superseded finishes after the
+   * next run has installed its own listener; restoring the listener it
+   * replaced would detach the new run, which then waits forever for a
+   * `readyok` or `bestmove` it never sees.
+   */
+  private releaseListener(listener: (msg: string) => void): boolean {
+    if (!this.stockfish || this.stockfish.listen !== listener) return false
+    this.stockfish.listen = this.onMessage
+    return true
+  }
+
   private async waitForReady(): Promise<void> {
     if (!this.stockfish) return
 
@@ -308,9 +324,7 @@ class Engine {
       const tempListener = (msg: string) => {
         if (msg.includes('readyok') && !resolved) {
           resolved = true
-          if (this.stockfish) {
-            this.stockfish.listen = originalListen
-          }
+          this.releaseListener(tempListener)
           resolve()
         } else {
           // Forward all other messages to the original listener
@@ -404,7 +418,6 @@ class Engine {
       Math.min(requestedMultiPv, runContext.legalMoveCount),
     )
     const engine = this.stockfish
-    const originalListen = engine.listen
 
     await this.waitForReady()
     if (!this.isActiveRun(runContext.positionId)) {
@@ -569,34 +582,35 @@ class Engine {
       emitDepthIfReady(depth)
     }
 
-    try {
-      engine.listen = (msg: string) => {
-        if (!this.isActiveRun(runContext.positionId)) {
+    const listener = (msg: string) => {
+      if (!this.isActiveRun(runContext.positionId)) {
+        finish()
+        return
+      }
+
+      const lines = msg
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+
+      for (const line of lines) {
+        parseInfoLine(line)
+        if (line.startsWith('bestmove ')) {
+          const knownDepths = Object.keys(depthBuckets)
+            .map((d) => Number.parseInt(d, 10))
+            .filter((d) => Number.isFinite(d))
+            .sort((a, b) => a - b)
+          for (const depth of knownDepths) {
+            emitDepthIfReady(depth)
+          }
           finish()
           return
         }
-
-        const lines = msg
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean)
-
-        for (const line of lines) {
-          parseInfoLine(line)
-          if (line.startsWith('bestmove ')) {
-            const knownDepths = Object.keys(depthBuckets)
-              .map((d) => Number.parseInt(d, 10))
-              .filter((d) => Number.isFinite(d))
-              .sort((a, b) => a - b)
-            for (const depth of knownDepths) {
-              emitDepthIfReady(depth)
-            }
-            finish()
-            return
-          }
-        }
       }
+    }
 
+    try {
+      engine.listen = listener
       engine.uci(`position fen ${runContext.fen}`)
       engine.uci(`go depth ${targetDepth}`)
 
@@ -627,9 +641,14 @@ class Engine {
         yield next
       }
     } finally {
-      if (this.stockfish) {
-        this.stockfish.listen = originalListen
-        this.stockfish.uci('setoption name MultiPV value 100')
+      // A superseded run leaves the engine (and its MultiPV) to the new run.
+      if (this.releaseListener(listener)) {
+        // Leaving before `bestmove` (the caller stopped reading): stop the
+        // search first. Stockfish runs `setoption` only once the search is
+        // over, so on its own it would hold every later command (the next
+        // position's included) until this search reached its full depth.
+        if (!finished) engine.uci('stop')
+        engine.uci('setoption name MultiPV value 100')
       }
     }
   }
@@ -989,8 +1008,10 @@ class Engine {
       )
       yield finalEval
     } finally {
+      // Also ends the search of a run its caller stopped reading (the user
+      // moved on), which would otherwise keep the engine busy.
       if (this.currentPositionId === runContext.positionId) {
-        this.isEvaluating = false
+        this.stopEvaluation()
       }
     }
   }
@@ -1067,8 +1088,10 @@ class Engine {
       )
       yield finalEval
     } finally {
+      // Also ends the search of a run its caller stopped reading (the user
+      // moved on), which would otherwise keep the engine busy.
       if (this.currentPositionId === runContext.positionId) {
-        this.isEvaluating = false
+        this.stopEvaluation()
       }
     }
   }
@@ -1376,7 +1399,6 @@ class Engine {
     }
 
     const engine = this.stockfish
-    const originalListen = engine.listen
     const expectedMove = searchMove
     const isBlackTurn = new Chess(runContext.fen).turn() === 'b'
 
@@ -1479,13 +1501,11 @@ class Engine {
       const finish = (result: RootSearchResult | null) => {
         if (resolved) return
         resolved = true
-        if (this.stockfish) {
-          this.stockfish.listen = originalListen
-        }
+        this.releaseListener(listener)
         resolve(result)
       }
 
-      engine.listen = (msg: string) => {
+      const listener = (msg: string) => {
         const lines = msg
           .split(/\r?\n/)
           .map((line) => line.trim())
@@ -1535,6 +1555,7 @@ class Engine {
         }
       }
 
+      engine.listen = listener
       engine.uci(`position fen ${runContext.fen}`)
       engine.uci(
         searchMove
