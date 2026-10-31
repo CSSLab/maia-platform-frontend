@@ -488,6 +488,45 @@ interface Props {
   router: ReturnType<typeof useRouter>
 }
 
+const formatAnalysisPlayerName = (name: string) => {
+  const maiaMatch = name.match(/^maia_kdd_(\d+)$/i)
+  if (maiaMatch) {
+    return `Maia ${maiaMatch[1]}`
+  }
+  return name
+}
+
+// Apart from the page so that it renders only when the game changes: each
+// render of <Head> makes Next.js update the document's head, and the page
+// re-renders on every engine update.
+const AnalysisHead = React.memo(function AnalysisHead({
+  whitePlayer,
+  blackPlayer,
+}: {
+  whitePlayer?: string
+  blackPlayer?: string
+}) {
+  const players =
+    whitePlayer !== undefined && blackPlayer !== undefined
+      ? `${formatAnalysisPlayerName(whitePlayer)} vs ${formatAnalysisPlayerName(blackPlayer)}`
+      : null
+  return (
+    <Head>
+      <title>
+        {players ? `Analyze: ${players} – Maia Chess` : 'Analyze – Maia Chess'}
+      </title>
+      <meta
+        name="description"
+        content={
+          players
+            ? `Analyze ${players} with human-aware AI. See what real players would do, explore moves by rating level, and spot where blunders are most likely to occur.`
+            : 'Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers.'
+        }
+      />
+    </Head>
+  )
+})
+
 const DESKTOP_LEFT_PANEL_TABS = [
   { id: 'moves', name: 'Moves' },
   { id: 'select-game', name: 'Select Game' },
@@ -1390,14 +1429,6 @@ const Analysis: React.FC<Props> = ({
     smoothedEvalPosition.set(evalBarPositionTargetPercent)
   }, [evalBarPositionTargetPercent, smoothedEvalPosition])
 
-  const formatAnalysisPlayerName = (name: string) => {
-    const maiaMatch = name.match(/^maia_kdd_(\d+)$/i)
-    if (maiaMatch) {
-      return `Maia ${maiaMatch[1]}`
-    }
-    return name
-  }
-
   const NestedGameInfo = () => (
     <div className="flex w-full flex-col">
       <div className="hidden md:block">
@@ -2294,21 +2325,10 @@ const Analysis: React.FC<Props> = ({
 
   return (
     <>
-      <Head>
-        <title>
-          {analyzedGame
-            ? `Analyze: ${formatAnalysisPlayerName(analyzedGame.whitePlayer.name)} vs ${formatAnalysisPlayerName(analyzedGame.blackPlayer.name)} – Maia Chess`
-            : 'Analyze – Maia Chess'}
-        </title>
-        <meta
-          name="description"
-          content={
-            analyzedGame
-              ? `Analyze ${formatAnalysisPlayerName(analyzedGame.whitePlayer.name)} vs ${formatAnalysisPlayerName(analyzedGame.blackPlayer.name)} with human-aware AI. See what real players would do, explore moves by rating level, and spot where blunders are most likely to occur.`
-              : 'Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers.'
-          }
-        />
-      </Head>
+      <AnalysisHead
+        whitePlayer={analyzedGame?.whitePlayer.name}
+        blackPlayer={analyzedGame?.blackPlayer.name}
+      />
       <AnimatePresence>
         {controller.maia.status === 'no-cache' ||
         controller.maia.status === 'downloading' ? (
