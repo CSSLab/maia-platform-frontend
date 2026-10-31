@@ -86,7 +86,7 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
         >
           <div className="relative flex aspect-square w-full items-center justify-center">
             <div className="absolute left-0 top-0 grid h-3/4 w-3/4 grid-cols-6 grid-rows-6 gap-0.5 bg-transparent">
-              <AnimatedTrainingBoards inView={inView} />
+              <AnimatedTrainingBoards />
             </div>
             <motion.div
               className="from-white/8 to-white/4 absolute bottom-0 right-0 z-10 h-3/4 w-3/4 overflow-hidden border border-glass-border bg-gradient-to-br backdrop-blur-md"
@@ -105,29 +105,13 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
   )
 }
 
-const AnimatedTrainingBoards = ({ inView }: { inView: boolean }) => {
-  // This will force a re-render when needed
-  const [renderKey, setRenderKey] = useState(0)
-
-  useEffect(() => {
-    if (!inView) return
-
-    const timeoutId = setTimeout(() => {
-      setRenderKey((prev) => prev + 1)
-    }, 100)
-
-    return () => {
-      clearTimeout(timeoutId)
-    }
-  }, [inView])
-
+const AnimatedTrainingBoards = () => {
   return (
     <>
       {[...Array(36)].map((_, i) => (
         <motion.div key={i} className="relative">
           <div className="h-full w-full">
             <Chessground
-              key={`board-${i}-${renderKey}`}
               contained
               config={{
                 fen: TRAINING_POSITIONS[i % TRAINING_POSITIONS.length],
