@@ -9,8 +9,8 @@ import {
 import { GameNode, MaiaEvaluation } from 'src/types'
 import { MaiaEngineContext, StockfishEngineContext } from 'src/contexts'
 
-/** Ratings per Maia request after the selected one (~0.5 s for 10). */
-const MAIA_BATCH_SIZE = 10
+/** Most ratings per Maia request (~0.55 s for 11 on a desktop). */
+const MAIA_BATCH_SIZE = 11
 
 /**
  * Shortest time between re-renders for Stockfish's updates. Each re-renders
@@ -150,13 +150,19 @@ export const useEngineAnalysis = (
             : Promise.resolve(null)
 
         // The selected rating first (one position, ~0.1 s), so its moves
-        // show at once; then the other ratings (~0.05 s each), in batches
-        // so that a newer position never waits long behind them. They are
-        // added together, keeping what the node already has.
-        const others = MAIA_MODELS.filter((model) => model !== currentMaiaModel)
+        // show at once; then every 200 points from 600 to 2600, from which
+        // the moves-by-rating chart is drawn (the ratings in between
+        // interpolated); then those in between. Each stage is one request
+        // (~0.05 s per rating), so a newer position never waits long behind
+        // it, and is added as it arrives, keeping what the node already has.
+        const others = (parity: number) =>
+          MAIA_MODELS.filter(
+            (model, i) => i % 2 === parity && model !== currentMaiaModel,
+          )
         const stages = [
           MAIA_MODELS.includes(currentMaiaModel) ? [currentMaiaModel] : [],
-          others,
+          others(0),
+          others(1),
         ]
         for (const stage of stages) {
           const missing = stage.filter(
@@ -210,7 +216,14 @@ export const useEngineAnalysis = (
             { ...currentNode.analysis.maia, ...maiaEvaluations },
             currentMaiaModel,
           )
-          setAnalysisState((state) => state + 1)
+          if (stage === stages[0]) {
+            setAnalysisState((state) => state + 1)
+          } else {
+            // The other ratings only feed the moves-by-rating chart: render
+            // them as a transition, in short slices, so that Stockfish's
+            // messages (handled on the main thread) are not held up.
+            startTransition(() => setAnalysisState((state) => state + 1))
+          }
         }
       } finally {
         inProgressAnalyses.delete(nodeFen)
