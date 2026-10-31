@@ -6,8 +6,11 @@ import React, {
   useMemo,
   useEffect,
 } from 'react'
-import Joyride, { STATUS } from 'react-joyride'
+import dynamic from 'next/dynamic'
 import type { Step } from 'react-joyride'
+
+// react-joyride and its popper (~30 kB gzip) load only when a tour starts.
+const Joyride = dynamic(() => import('react-joyride'), { ssr: false })
 
 export interface TourStep {
   id: string
@@ -565,7 +568,8 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
         scrollToTooltipMobile()
       }
 
-      if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      // react-joyride's STATUS.FINISHED and STATUS.SKIPPED
+      if (status === 'finished' || status === 'skipped') {
         endTour()
       }
     },
