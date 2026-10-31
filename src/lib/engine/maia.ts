@@ -252,7 +252,9 @@ class Maia {
     const { boardTokens, legalMoves } = preprocessMaia3(board)
 
     const { logitsMove, logitsValue } = await this.runInference(
-      boardTokens,
+      // a copy: the tokens are transferred to the worker, and preprocessMaia3
+      // keeps its result for the next request
+      boardTokens.slice(),
       Float32Array.from([eloSelf]),
       Float32Array.from([eloOppo]),
       1,
