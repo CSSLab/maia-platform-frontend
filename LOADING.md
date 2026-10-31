@@ -240,7 +240,34 @@ visitor on 4G, blocking time is counted over 15 s):
   Symbols icon font arrives, and that arrives later (17.0–18.1 s against
   14.2 s): the branch starts the Stockfish nets' 78 MB download ~3 s sooner,
   and it shares the slow link with the font. On 4G the font arrives at the
-  same time on both (2.5–2.8 s).
+  same time on both (2.5–2.8 s). 65fc6a8 (below) makes the font 29 KB.
+
+#### The icon font and the home page's lower sections
+
+65fc6a8 asks Google Fonts for only the 82 Material Symbols the site shows
+(29 KB instead of 1.1 MB; the site hides icons until the font has loaded),
+and 21d7dc1 draws the home page's lower boards and charts when they come
+near the screen. First visits on the phone, medians of 3, `main` / branch
+before 65fc6a8 / with it (seconds):
+
+| network | page                       | icons visible        | largest paint        | load event           |
+| ------- | -------------------------- | -------------------- | -------------------- | -------------------- |
+| Slow 4G | /                          | 14.26 / 13.58 / 4.92 | 2.15 / 1.81 / 1.79   | 13.94 / 13.28 / 4.26 |
+| Slow 4G | /analysis/G3MXUHW9/lichess | 14.56 / 17.68 / 5.78 | 14.76 / 18.01 / 1.56 | 14.40 / 17.36 / 5.44 |
+| Slow 4G | /leaderboard               | 12.88 / 11.02 / 4.60 | 9.26 / 5.98 / 5.41   | 12.68 / 10.86 / 4.28 |
+| 4G      | /                          | 2.90 / 2.64 / 2.50   | 0.87 / 0.89 / 0.81   | 8.98 / 7.12 / 1.74   |
+| 4G      | /analysis/G3MXUHW9/lichess | 2.84 / 2.50 / 2.10   | 0.64 / 0.62 / 0.62   | 3.30 / 2.92 / 1.74   |
+| 4G      | /leaderboard               | 2.88 / 2.66 / 1.82   | 3.33 / 2.74 / 2.75   | 2.68 / 2.46 / 1.54   |
+
+Icons now show as soon as the page's scripts have run. The home page on the
+phone, `main` / with 65fc6a8 / with 21d7dc1 too (medians; 6 returning
+visits, 3 first visits on 4G):
+
+|                      | returning visit    | first visit         |
+| -------------------- | ------------------ | ------------------- |
+| blocking time (15 s) | 4.21 / 2.89 / 1.93 | 5.18 / 3.53 / 2.96  |
+| main-thread time     | 8.71 / 6.00 / 4.78 | 13.65 / 7.02 / 5.99 |
+| largest paint        | 0.65 / 0.63 / 0.63 | 0.81 / 0.75 / 0.75  |
 
 #### Stockfish's nets on a phone
 
@@ -288,6 +315,8 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
 | 4fe06c3                   | The Maia worker starts ONNX Runtime early only once it has found a cached model (3b7c0ee started it as soon as the worker loaded)                                                                                                                                                   | A first visit to /analysis, /puzzles, /drills, /settings or /broadcast no longer downloads ORT's WebAssembly (3 MB compressed) before Maia is downloaded. On the phone on Slow 4G that had delayed the icon font and the analysis page's load event from 14 to 22 s. Returning visitors: Maia as before (2.25–2.57 s vs 2.27–2.94 s) |
 | 022c3c5                   | Home page: the small boards are drawn after the first paint (measured in an effect, not a layout effect)                                                                                                                                                                            | On the phone the hero text painted at 833 ms (median of 14 loads) against `main`'s 724; now 720 vs `main`'s 822 in six paired loads. Screenshots of the grid unchanged                                                                                                                                                               |
 | bef0994                   | Stockfish: when reading its cached nets takes over 1.5 s, the download starts, but the cached copy is used if it arrives first (the download is then cancelled)                                                                                                                     | On the phone every returning visit had downloaded 78 MB again (`main` too) and shown Stockfish's first depth at 77–83 s; now the cache is used, first depth 12.3–18.6 s. Desktop: unchanged (the read takes ~0.1 s)                                                                                                                  |
+| 65fc6a8                   | The icon font is requested with Google Fonts' `icon_names` for the 82 icons the site shows (`src/constants/materialSymbols.ts`, used by `_app` and the error page); a test checks the icon names it finds in the code against the list                                              | Font 1.14 MB → 29 KB on every first visit. On the phone on Slow 4G icons show at 4.6–5.8 s instead of 12.9–14.6 s (`main`); every route's icons are the same as on `main` (41 names seen, header and menu screenshots identical)                                                                                                     |
+| 21d7dc1                   | Home page: the Analysis and Train sections draw their board and chart once the section is within a screen of the viewport                                                                                                                                                           | Phone, returning visit: blocking time 2.89 → 1.93 s, main-thread time 6.00 → 4.78 s. Sections look the same once scrolled to (one overlapping chart label can stack differently)                                                                                                                                                     |
 | 943d0a0, b7ff773          | Probes: `--mobile`, `--net` and `--slowdown` (with `cpu-slowdown.py`); net read times and downloads                                                                                                                                                                                 | —                                                                                                                                                                                                                                                                                                                                    |
 
 ## Things you will notice

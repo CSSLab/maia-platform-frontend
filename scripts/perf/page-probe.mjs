@@ -95,7 +95,19 @@ for (let r = 0; r < reps; r++) {
         ]),
       )
     } catch (e) {}
-    window.__pp = { lcp: 0, fcp: 0, long: [] }
+    window.__pp = { lcp: 0, fcp: 0, long: [], icons: null }
+    // When the site shows its icons (it hides them until the icon font loads).
+    new MutationObserver(() => {
+      if (
+        window.__pp.icons === null &&
+        document.documentElement?.classList.contains('material-symbols-ready')
+      )
+        window.__pp.icons = performance.now()
+    }).observe(document, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ['class'],
+    })
     new PerformanceObserver((l) => {
       for (const e of l.getEntries()) window.__pp.lcp = e.startTime
     }).observe({ type: 'largest-contentful-paint', buffered: true })
@@ -178,6 +190,7 @@ for (let r = 0; r < reps; r++) {
       script: Math.round(m.ScriptDuration * 1000),
       task: Math.round(m.TaskDuration * 1000),
       jsKB: Math.round(js / 1024),
+      icons: pp.icons === null ? null : Math.round(pp.icons),
     }),
   )
   await page.waitForTimeout(500)
