@@ -106,23 +106,17 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
 }
 
 const AnimatedTrainingBoards = ({ inView }: { inView: boolean }) => {
-  const [currentBatch, setCurrentBatch] = useState(0)
   // This will force a re-render when needed
   const [renderKey, setRenderKey] = useState(0)
 
   useEffect(() => {
     if (!inView) return
 
-    const interval = setInterval(() => {
-      setCurrentBatch((prev) => (prev + 1) % 3)
-    }, 3000)
-
     const timeoutId = setTimeout(() => {
       setRenderKey((prev) => prev + 1)
     }, 100)
 
     return () => {
-      clearInterval(interval)
       clearTimeout(timeoutId)
     }
   }, [inView])
