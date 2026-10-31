@@ -1,5 +1,6 @@
 import { Chess } from 'chess.ts'
-import Engine from './stockfish'
+import Engine, { loadNnueModel } from './stockfish'
+import { StockfishModelStorage } from './stockfishStorage'
 
 /**
  * A small stand-in for lila-stockfish-web: UCI commands run in order on a
@@ -256,5 +257,95 @@ describe('Stockfish Engine run hand-over', () => {
     await firstRun.return(undefined)
 
     expect(await drain(restart, await firstRestart)).toBe(8)
+  })
+})
+
+describe('loadNnueModel', () => {
+  const URL = 'https://example.com/nn-test.nnue'
+  const cachedNet = new ArrayBuffer(8)
+  const downloadedNet = new ArrayBuffer(16)
+  let signal: AbortSignal | undefined
+
+  const later = <T>(ms: number, value: T) =>
+    new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
+  const storage = (getModel: () => Promise<ArrayBuffer | null>) => {
+    const storeModel = jest.fn(async () => undefined)
+    return {
+      storage: { getModel, storeModel } as unknown as StockfishModelStorage,
+      storeModel,
+    }
+  }
+  // A download whose body arrives after `ms`, or fails if aborted first.
+  const mockDownload = (ms: number, fail = false) => {
+    const fetchMock = jest.fn((_url: string, init?: RequestInit) => {
+      signal = init?.signal ?? undefined
+      return new Promise<Response>((resolve, reject) => {
+        signal?.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError')),
+        )
+        setTimeout(
+          () =>
+            fail
+              ? reject(new TypeError('network error'))
+              : resolve({
+                  ok: true,
+                  status: 200,
+                  arrayBuffer: async () => downloadedNet,
+                } as Response),
+          ms,
+        )
+      })
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+    return fetchMock
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers()
+    signal = undefined
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+    jest.restoreAllMocks()
+  })
+
+  it('keeps a cached net that is read after the lookup timeout, and stops the download', async () => {
+    const fetchMock = mockDownload(60000)
+    const { storage: s, storeModel } = storage(() => later(4000, cachedNet))
+    const net = loadNnueModel(URL, s, 30000)
+    await jest.advanceTimersByTimeAsync(1600)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await jest.advanceTimersByTimeAsync(2500)
+    await expect(net).resolves.toBe(cachedNet)
+    expect(signal?.aborted).toBe(true)
+    expect(storeModel).not.toHaveBeenCalled()
+  })
+
+  it('downloads the net when the cache never answers', async () => {
+    mockDownload(500)
+    const { storage: s, storeModel } = storage(() => new Promise(() => null))
+    const net = loadNnueModel(URL, s, 30000)
+    await jest.advanceTimersByTimeAsync(2100)
+    await expect(net).resolves.toBe(downloadedNet)
+    expect(storeModel).toHaveBeenCalledWith(URL, downloadedNet)
+  })
+
+  it('downloads at once when the net is not cached', async () => {
+    const fetchMock = mockDownload(500)
+    const { storage: s } = storage(() => later(10, null))
+    const net = loadNnueModel(URL, s, 30000)
+    await jest.advanceTimersByTimeAsync(20)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await jest.advanceTimersByTimeAsync(500)
+    await expect(net).resolves.toBe(downloadedNet)
+  })
+
+  it('uses the cached net when the download fails while the cache is slow', async () => {
+    mockDownload(100, true)
+    const { storage: s } = storage(() => later(3000, cachedNet))
+    const net = loadNnueModel(URL, s, 30000)
+    await jest.advanceTimersByTimeAsync(3100)
+    await expect(net).resolves.toBe(cachedNet)
   })
 })

@@ -1828,16 +1828,19 @@ const getNnueFetchTimeoutMs = (): number => {
 const fetchWithTimeout = async (
   url: string,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<Response> => {
   if (typeof AbortController === 'undefined' || timeoutMs <= 0) {
-    return fetch(url)
+    return fetch(url, { signal })
   }
 
   const controller = new AbortController()
+  signal?.addEventListener('abort', () => controller.abort())
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   try {
     return await fetch(url, { signal: controller.signal })
   } catch (error) {
+    if (signal?.aborted) throw error
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error(
         `Stockfish NNUE fetch timed out after ${timeoutMs}ms: ${url}`,
@@ -1882,29 +1885,74 @@ const getStockfishModuleInitTimeoutMs = (): number => {
     : DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS
 }
 
-const loadNnueModel = async (
+const CACHE_LOOKUP_TIMED_OUT = Symbol('cache lookup timed out')
+
+export const loadNnueModel = async (
   modelUrl: string,
   storage: StockfishModelStorage,
   timeoutMs: number,
   onNetworkFetchStart?: () => void,
   forceRefresh = false,
 ): Promise<ArrayBuffer> => {
-  if (!forceRefresh) {
-    const cachedModel = await withTimeout(
-      storage.getModel(modelUrl),
-      STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
-      `Timed out while checking cached Stockfish model: ${modelUrl}`,
-    ).catch((error) => {
-      console.warn(error)
-      return null
-    })
-    if (cachedModel) {
-      return cachedModel
-    }
+  if (forceRefresh) {
+    return downloadNnueModel(modelUrl, storage, timeoutMs, onNetworkFetchStart)
   }
 
+  const cached = storage.getModel(modelUrl)
+  const cachedModel = await withTimeout(
+    cached,
+    STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
+    `Timed out while checking cached Stockfish model: ${modelUrl}`,
+  ).catch((error): typeof CACHE_LOOKUP_TIMED_OUT => {
+    console.warn(error)
+    return CACHE_LOOKUP_TIMED_OUT
+  })
+  if (cachedModel !== CACHE_LOOKUP_TIMED_OUT) {
+    return (
+      cachedModel ??
+      downloadNnueModel(modelUrl, storage, timeoutMs, onNetworkFetchStart)
+    )
+  }
+
+  // IndexedDB may never answer (Firefox after a Lichess login), but on a
+  // phone reading the 75 MB net while the page loads can also take longer
+  // than the lookup timeout. Download the net, but keep waiting for the cached
+  // copy and use whichever arrives first, so a slow device does not download
+  // 75 MB again on every visit.
+  const controller =
+    typeof AbortController === 'undefined' ? null : new AbortController()
+  const download = downloadNnueModel(
+    modelUrl,
+    storage,
+    timeoutMs,
+    onNetworkFetchStart,
+    controller?.signal,
+  )
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    cached.then((buffer) => {
+      if (buffer) {
+        controller?.abort()
+        resolve(buffer)
+      }
+    })
+    download.then(resolve, (error) =>
+      withTimeout(cached, timeoutMs, 'Stockfish cache read timed out').then(
+        (buffer) => (buffer ? resolve(buffer) : reject(error)),
+        () => reject(error),
+      ),
+    )
+  })
+}
+
+const downloadNnueModel = async (
+  modelUrl: string,
+  storage: StockfishModelStorage,
+  timeoutMs: number,
+  onNetworkFetchStart?: () => void,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> => {
   onNetworkFetchStart?.()
-  const response = await fetchWithTimeout(modelUrl, timeoutMs)
+  const response = await fetchWithTimeout(modelUrl, timeoutMs, signal)
   if (!response.ok) {
     throw new Error(
       `Failed to fetch Stockfish NNUE model (${response.status}) from ${modelUrl}`,
