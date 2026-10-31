@@ -72,6 +72,11 @@ export const useMoveRecommendations = (
     const candidates: string[][] = []
 
     if (!maia) return
+    // Wait until every rating has its moves: the selected rating's come
+    // first and the others' ~0.2-0.5 s later, and drawing in between showed
+    // the other ratings at 0%. Until then the chart keeps the previous
+    // position's curves and then moves from those to these.
+    if (!MAIA_MODELS.every((model) => maia[model]?.policy)) return
 
     // Get top 3 Maia moves from selected rating level
     if (maia[currentMaiaModel]?.policy) {
