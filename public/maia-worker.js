@@ -18,6 +18,18 @@ importScripts('/ort/ort.wasm.min.js')
 const ORT = ort
 ORT.env.wasm.wasmPaths = '/ort/'
 
+// A session for a one-node model (y = Identity(x)) starts ORT's WebAssembly
+// runtime (~0.2-0.35 s) while the real model is read from IndexedDB.
+const RUNTIME_MODEL = Uint8Array.from(
+  atob(
+    'CAc6NwoQCgF4EgF5IghJZGVudGl0eRIBZ1oPCgF4EgoKCAgBEgQKAggBYg8KAXkSCgoICAESBAoCCAFCAhAN',
+  ),
+  (c) => c.charCodeAt(0),
+)
+const runtimeReady = ORT.InferenceSession.create(RUNTIME_MODEL)
+  .then((runtimeSession) => runtimeSession.release())
+  .catch(() => undefined)
+
 // ── IndexedDB storage (mirrors MaiaModelStorage) ─────────────────────────────
 
 const DB_NAME = 'MaiaModels'
@@ -90,6 +102,7 @@ let modelUrl = null
 let modelVersion = null
 
 async function initSession(buffer) {
+  await runtimeReady
   session = await ORT.InferenceSession.create(buffer)
 }
 
