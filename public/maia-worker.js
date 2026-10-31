@@ -19,16 +19,26 @@ const ORT = ort
 ORT.env.wasm.wasmPaths = '/ort/'
 
 // A session for a one-node model (y = Identity(x)) starts ORT's WebAssembly
-// runtime (~0.2-0.35 s) while the real model is read from IndexedDB.
+// runtime (~0.2-0.35 s) while the real model is read from IndexedDB. It is
+// started only once a cached model is found: before that, it would make a
+// first-time visitor download ORT's 11.8 MB WebAssembly file, which on a slow
+// connection held up the rest of the page.
 const RUNTIME_MODEL = Uint8Array.from(
   atob(
     'CAc6NwoQCgF4EgF5IghJZGVudGl0eRIBZ1oPCgF4EgoKCAgBEgQKAggBYg8KAXkSCgoICAESBAoCCAFCAhAN',
   ),
   (c) => c.charCodeAt(0),
 )
-const runtimeReady = ORT.InferenceSession.create(RUNTIME_MODEL)
-  .then((runtimeSession) => runtimeSession.release())
-  .catch(() => undefined)
+let runtimeReady = null
+
+function startRuntime() {
+  if (!runtimeReady) {
+    runtimeReady = ORT.InferenceSession.create(RUNTIME_MODEL)
+      .then((runtimeSession) => runtimeSession.release())
+      .catch(() => undefined)
+  }
+  return runtimeReady
+}
 
 // ── IndexedDB storage (mirrors MaiaModelStorage) ─────────────────────────────
 
@@ -73,6 +83,7 @@ async function getCachedModel(modelUrl, modelVersion) {
     return null
   }
 
+  startRuntime()
   return await data.data.arrayBuffer()
 }
 
@@ -102,7 +113,7 @@ let modelUrl = null
 let modelVersion = null
 
 async function initSession(buffer) {
-  await runtimeReady
+  await startRuntime()
   session = await ORT.InferenceSession.create(buffer)
 }
 
