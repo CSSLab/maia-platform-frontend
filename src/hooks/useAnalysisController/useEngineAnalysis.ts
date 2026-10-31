@@ -20,6 +20,14 @@ const MAIA_BATCH_SIZE = 10
  */
 const STOCKFISH_RENDER_INTERVAL_MS = 150
 
+/**
+ * Wait after the position changes before starting Maia and Stockfish on it,
+ * so holding an arrow key does not start them on every position passed. 50 ms
+ * still skips key-repeat positions; at 0 ms ten quick presses each started an
+ * inference, and the last position's moves came later.
+ */
+const ANALYSIS_DELAY_MS = 50
+
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
   inProgressAnalyses: Set<string>,
@@ -209,10 +217,9 @@ export const useEngineAnalysis = (
       }
     }
 
-    // Delay Maia analysis to prevent rapid fire when moving quickly
     const timeoutId = setTimeout(() => {
       attemptMaiaAnalysis()
-    }, 100)
+    }, ANALYSIS_DELAY_MS)
 
     return () => {
       maiaCancelled = true
@@ -351,11 +358,10 @@ export const useEngineAnalysis = (
       }
     }
 
-    // Delay Stockfish analysis to prevent rapid fire when moving quickly
     const timeoutId = setTimeout(() => {
       if (cancelled) return
       attemptStockfishAnalysis()
-    }, 100)
+    }, ANALYSIS_DELAY_MS)
 
     return () => {
       cancelled = true
