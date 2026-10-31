@@ -233,9 +233,25 @@ const applyCustomPgnResultOverride = (
  */
 const prefetchedLichessPgns = new Map<string, Promise<string>>()
 
+declare global {
+  interface Window {
+    /** Started by the page's HTML on a first load (see _document.tsx). */
+    __lichessPgn?: { id: string; request: Promise<string> }
+  }
+}
+
+const requestLichessPgn = (gameId: string): Promise<string> => {
+  const early = typeof window !== 'undefined' ? window.__lichessPgn : undefined
+  if (early?.id === gameId) {
+    delete window.__lichessPgn
+    return early.request
+  }
+  return fetchPgnOfLichessGame(gameId)
+}
+
 const prefetchLichessPgn = (gameId: string) => {
   if (prefetchedLichessPgns.has(gameId)) return
-  const request = fetchPgnOfLichessGame(gameId)
+  const request = requestLichessPgn(gameId)
   // If the prefetch fails, the page makes its own request.
   request.catch(() => prefetchedLichessPgns.delete(gameId))
   prefetchedLichessPgns.set(gameId, request)
@@ -244,7 +260,7 @@ const prefetchLichessPgn = (gameId: string) => {
 const takeLichessPgn = (gameId: string): Promise<string> => {
   const request = prefetchedLichessPgns.get(gameId)
   prefetchedLichessPgns.delete(gameId)
-  return request ?? fetchPgnOfLichessGame(gameId)
+  return request ?? requestLichessPgn(gameId)
 }
 
 /**
