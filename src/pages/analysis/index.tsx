@@ -3,13 +3,18 @@ import { useRouter } from 'next/router'
 import { Loading } from 'src/components'
 import { fetchMaiaGameList } from 'src/api'
 import { AnalysisListContext } from 'src/contexts'
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 
 const AnalysisPage: NextPage = () => {
   const { push } = useRouter()
   const { analysisTournamentList, analysisPlayList } =
     useContext(AnalysisListContext)
   const [loading, setLoading] = useState(true)
+  // The effect runs again as the lists in the context load; the user's play
+  // games are fetched once.
+  const playGamesRequest = useRef<ReturnType<typeof fetchMaiaGameList> | null>(
+    null,
+  )
 
   useEffect(() => {
     const redirectToGame = async () => {
@@ -22,7 +27,8 @@ const AnalysisPage: NextPage = () => {
 
       // If no play games in context, try to fetch them directly
       try {
-        const playGames = await fetchMaiaGameList('play', 1)
+        playGamesRequest.current ??= fetchMaiaGameList('play', 1)
+        const playGames = await playGamesRequest.current
         if (playGames.games && playGames.games.length > 0) {
           const gameId = playGames.games[0].game_id
           push(`/analysis/${gameId}/play`)
