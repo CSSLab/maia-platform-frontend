@@ -254,7 +254,7 @@ branch, so every warm and paging run (20 of 20, both builds) downloaded the
 that starts the download after 1.5 s but keeps the cached copy if it arrives
 first (and then cancels the download) used the cached nets in all 6 runs:
 first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
-40.2–56.8 s. It is not on this branch yet.
+40.2–56.8 s. That is bef0994.
 
 ## What changed
 
@@ -284,9 +284,11 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
 | 8aac80c                   | /puzzles requests the next puzzle as soon as the current one's result is logged                                                                                                                                                                                                     | Next puzzle 1.94–1.99 → 0.19–0.22 s after pressing Next Puzzle (`new_puzzle` itself takes 1.6 s on the backend)                                                                                                                                                                                                                      |
 | 46ba1fe, a6d0ae3          | The header's leaderboard badge and /leaderboard share one `auth/leaderboard` request; /analysis fetches the user's play games once                                                                                                                                                  | One request instead of two on /leaderboard, one instead of three on /analysis                                                                                                                                                                                                                                                        |
 | facc72e                   | `analysis-probe.mjs --proxy`, `stub-proxy.mjs` and `page-probe.mjs`: measurements with the browser's HTTP cache on (see "How it was measured")                                                                                                                                      | —                                                                                                                                                                                                                                                                                                                                    |
+| 2bb82ee, 6df5d6a          | Home page: the board grid is no longer rebuilt 100 ms after it comes into view (every time it does), and its 36 boards are drawn with chessground's elements and styles but without a chessground instance each, so pieces are placed by `left`/`top` and get no compositing layers | Home page vs `main`: blocking time 462 → 272 ms, main-thread time in the first 8 s 5.6 → 2.2 s (layerize 2.7 → 0.14 s); with the grid in view 10.4 → 3.5 s over 15 s. The grid's screenshots match `main`'s at four window sizes                                                                                                     |
 | 4fe06c3                   | The Maia worker starts ONNX Runtime early only once it has found a cached model (3b7c0ee started it as soon as the worker loaded)                                                                                                                                                   | A first visit to /analysis, /puzzles, /drills, /settings or /broadcast no longer downloads ORT's WebAssembly (3 MB compressed) before Maia is downloaded. On the phone on Slow 4G that had delayed the icon font and the analysis page's load event from 14 to 22 s. Returning visitors: Maia as before (2.25–2.57 s vs 2.27–2.94 s) |
 | 022c3c5                   | Home page: the small boards are drawn after the first paint (measured in an effect, not a layout effect)                                                                                                                                                                            | On the phone the hero text painted at 833 ms (median of 14 loads) against `main`'s 724; now 720 vs `main`'s 822 in six paired loads. Screenshots of the grid unchanged                                                                                                                                                               |
-| 2bb82ee, 6df5d6a          | Home page: the board grid is no longer rebuilt 100 ms after it comes into view (every time it does), and its 36 boards are drawn with chessground's elements and styles but without a chessground instance each, so pieces are placed by `left`/`top` and get no compositing layers | Home page vs `main`: blocking time 462 → 272 ms, main-thread time in the first 8 s 5.6 → 2.2 s (layerize 2.7 → 0.14 s); with the grid in view 10.4 → 3.5 s over 15 s. The grid's screenshots match `main`'s at four window sizes                                                                                                     |
+| bef0994                   | Stockfish: when reading its cached nets takes over 1.5 s, the download starts, but the cached copy is used if it arrives first (the download is then cancelled)                                                                                                                     | On the phone every returning visit had downloaded 78 MB again (`main` too) and shown Stockfish's first depth at 77–83 s; now the cache is used, first depth 12.3–18.6 s. Desktop: unchanged (the read takes ~0.1 s)                                                                                                                  |
+| 943d0a0, b7ff773          | Probes: `--mobile`, `--net` and `--slowdown` (with `cpu-slowdown.py`); net read times and downloads                                                                                                                                                                                 | —                                                                                                                                                                                                                                                                                                                                    |
 
 ## Things you will notice
 
@@ -335,9 +337,13 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
   `maia.ts` part is 6ba0cf2 without the priority levels. When rebasing 6ba0cf2,
   keep its priorities in `maia.ts` and take this branch's `useEngineAnalysis.ts`
   (4acbb36 changed the Maia effect further).
-- `stockfish.ts`: this branch doesn't touch `loadNnueModel` or `setupStockfish`'s
-  signature. It changes the `createInstance()` call lines (pool cap) and the
-  `setNnueBuffer` lines; a6edbdf's hunks should apply.
+- `stockfish.ts`: this branch changes the `createInstance()` call lines (pool
+  cap) and the `setNnueBuffer` lines, and bef0994 rewrites `loadNnueModel`'s
+  body (same signature) and adds `downloadNnueModel` after it. Merging
+  `human-bar` (fa694e7) gives two conflicts in this file, the same before and
+  after bef0994: both branches add a function right after `loadNnueModel`
+  (`setNnueBuffer` here, `loadNnueModelShared` there). Keep both;
+  `loadNnueModelShared` calls `loadNnueModel` as before.
 - Because of a3b81ca, `human-bar`'s second engine also starts 4 workers instead
   of one per core.
 - 780ac64 and 8239866 change the Stockfish effect in `useEngineAnalysis.ts`, the
