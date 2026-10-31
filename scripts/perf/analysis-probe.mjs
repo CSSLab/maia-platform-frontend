@@ -274,6 +274,12 @@ if (net) {
     uploadThroughput: (net[1] * 1000) / 8,
     latency: net[2],
   })
+  // A second CDP session turns Playwright's touch emulation off.
+  if (mobile)
+    await cdp.send('Emulation.setTouchEmulationEnabled', {
+      enabled: true,
+      maxTouchPoints: 1,
+    })
 }
 let slower = null
 if (slowdown > 1) {

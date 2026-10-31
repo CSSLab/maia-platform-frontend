@@ -142,6 +142,12 @@ for (let r = 0; r < reps; r++) {
   const page = ctx.pages()[0] ?? (await ctx.newPage())
   const cdp = await ctx.newCDPSession(page)
   await cdp.send('Performance.enable')
+  // A second CDP session turns Playwright's touch emulation off.
+  if (mobile)
+    await cdp.send('Emulation.setTouchEmulationEnabled', {
+      enabled: true,
+      maxTouchPoints: 1,
+    })
   if (net) {
     await cdp.send('Network.enable')
     await cdp.send('Network.emulateNetworkConditions', {
