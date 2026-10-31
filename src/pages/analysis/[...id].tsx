@@ -15,6 +15,7 @@ import {
   fetchAnalyzedPgnGame,
   fetchAnalyzedWorldChampionshipGame,
   retrieveGameAnalysisCache,
+  sendPgnGame,
   storeCustomGame,
 } from 'src/api'
 import {
@@ -69,7 +70,7 @@ import { tourConfigs } from 'src/constants/tours'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
-import { cpToWinrate } from 'src/lib'
+import { cpToWinrate, parseLichessPgn } from 'src/lib'
 
 const EVAL_BAR_RANGE = 4
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
@@ -339,7 +340,11 @@ const AnalysisPage: NextPage = () => {
       updateUrl = true,
     ) => {
       const storedAnalysisRequest = requestGameAnalysisCache(id)
-      const game = await fetchAnalyzedPgnGame(id, pgn)
+      // Built here, rather than waiting ~0.5 s for the backend to parse the
+      // PGN; variants and set-up positions are still left to the backend.
+      const localGame = parseLichessPgn(id, pgn)
+      if (localGame) sendPgnGame(pgn)
+      const game = localGame ?? (await fetchAnalyzedPgnGame(id, pgn))
 
       if (setCurrentMove) setCurrentMove(0)
 
