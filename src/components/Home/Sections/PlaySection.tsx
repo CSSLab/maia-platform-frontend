@@ -9,7 +9,6 @@ import {
   useContext,
   useState,
   useEffect,
-  useLayoutEffect,
   useRef,
   type ElementType,
 } from 'react'
@@ -184,13 +183,15 @@ const StaticBoard = ({
 
 const AnimatedTrainingBoards = () => {
   // The board size chessground would use: the cell's width rounded down to
-  // a multiple of 8 device pixels, and its shape.
+  // a multiple of 8 device pixels, and its shape. Measured after the first
+  // paint (the grid is below the fold), so the boards' ~1100 pieces don't
+  // delay it.
   const [size, setSize] = useState<{ width: number; height: number } | null>(
     null,
   )
   const firstCell = useRef<HTMLDivElement>(null)
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const cell = firstCell.current
     if (!cell) return
     const measure = () => {
