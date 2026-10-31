@@ -30,7 +30,7 @@ import {
   TreeControllerContext,
   useTour,
 } from 'src/contexts'
-import { Loading } from 'src/components'
+import { Loading, UnderlineTabs } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import {
   AnalysisSidebar,
@@ -487,6 +487,11 @@ interface Props {
   storedAnalysisRevision: number
   router: ReturnType<typeof useRouter>
 }
+
+const DESKTOP_LEFT_PANEL_TABS = [
+  { id: 'moves', name: 'Moves' },
+  { id: 'select-game', name: 'Select Game' },
+] as const
 
 const Analysis: React.FC<Props> = ({
   currentId,
@@ -1290,19 +1295,9 @@ const Analysis: React.FC<Props> = ({
       controller.currentMaiaModel?.replace('maia_kdd_', '') || '----'
     return `Maia %\n@ ${ratingLevel}`
   }, [controller.currentMaiaModel])
-  const desktopLeftPanelTabs = [
-    {
-      id: 'moves',
-      name: 'Moves',
-    },
-    {
-      id: 'select-game',
-      name: 'Select Game',
-    },
-  ] as const
   const [desktopLeftPanelTab, setDesktopLeftPanelTab] = useState<
-    (typeof desktopLeftPanelTabs)[number]['id']
-  >(desktopLeftPanelTabs[0].id)
+    (typeof DESKTOP_LEFT_PANEL_TABS)[number]['id']
+  >(DESKTOP_LEFT_PANEL_TABS[0].id)
   const showDesktopMovesAfterNavigation = useCallback(() => {
     if (desktopLeftPanelTab !== 'select-game') return
 
@@ -1546,35 +1541,13 @@ const Analysis: React.FC<Props> = ({
             </GameInfo>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
-            <div className="flex flex-row border-b border-glass-border">
-              {desktopLeftPanelTabs.map((tab) => {
-                const selected = tab.id === desktopLeftPanelTab
-                return (
-                  <div
-                    key={tab.id}
-                    tabIndex={0}
-                    role="button"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') setDesktopLeftPanelTab(tab.id)
-                    }}
-                    onClick={() => setDesktopLeftPanelTab(tab.id)}
-                    className={`relative flex cursor-pointer select-none flex-row px-3 py-1.5 outline-none transition duration-200 focus:outline-none focus-visible:outline-none ${selected ? 'bg-white/5' : 'hover:bg-white hover:bg-opacity-[0.02]'}`}
-                  >
-                    <p
-                      className={`text-xs transition duration-200 2xl:text-sm ${selected ? 'text-primary' : 'text-secondary'}`}
-                    >
-                      {tab.name}
-                    </p>
-                    {selected ? (
-                      <motion.div
-                        layoutId="analysisDesktopLeftPanelTab"
-                        className="absolute bottom-0 left-0 h-[1px] w-full bg-white"
-                      />
-                    ) : null}
-                  </div>
-                )
-              })}
-            </div>
+            <UnderlineTabs
+              tabs={DESKTOP_LEFT_PANEL_TABS}
+              selected={desktopLeftPanelTab}
+              onSelect={setDesktopLeftPanelTab}
+              layoutId="analysisDesktopLeftPanelTab"
+              tabClassName="outline-none focus:outline-none focus-visible:outline-none"
+            />
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="relative min-h-0 flex-1 overflow-hidden">
                 <div

@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion'
 import React, { useState } from 'react'
+import { UnderlineTabs } from 'src/components/Common/UnderlineTabs'
 import { ConfigureAnalysis } from 'src/components/Analysis/ConfigureAnalysis'
 import { LearnFromMistakes } from 'src/components/Analysis/LearnFromMistakes'
 import { ExportGame } from 'src/components/Common/ExportGame'
@@ -43,6 +43,11 @@ interface Props {
   lastMoveResult?: 'correct' | 'incorrect' | 'not-learning'
 }
 
+const SCREENS = [
+  { id: 'configure', name: 'Options' },
+  { id: 'export', name: 'Export' },
+] as const
+
 export const ConfigurableScreens: React.FC<Props> = ({
   currentMaiaModel,
   setCurrentMaiaModel,
@@ -66,18 +71,9 @@ export const ConfigurableScreens: React.FC<Props> = ({
   onSelectPlayer,
   lastMoveResult,
 }) => {
-  const screens = [
-    {
-      id: 'configure',
-      name: 'Options',
-    },
-    {
-      id: 'export',
-      name: 'Export',
-    },
-  ]
-
-  const [screen, setScreen] = useState(screens[0])
+  const [screenId, setScreenId] = useState<(typeof SCREENS)[number]['id']>(
+    SCREENS[0].id,
+  )
 
   // If learn from mistakes is active, show only the learning interface
   if (
@@ -124,37 +120,14 @@ export const ConfigurableScreens: React.FC<Props> = ({
 
   return (
     <div className="flex w-full flex-1 flex-col overflow-hidden border border-glass-border bg-glass md:w-auto md:rounded">
-      <div className="flex flex-row border-b border-glass-border">
-        {screens.map((s) => {
-          const selected = s.id === screen.id
-          return (
-            <div
-              key={s.id}
-              tabIndex={0}
-              role="button"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') setScreen(s)
-              }}
-              onClick={() => setScreen(s)}
-              className={`relative flex cursor-pointer select-none flex-row px-3 py-1.5 transition duration-200 ${selected ? 'bg-white/5' : 'hover:bg-white hover:bg-opacity-[0.02]'}`}
-            >
-              <p
-                className={`text-xs transition duration-200 2xl:text-sm ${selected ? 'text-primary' : 'text-secondary'} `}
-              >
-                {s.name}
-              </p>
-              {selected ? (
-                <motion.div
-                  layoutId="selectedScreen"
-                  className="absolute bottom-0 left-0 h-[1px] w-full bg-white"
-                />
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
+      <UnderlineTabs
+        tabs={SCREENS}
+        selected={screenId}
+        onSelect={setScreenId}
+        layoutId="selectedScreen"
+      />
       <div className="red-scrollbar flex flex-1 flex-col items-start justify-start overflow-y-scroll">
-        {screen.id === 'configure' ? (
+        {screenId === 'configure' ? (
           <ConfigureAnalysis
             currentMaiaModel={currentMaiaModel}
             setCurrentMaiaModel={setCurrentMaiaModel}
@@ -170,7 +143,7 @@ export const ConfigurableScreens: React.FC<Props> = ({
             isLearnFromMistakesActive={isLearnFromMistakesActive}
             autoSave={autoSave}
           />
-        ) : screen.id === 'export' ? (
+        ) : screenId === 'export' ? (
           <div className="flex w-full flex-col p-3">
             <ExportGame
               game={game}
