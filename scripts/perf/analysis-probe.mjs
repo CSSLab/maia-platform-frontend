@@ -2,7 +2,7 @@
 //
 //   node scripts/perf/analysis-probe.mjs <lichessGameId> [--base http://localhost:3000]
 //        [--profile DIR] [--cold] [--cores N] [--paging] [--with-cache]
-//        [--cache-delay MS] [--out result.json] [--label name]
+//        [--cache-delay MS] [--proxy] [--out result.json] [--label name]
 //
 // Needs Playwright with Chromium (not a dependency of this repo), e.g.
 // `npm i --no-save playwright && npx playwright install chromium`.
@@ -15,6 +15,10 @@
 //  - main-thread long tasks, and the keys and clicks used for paging.
 // The analysis cache upload (store_engine_analysis) is stubbed so runs never
 // write to the shared backend cache, and analytics hits are blocked.
+// Playwright turns the browser's HTTP cache off while any route is set, so
+// with --proxy the probe sets none: --base is then scripts/perf/stub-proxy.mjs
+// in front of the server, which does the stubbing, and Google Analytics'
+// hosts are made unresolvable. Use --proxy for warm (returning visitor) runs.
 // --cold starts from an empty profile (and clicks "Download Maia-3");
 // otherwise the profile keeps the Maia model and the NNUE nets cached.
 import { chromium } from 'playwright'
@@ -36,12 +40,18 @@ const paging = flag('--paging')
 const out = opt('--out', null)
 const label = opt('--label', '')
 const settleMs = Number(opt('--settle', '8000'))
+const proxy = flag('--proxy')
 
 if (cold) fs.rmSync(profile, { recursive: true, force: true })
 
 const context = await chromium.launchPersistentContext(profile, {
   headless: true,
   viewport: { width: 1600, height: 1000 },
+  args: proxy
+    ? [
+        '--host-resolver-rules=MAP www.google-analytics.com ~NOTFOUND, MAP region1.google-analytics.com ~NOTFOUND',
+      ]
+    : [],
 })
 await context.addInitScript(() => {
   try {
@@ -175,36 +185,38 @@ await context.addInitScript(() => {
   )
 })
 
-// Keep test runs out of the backend analysis cache and out of GA.
-await context.route('**/analysis/store_engine_analysis/**', (route) =>
-  route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
-)
-await context.route(
-  /google-analytics\.com|googletagmanager\.com\/(g\/)?collect|\/ingest\//,
-  (route) => route.fulfill({ status: 204, body: '' }),
-)
-// The backend's analysis cache is shared by all visitors, and earlier test
-// runs filled it for the test games. By default the probe keeps the request
-// (and its latency) but answers 404, as for a game nobody has analysed yet,
-// so the engines do the work. --with-cache leaves the real answer.
-if (flag('--with-cache') && opt('--cache-delay', null)) {
-  // Real cached analysis, answered later than the game (a large cache entry).
-  const delay = Number(opt('--cache-delay', '0'))
-  await context.route('**/analysis/get_engine_analysis/**', async (route) => {
-    const response = await route.fetch()
-    await new Promise((r) => setTimeout(r, delay))
-    await route.fulfill({ response })
-  })
-}
-if (!flag('--with-cache')) {
-  await context.route('**/analysis/get_engine_analysis/**', async (route) => {
-    await route.fetch().catch(() => null)
-    await route.fulfill({
-      status: 404,
-      contentType: 'application/json',
-      body: '{}',
+if (!proxy) {
+  // Keep test runs out of the backend analysis cache and out of GA.
+  await context.route('**/analysis/store_engine_analysis/**', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+  )
+  await context.route(
+    /google-analytics\.com|googletagmanager\.com\/(g\/)?collect|\/ingest\//,
+    (route) => route.fulfill({ status: 204, body: '' }),
+  )
+  // The backend's analysis cache is shared by all visitors, and earlier test
+  // runs filled it for the test games. By default the probe keeps the request
+  // (and its latency) but answers 404, as for a game nobody has analysed yet,
+  // so the engines do the work. --with-cache leaves the real answer.
+  if (flag('--with-cache') && opt('--cache-delay', null)) {
+    // Real cached analysis, answered later than the game (a large cache entry).
+    const delay = Number(opt('--cache-delay', '0'))
+    await context.route('**/analysis/get_engine_analysis/**', async (route) => {
+      const response = await route.fetch()
+      await new Promise((r) => setTimeout(r, delay))
+      await route.fulfill({ response })
     })
-  })
+  }
+  if (!flag('--with-cache')) {
+    await context.route('**/analysis/get_engine_analysis/**', async (route) => {
+      await route.fetch().catch(() => null)
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: '{}',
+      })
+    })
+  }
 }
 
 const page = context.pages()[0] ?? (await context.newPage())
