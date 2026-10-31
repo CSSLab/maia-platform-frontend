@@ -269,6 +269,25 @@ visits, 3 first visits on 4G):
 | main-thread time     | 8.71 / 6.00 / 4.78 | 13.65 / 7.02 / 5.99 |
 | largest paint        | 0.65 / 0.63 / 0.63 | 0.81 / 0.75 / 0.75  |
 
+#### Paging on the phone after 3bf9e38 and 86db02d
+
+While paging, the page renders on every engine update. At full speed on a
+phone-size page, 13 s of paging (8 steps) spent 336 ms preparing Maia's
+inputs (the same position once per rating) and 144 ms in layouts forced by
+framer-motion for the tab bars' underlines; 3bf9e38 and 86db02d remove
+both, and d0c4931 another 41 ms of head updates. On the emulated phone,
+branch before → after (2 runs per game; ada was quieter, load 15–20, than
+for the first phone runs, so both columns are faster than the table above):
+
+|                                                             | G3MXUHW9                | YQC4zrpR                               |
+| ----------------------------------------------------------- | ----------------------- | -------------------------------------- |
+| Maia's moves after a step (median, max)                     | 1.46, 3.06 → 1.41, 2.54 | 1.58, 2.56 (1 of 16 none) → 1.15, 2.34 |
+| Stockfish's first depth after a step (median, max)          | 0.79, 1.58 → 0.64, 1.38 | 0.86, 1.98 → 0.69, 1.20                |
+| Stockfish's depth when the next step comes (median, lowest) | 6, 3 → 7, 5             | 5, 3 → 7, 5                            |
+
+Jumps and quick taps were within noise; desktop paging was unchanged (depth
+12 after each step at 0.55–1.73 s on both).
+
 #### Stockfish's nets on a phone
 
 Stockfish reads its two nets (75 and 3.5 MB) from IndexedDB, and if that
@@ -317,6 +336,9 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
 | bef0994                   | Stockfish: when reading its cached nets takes over 1.5 s, the download starts, but the cached copy is used if it arrives first (the download is then cancelled)                                                                                                                     | On the phone every returning visit had downloaded 78 MB again (`main` too) and shown Stockfish's first depth at 77–83 s; now the cache is used, first depth 12.3–18.6 s. Desktop: unchanged (the read takes ~0.1 s)                                                                                                                  |
 | 65fc6a8                   | The icon font is requested with Google Fonts' `icon_names` for the 82 icons the site shows (`src/constants/materialSymbols.ts`, used by `_app` and the error page); a test checks the icon names it finds in the code against the list                                              | Font 1.14 MB → 29 KB on every first visit. On the phone on Slow 4G icons show at 4.6–5.8 s instead of 12.9–14.6 s (`main`); every route's icons are the same as on `main` (41 names seen, header and menu screenshots identical)                                                                                                     |
 | 21d7dc1                   | Home page: the Analysis and Train sections draw their board and chart once the section is within a screen of the viewport                                                                                                                                                           | Phone, returning visit: blocking time 2.89 → 1.93 s, main-thread time 6.00 → 4.78 s. Sections look the same once scrolled to (one overlapping chart label can stack differently)                                                                                                                                                     |
+| 3bf9e38                   | Maia's inputs for a position are computed once and kept for the last 8 positions, instead of once per rating (21 times)                                                                                                                                                             | Paging on a phone-size page at full speed: 336 → ~23 ms of chess.ts per 8 steps. With 86db02d, on the phone: Stockfish's depth when the next step comes 5–6 → 7, first depth after a step 0.79–0.86 → 0.64–0.69 s                                                                                                                    |
+| 86db02d                   | The Options/Export and desktop Moves/Select Game tab bars are one memoized `UnderlineTabs` component, so they render only when their tab changes                                                                                                                                    | framer-motion forced a layout on every engine update for their sliding underline: 144 ms per 13 s of paging at full speed, now none. The underline slides the same way                                                                                                                                                               |
+| d0c4931                   | The analysis page's `<Head>` is a memoized component                                                                                                                                                                                                                                | Next.js no longer rewrites the head on every engine update (41 ms per 13 s of paging)                                                                                                                                                                                                                                                |
 | 943d0a0, b7ff773          | Probes: `--mobile`, `--net` and `--slowdown` (with `cpu-slowdown.py`); net read times and downloads                                                                                                                                                                                 | —                                                                                                                                                                                                                                                                                                                                    |
 
 ## Things you will notice
@@ -335,6 +357,24 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
 
 ## Looked at, not changed
 
+- **Reading Stockfish's cached nets in a worker** (on the phone the read
+  took 1.4–3.9 s during page load): first depth unchanged (9.1–11.2 s
+  against 9.1–12.9 s). Most of the time is IndexedDB itself (opening the
+  database and getting the record took 0.5–1.4 s), not the main thread.
+- **Reading the nets while the engine module starts**, again on the phone
+  (by the names the bundled engine asks for): the read then competed with
+  the page's start-up (3.7–4.9 s instead of 1.6–2.2 s); first depth 0.6 s
+  sooner on one game, the same on the other, and depth 18 on the desktop
+  slightly later on one game (5.18 → 5.45 s median), so it was dropped.
+- **Maia's start-up on a phone**: of the ~8 s until its first moves, 4.4 s
+  is creating the ONNX session (about 1 s on a desktop); reading the 44 MB
+  model in its worker takes 0.26 s. Graph optimisation `'basic'` would save
+  ~1.2 s of that on a phone but changes move logits by up to 0.047; a model
+  optimised offline would keep the logits but is a new 44 MB file every
+  visitor downloads again. Both are for you to decide.
+- **recharts' legend** measures itself after every chart update (a forced
+  layout, 168 ms per 13 s of paging at full speed), but mostly that is
+  layout the next frame would do anyway.
 - **More Stockfish threads.** 2–3 threads made depth 12 after a step ~13%
   faster but jumps no faster, delayed the first depth on load, and make the
   search non-deterministic.
