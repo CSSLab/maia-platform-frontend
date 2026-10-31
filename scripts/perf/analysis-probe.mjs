@@ -3,6 +3,7 @@
 //   node scripts/perf/analysis-probe.mjs <lichessGameId> [--base http://localhost:3000]
 //        [--profile DIR] [--cold] [--cores N] [--paging] [--with-cache]
 //        [--cache-delay MS] [--proxy] [--out result.json] [--label name]
+//        [--mobile] [--slowdown N] [--net 4g|slow4g|DOWN_KBPS,UP_KBPS,LATENCY_MS]
 //
 // Needs Playwright with Chromium (not a dependency of this repo), e.g.
 // `npm i --no-save playwright && npx playwright install chromium`.
@@ -21,9 +22,17 @@
 // hosts are made unresolvable. Use --proxy for warm (returning visitor) runs.
 // --cold starts from an empty profile (and clicks "Download Maia-3");
 // otherwise the profile keeps the Maia model and the NNUE nets cached.
+//
+// Phones: --mobile uses a phone's screen and touch (the analysis page's
+// mobile layout; paging taps the ‹ › buttons and the move strip), --net
+// throttles the page's network, and --slowdown N runs every thread of the
+// page's renderer processes at 1/N speed with cpu-slowdown.py (Chrome's own
+// CPU throttling leaves Stockfish's and Maia's workers at full speed).
 import { chromium } from 'playwright'
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
 const gameId = args[0]
@@ -41,12 +50,31 @@ const out = opt('--out', null)
 const label = opt('--label', '')
 const settleMs = Number(opt('--settle', '8000'))
 const proxy = flag('--proxy')
+const mobile = flag('--mobile')
+const slowdown = Number(opt('--slowdown', '1'))
+const NETS = {
+  // kbit/s down, kbit/s up, ms added to each request
+  '4g': [9000, 1500, 150],
+  // Lighthouse's mobile network as DevTools applies it
+  slow4g: [1474.56, 675, 562.5],
+}
+const netArg = opt('--net', null)
+const net = netArg ? (NETS[netArg] ?? netArg.split(',').map(Number)) : null
 
 if (cold) fs.rmSync(profile, { recursive: true, force: true })
 
+const PHONE = {
+  viewport: { width: 412, height: 915 },
+  deviceScaleFactor: 2.625,
+  isMobile: true,
+  hasTouch: true,
+  userAgent:
+    'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36',
+}
+
 const context = await chromium.launchPersistentContext(profile, {
   headless: true,
-  viewport: { width: 1600, height: 1000 },
+  ...(mobile ? PHONE : { viewport: { width: 1600, height: 1000 } }),
   args: proxy
     ? [
         '--host-resolver-rules=MAP www.google-analytics.com ~NOTFOUND, MAP region1.google-analytics.com ~NOTFOUND',
@@ -74,8 +102,20 @@ await context.addInitScript(() => {
     errors: [],
     loaded: [],
     long: [],
+    blobs: [],
   })
   const now = () => Math.round(performance.now() * 10) / 10
+  // Reads of large blobs on the main thread: the cached Stockfish nets.
+  const arrayBuffer = Blob.prototype.arrayBuffer
+  Blob.prototype.arrayBuffer = function () {
+    const t0 = now()
+    const read = arrayBuffer.call(this)
+    if (this.size > 1e6)
+      read.then(() =>
+        lp.blobs.push({ t0, t1: now(), mb: Math.round(this.size / 1e5) / 10 }),
+      )
+    return read
+  }
   const OrigWorker = window.Worker
   window.Worker = class extends OrigWorker {
     constructor(url, opts) {
@@ -220,6 +260,33 @@ if (!proxy) {
 }
 
 const page = context.pages()[0] ?? (await context.newPage())
+if (net) {
+  const cdp = await context.newCDPSession(page)
+  await cdp.send('Network.enable')
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false,
+    downloadThroughput: (net[0] * 1000) / 8,
+    uploadThroughput: (net[1] * 1000) / 8,
+    latency: net[2],
+  })
+}
+let slower = null
+if (slowdown > 1) {
+  slower = spawn(
+    'python3',
+    [
+      path.join(
+        path.dirname(fileURLToPath(import.meta.url)),
+        'cpu-slowdown.py',
+      ),
+      profile,
+      String(slowdown),
+    ],
+    { stdio: ['ignore', 'pipe', 'inherit'] },
+  )
+  // Wait until it has found the renderer.
+  await new Promise((resolve) => slower.stdout.once('data', resolve))
+}
 const consoleErrors = []
 page.on('console', (m) => {
   if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 300))
@@ -296,6 +363,9 @@ const firstWhere = (pred, list = tl0) => list.find(pred)?.t ?? null
 const result = {
   label,
   gameId,
+  mobile,
+  slowdown,
+  net,
   cores: cores
     ? Number(cores)
     : await page.evaluate(() => navigator.hardwareConcurrency),
@@ -328,6 +398,7 @@ const result = {
   pthreadsLastAt: L0.w.filter((w) => w.name === 'em-pthread').at(-1)?.t ?? null,
   pthreadFirstAt: L0.w.find((w) => w.name === 'em-pthread')?.t ?? null,
   poolReady: L0.loaded.length ? Math.max(...L0.loaded) : null,
+  netReads: L0.blobs,
   workers: L0.w
     .filter((w) => w.name !== 'em-pthread')
     .map((w) => `${w.u}@${w.t}`),
@@ -364,30 +435,50 @@ if (paging) {
     else actions.push({ name, t, skip: true })
     await page.waitForTimeout(waitMs)
   }
-  const cells = page.locator('div.col-span-2.h-7.cursor-pointer')
-  const nCells = await cells.count()
-  const clickPly = (frac) => () =>
-    cells.nth(Math.min(nCells - 1, Math.floor(nCells * frac))).click()
-  await act(
-    'jump to end (ArrowDown)',
-    () => page.keyboard.press('ArrowDown'),
-    6000,
+  const cells = page.locator(
+    mobile
+      ? 'div.min-w-fit.cursor-pointer.rounded-md'
+      : 'div.col-span-2.h-7.cursor-pointer',
   )
+  const nCells = await cells.count()
+  const clickPly = (frac) => () => {
+    const cell = cells.nth(Math.min(nCells - 1, Math.floor(nCells * frac)))
+    return mobile ? cell.tap() : cell.click()
+  }
+  // On a phone the ‹ › buttons under the board; taps at a fixed point, so
+  // quick repeated taps are not slowed by Playwright's actionability checks.
+  const navButton = async (name) => {
+    const box = await page
+      .getByRole('button', { name, exact: true })
+      .first()
+      .boundingBox()
+    return () =>
+      page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2)
+  }
+  const press = mobile
+    ? {
+        ArrowDown: await navButton('›››'),
+        ArrowUp: await navButton('‹‹‹'),
+        ArrowRight: await navButton('›'),
+      }
+    : Object.fromEntries(
+        ['ArrowDown', 'ArrowUp', 'ArrowRight'].map((k) => [
+          k,
+          () => page.keyboard.press(k),
+        ]),
+      )
+  await act('jump to end (ArrowDown)', press.ArrowDown, 6000)
   await act(
     `jump to ply ${Math.floor(nCells * 0.15) + 1} (click)`,
     clickPly(0.15),
     6000,
   )
   for (let k = 1; k <= 8; k++)
-    await act(
-      `step ${k} (2.5 s pace)`,
-      () => page.keyboard.press('ArrowRight'),
-      2500,
-    )
+    await act(`step ${k} (2.5 s pace)`, press.ArrowRight, 2500)
   for (let k = 1; k <= 10; k++) {
     await act(
       k < 10 ? `rapid ${k}` : 'after 10 rapid presses',
-      () => page.keyboard.press('ArrowRight'),
+      press.ArrowRight,
       k < 10 ? 150 : 12000,
       k === 10,
     )
@@ -397,11 +488,7 @@ if (paging) {
     clickPly(0.85),
     8000,
   )
-  await act(
-    'start position (ArrowUp)',
-    () => page.keyboard.press('ArrowUp'),
-    6000,
-  )
+  await act('start position (ArrowUp)', press.ArrowUp, 6000)
 
   const L = await lp()
   const tl = L.tl
@@ -432,6 +519,9 @@ if (paging) {
       sf: at((e) => e.depth !== null),
       sfD12: at((e) => e.depth >= 12),
       sfD18: at((e) => e.depth >= 18),
+      // deepest Stockfish label on the position before the next action
+      maxDepth: Math.max(0, ...win.map((e) => e.depth ?? 0)),
+      t: Math.round(a.t),
       windowMs: Number.isFinite(tNext) ? Math.round(tNext - a.t) : null,
     }
     pagingResults.push(r)
@@ -448,6 +538,11 @@ if (paging) {
 
 result.paging = pagingResults
 result.consoleErrors = consoleErrors
+// The cached nets took longer than the app's 1.5 s limit to read, so
+// Stockfish downloaded them again.
+result.netRedownloads = consoleErrors.filter((e) =>
+  e.includes('Timed out while checking cached Stockfish model'),
+).length
 result.wallMs = Date.now() - wall0
 if (consoleErrors.length)
   console.log(
@@ -475,4 +570,8 @@ if (out) {
   )
 }
 await page.waitForTimeout(cold ? 15000 : 3000) // let IndexedDB writes (Maia model, NNUE) finish
+if (slower) {
+  slower.kill('SIGTERM')
+  await new Promise((resolve) => slower.on('exit', resolve))
+}
 await context.close()
