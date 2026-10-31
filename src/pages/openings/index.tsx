@@ -1898,6 +1898,11 @@ const OpeningsPage: NextPage = () => {
                 colorSanMapping={
                   analysisEnabled ? analysisController.colorSanMapping : {}
                 }
+                positionKey={
+                  analysisEnabled
+                    ? analysisController.currentNode?.fen
+                    : undefined
+                }
               />
               {!analysisEnabled && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">

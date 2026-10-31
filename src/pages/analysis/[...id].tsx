@@ -2267,6 +2267,12 @@ const Analysis: React.FC<Props> = ({
                       ? controller.colorSanMapping
                       : {}
                   }
+                  positionKey={
+                    analysisEnabled &&
+                    !controller.learnFromMistakes.state.isActive
+                      ? controller.currentNode?.fen
+                      : undefined
+                  }
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
