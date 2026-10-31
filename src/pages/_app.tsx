@@ -120,7 +120,12 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <style
               dangerouslySetInnerHTML={{
                 __html:
-                  'html:not(.material-symbols-ready) .material-symbols-outlined{visibility:hidden}',
+                  // Until the font loads, an icon is laid out as the text of its
+                  // name (e.g. "network_intelligence"): keep it 1em wide so the
+                  // layout does not change when the icons appear. :where() keeps
+                  // icons' own width classes in force.
+                  'html:not(.material-symbols-ready) .material-symbols-outlined{visibility:hidden}' +
+                  ':where(html:not(.material-symbols-ready) .material-symbols-outlined){width:1em}',
               }}
             />
 
@@ -156,7 +161,12 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
 
           <div className={`${openSansClassName} app-container`}>
             <Header />
-            <div className="content-container">
+            {/* On a phone the footer is most of a screen tall. The page area
+                is kept at least a screen tall there, so the footer starts
+                below the fold: while a page loads (or is rendered empty on
+                the server) it would otherwise show under the header and
+                then jump down when the page appears. */}
+            <div className="content-container min-h-screen md:min-h-0">
               <div
                 className="pointer-events-none fixed inset-0"
                 style={{
