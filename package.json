@@ -5,6 +5,9 @@
     "*.css",
     "./instrumentation-client.ts"
   ],
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
