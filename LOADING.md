@@ -415,6 +415,9 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
   `loadNnueModelShared` calls `loadNnueModel` as before.
 - Because of a3b81ca, `human-bar`'s second engine also starts 4 workers instead
   of one per core.
+- The commits after 3e0e504 (icon subset, home sections, Maia's inputs, tab
+  bars, `<Head>`) add no merge conflicts with `human-bar` (fa694e7): the
+  conflicting hunks per file are the same before and after them.
 - 780ac64 and 8239866 change the Stockfish effect in `useEngineAnalysis.ts`, the
   staged run in `stockfish.ts` and `StockfishStreamOptions`; 3179c1f replaces
   the two `100` ms delays in `useEngineAnalysis.ts` with `ANALYSIS_DELAY_MS`;
