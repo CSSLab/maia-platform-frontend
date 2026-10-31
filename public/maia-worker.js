@@ -112,9 +112,17 @@ let session = null
 let modelUrl = null
 let modelVersion = null
 
+// 'basic' graph optimisation, not the default 'all': on 157 positions of two
+// real games at all 21 ratings, 'basic' gave exactly the unoptimised model's
+// outputs, while 'all' moved move probabilities by up to 0.64 percentage
+// points (and the top move in 5 of 3297 cases). It also creates the session
+// sooner: Maia's moves showed 0.34 s earlier on a desktop and 1.2 s earlier
+// on an emulated phone; later inferences take about as long.
 async function initSession(buffer) {
   await startRuntime()
-  session = await ORT.InferenceSession.create(buffer)
+  session = await ORT.InferenceSession.create(buffer, {
+    graphOptimizationLevel: 'basic',
+  })
 }
 
 // ── Message handler ──────────────────────────────────────────────────────────
