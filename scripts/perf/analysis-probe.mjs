@@ -260,6 +260,11 @@ if (!proxy) {
 }
 
 const page = context.pages()[0] ?? (await context.newPage())
+// Stockfish nets downloaded to the end (a returning visitor should have none).
+const netDownloads = []
+page.on('requestfinished', (request) => {
+  if (/\.nnue$/.test(request.url())) netDownloads.push(request.url())
+})
 if (net) {
   const cdp = await context.newCDPSession(page)
   await cdp.send('Network.enable')
@@ -538,11 +543,12 @@ if (paging) {
 
 result.paging = pagingResults
 result.consoleErrors = consoleErrors
-// The cached nets took longer than the app's 1.5 s limit to read, so
-// Stockfish downloaded them again.
-result.netRedownloads = consoleErrors.filter((e) =>
+// Reads of the cached nets that took longer than the app's 1.5 s lookup
+// limit, and nets downloaded to the end.
+result.netSlowReads = consoleErrors.filter((e) =>
   e.includes('Timed out while checking cached Stockfish model'),
 ).length
+result.netDownloads = netDownloads.length
 result.wallMs = Date.now() - wall0
 if (consoleErrors.length)
   console.log(
