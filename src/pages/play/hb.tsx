@@ -120,6 +120,11 @@ const PlayHandBrainPage: NextPage = () => {
   }, [setPlaySetupModalProps])
 
   useEffect(() => {
+    // The game's settings come from the URL's query, which Next fills in
+    // after the first render. Starting before then also started a game, with
+    // the default settings, that was then abandoned.
+    if (!router.isReady) return
+
     let canceled = false
 
     async function fetchGameId() {
