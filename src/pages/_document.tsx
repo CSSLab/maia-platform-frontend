@@ -1,13 +1,21 @@
 import { Html, Head, Main, NextScript } from 'next/document'
 
 /**
- * On /analysis/<id>/lichess, starts fetching the game's PGN (as
- * fetchPgnOfLichessGame does) before the app's JavaScript has loaded; the
- * analysis page takes the request from `window.__lichessPgn`.
+ * Starts requests the first render waits for before the app's JavaScript has
+ * loaded: the account (as fetchAccount does, taken from `window.__account`)
+ * and, on /analysis/<id>/lichess, the game's PGN (as fetchPgnOfLichessGame
+ * does, taken from `window.__lichessPgn`).
  */
-const PREFETCH_LICHESS_PGN = `(function () {
+const EARLY_REQUESTS = `(function () {
+  if (!window.fetch) return
+  var account = fetch('/api/v1/auth/account').then(function (res) {
+    return res.json()
+  })
+  account.catch(function () {})
+  window.__account = account
+
   var match = /^\\/analysis\\/([^/]+)\\/lichess\\/?$/.exec(location.pathname)
-  if (!match || !window.fetch) return
+  if (!match) return
   var id = decodeURIComponent(match[1])
   var request = fetch('https://lichess.org/game/export/' + id, {
     headers: { Accept: 'application/x-chess-pgn' },
@@ -22,7 +30,7 @@ export default function Document() {
   return (
     <Html>
       <Head>
-        <script dangerouslySetInnerHTML={{ __html: PREFETCH_LICHESS_PGN }} />
+        <script dangerouslySetInnerHTML={{ __html: EARLY_REQUESTS }} />
       </Head>
       <body>
         <Main />
