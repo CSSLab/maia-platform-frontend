@@ -1,6 +1,10 @@
 {
   "name": "next-app",
   "private": true,
+  "sideEffects": [
+    "*.css",
+    "./instrumentation-client.ts"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
