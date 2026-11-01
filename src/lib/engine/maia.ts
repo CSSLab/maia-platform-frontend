@@ -51,6 +51,18 @@ interface QueuedInference extends PendingInference {
 
 const abortError = () => new DOMException('Inference aborted', 'AbortError')
 
+/**
+ * Starting ONNX Runtime reserves a shared WebAssembly memory of up to 4 GB.
+ * On an iPhone, reloading the analysis page can fail that reservation
+ * ("no available backend found. ERR: [wasm] RangeError: Out of memory")
+ * while the previous page's memory is still held. ONNX Runtime does not try
+ * again in the same worker, so Maia starts again in a new one, a little
+ * later, before reporting an error.
+ */
+export const MAIA_RESTART_DELAYS_MS = [1000, 3000]
+const isRuntimeStartFailure = (message: string) =>
+  /out of memory|initWasm/i.test(message)
+
 interface PendingDownload {
   resolve: () => void
   reject: (error: Error) => void
@@ -70,6 +82,7 @@ class Maia {
   private pendingDownload: PendingDownload | null = null
   private downloadPromise: Promise<void> | null = null
   private nextRequestId = 0
+  private restarts = 0
 
   constructor(options: MaiaOptions) {
     this.options = options
@@ -110,6 +123,11 @@ class Maia {
               this.pendingInferences.delete(msg.id)
             }
             this.inferenceSettled(msg.id)
+          } else if (
+            isRuntimeStartFailure(msg.message) &&
+            this.restarts < MAIA_RESTART_DELAYS_MS.length
+          ) {
+            this.restart(modelUrl, modelVersion)
           } else {
             this.options.setError(msg.message)
             this.options.setStatus('error')
@@ -152,6 +170,19 @@ class Maia {
     }
 
     this.worker.postMessage({ type: 'init', modelUrl, modelVersion })
+  }
+
+  /**
+   * Starts Maia in a new worker after a delay. A download in progress is
+   * resolved when the new worker reports that the model is ready (the worker
+   * stores the model before starting the runtime).
+   */
+  private restart(modelUrl: string, modelVersion: string) {
+    const delay = MAIA_RESTART_DELAYS_MS[this.restarts++]
+    this.worker?.terminate()
+    this.worker = null
+    this.options.setStatus('loading')
+    setTimeout(() => this.initialize(modelUrl, modelVersion), delay)
   }
 
   public async downloadModel() {

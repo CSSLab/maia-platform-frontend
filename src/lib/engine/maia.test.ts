@@ -1,4 +1,4 @@
-import Maia from './maia'
+import Maia, { MAIA_RESTART_DELAYS_MS } from './maia'
 
 type Message = { type: string; id?: number; batchSize?: number }
 
@@ -6,6 +6,7 @@ type Message = { type: string; id?: number; batchSize?: number }
 class FakeWorker {
   static last: FakeWorker
   posted: Message[] = []
+  terminated = false
   onmessage: ((e: { data: unknown }) => void) | null = null
   onerror: ((e: { message: string }) => void) | null = null
 
@@ -15,6 +16,14 @@ class FakeWorker {
 
   postMessage(message: Message) {
     this.posted.push(message)
+  }
+
+  terminate() {
+    this.terminated = true
+  }
+
+  fail(message: string) {
+    this.onmessage?.({ data: { type: 'error', message } })
   }
 
   inferences() {
@@ -124,5 +133,72 @@ describe('Maia inference queue', () => {
 
     await expect(inFlight).rejects.toThrow('boom')
     await expect(queued).rejects.toThrow('boom')
+  })
+})
+
+describe('Maia start-up', () => {
+  const originalWorker = global.Worker
+  const OUT_OF_MEMORY =
+    "no available backend found. ERR: [wasm] RangeError: Out of memory, [cpu] Error: previous call to 'initWasm()' failed."
+
+  beforeEach(() => {
+    ;(global as unknown as { Worker: unknown }).Worker = FakeWorker
+    jest.useFakeTimers()
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  afterAll(() => {
+    ;(global as unknown as { Worker: unknown }).Worker = originalWorker
+  })
+
+  const makeMaia = () => {
+    const options = {
+      model: '/maia3/test.onnx',
+      modelVersion: '3',
+      setStatus: jest.fn(),
+      setProgress: jest.fn(),
+      setError: jest.fn(),
+    }
+    return { maia: new Maia(options), options }
+  }
+
+  it('starts again in a new worker when the runtime runs out of memory', () => {
+    const { options } = makeMaia()
+    const first = FakeWorker.last
+    first.fail(OUT_OF_MEMORY)
+
+    expect(first.terminated).toBe(true)
+    expect(options.setError).not.toHaveBeenCalled()
+    expect(options.setStatus).toHaveBeenLastCalledWith('loading')
+
+    jest.advanceTimersByTime(MAIA_RESTART_DELAYS_MS[0])
+    expect(FakeWorker.last).not.toBe(first)
+    expect(FakeWorker.last.posted).toEqual([
+      { type: 'init', modelUrl: '/maia3/test.onnx', modelVersion: '3' },
+    ])
+  })
+
+  it('reports the error when the restarts fail too', () => {
+    const { options } = makeMaia()
+    for (const delay of MAIA_RESTART_DELAYS_MS) {
+      FakeWorker.last.fail(OUT_OF_MEMORY)
+      jest.advanceTimersByTime(delay)
+    }
+    FakeWorker.last.fail(OUT_OF_MEMORY)
+
+    expect(options.setError).toHaveBeenCalledWith(OUT_OF_MEMORY)
+    expect(options.setStatus).toHaveBeenLastCalledWith('error')
+  })
+
+  it('reports other start-up errors at once', () => {
+    const { options } = makeMaia()
+    FakeWorker.last.fail('Failed to fetch model')
+
+    expect(FakeWorker.last.terminated).toBe(false)
+    expect(options.setError).toHaveBeenCalledWith('Failed to fetch model')
+    expect(options.setStatus).toHaveBeenLastCalledWith('error')
   })
 })
