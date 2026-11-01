@@ -175,6 +175,7 @@ const Profile: React.FC<Props> = (props: Props) => {
           </div>
           <a
             target="_blank"
+            rel="noreferrer"
             href={`https://lichess.org/@/${props.name}`}
             className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
           >
@@ -230,6 +231,7 @@ const Profile: React.FC<Props> = (props: Props) => {
           </div>
           <a
             target="_blank"
+            rel="noreferrer"
             href={`https://lichess.org/@/${props.name}`}
             className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
           >

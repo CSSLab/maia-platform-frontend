@@ -122,7 +122,7 @@ export const Header: React.FC = () => {
                 onClick={logout}
                 className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
               >
-                Logout
+                Log out
               </button>
             </div>
           </motion.div>
@@ -371,12 +371,12 @@ export const Header: React.FC = () => {
               className="block cursor-pointer *:*:fill-primary"
               onClick={() => setShowMenu(false)}
             >
-              <span className="material-symbols-outlined text-3xl">menu</span>
+              <span className="material-symbols-outlined text-3xl">close</span>
             </button>
           </div>
           <div className="flex w-full flex-1 flex-col gap-5 overflow-y-auto px-12 py-6 tracking-wider">
             <div className="flex flex-col items-start justify-center gap-3">
-              <button>PLAY</button>
+              <p>PLAY</p>
               <div className="ml-4 flex flex-col items-start justify-center gap-2">
                 <button
                   onClick={() => {
@@ -459,7 +459,7 @@ export const Header: React.FC = () => {
                   Settings
                 </Link>
                 <button onClick={logout} className="text-left uppercase">
-                  Logout
+                  Log out
                 </button>
               </>
             )}

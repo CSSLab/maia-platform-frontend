@@ -157,7 +157,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
             onClick={onDeleteCustomGame}
             className="text-xs text-white/70 transition duration-200 hover:text-white"
           >
-            <span className="underline">Delete</span> this stored Custom Game
+            <span className="underline">Delete</span> this custom game
           </button>
         </div>
       )}

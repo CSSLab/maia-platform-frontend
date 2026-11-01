@@ -171,6 +171,7 @@ const Profile: React.FC<Props> = (props: Props) => {
           {user?.lichessId && (
             <a
               target="_blank"
+              rel="noreferrer"
               href={`https://lichess.org/@/${user.lichessId}`}
               className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
             >
@@ -223,6 +224,7 @@ const Profile: React.FC<Props> = (props: Props) => {
           {user?.lichessId && (
             <a
               target="_blank"
+              rel="noreferrer"
               href={`https://lichess.org/@/${user.lichessId}`}
               className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
             >

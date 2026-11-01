@@ -45,7 +45,7 @@ export default function Error401Page() {
         <div className="flex flex-col gap-3">
           <p className="max-w-md text-center text-secondary md:text-left">
             We are currently beta testing the new Maia Chess platform! If you
-            part of the beta, please{' '}
+            are part of the beta, please{' '}
             <button onClick={connectLichess} className="underline">
               sign in with Lichess
             </button>

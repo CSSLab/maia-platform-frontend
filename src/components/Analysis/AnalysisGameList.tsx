@@ -215,7 +215,6 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
 
         fetchMaiaGameList(selected, currentPage)
           .then((data) => {
-            console.log(data)
             let parsedGames: CachedGameEntry[] = []
 
             if (selected === 'favorites') {
@@ -963,8 +962,8 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                               }`}
                               title={
                                 isFavorited
-                                  ? 'Remove from favourites'
-                                  : 'Add to favourites'
+                                  ? 'Remove from favorites'
+                                  : 'Add to favorites'
                               }
                             >
                               <span
@@ -1045,14 +1044,19 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
               )}
             </>
           )}
-          {!((selected === 'play' || selected === 'hb') && totalPages > 1) &&
+          {selected !== 'tournament' &&
+            !((selected === 'play' || selected === 'hb') && totalPages > 1) &&
             getCurrentGames().length === 0 &&
             !loading && (
               <div className="flex flex-1 items-start justify-center gap-1 py-2 md:items-center">
                 <p className="text-center text-xs text-white/70">
                   {selected === 'favorites'
-                    ? ' ⭐ Hit the star to favourite games...'
-                    : 'Play more games... ^. .^₎⟆'}
+                    ? '⭐ Hit the star to favorite games...'
+                    : selected === 'lichess'
+                      ? 'No Lichess games yet'
+                      : selected === 'custom'
+                        ? 'No custom games yet'
+                        : 'Play more games... ^. .^₎⟆'}
                 </p>
               </div>
             )}

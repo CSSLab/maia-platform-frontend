@@ -117,7 +117,7 @@ export const Footer: React.FC = () => {
               <a
                 target="_blank"
                 rel="noreferrer"
-                href="http://csslab.cs.toronto.edu/"
+                href="https://csslab.cs.toronto.edu/"
                 className="text-primary"
               >
                 University of Toronto CSSLab
@@ -138,8 +138,9 @@ export const Footer: React.FC = () => {
                   <a
                     key={linkIndex}
                     href={link.href}
-                    target="_blank"
-                    rel="noreferrer"
+                    {...(link.href.startsWith('mailto:')
+                      ? {}
+                      : { target: '_blank', rel: 'noreferrer' })}
                     className="mt-0.5 md:mt-0.5"
                   >
                     {link.icon ? (
@@ -161,7 +162,7 @@ export const Footer: React.FC = () => {
           </div>
         </div>
         <p className="text-left text-sm text-secondary md:text-center md:text-xs">
-          © 2026 Maia Chess. All rights reserved.
+          © {new Date().getFullYear()} Maia Chess. All rights reserved.
         </p>
       </div>
     </div>
