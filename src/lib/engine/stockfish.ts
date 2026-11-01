@@ -22,6 +22,9 @@ export const NNUE_DOWNLOAD_FAILED_MESSAGE =
 const DEFAULT_NNUE_FETCH_TIMEOUT_MS = 30000
 const DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS = 15000
 const STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS = 1500
+// How long to wait for a found cached net to be read before also
+// downloading it (reading 75 MB took 1.4-11 s on an emulated phone).
+const STOCKFISH_CACHE_READ_TIMEOUT_MS = 20000
 const STOCKFISH_CACHE_WRITE_TIMEOUT_MS = 5000
 // How long to wait for a slow cached net once every download has failed.
 const STOCKFISH_CACHE_FALLBACK_TIMEOUT_MS = 30000
@@ -1897,6 +1900,40 @@ const withTimeout = async <T>(
   }
 }
 
+// The cache lookup's timeout is counted in timer ticks, not clock time: a
+// tick held up by a long task still counts as one, so a phone busy loading
+// the page does not give up on an answer that is waiting behind that work.
+const CACHE_LOOKUP_TICK_MS = 100
+
+const withTickedTimeout = <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    let ticksLeft = Math.ceil(timeoutMs / CACHE_LOOKUP_TICK_MS)
+    let timeoutId: ReturnType<typeof setTimeout>
+    const tick = () => {
+      ticksLeft -= 1
+      if (ticksLeft > 0) {
+        timeoutId = setTimeout(tick, CACHE_LOOKUP_TICK_MS)
+      } else {
+        reject(new Error(message))
+      }
+    }
+    timeoutId = setTimeout(tick, CACHE_LOOKUP_TICK_MS)
+    promise.then(
+      (value) => {
+        clearTimeout(timeoutId)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timeoutId)
+        reject(error)
+      },
+    )
+  })
+
 const getStockfishModuleInitTimeoutMs = (): number => {
   const raw = process.env.NEXT_PUBLIC_STOCKFISH_MODULE_INIT_TIMEOUT_MS
   const parsed = raw ? parseInt(raw, 10) : NaN
@@ -1914,12 +1951,15 @@ const CACHE_LOOKUP_TIMED_OUT = Symbol('cache lookup timed out')
  */
 export const legacyNetCacheKey = (file: string) => `${GITHUB_RAW_BASE}/${file}`
 
-const readCachedNet = async (
+const findCachedNet = async (
   storage: StockfishModelStorage,
   file: string,
-): Promise<ArrayBuffer | null> =>
-  (await storage.getModel(file)) ??
-  (await storage.getModel(legacyNetCacheKey(file)))
+): Promise<Blob | null> =>
+  (await storage.findModel(file)) ??
+  (await storage.findModel(legacyNetCacheKey(file)))
+
+const readNet = (data: Blob | null): Promise<ArrayBuffer | null> =>
+  data ? data.arrayBuffer().catch(() => null) : Promise.resolve(null)
 
 export const loadNnueModel = async (
   file: string,
@@ -1943,24 +1983,39 @@ export const loadNnueModel = async (
     return downloadAndCache()
   }
 
-  const cached = readCachedNet(storage, file)
-  const cachedModel = await withTimeout(
-    cached,
+  // IndexedDB may never answer (Firefox after a Lichess login), so finding
+  // the cached net has a short timeout. Once it is found, reading it (75 MB)
+  // gets much longer: on a phone it can take seconds while the page loads,
+  // and downloading it again in parallel cost 78 MB and CPU on every visit.
+  const lookup = findCachedNet(storage, file)
+  const found = await withTickedTimeout(
+    lookup,
     STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
     `Timed out while checking cached Stockfish model: ${file}`,
   ).catch((error): typeof CACHE_LOOKUP_TIMED_OUT => {
     console.warn(error)
     return CACHE_LOOKUP_TIMED_OUT
   })
-  if (cachedModel !== CACHE_LOOKUP_TIMED_OUT) {
-    return cachedModel ?? downloadAndCache()
+  if (found === null) return downloadAndCache()
+  const cached =
+    found === CACHE_LOOKUP_TIMED_OUT ? lookup.then(readNet) : readNet(found)
+  if (found !== CACHE_LOOKUP_TIMED_OUT) {
+    const cachedModel = await withTimeout(
+      cached,
+      STOCKFISH_CACHE_READ_TIMEOUT_MS,
+      `Timed out while reading cached Stockfish model: ${file}`,
+    ).catch((error): typeof CACHE_LOOKUP_TIMED_OUT => {
+      console.warn(error)
+      return CACHE_LOOKUP_TIMED_OUT
+    })
+    if (cachedModel !== CACHE_LOOKUP_TIMED_OUT) {
+      return cachedModel ?? downloadAndCache()
+    }
   }
 
-  // IndexedDB may never answer (Firefox after a Lichess login), but on a
-  // phone reading the 75 MB net while the page loads can also take longer
-  // than the lookup timeout. Download the net, but keep waiting for the cached
-  // copy and use whichever arrives first, so a slow device does not download
-  // 75 MB again on every visit.
+  // The cache did not answer in time: download the net, but keep waiting for
+  // the cached copy and use whichever arrives first, so a slow device does
+  // not download 75 MB again on every visit.
   const controller =
     typeof AbortController === 'undefined' ? null : new AbortController()
   const downloading = downloadAndCache(controller?.signal)

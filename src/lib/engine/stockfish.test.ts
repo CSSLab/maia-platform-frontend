@@ -273,10 +273,13 @@ describe('loadNnueModel', () => {
 
   const later = <T>(ms: number, value: T) =>
     new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
-  const storage = (getModel: (key: string) => Promise<ArrayBuffer | null>) => {
+  // A cached net found by the storage: reading it takes `readMs`.
+  const found = (net: ArrayBuffer, readMs = 0) =>
+    ({ arrayBuffer: () => later(readMs, net) }) as unknown as Blob
+  const storage = (findModel: (key: string) => Promise<Blob | null>) => {
     const storeModel = jest.fn(async () => undefined)
     return {
-      storage: { getModel, storeModel } as unknown as StockfishModelStorage,
+      storage: { findModel, storeModel } as unknown as StockfishModelStorage,
       storeModel,
     }
   }
@@ -310,7 +313,9 @@ describe('loadNnueModel', () => {
 
   it('keeps a cached net that is read after the lookup timeout, and stops the download', async () => {
     const download = mockDownload(60000)
-    const { storage: s, storeModel } = storage(() => later(4000, cachedNet))
+    const { storage: s, storeModel } = storage(() =>
+      later(4000, found(cachedNet)),
+    )
     const net = loadNnueModel(FILE, s, download)
     await jest.advanceTimersByTimeAsync(1600)
     expect(download).toHaveBeenCalledTimes(1)
@@ -318,6 +323,20 @@ describe('loadNnueModel', () => {
     await expect(net).resolves.toBe(cachedNet)
     expect(signal?.aborted).toBe(true)
     expect(storeModel).not.toHaveBeenCalled()
+  })
+
+  it('does not count time the page is too busy to take the answer', async () => {
+    jest.useRealTimers()
+    const download = mockDownload(500)
+    const { storage: s } = storage(() => later(1550, found(cachedNet)))
+    const net = loadNnueModel(FILE, s, download)
+    // A long task that outlasts the lookup timeout, with the answer behind it.
+    const busyUntil = Date.now() + 1700
+    while (Date.now() < busyUntil) {
+      // busy
+    }
+    await expect(net).resolves.toBe(cachedNet)
+    expect(download).not.toHaveBeenCalled()
   })
 
   it('downloads the net when the cache never answers', async () => {
@@ -340,16 +359,38 @@ describe('loadNnueModel', () => {
   })
 
   it('uses the cached net when the download fails while the cache is slow', async () => {
-    const { storage: s } = storage(() => later(3000, cachedNet))
+    const { storage: s } = storage(() => later(3000, found(cachedNet)))
     const net = loadNnueModel(FILE, s, mockDownload(100, true))
     await jest.advanceTimersByTimeAsync(3100)
     await expect(net).resolves.toBe(cachedNet)
   })
 
+  it('waits for a found net that is slow to read, without downloading', async () => {
+    const download = mockDownload(500)
+    const { storage: s } = storage(() => later(10, found(cachedNet, 8000)))
+    const net = loadNnueModel(FILE, s, download)
+    await jest.advanceTimersByTimeAsync(8100)
+    await expect(net).resolves.toBe(cachedNet)
+    expect(download).not.toHaveBeenCalled()
+  })
+
+  it('downloads a found net that cannot be read within 20 s', async () => {
+    const download = mockDownload(500)
+    const neverRead = {
+      arrayBuffer: () => new Promise(() => undefined),
+    } as unknown as Blob
+    const { storage: s } = storage(() => later(10, neverRead))
+    const net = loadNnueModel(FILE, s, download)
+    await jest.advanceTimersByTimeAsync(19000)
+    expect(download).not.toHaveBeenCalled()
+    await jest.advanceTimersByTimeAsync(1600)
+    await expect(net).resolves.toBe(downloadedNet)
+  })
+
   it('uses a net cached under its old raw.githubusercontent.com URL', async () => {
     const download = mockDownload(500)
     const { storage: s } = storage((key) =>
-      later(10, key === legacyNetCacheKey(FILE) ? cachedNet : null),
+      later(10, key === legacyNetCacheKey(FILE) ? found(cachedNet) : null),
     )
     const net = loadNnueModel(FILE, s, download)
     await jest.advanceTimersByTimeAsync(25)

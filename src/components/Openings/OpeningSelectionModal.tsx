@@ -148,8 +148,11 @@ const SelectionConfigurationLine: React.FC<{
 
 interface Props {
   openings: Opening[]
+  /** Undefined until the endgame positions have loaded. */
   endgames?: Opening[]
   endgameDataset?: EndgameDataset
+  /** Asks for the endgame positions (the Endgames tab is opened or pointed at). */
+  onLoadEndgames?: () => void
   initialSelections?: OpeningSelection[]
   initialCustomDraft?: {
     input: string
@@ -552,6 +555,8 @@ const BrowsePanel: React.FC<{
   onSelectSavedDrillPreset: (preset: SavedDrillPreset) => void
   onRemoveSavedDrillPreset: (presetId: string) => void
   onClearSelectedSavedDrillPreset: () => void
+  endgamesLoading: boolean
+  onLoadEndgames?: () => void
 }> = ({
   activeTab,
   filteredOpenings,
@@ -579,6 +584,8 @@ const BrowsePanel: React.FC<{
   onSelectSavedDrillPreset,
   onRemoveSavedDrillPreset,
   onClearSelectedSavedDrillPreset,
+  endgamesLoading,
+  onLoadEndgames,
 }) => {
   const { isMobile } = useContext(WindowSizeContext)
   const isCustomCategory = browseCategory === 'custom'
@@ -666,6 +673,11 @@ const BrowsePanel: React.FC<{
               onBrowseCategoryChange(value)
               setActiveTab('browse')
             }}
+            {...(value === 'endgames' && {
+              onPointerEnter: onLoadEndgames,
+              onTouchStart: onLoadEndgames,
+              onFocus: onLoadEndgames,
+            })}
             aria-pressed={isSelected}
             className={`relative flex-1 border-r border-white/5 px-3 py-3 text-xs font-medium transition-all duration-200 last:border-r-0 md:text-sm ${
               isSelected
@@ -1020,6 +1032,11 @@ const BrowsePanel: React.FC<{
           onSelect={onSelectSavedDrillPreset}
           onRemove={onRemoveSavedDrillPreset}
         />
+        {browseCategory === 'endgames' && endgamesLoading && (
+          <div className="flex flex-1 items-center justify-center px-4 text-center text-[12px] text-white/35">
+            Loading endgames…
+          </div>
+        )}
         {categorizedOpenings.map((category) => {
           const isCategoryCollapsed = searchTerm
             ? false
@@ -1728,10 +1745,13 @@ const SelectedPanel: React.FC<{
   </div>
 )
 
+const NO_ENDGAMES: Opening[] = []
+
 export const OpeningSelectionModal: React.FC<Props> = ({
   openings,
-  endgames = [],
+  endgames: loadedEndgames,
   endgameDataset,
+  onLoadEndgames,
   initialSelections = [],
   initialCustomDraft = null,
   onComplete,
@@ -1739,6 +1759,8 @@ export const OpeningSelectionModal: React.FC<Props> = ({
 }) => {
   const { startTour } = useTour()
   const { isMobile } = useContext(WindowSizeContext)
+  const endgamesLoading = loadedEndgames === undefined
+  const endgames = loadedEndgames ?? NO_ENDGAMES
   const linkedDraftOpening = useMemo<Opening | null>(
     () =>
       initialCustomDraft?.input
@@ -1958,6 +1980,23 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   useEffect(() => {
     setSavedDrillPresets(readSavedDrillPresets())
   }, [])
+
+  useEffect(() => {
+    if (browseCategory === 'endgames') onLoadEndgames?.()
+  }, [browseCategory, onLoadEndgames])
+
+  // The Endgames tab opened before the endgame positions loaded previews
+  // another position; preview the first endgame once they are in.
+  useEffect(() => {
+    if (
+      browseCategory === 'endgames' &&
+      getOpeningCategory(previewOpening) !== 'endgame' &&
+      normalizedEndgames[0]
+    ) {
+      setPreviewOpening(normalizedEndgames[0])
+      setPreviewVariation(null)
+    }
+  }, [browseCategory, normalizedEndgames, previewOpening])
 
   const getDefaultPreviewByCategory = useCallback(
     (category: 'openings' | 'endgames' | 'custom'): Opening => {
@@ -2527,6 +2566,9 @@ export const OpeningSelectionModal: React.FC<Props> = ({
 
   const addSelection = () => {
     const category = getOpeningCategory(previewOpening)
+    // While the endgames load, the Endgames tab still previews the last
+    // position, which is not an endgame.
+    if (browseCategory === 'endgames' && category !== 'endgame') return
     if (
       activeSelectionCategory &&
       activeSelectionCategory !== category &&
@@ -3188,6 +3230,8 @@ export const OpeningSelectionModal: React.FC<Props> = ({
             onClearSelectedSavedDrillPreset={() =>
               setSelectedSavedDrillPresetId(null)
             }
+            endgamesLoading={endgamesLoading}
+            onLoadEndgames={onLoadEndgames}
           />
           <DrillStudioPanel
             previewOpening={previewOpening}

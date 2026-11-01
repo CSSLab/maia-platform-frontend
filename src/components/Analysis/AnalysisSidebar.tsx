@@ -7,10 +7,20 @@ import {
 } from 'src/components/Analysis'
 import { motion } from 'framer-motion'
 import type { DrawShape } from 'chessground/draw'
-import { Dispatch, SetStateAction, useCallback, useMemo } from 'react'
+import {
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useContext,
+  useMemo,
+} from 'react'
 import type { ComponentProps, CSSProperties, ReactNode } from 'react'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
 import type { MaiaEvaluation, StockfishEvaluation } from 'src/types'
+import { WindowSizeContext } from 'src/contexts'
+
+// Tailwind's xl breakpoint, where the sidebar switches layouts.
+const XL_BREAKPOINT_PX = 1280
 type HighlightBoardDescription = ComponentProps<
   typeof Highlight
 >['boardDescription']
@@ -64,6 +74,14 @@ export const AnalysisSidebar: React.FC<Props> = ({
   desktopContentHeightCss = '85vh',
   itemVariants,
 }) => {
+  // The sidebar has a layout for xl screens and one below, and CSS shows
+  // one. Once the window's width is known only that one is rendered: the
+  // hidden one re-rendered its panel, blunder meter and moves-by-rating
+  // chart on every engine update too.
+  const { width } = useContext(WindowSizeContext)
+  const renderWide = width === 0 || width >= XL_BREAKPOINT_PX
+  const renderNarrow = width === 0 || width < XL_BREAKPOINT_PX
+
   const emptyBlunderMeterData = useMemo(
     () => ({
       goodMoves: { moves: [], probability: 0 },
@@ -228,14 +246,56 @@ export const AnalysisSidebar: React.FC<Props> = ({
 
   const detailedLayout = (
     <>
-      <div className="hidden xl:flex xl:h-full xl:flex-col xl:gap-3">
-        <div
-          className="desktop-analysis-big-row-1-container relative flex gap-3"
-          style={{ height: `calc((${desktopContentHeightCss} - 0.75rem) / 2)` }}
-        >
-          <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass-strong backdrop-blur-md">
-            {renderHeader('desktop')}
-            <div className="flex h-full w-full flex-1">
+      {renderWide && (
+        <div className="hidden xl:flex xl:h-full xl:flex-col xl:gap-3">
+          <div
+            className="desktop-analysis-big-row-1-container relative flex gap-3"
+            style={{
+              height: `calc((${desktopContentHeightCss} - 0.75rem) / 2)`,
+            }}
+          >
+            <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass-strong backdrop-blur-md">
+              {renderHeader('desktop')}
+              <div className="flex h-full w-full flex-1">
+                <SimplifiedAnalysisOverview
+                  highlightProps={{ ...highlightProps, simplified: true }}
+                  blunderMeterProps={simplifiedBlunderMeterProps}
+                  analysisEnabled={analysisEnabled}
+                  hideBlunderMeter={hideDetailedBlunderMeter}
+                />
+              </div>
+            </div>
+            {!analysisEnabled &&
+              renderDisabledOverlay('Enable analysis to see move evaluations', {
+                offsetTop: true,
+              })}
+          </div>
+
+          <div
+            className="desktop-analysis-big-row-2-container relative flex flex-row gap-3"
+            style={{
+              height: `calc((${desktopContentHeightCss} - 0.75rem) / 2)`,
+            }}
+          >
+            <div className="relative flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+              <MovesByRating {...movesByRatingProps} />
+            </div>
+            {!hideDetailedBlunderMeter && (
+              <BlunderMeter {...blunderMeterProps} />
+            )}
+            {!analysisEnabled &&
+              renderDisabledOverlay(
+                'Enable analysis to see position evaluation',
+              )}
+          </div>
+        </div>
+      )}
+
+      {renderNarrow && (
+        <div className="flex h-full flex-col gap-3 xl:hidden">
+          <div className="desktop-analysis-small-row-1-container relative flex overflow-hidden rounded-md border border-glass-border bg-glass-strong pt-10 backdrop-blur-md">
+            {renderHeader('mobile', 'absolute left-0 top-0 z-10 w-full')}
+            <div className="flex h-full w-full">
               <SimplifiedAnalysisOverview
                 highlightProps={{ ...highlightProps, simplified: true }}
                 blunderMeterProps={simplifiedBlunderMeterProps}
@@ -243,51 +303,23 @@ export const AnalysisSidebar: React.FC<Props> = ({
                 hideBlunderMeter={hideDetailedBlunderMeter}
               />
             </div>
-          </div>
-          {!analysisEnabled &&
-            renderDisabledOverlay('Enable analysis to see move evaluations', {
-              offsetTop: true,
-            })}
-        </div>
-
-        <div
-          className="desktop-analysis-big-row-2-container relative flex flex-row gap-3"
-          style={{ height: `calc((${desktopContentHeightCss} - 0.75rem) / 2)` }}
-        >
-          <div className="relative flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
-            <MovesByRating {...movesByRatingProps} />
-          </div>
-          {!hideDetailedBlunderMeter && <BlunderMeter {...blunderMeterProps} />}
-          {!analysisEnabled &&
-            renderDisabledOverlay('Enable analysis to see position evaluation')}
-        </div>
-      </div>
-
-      <div className="flex h-full flex-col gap-3 xl:hidden">
-        <div className="desktop-analysis-small-row-1-container relative flex overflow-hidden rounded-md border border-glass-border bg-glass-strong pt-10 backdrop-blur-md">
-          {renderHeader('mobile', 'absolute left-0 top-0 z-10 w-full')}
-          <div className="flex h-full w-full">
-            <SimplifiedAnalysisOverview
-              highlightProps={{ ...highlightProps, simplified: true }}
-              blunderMeterProps={simplifiedBlunderMeterProps}
-              analysisEnabled={analysisEnabled}
-              hideBlunderMeter={hideDetailedBlunderMeter}
-            />
-          </div>
-          {!analysisEnabled &&
-            renderDisabledOverlay('Enable analysis to see move evaluations', {
-              offsetTop: true,
-            })}
-        </div>
-
-        <div className="desktop-analysis-small-row-2-container relative flex w-full">
-          <div className="relative flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
-            <MovesByRating {...movesByRatingProps} />
             {!analysisEnabled &&
-              renderDisabledOverlay('Enable analysis to see move evaluations')}
+              renderDisabledOverlay('Enable analysis to see move evaluations', {
+                offsetTop: true,
+              })}
+          </div>
+
+          <div className="desktop-analysis-small-row-2-container relative flex w-full">
+            <div className="relative flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+              <MovesByRating {...movesByRatingProps} />
+              {!analysisEnabled &&
+                renderDisabledOverlay(
+                  'Enable analysis to see move evaluations',
+                )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   )
 

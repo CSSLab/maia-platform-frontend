@@ -38,7 +38,11 @@ export class StockfishModelStorage {
     })
   }
 
-  async getModel(modelUrl: string): Promise<ArrayBuffer | null> {
+  /**
+   * The cached net's data, not yet read: finding it is quick, while reading
+   * 75 MB can take seconds on a phone.
+   */
+  async findModel(modelUrl: string): Promise<Blob | null> {
     try {
       const db = await this.openDB()
       if (!db) return null
@@ -63,11 +67,16 @@ export class StockfishModelStorage {
         return null
       }
 
-      return modelData.data.arrayBuffer()
+      return modelData.data
     } catch (error) {
       console.warn('Stockfish cache read failed:', error)
       return null
     }
+  }
+
+  async getModel(modelUrl: string): Promise<ArrayBuffer | null> {
+    const data = await this.findModel(modelUrl)
+    return data ? data.arrayBuffer().catch(() => null) : null
   }
 
   async storeModel(modelUrl: string, buffer: ArrayBuffer): Promise<void> {

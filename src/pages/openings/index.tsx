@@ -55,8 +55,12 @@ import {
 } from 'src/components/Analysis/BoardChrome'
 import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import openings from 'src/constants/maia_openings_expanded.json'
-import endgamesRaw from 'src/constants/endgames.json'
-import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
+import {
+  buildEndgameDataset,
+  createEndgameOpenings,
+  EndgameDataset,
+  EndgamesJson,
+} from 'src/lib/endgames'
 import { MAIA_MODELS } from 'src/constants/common'
 import { cpToWinrate } from 'src/lib/analysis'
 import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
@@ -82,9 +86,24 @@ const OpeningsPage: NextPage = () => {
   const router = useRouter()
   const [showSelectionModal, setShowSelectionModal] = useState(true)
 
-  const endgameDataset = useMemo(() => buildEndgameDataset(endgamesRaw), [])
+  // The endgame positions (~480 KB of JSON, ~11,000 FENs) are only needed
+  // for the selection window's Endgames tab: they load in their own chunk
+  // when that tab is opened or pointed at, not with the page's JavaScript.
+  const [endgameDataset, setEndgameDataset] = useState<EndgameDataset>()
+  const endgamesRequested = useRef(false)
+  const loadEndgames = useCallback(() => {
+    if (endgamesRequested.current) return
+    endgamesRequested.current = true
+    import('src/constants/endgames.json')
+      .then(({ default: raw }) =>
+        setEndgameDataset(buildEndgameDataset(raw as EndgamesJson)),
+      )
+      .catch(() => {
+        endgamesRequested.current = false
+      })
+  }, [])
   const endgameOpenings = useMemo(
-    () => createEndgameOpenings(endgameDataset),
+    () => (endgameDataset ? createEndgameOpenings(endgameDataset) : undefined),
     [endgameDataset],
   )
   const linkedCustomDraft = useMemo(() => {
@@ -1164,6 +1183,7 @@ const OpeningsPage: NextPage = () => {
             openings={openings}
             endgames={endgameOpenings}
             endgameDataset={endgameDataset}
+            onLoadEndgames={loadEndgames}
             initialSelections={drillConfiguration?.selections || []}
             initialCustomDraft={linkedCustomDraft}
             onComplete={handleCompleteSelection}

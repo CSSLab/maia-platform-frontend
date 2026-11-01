@@ -347,6 +347,114 @@ network throttling turned Playwright's touch emulation off. The analysis
 page's layout depends on the width only, so the earlier phone results are
 unaffected; facd303's phone check needs touch.
 
+### Round 2: after #319, #320 and #321 were merged
+
+Measured against `main` at 325b85c, in local production builds behind
+`scripts/perf/stub-proxy.mjs`.
+
+**Returning visitors and files in `public/`.** Files there are not
+content-hashed, so they are served with `max-age=0` (Vercel adds
+`must-revalidate`). On every visit the browser asked the server before it
+used its cached copy, and Maia's start loads several of them one after
+another: the worker, ONNX Runtime's script, its module (once more per
+thread) and its WebAssembly; Stockfish loads its WebAssembly. c17afbd serves
+`/ort`, `/stockfish`, `/assets`, `maia-worker.js` and `analytics.js` with
+`stale-while-revalidate` (7 days): the cached copy is used at once and
+refreshed in the background, so a changed file is used from the following
+visit. Through a proxy adding 150 ms per request (Chrome's network
+throttling does not apply to workers), each of those files waited 155–490
+ms for the server before and 0–2 ms after. With the CPU at a quarter speed,
+the end-to-end difference (Maia's model ready at 6.9–7.5 s against 7.2–8.0
+s) was within the run-to-run spread.
+
+**/drills.** It loaded the most JavaScript of any page (First Load JS 602
+kB) because `src/constants/endgames.json` (~480 KB, ~11,000 FENs) was
+bundled in and normalised on every load, though only the selection window's
+Endgames tab uses it. 8a1c793 loads it as a chunk of its own when that tab
+is opened, pointed at, touched or focused (501 kB). On the emulated phone,
+5 runs each:
+
+| /drills, emulated phone                  | `main` | branch |
+| ---------------------------------------- | ------ | ------ |
+| First visit: JavaScript (KB)             | 728    | 641    |
+| First visit: total blocking time (s)     | 3.22   | 2.75   |
+| First visit: load (s)                    | 2.52   | 2.28   |
+| Returning visit: total blocking time (s) | 2.03   | 1.57   |
+
+Adding and starting an endgame drill gives the same position as on `main`.
+
+**Desktop analysis page while paging.** Profiles of 8 moves, 3 s apart,
+with source maps on both builds:
+
+- The game list stays mounted next to the board and re-renders with the
+  page on every engine update; each render of its selected tab's underline
+  (a framer-motion `layoutId`) made framer-motion measure the page.
+  0232ac5 memoises the tab: `measureScroll` 249–275 ms on `main`, none
+  after.
+- The Maia/Stockfish panel checked for checkmate (all legal moves) on every
+  render; 58b7747 does it once per position (34–42 ms under the panel on
+  `main`, none after).
+- The sidebar rendered both its xl and its smaller layout, one hidden with
+  CSS; 1c3af9a renders only the shown one once the width is known.
+
+Together, against `main` measured alongside (3 runs each): main-thread busy
+16% less, React 16% less, framer-motion about half.
+
+**Every page: the tour's watcher.** The tour provider kept a
+MutationObserver on the whole page that searched it for Maia's download
+window on every DOM change (on the analysis page, every engine update),
+though the result only matters while a tour runs. e6d0417 observes only then:
+on the home page (returning visit, first 8 s at full speed) `querySelector`
+took 36–39 ms on `main` and 0–8 ms after, main-thread busy 416–448 ms and
+340–362 ms.
+
+**Stockfish's cached nets on a phone, again.** Finding a cached net and
+reading it (75 MB) shared bef0994's 1.5 s timeout, which guards against
+IndexedDB never answering. On the emulated phone the read alone took 3–7 s
+while the page loaded, so every returning visit also started downloading
+both nets again (78 MB of data until the cached copy won) and the download
+took CPU from the read. 7126951 keeps the 1.5 s timeout for finding the net
+and gives a found net 20 s to be read. Returning visit, 4G and a
+quarter-speed CPU, 6 runs each:
+
+| Emulated phone, returning visit        | 81b5f57 | 7126951 |
+| -------------------------------------- | ------- | ------- |
+| Runs that started downloading the nets | 6 of 6  | 2 of 6  |
+| Reading the big net (s)                | 3.2–6.8 | 1.2–4.8 |
+| Stockfish's first depth (s, median)    | 13.7    | 11.9    |
+| Stockfish's depth 12 (s, median)       | 25.5    | 23.9    |
+
+In the 2 runs, finding the net itself took over 1.5 s.
+
+**Finding the cached nets, counted in timer ticks.** In the runs where the
+lookup still timed out, the page was busy with long tasks for nearly all of
+the 1.5 s, and the answer came 0.04–0.5 s after the timeout: it had been
+waiting behind that work. 31452ae counts the timeout in 100 ms timer ticks instead
+of clock time. A tick held up by a long task counts as one, so a busy page
+start no longer uses up the limit, and a cache that never answers is still
+given up after 15 ticks (about 1.5 s on an idle page; longer in a
+background tab, where timers fire once a second). Returning visit, 12 runs
+each:
+
+| Emulated phone, returning visit     | e33c4b3 | 31452ae |
+| ----------------------------------- | ------- | ------- |
+| Runs where the lookup timed out     | 5 of 12 | 0 of 12 |
+| Stockfish's first depth (s, median) | 13.1    | 12.5    |
+| Stockfish's depth 12 (s, median)    | 25.8    | 25.0    |
+| Stockfish's depth 18 (s, median)    | 41.3    | 41.1    |
+
+In the 5 runs the small net was fetched again in full and the big net's
+download ran 3–5 s before the cached copy won. On a desktop (6 runs each)
+the lookup never timed out either way; depth 12 came at 3.8 s in both and
+depth 18 at 6.7 and 6.3 s.
+
+Stockfish with the whole branch (`scripts/perf/chart-probe.mjs`, 2 runs per
+game, 8 steps each): on a desktop depth 12 came 0.35 s sooner after a step
+(± 0.09 s; sooner on 23 of 32 steps), and the depth reached before the next
+step went from 15.03 to 15.28 on average. On the emulated phone it was
+unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
+30 of 32 on `main`.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -395,6 +503,14 @@ unaffected; facd303's phone check needs touch.
 | 22d3054                   | Maia starts again in a new worker (after 1 s, then 3 s) when ONNX Runtime can't reserve its memory, as on an iPhone after a reload                                                                                                                                                                                            | Before, the page showed "Failed to load Maia model: … RangeError: Out of memory". With the first worker made to fail that way, Maia's moves showed at 4.7 s with no error                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | b7d57f7                   | Maia's worker caps ONNX Runtime's shared memory at 512 MB instead of 4 GB (Maia uses ~110 MB, ~190 MB for 21 ratings)                                                                                                                                                                                                         | After an iPhone reload Maia failed to start ("RangeError: Out of memory", also on maiachess.com); 22d3054's restart did not help there. With the cap, reloading worked on an iPhone                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 380bb2b                   | Phone layout: Maia's and Stockfish's move lists keep room for 4 rows and the position description for 4 lines, so paging no longer moves what is below them                                                                                                                                                                   | Emulated iPhone, scrolled down while paging (6 steps): layout shift 1.55 before (1.02 on `main`), 0.05 after                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| c17afbd                   | `/ort`, `/stockfish`, `/assets`, `maia-worker.js` and `analytics.js` are served with `stale-while-revalidate` (7 days)                                                                                                                                                                                                        | A returning visitor no longer waits 155-490 ms per file (one after another as Maia and Stockfish start) for the server; a changed file is used from the following visit                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 8a1c793                   | /drills loads the endgame positions (~480 KB) when the Endgames tab is used, not with the page                                                                                                                                                                                                                                | First Load JS 602 -> 501 kB; phone first visit 728 -> 641 KB, blocking time 3.22 -> 2.75 s; returning visit 2.03 -> 1.57 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 0232ac5                   | The analysis game list's tabs are memoised                                                                                                                                                                                                                                                                                    | framer-motion no longer measures the page on every engine update (measureScroll 249-275 ms per 8 desktop moves, now none)                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 58b7747                   | The Maia/Stockfish panel checks for checkmate once per position                                                                                                                                                                                                                                                               | 34-42 ms of chess.ts per 8 desktop moves, now none                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 1c3af9a                   | The analysis sidebar renders only its shown layout (xl or smaller)                                                                                                                                                                                                                                                            | With 0232ac5 and 58b7747: main-thread busy while paging on a desktop 16% less; depth 12 0.35 s sooner                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| e6d0417                   | The tour provider watches the page for the download window only while a tour runs                                                                                                                                                                                                                                             | It searched the whole page on every DOM change on every page; home page querySelector 36-39 ms -> 0-8 ms in the first 8 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 7126951                   | Stockfish waits up to 20 s for a cached net it has found, instead of 1.5 s, before downloading it too                                                                                                                                                                                                                         | Phone, returning visit: nets downloaded again in 2 of 6 visits instead of 6 of 6; first depth 13.7 -> 11.9 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 31452ae                   | Stockfish's cache lookup timeout counts 100 ms timer ticks, so time the page is too busy to take the answer does not count                                                                                                                                                                                                    | Phone, returning visit: the lookup timed out (and the download started) in 0 of 12 visits instead of 5 of 12; Stockfish's timings unchanged                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Things you will notice
 
@@ -459,6 +575,30 @@ unaffected; facd303's phone check needs touch.
   within 0.57 percentage points). An 8-bit copy took 271 ms at 25 MB, but
   moved probabilities by up to 15.6 points and changed the top move in 116
   of 3,297 cases.
+- **Stockfish on pages that do not need it yet.** /puzzles, /drills and
+  /broadcast start Stockfish when they open, so a first visit downloads its
+  ~77 MB of nets (on a phone, over mobile data) even on the drill selection
+  screen or the broadcast list. /puzzles analyses the position in the
+  background so the result shows as soon as the puzzle is solved, and drills
+  give Stockfish only 5 s to be ready before skipping a position, so
+  starting later would slow those down; left for a decision (for example,
+  start on /drills when a drill begins and on /broadcast only in a round).
+- **Memoising /drills' category tabs** (the same fix as 0232ac5): no
+  measurable change; the page's framer-motion measuring comes from elsewhere.
+- **Maia's model download.** 44 MB from Vercel on a first visit; it
+  compresses only ~9% (Vercel already serves it with Brotli, 41.7 MB). It
+  could be served from a CDN like Stockfish's nets (#321) to save Vercel
+  bandwidth.
+- **Google Analytics' script** costs 35–65 ms of main thread on every page
+  (four times that on a slow phone); loading it later would miss short
+  visits.
+- **Re-rendering less often for Stockfish's updates on phones** (300 ms
+  between renders instead of 150): no change in Stockfish's depth 12 after a
+  step on the emulated phone (6 ± 267 ms later over 48 steps).
+- **A 3 s timeout for finding Stockfish's cached nets** (after 7126951): the
+  nets were downloaded again in 1 of 6 returning visits on the emulated phone
+  instead of 2 of 6, and Stockfish's timings were within noise. 31452ae
+  counts the timeout in timer ticks instead.
 
 ## Rebasing `human-bar`
 

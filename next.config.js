@@ -38,6 +38,31 @@ module.exports = withTM({
   async headers() {
     return [
       {
+        // Files in public/ that are not content-hashed: ONNX Runtime and
+        // Stockfish (loaded one after another when the engines start), the
+        // Maia worker, the analytics script and icons. Served with max-age=0
+        // and must-revalidate, every visit waited for a request to the server
+        // for each before using its cached copy. A returning visitor now uses
+        // the cached copy at once and the browser refreshes it in the
+        // background, so a changed file is used from the following visit.
+        source: '/:dir(ort|stockfish|assets)/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
+        source: '/:file(maia-worker.js|analytics.js)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           {
