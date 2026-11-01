@@ -491,7 +491,7 @@ interface Props {
 const formatAnalysisPlayerName = (name: string) => {
   const maiaMatch = name.match(/^maia_kdd_(\d+)$/i)
   if (maiaMatch) {
-    return `Maia ${maiaMatch[1]}`
+    return `Maia-3 ${maiaMatch[1]}`
   }
   return name
 }

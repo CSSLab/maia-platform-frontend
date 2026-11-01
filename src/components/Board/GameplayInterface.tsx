@@ -122,7 +122,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
     return result
   }, [availableMoves])
 
-  const maiaTitle = maiaVersion.replace('maia_kdd_', 'Maia ')
+  const maiaTitle = maiaVersion.replace('maia_kdd_', 'Maia-3 ')
   const blackPlayer = player == 'black' ? user?.displayName : maiaTitle
   const whitePlayer = player == 'white' ? user?.displayName : maiaTitle
 

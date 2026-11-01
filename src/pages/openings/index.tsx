@@ -169,7 +169,7 @@ const OpeningsPage: NextPage = () => {
 
     const maiaName = controller.currentDrill.maiaVersion.replace(
       'maia_kdd_',
-      'Maia ',
+      'Maia-3 ',
     )
     const maiaRating = parseInt(
       controller.currentDrill.maiaVersion.replace('maia_kdd_', ''),
@@ -1123,7 +1123,7 @@ const OpeningsPage: NextPage = () => {
             : ''}
         </p>
         <p className="mt-1 text-xs text-white/70">
-          Drill {controller.currentDrillNumber || 1} · vs Maia{' '}
+          Drill {controller.currentDrillNumber || 1} · vs Maia-3{' '}
           {controller.currentDrill.maiaVersion.replace('maia_kdd_', '')}
         </p>
         <p className="mt-3 text-center text-sm font-semibold uppercase tracking-wider text-white">
@@ -1642,7 +1642,7 @@ const OpeningsPage: NextPage = () => {
               )}
               <span className="text-secondary">•</span>
               <span className="text-secondary">
-                vs Maia{' '}
+                vs Maia-3{' '}
                 {controller.currentDrill.maiaVersion.replace('maia_kdd_', '')}
               </span>
               <span className="text-secondary">•</span>

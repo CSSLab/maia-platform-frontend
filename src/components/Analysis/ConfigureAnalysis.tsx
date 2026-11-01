@@ -51,7 +51,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
           >
             {MAIA_MODELS.map((model) => (
               <option value={model} key={model}>
-                {model.replace('maia_kdd_', 'Maia ')}
+                {model.replace('maia_kdd_', 'Maia-3 ')}
               </option>
             ))}
           </select>

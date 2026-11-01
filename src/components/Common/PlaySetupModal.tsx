@@ -352,15 +352,15 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                       >
                         {maiaOptions.map((maia) => (
                           <option key={`partner_${maia}`} value={maia}>
-                            {maia.replace('maia_kdd_', 'Maia ')}
+                            {maia.replace('maia_kdd_', 'Maia-3 ')}
                           </option>
                         ))}
                       </select>
                     </div>
                     <p className="mt-0.5 text-xxs leading-tight text-secondary">
                       {isBrain
-                        ? `${maiaPartnerVersion.replace('maia_kdd_', 'Maia ')} is your Hand and will make the move on the board.`
-                        : `${maiaPartnerVersion.replace('maia_kdd_', 'Maia ')} is your Brain and will choose which piece type must be moved.`}
+                        ? `${maiaPartnerVersion.replace('maia_kdd_', 'Maia-3 ')} is your Hand and will make the move on the board.`
+                        : `${maiaPartnerVersion.replace('maia_kdd_', 'Maia-3 ')} is your Brain and will choose which piece type must be moved.`}
                     </p>
                   </div>
                 </>
@@ -382,7 +382,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   >
                     {maiaOptions.map((maia) => (
                       <option key={`opponent_${maia}`} value={maia}>
-                        {maia.replace('maia_kdd_', 'Maia ')}
+                        {maia.replace('maia_kdd_', 'Maia-3 ')}
                       </option>
                     ))}
                   </select>

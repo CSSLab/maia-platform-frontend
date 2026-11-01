@@ -272,11 +272,11 @@ export const fetchAnalyzedMaiaGame = async (
   const maiaPattern = /maia_kdd_\d{3,4}/
 
   if (blackPlayer.name && maiaPattern.test(blackPlayer.name)) {
-    blackPlayer.name = blackPlayer.name.replace('maia_kdd_', 'Maia ')
+    blackPlayer.name = blackPlayer.name.replace('maia_kdd_', 'Maia-3 ')
   }
 
   if (whitePlayer.name && maiaPattern.test(whitePlayer.name)) {
-    whitePlayer.name = whitePlayer.name.replace('maia_kdd_', 'Maia ')
+    whitePlayer.name = whitePlayer.name.replace('maia_kdd_', 'Maia-3 ')
   }
 
   const maiaEvals: { [model: string]: MoveValueMapping[] } = {}

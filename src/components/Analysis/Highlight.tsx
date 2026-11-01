@@ -378,7 +378,7 @@ export const Highlight: React.FC<Props> = ({
 
   const useCompactMobileColumnTitles = isMobile || simplified
   const maiaRating = currentMaiaModel.replace('maia_kdd_', '')
-  const mobileMaiaColumnTitle = `Maia ${maiaRating}: Human Moves`
+  const mobileMaiaColumnTitle = `Maia-3 ${maiaRating}: Human Moves`
   const mobileStockfishColumnTitle = 'SF 17: Engine Moves'
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
@@ -437,7 +437,7 @@ export const Highlight: React.FC<Props> = ({
               >
                 {useCompactMobileColumnTitles
                   ? mobileMaiaColumnTitle
-                  : `Maia ${maiaRating}`}
+                  : `Maia-3 ${maiaRating}`}
               </div>
             ) : (
               <>
@@ -458,7 +458,7 @@ export const Highlight: React.FC<Props> = ({
                           key={model}
                           className="bg-transparent text-human-1"
                         >
-                          {`Maia ${model.replace('maia_kdd_', '')}`}
+                          {`Maia-3 ${model.replace('maia_kdd_', '')}`}
                         </option>
                       ))}
                     </select>
@@ -480,7 +480,7 @@ export const Highlight: React.FC<Props> = ({
                         key={model}
                         className="bg-transparent text-human-1"
                       >
-                        {`Maia ${model.replace('maia_kdd_', '')}`}
+                        {`Maia-3 ${model.replace('maia_kdd_', '')}`}
                       </option>
                     ))}
                   </select>

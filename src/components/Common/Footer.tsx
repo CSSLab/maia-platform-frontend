@@ -61,15 +61,15 @@ export const Footer: React.FC = () => {
       links: [
         {
           href: 'https://lichess.org/@/maia1',
-          text: 'Maia 1100',
+          text: 'Maia-1 1100',
         },
         {
           href: 'https://lichess.org/@/maia5',
-          text: 'Maia 1500',
+          text: 'Maia-1 1500',
         },
         {
           href: 'https://lichess.org/@/maia9',
-          text: 'Maia 1900',
+          text: 'Maia-1 1900',
         },
       ],
     },
