@@ -1,4 +1,5 @@
 import Head from 'next/head'
+import type { GetStaticProps } from 'next'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -14,6 +15,7 @@ import {
   CANDIDATES_WARMUP_POSITIONS,
   CandidatePosition,
 } from 'src/constants/candidates'
+import { getBigLiveBroadcasts } from 'src/api/broadcasts'
 import {
   buildPositionPlayLink,
   inferPlayerColorFromFen,
@@ -21,9 +23,35 @@ import {
 import { GameTree } from 'src/types'
 
 const CANDIDATES_COMPLETED_STORAGE_KEY = 'maia-candidates-completed'
-const CANDIDATES_BROADCAST_HREF = '/broadcast/BLA70Vds/uLCZwqAK'
-const WOMENS_CANDIDATES_BROADCAST_HREF =
-  'https://www.maiachess.com/broadcast/xj4qM8Nw/EMkf0c6e'
+
+interface LiveTournament {
+  name: string
+  href: string
+}
+
+interface Props {
+  liveTournaments: LiveTournament[]
+}
+
+// The Candidates are over, so the page links to whatever big tournament is
+// on now, checked again every few minutes.
+export const getStaticProps: GetStaticProps<Props> = async () => {
+  let liveTournaments: LiveTournament[] = []
+  try {
+    liveTournaments = (await getBigLiveBroadcasts())
+      .slice(0, 2)
+      .map(({ tour, round }) => ({
+        name: tour.name,
+        href: `/broadcast/${tour.id}/${round.id}`,
+      }))
+  } catch {
+    // Lichess is unreachable: the page links to the broadcast list.
+  }
+  return { props: { liveTournaments }, revalidate: 300 }
+}
+
+const liveLinkClassName =
+  'inline-flex items-center gap-2 rounded-full border border-rose-300/25 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:border-rose-200/40 hover:bg-rose-500/15'
 
 const readCompletedChallenges = (): string[] => {
   if (typeof window === 'undefined') return []
@@ -204,7 +232,7 @@ const PositionPill: React.FC<{
   )
 }
 
-export default function CandidatesPage() {
+export default function CandidatesPage({ liveTournaments }: Props) {
   const router = useRouter()
   const [completedChallengeIds, setCompletedChallengeIds] = useState<string[]>(
     [],
@@ -281,28 +309,28 @@ export default function CandidatesPage() {
             <h1 className="text-3xl font-semibold tracking-tight text-primary md:text-4xl">
               FIDE Candidates Tournament 2026
             </h1>
-            <p className="mt-2 text-sm uppercase tracking-[0.2em] text-white/45">
-              Round 10
-            </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                href={CANDIDATES_BROADCAST_HREF}
-                className="inline-flex items-center gap-2 rounded-full border border-rose-300/25 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:border-rose-200/40 hover:bg-rose-500/15"
-              >
-                <span className="material-symbols-outlined !text-[18px]">
-                  live_tv
-                </span>
-                Watch Candidates Broadcast
-              </Link>
-              <a
-                href={WOMENS_CANDIDATES_BROADCAST_HREF}
-                className="inline-flex items-center gap-2 rounded-full border border-rose-300/25 bg-rose-500/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:border-rose-200/40 hover:bg-rose-500/15"
-              >
-                <span className="material-symbols-outlined !text-[18px]">
-                  live_tv
-                </span>
-                Watch Women&apos;s Candidates Broadcast
-              </a>
+              {liveTournaments.length > 0 ? (
+                liveTournaments.map((tournament) => (
+                  <Link
+                    key={tournament.href}
+                    href={tournament.href}
+                    className={liveLinkClassName}
+                  >
+                    <span className="material-symbols-outlined !text-[18px]">
+                      live_tv
+                    </span>
+                    Live now: {tournament.name}
+                  </Link>
+                ))
+              ) : (
+                <Link href="/broadcast" className={liveLinkClassName}>
+                  <span className="material-symbols-outlined !text-[18px]">
+                    live_tv
+                  </span>
+                  Watch live broadcasts
+                </Link>
+              )}
             </div>
           </header>
           {CANDIDATES_FEATURED_POSITIONS.length > 0 ? (

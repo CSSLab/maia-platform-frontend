@@ -116,6 +116,16 @@ export const getLichessTopBroadcasts =
     return response.json()
   }
 
+// Lichess gives its top tier to the biggest events, like the Candidates and
+// the World Championship.
+const BIG_TOURNAMENT_TIER = 5
+
+// The big tournaments on now, in Lichess's order.
+export const getBigLiveBroadcasts = async (): Promise<TopBroadcastItem[]> => {
+  const { active } = await getLichessTopBroadcasts()
+  return active.filter((item) => item.tour.tier >= BIG_TOURNAMENT_TIER)
+}
+
 export const convertTopBroadcastToBroadcast = (
   item: TopBroadcastItem,
 ): Broadcast => {

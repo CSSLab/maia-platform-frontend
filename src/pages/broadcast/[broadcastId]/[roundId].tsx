@@ -50,8 +50,8 @@ const BroadcastAnalysisPage: NextPage = () => {
 
         // Select the broadcast and the round, fetched by the broadcast's id:
         // the broadcast list holds only live, upcoming and recent
-        // broadcasts, so an older one (e.g. a link from /candidates) is not
-        // in it.
+        // broadcasts, so an older one (e.g. from a shared link) is not in
+        // it.
         const broadcast = await broadcastController.selectBroadcast(
           broadcastId,
           roundId,
