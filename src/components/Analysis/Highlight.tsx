@@ -2,7 +2,7 @@ import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
 import { MoveTooltip } from './MoveTooltip'
 import { InteractiveDescription } from './InteractiveDescription'
-import { useState, useEffect, useRef, useContext } from 'react'
+import { useState, useEffect, useRef, useContext, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MaiaEvaluation,
@@ -62,17 +62,18 @@ export const Highlight: React.FC<Props> = ({
 }: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
 
-  // Check if current position is checkmate (independent of Stockfish analysis)
-  const isCurrentPositionCheckmate = currentNode
-    ? (() => {
-        try {
-          const chess = new Chess(currentNode.fen)
-          return chess.inCheckmate()
-        } catch {
-          return false
-        }
-      })()
-    : false
+  // Check if current position is checkmate (independent of Stockfish
+  // analysis). Once per position: it generates every legal move, and this
+  // panel re-renders on every engine update.
+  const fen = currentNode?.fen
+  const isCurrentPositionCheckmate = useMemo(() => {
+    if (!fen) return false
+    try {
+      return new Chess(fen).inCheckmate()
+    } catch {
+      return false
+    }
+  }, [fen])
 
   const currentTurn: 'w' | 'b' =
     currentNode?.turn || (recommendations.isBlackTurn ? 'b' : 'w')
