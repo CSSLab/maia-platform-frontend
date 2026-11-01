@@ -589,6 +589,107 @@ the next step went from 13.75 to 13.98. Without 8157834 (the AudioContext
 running after the first tap; 2 runs per game) the phone gave 0.36 ± 0.42 s
 later, within noise.
 
+### Round 4: after #324 was merged
+
+Measured against `main` at ef23af3, in local production builds behind
+`scripts/perf/stub-proxy.mjs`. Phone numbers are the emulated phone of
+"On a phone" (412 px, 4G, every thread at a quarter speed), medians of 5
+loads unless noted; "main-thread work" is Chrome's task time over the
+load and the next 6 s. Lighthouse (phone settings) scored maiachess.com
+41–70 before this round: /puzzles and /broadcast showed their main content
+after ~24 s, and every page blocked the main thread for 0.9–3.5 s.
+
+**Engines only where they're needed (0ccb31b).** The /broadcast list
+started Stockfish and Maia because `_app.tsx` matched any path containing
+`/broadcast`, so a first visit downloaded Stockfish's 76 MB of nets to show
+a list; it now starts no engine, and a round starts them when it opens. On
+/drills and /puzzles, which need Stockfish only after a while, it now
+starts once the page has loaded and the browser is idle
+(`StockfishEngineContextProvider`'s `deferStart`). Phone, 15 s per load, 3
+loads each:
+
+| page, visit           | main-thread work | blocking time | main content | Stockfish starts |
+| --------------------- | ---------------- | ------------- | ------------ | ---------------- |
+| /broadcast, first     | 9.2 → 4.3 s      | 3.1 → 2.3 s   | 5.6 → 4.4 s  | 2.7 s → never    |
+| /broadcast, returning | 5.1 → 3.7 s      | 1.3 → 1.8 s   | 3.9 → 3.7 s  | 1.1 s → never    |
+| /drills, first        | 9.0 → 7.6 s      | 2.9 → 3.4 s   | —            | 3.4 → 5.6 s      |
+| /drills, returning    | 5.0 → 3.9 s      | 2.0 → 1.1 s   | —            | 0.9 → 2.5 s      |
+| /puzzles, first       | 9.5 → 9.5 s      | 3.7 → 3.6 s   | —            | 3.0 → 6.3 s      |
+| /puzzles, returning   | 6.0 → 5.7 s      | 1.8 → 1.6 s   | —            | 1.0 → 1.8 s      |
+
+Lighthouse on maiachess.com with Stockfish's nets blocked: /broadcast's main
+content at 8.6 s instead of 24 s, and blocking time 1.0 s instead of
+1.8–2.3 s. On a desktop, puzzles still show Stockfish's evaluation as soon
+as a puzzle is given up, and a drill started right away has Stockfish ready
+long before its first move.
+
+**Engine code only on engine pages (930e78d).** `_app.tsx` imported the
+Stockfish, Maia and analysis-list providers, so every page downloaded and
+ran both engines' code and Maia's move tables (111 KB, parsed on every
+load). Engine pages now list the providers they need
+(`src/contexts/pageProviders.ts`) and `_app` adds them. First Load JS
+(gzip): shared by all pages 308 → 235 kB (`_app` 141 → 67 kB); home 295 →
+235, /leaderboard 296 → 223, /blog 284 → 210, /turing 324 → 262, /play/maia
+330 → 269 kB; engine pages unchanged. Phone: home, first visit,
+main-thread work 11.0 → 7.9 s and JavaScript 636 → 474 KB; /turing,
+returning, 2.8 → 2.2 s; /play, returning, 1.9 → 1.5 s; /blog within noise.
+Going from the home page to analysis inside the app, Stockfish's first
+number shows at the same time (0.76–1.0 s on both, desktop).
+
+**Headings at once (d368f65, d2849bc).** The leaderboard and the broadcast
+list rendered nothing, on the server too, until their data arrived (the
+broadcast list also waited in `AuthenticatedWrapper` for the visitor's
+session, though it asks only Lichess), then faded in from transparent. The
+leaderboard now renders its heading, columns and note at once, with
+placeholder rows until the rankings arrive (layout shift 0.0001); the
+broadcast list renders its heading and a short note while Lichess answers.
+Phone, main content: /leaderboard 3.2 → 0.9 s (first visit) and 1.8 → 0.8
+s (returning), /broadcast 4.8 → 0.7 s (first visit). A first version
+pulsed its 100 placeholder bars, which cost ~0.5 s of main-thread work on
+the phone; they are static, and the leaderboard's main-thread work is now
+the same as `main` (3.52 vs 3.53 s).
+
+**The home page's counters (a0b4279).** The three stats counters sprang
+from 0 to tens of millions, which took ~3 s to settle, re-laying out the
+hero on every frame (their `duration` was ignored by the spring); they now
+count up in 1.5 s. Desktop, home, main-thread work over the load and 6 s:
+2.65 → 2.04 s (every run lower). On the emulated phone no change: there
+the main thread is saturated for ~10 s anyway and draws fewer frames.
+
+**Not done: the app pages.** /puzzles, /drills, Bot or Not and analysis
+also send only the header and footer: they wait for the visitor's session
+(`AuthenticatedWrapper`) and for their data, and choose between the phone
+and desktop layout in JavaScript after loading (`isMobile`, from the window
+width), so a server-rendered shell would show the desktop layout on a phone
+and then jump. Rendering their shell first needs that switch moved to CSS.
+
+**Stockfish** with the whole branch (`scripts/perf/chart-probe.mjs`, 8
+steps per run, the analysis page): on a desktop (2 runs per game) depth 12
+came 0.04 s sooner after a step (± 0.05 s; sooner on 16 of 32 steps), and
+the depth reached before the next step went from 16.66 to 16.88. On the
+emulated phone (3 runs per game) depth 12 came 0.06 s sooner (± 0.22 s;
+sooner on 27 of 47 steps), it was reached on 47 of 48 steps against 48, and
+the depth before the next step went from 14.62 to 14.54.
+
+**Lighthouse** (phone settings, local builds, medians of 3 runs; scores
+vary by up to ~20 points between runs on client-rendered pages):
+
+| page         | score   | main content  | blocking time |
+| ------------ | ------- | ------------- | ------------- |
+| home         | 58 → 67 | 3.9 → 2.8 s   | 2.33 → 2.32 s |
+| /broadcast   | 43 → 71 | 23.9 → 3.1 s  | 2.13 → 1.02 s |
+| /leaderboard | 52 → 73 | 6.0 → 2.8 s   | 1.13 → 0.99 s |
+| /turing      | 51 → 64 | 5.9 → 3.5 s   | 1.10 → 0.94 s |
+| /play        | 72 → 76 | 2.8 → 2.7 s   | 0.77 → 0.68 s |
+| /blog        | 73 → 72 | 2.7 → 3.2 s   | 0.92 → 0.77 s |
+| /drills      | 45 → 46 | 7.6 → 6.8 s   | 2.04 → 2.27 s |
+| /puzzles     | 41 → 40 | 24.1 → 24.0 s | 2.47 → 2.87 s |
+
+/puzzles keeps Lighthouse's 24 s: the puzzle shows after Stockfish's
+download has started, so Lighthouse's simulated slow connection counts the
+76 MB against it. On the emulated phone the puzzle shows at the same time
+as on `main`.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -668,6 +769,11 @@ later, within noise.
 | be4b6ea                   | Rating models named Maia-3 1100 (Maia-1 1100 for the Lichess bots)                                                                                                                                                                                                                                                            | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | 31abb1d                   | Stored games name the model that played them, by the game's date                                                                                                                                                                                                                                                              | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | bb90e63                   | Saved game names name the model that played                                                                                                                                                                                                                                                                                   | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 0ccb31b                   | The /broadcast list starts no engine; /drills and /puzzles start Stockfish once the page has loaded                                                                                                                                                                                                                           | See "Round 4". /broadcast, phone, first visit: no 76 MB download, main-thread work 9.2 → 4.3 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 930e78d                   | Engine pages bring their own providers, so the engines' code and Maia's move tables load only with them                                                                                                                                                                                                                       | First Load JS shared by all pages 308 → 235 kB; home, phone, first visit: main-thread work 11.0 → 7.9 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| d368f65                   | The leaderboard and the broadcast list render their headings at once (the leaderboard with placeholder rows)                                                                                                                                                                                                                  | Phone, main content: /leaderboard 3.2 → 0.9 s, /broadcast 4.8 → 0.7 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| d2849bc                   | The broadcast list doesn't wait for the visitor's session (it asks only Lichess)                                                                                                                                                                                                                                              | Its heading is in the server HTML                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| a0b4279                   | The home page's stats counters count up in 1.5 s instead of springing for ~3 s                                                                                                                                                                                                                                                | Desktop, home: main-thread work 2.65 → 2.04 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Things you will notice
 
@@ -692,6 +798,15 @@ later, within noise.
   broadcast list, instead of the 2026 Candidates.
 - **A failed request shows "Something went wrong"** with Try again
   (43dba6e), not the beta sign-up page.
+
+- **Opening a broadcast round starts the engines** (0ccb31b): the list no
+  longer warms them up, so on a first visit Stockfish's nets download when
+  the round opens.
+- **On /drills and /puzzles, Stockfish starts once the page has loaded**,
+  0.8–1.6 s later on a returning phone visit, 2–3 s on a first one.
+- **The leaderboard shows its columns with grey placeholder rows** until the
+  rankings arrive, and no longer fades in.
+- **The home page's counters** count up in 1.5 s.
 
 ## Looked at, not changed
 
@@ -781,6 +896,19 @@ later, within noise.
 - **The duplicate `analysis-game-list` id** on desktop analysis (the game
   info panel and the game list): the tour's "Game Selection" step targets
   it, so changing it changes what the tour highlights.
+
+- **Next.js prefetching linked pages** (round 4): on the home page Next.js
+  downloads, and when the browser is idle runs, the code of the pages its
+  links point to (analysis, puzzles, drills, Bot or Not), engine code
+  included. Turning it off (emulated phone) saved 168 KB of JavaScript but
+  no main-thread time in the first 12 s, and would make those pages open
+  more slowly.
+- **The home page on a slow phone** (round 4) keeps the main thread busy for
+  ~10 s at a quarter speed: hydrating the page, the carousel's 36 boards
+  (~1,300 piece images painted), the sections, Google Analytics. Earlier
+  rounds already cut most of what is cheap to cut; more would mean design
+  changes (fewer boards, or each board drawn as one image).
+- **Shells for the app pages** (round 4): see "Not done: the app pages".
 
 ## Rebasing `human-bar`
 
