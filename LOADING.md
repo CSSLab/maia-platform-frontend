@@ -426,6 +426,28 @@ quarter-speed CPU, 6 runs each:
 
 In the 2 runs, finding the net itself took over 1.5 s.
 
+**Finding the cached nets, counted in timer ticks.** In the runs where the
+lookup still timed out, the page was busy with long tasks for nearly all of
+the 1.5 s, and the answer came 0.04–0.5 s after the timeout: it had been
+waiting behind that work. 31452ae counts the timeout in 100 ms timer ticks instead
+of clock time. A tick held up by a long task counts as one, so a busy page
+start no longer uses up the limit, and a cache that never answers is still
+given up after 15 ticks (about 1.5 s on an idle page; longer in a
+background tab, where timers fire once a second). Returning visit, 12 runs
+each:
+
+| Emulated phone, returning visit     | e33c4b3 | 31452ae |
+| ----------------------------------- | ------- | ------- |
+| Runs where the lookup timed out     | 5 of 12 | 0 of 12 |
+| Stockfish's first depth (s, median) | 13.1    | 12.5    |
+| Stockfish's depth 12 (s, median)    | 25.8    | 25.0    |
+| Stockfish's depth 18 (s, median)    | 41.3    | 41.1    |
+
+In the 5 runs the small net was fetched again in full and the big net's
+download ran 3–5 s before the cached copy won. On a desktop (6 runs each)
+the lookup never timed out either way; depth 12 came at 3.8 s in both and
+depth 18 at 6.7 and 6.3 s.
+
 Stockfish with the whole branch (`scripts/perf/chart-probe.mjs`, 2 runs per
 game, 8 steps each): on a desktop depth 12 came 0.35 s sooner after a step
 (± 0.09 s; sooner on 23 of 32 steps), and the depth reached before the next
@@ -488,6 +510,7 @@ unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
 | 1c3af9a                   | The analysis sidebar renders only its shown layout (xl or smaller)                                                                                                                                                                                                                                                            | With 0232ac5 and 58b7747: main-thread busy while paging on a desktop 16% less; depth 12 0.35 s sooner                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | e6d0417                   | The tour provider watches the page for the download window only while a tour runs                                                                                                                                                                                                                                             | It searched the whole page on every DOM change on every page; home page querySelector 36-39 ms -> 0-8 ms in the first 8 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 7126951                   | Stockfish waits up to 20 s for a cached net it has found, instead of 1.5 s, before downloading it too                                                                                                                                                                                                                         | Phone, returning visit: nets downloaded again in 2 of 6 visits instead of 6 of 6; first depth 13.7 -> 11.9 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 31452ae                   | Stockfish's cache lookup timeout counts 100 ms timer ticks, so time the page is too busy to take the answer does not count                                                                                                                                                                                                    | Phone, returning visit: the lookup timed out (and the download started) in 0 of 12 visits instead of 5 of 12; Stockfish's timings unchanged                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Things you will notice
 
@@ -574,7 +597,8 @@ unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
   step on the emulated phone (6 ± 267 ms later over 48 steps).
 - **A 3 s timeout for finding Stockfish's cached nets** (after 7126951): the
   nets were downloaded again in 1 of 6 returning visits on the emulated phone
-  instead of 2 of 6, and Stockfish's timings were within noise.
+  instead of 2 of 6, and Stockfish's timings were within noise. 31452ae
+  counts the timeout in timer ticks instead.
 
 ## Rebasing `human-bar`
 
