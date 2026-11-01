@@ -68,6 +68,18 @@ export const trackStockfishEngineReady = (
   })
 }
 
+export const trackStockfishEngineFailed = (
+  error: string,
+  loadTimeSeconds: number,
+  page: string,
+) => {
+  safeTrack('stockfish_engine_failed', {
+    error: error.slice(0, 500),
+    load_time_seconds: loadTimeSeconds,
+    page,
+  })
+}
+
 export const trackMaiaEngineLoading = (page: string) => {
   safeTrack('maia_engine_loading', { page })
 }

@@ -1,5 +1,10 @@
 import { Chess } from 'chess.ts'
-import Engine, { loadNnueModel } from './stockfish'
+import Engine, {
+  legacyNetCacheKey,
+  loadNnueModel,
+  sharedWasmMemory,
+  STOCKFISH_MAX_MEMORY_PAGES,
+} from './stockfish'
 import { StockfishModelStorage } from './stockfishStorage'
 
 /**
@@ -261,44 +266,37 @@ describe('Stockfish Engine run hand-over', () => {
 })
 
 describe('loadNnueModel', () => {
-  const URL = 'https://example.com/nn-test.nnue'
+  const FILE = 'nn-test.nnue'
   const cachedNet = new ArrayBuffer(8)
   const downloadedNet = new ArrayBuffer(16)
   let signal: AbortSignal | undefined
 
   const later = <T>(ms: number, value: T) =>
     new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
-  const storage = (getModel: () => Promise<ArrayBuffer | null>) => {
+  const storage = (getModel: (key: string) => Promise<ArrayBuffer | null>) => {
     const storeModel = jest.fn(async () => undefined)
     return {
       storage: { getModel, storeModel } as unknown as StockfishModelStorage,
       storeModel,
     }
   }
-  // A download whose body arrives after `ms`, or fails if aborted first.
-  const mockDownload = (ms: number, fail = false) => {
-    const fetchMock = jest.fn((_url: string, init?: RequestInit) => {
-      signal = init?.signal ?? undefined
-      return new Promise<Response>((resolve, reject) => {
-        signal?.addEventListener('abort', () =>
+  // A download that finishes after `ms`, or fails if aborted first.
+  const mockDownload = (ms: number, fail = false) =>
+    jest.fn((s?: AbortSignal) => {
+      signal = s
+      return new Promise<ArrayBuffer>((resolve, reject) => {
+        s?.addEventListener('abort', () =>
           reject(new DOMException('aborted', 'AbortError')),
         )
         setTimeout(
           () =>
             fail
               ? reject(new TypeError('network error'))
-              : resolve({
-                  ok: true,
-                  status: 200,
-                  arrayBuffer: async () => downloadedNet,
-                } as Response),
+              : resolve(downloadedNet),
           ms,
         )
       })
     })
-    global.fetch = fetchMock as unknown as typeof fetch
-    return fetchMock
-  }
 
   beforeEach(() => {
     jest.useFakeTimers()
@@ -311,11 +309,11 @@ describe('loadNnueModel', () => {
   })
 
   it('keeps a cached net that is read after the lookup timeout, and stops the download', async () => {
-    const fetchMock = mockDownload(60000)
+    const download = mockDownload(60000)
     const { storage: s, storeModel } = storage(() => later(4000, cachedNet))
-    const net = loadNnueModel(URL, s, 30000)
+    const net = loadNnueModel(FILE, s, download)
     await jest.advanceTimersByTimeAsync(1600)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(download).toHaveBeenCalledTimes(1)
     await jest.advanceTimersByTimeAsync(2500)
     await expect(net).resolves.toBe(cachedNet)
     expect(signal?.aborted).toBe(true)
@@ -323,29 +321,76 @@ describe('loadNnueModel', () => {
   })
 
   it('downloads the net when the cache never answers', async () => {
-    mockDownload(500)
+    const download = mockDownload(500)
     const { storage: s, storeModel } = storage(() => new Promise(() => null))
-    const net = loadNnueModel(URL, s, 30000)
+    const net = loadNnueModel(FILE, s, download)
     await jest.advanceTimersByTimeAsync(2100)
     await expect(net).resolves.toBe(downloadedNet)
-    expect(storeModel).toHaveBeenCalledWith(URL, downloadedNet)
+    expect(storeModel).toHaveBeenCalledWith(FILE, downloadedNet)
   })
 
   it('downloads at once when the net is not cached', async () => {
-    const fetchMock = mockDownload(500)
+    const download = mockDownload(500)
     const { storage: s } = storage(() => later(10, null))
-    const net = loadNnueModel(URL, s, 30000)
-    await jest.advanceTimersByTimeAsync(20)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const net = loadNnueModel(FILE, s, download)
+    await jest.advanceTimersByTimeAsync(25)
+    expect(download).toHaveBeenCalledTimes(1)
     await jest.advanceTimersByTimeAsync(500)
     await expect(net).resolves.toBe(downloadedNet)
   })
 
   it('uses the cached net when the download fails while the cache is slow', async () => {
-    mockDownload(100, true)
     const { storage: s } = storage(() => later(3000, cachedNet))
-    const net = loadNnueModel(URL, s, 30000)
+    const net = loadNnueModel(FILE, s, mockDownload(100, true))
     await jest.advanceTimersByTimeAsync(3100)
     await expect(net).resolves.toBe(cachedNet)
+  })
+
+  it('uses a net cached under its old raw.githubusercontent.com URL', async () => {
+    const download = mockDownload(500)
+    const { storage: s } = storage((key) =>
+      later(10, key === legacyNetCacheKey(FILE) ? cachedNet : null),
+    )
+    const net = loadNnueModel(FILE, s, download)
+    await jest.advanceTimersByTimeAsync(25)
+    await expect(net).resolves.toBe(cachedNet)
+    expect(download).not.toHaveBeenCalled()
+  })
+})
+
+describe('sharedWasmMemory', () => {
+  const NativeMemory = WebAssembly.Memory
+  afterEach(() => {
+    WebAssembly.Memory = NativeMemory
+  })
+
+  // Records each request, and refuses ones above `limit` pages as a browser
+  // that cannot reserve that much does.
+  const fakeMemory = (limit: number) => {
+    const asked: WebAssembly.MemoryDescriptor[] = []
+    WebAssembly.Memory = function Memory(
+      descriptor: WebAssembly.MemoryDescriptor,
+    ) {
+      asked.push(descriptor)
+      if ((descriptor.maximum ?? 0) > limit)
+        throw new RangeError('Out of memory')
+      return {} as WebAssembly.Memory
+    } as unknown as typeof WebAssembly.Memory
+    return asked
+  }
+
+  it('reserves at most 1 GB', () => {
+    const asked = fakeMemory(Infinity)
+    sharedWasmMemory(2560)
+    expect(STOCKFISH_MAX_MEMORY_PAGES * 64 * 1024).toBe(2 ** 30)
+    expect(asked).toEqual([
+      { shared: true, initial: 2560, maximum: STOCKFISH_MAX_MEMORY_PAGES },
+    ])
+  })
+
+  it('asks for less when the browser cannot reserve the maximum', () => {
+    const asked = fakeMemory(8192)
+    sharedWasmMemory(2560)
+    expect(asked.map((d) => d.maximum)).toEqual([16384, 12288, 8192])
   })
 })
