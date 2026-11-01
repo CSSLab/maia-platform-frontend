@@ -150,10 +150,6 @@ const BroadcastAnalysisPage: NextPage = () => {
 
         // If new moves have been added to the game
         if (currentMoveCount > lastGameMoveCount.current) {
-          console.log(
-            `New move detected: ${lastGameMoveCount.current} -> ${currentMoveCount}`,
-          )
-
           // Find the last node in the main line
           const lastNode = mainLine[mainLine.length - 1]
 
@@ -163,7 +159,6 @@ const BroadcastAnalysisPage: NextPage = () => {
             lastNode === analysisController.currentNode
 
           if (isAtLatestPosition) {
-            console.log('Auto-following to new move')
             analysisController.setCurrentNode(lastNode)
           }
 

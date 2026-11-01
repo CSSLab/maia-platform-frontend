@@ -22,7 +22,6 @@ const StreamAnalysisPage: NextPage = () => {
 
   useEffect(() => {
     if (gameId && typeof gameId === 'string') {
-      console.log('Starting stream for game:', gameId)
       streamController.startStream(gameId)
     }
   }, [gameId])

@@ -31,12 +31,12 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error) {
-    console.log('Error caught in getDerivedStateFromError:', error)
+    console.error('Error caught in getDerivedStateFromError:', error)
     return { hasError: true, error: error }
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.log('Error caught in componentDidCatch:', error, errorInfo)
+    console.error('Error caught in componentDidCatch:', error, errorInfo)
 
     try {
       const currentPage =

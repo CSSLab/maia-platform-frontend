@@ -55,7 +55,6 @@ export const streamLichessGameMoves = async (
         bc: message.bc,
       })
     } else {
-      console.log('Unknown message format:', message)
     }
   }
 
@@ -73,7 +72,6 @@ export const streamLichessGameMoves = async (
     await readLichessStream(onMessage)(response).then(onComplete)
   } catch (error) {
     if (abortSignal?.aborted) {
-      console.log('Stream aborted')
     } else {
       console.error('Stream error:', error)
       throw error

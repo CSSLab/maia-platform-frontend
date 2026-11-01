@@ -1109,13 +1109,11 @@ export const useOpeningDrillController = (
           ) {
             return
           }
-          console.log('[bg] maia start:', node.san || node.move || '?')
           await ensureMaiaRef.current(node)
           const hasMaia = !!(
             node.analysis.maia &&
             MAIA_MODELS.every((m) => node.analysis.maia?.[m])
           )
-          console.log('[bg] maia done:', hasMaia, '| sf start')
           if (
             bgCancelledRef.current ||
             bgDrillIdRef.current !== scheduledDrillId
@@ -1123,10 +1121,6 @@ export const useOpeningDrillController = (
             return
           }
           await ensureStockfishRef.current(node)
-          console.log(
-            '[bg] sf done, depth:',
-            node.analysis.stockfish?.depth ?? 0,
-          )
         } catch (error) {
           console.error('[bg] error analyzing node:', error)
         }
@@ -1693,13 +1687,6 @@ export const useOpeningDrillController = (
 
           setCurrentDrillGame(updatedGame)
 
-          console.log('After player move - game tree state:', {
-            mainLineLength: gameTree.getMainLine().length,
-            updatedGameMovesLength: updatedGame.moves.length,
-            currentNodeFen: newNode.fen,
-            playerMoveCount: updatedPlayerMoveCount,
-          })
-
           if (!continueAnalyzingMode) {
             const boardTerminationReason = resolveBoardTerminationReason(
               gameTree.toChess(),
@@ -1715,9 +1702,6 @@ export const useOpeningDrillController = (
             ) {
               promptExtendCurrentDrill(updatedGame)
             } else {
-              console.log(
-                'Setting waitingForMaiaResponse to true after player move',
-              )
               setWaitingForMaiaResponse(true)
             }
           }
@@ -1764,15 +1748,6 @@ export const useOpeningDrillController = (
           try {
             const openingBookMoves = await fetchOpeningBookMoves(tipNode.fen)
             const modelBookMoves = openingBookMoves?.[currentDrill.maiaVersion]
-            console.log(DRILL_BOOK_DEBUG_TAG, {
-              source: 'opening-book',
-              fen: tipNode.fen,
-              drillStartFen,
-              maiaVersion: currentDrill.maiaVersion,
-              moveCount: currentDrillGame.moves.length,
-              moves: currentDrillGame.moves,
-              distribution: modelBookMoves || null,
-            })
             if (modelBookMoves && Object.keys(modelBookMoves).length > 0) {
               const filteredBookMoves = Object.entries(modelBookMoves).reduce<
                 Record<string, number>
@@ -1783,13 +1758,6 @@ export const useOpeningDrillController = (
                 return acc
               }, {})
               maiaMove = sampleWeightedMove(filteredBookMoves)
-              console.log(DRILL_BOOK_DEBUG_TAG, {
-                source: 'opening-book-sampled',
-                fen: tipNode.fen,
-                maiaVersion: currentDrill.maiaVersion,
-                sampledMove: maiaMove,
-                filteredDistribution: filteredBookMoves,
-              })
             }
           } catch (error) {
             console.warn(
@@ -1823,24 +1791,9 @@ export const useOpeningDrillController = (
                 {},
               )
             : null
-          console.log(DRILL_BOOK_DEBUG_TAG, {
-            source: 'maia-policy',
-            fen: tipNode.fen,
-            drillStartFen,
-            maiaVersion: currentDrill.maiaVersion,
-            moveCount: currentDrillGame.moves.length,
-            moves: currentDrillGame.moves,
-            distribution: filteredPolicy,
-          })
 
           if (filteredPolicy && Object.keys(filteredPolicy).length > 0) {
             maiaMove = sampleWeightedMove(filteredPolicy)
-            console.log(DRILL_BOOK_DEBUG_TAG, {
-              source: 'maia-policy-sampled',
-              fen: tipNode.fen,
-              maiaVersion: currentDrill.maiaVersion,
-              sampledMove: maiaMove,
-            })
           }
         }
 
@@ -1854,15 +1807,6 @@ export const useOpeningDrillController = (
             0,
           )
 
-          console.log(DRILL_BOOK_DEBUG_TAG, {
-            source: 'fetch-game-move-fallback',
-            fen: tipNode.fen,
-            drillStartFen,
-            maiaVersion: currentDrill.maiaVersion,
-            moveCount: currentDrillGame.moves.length,
-            moves: currentDrillGame.moves,
-            response,
-          })
           maiaMove = response.top_move
         }
 
@@ -1917,12 +1861,6 @@ export const useOpeningDrillController = (
             setCurrentDrillGame(updatedGame)
             setWaitingForMaiaResponse(false)
 
-            console.log('After Maia move - game tree state:', {
-              mainLineLength: gameTree.getMainLine().length,
-              updatedGameMovesLength: updatedGame.moves.length,
-              currentNodeFen: newNode.fen,
-            })
-
             if (!continueAnalyzingMode) {
               const boardTerminationReason = resolveBoardTerminationReason(
                 gameTree.toChess(),
@@ -1976,15 +1914,6 @@ export const useOpeningDrillController = (
 
   // Handle Maia's response after player moves
   useEffect(() => {
-    console.log('Maia response useEffect triggered:', {
-      currentDrillGame: !!currentDrillGame,
-      currentNode: !!treeController.currentNode,
-      isPlayerTurn,
-      waitingForMaiaResponse,
-      isDrillComplete,
-      continueAnalyzingMode,
-    })
-
     if (
       currentDrillGame &&
       waitingForMaiaResponse &&
@@ -1998,9 +1927,7 @@ export const useOpeningDrillController = (
       const isMaiaTurnAtTip = chess.turn() !== playerTurnsColor
 
       if (isMaiaTurnAtTip) {
-        console.log('Scheduling Maia move at tip in 1500ms')
         const timeoutId = setTimeout(() => {
-          console.log('Executing Maia move at tip')
           makeMaiaMoveRef.current(tip)
         }, 1500)
         return () => clearTimeout(timeoutId)
