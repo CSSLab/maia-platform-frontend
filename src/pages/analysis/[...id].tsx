@@ -244,7 +244,7 @@ const requestLichessPgn = (gameId: string): Promise<string> => {
   const early = typeof window !== 'undefined' ? window.__lichessPgn : undefined
   if (early?.id === gameId) {
     delete window.__lichessPgn
-    return early.request
+    return fetchPgnOfLichessGame(gameId, early.request)
   }
   return fetchPgnOfLichessGame(gameId)
 }
