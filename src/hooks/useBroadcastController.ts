@@ -210,6 +210,7 @@ export const useBroadcastController = (): BroadcastStreamController => {
       } else {
         console.error('Broadcast not found:', broadcastId)
       }
+      return broadcast
     },
     [broadcastSections],
   )
