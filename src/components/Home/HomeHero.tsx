@@ -176,7 +176,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               {/* One line on phones (sized to fit) and wide screens; two
                   balanced lines beside the feature grid on tablets. */}
               <motion.h1 className="whitespace-nowrap text-[length:min(2.25rem,calc((100vw_-_2rem)/11.6))] font-bold leading-tight text-white md:whitespace-normal md:text-balance md:text-5xl xl:whitespace-nowrap">
-                Human-like chess AI
+                <span className="whitespace-nowrap">Human-like</span> chess AI
               </motion.h1>
               <motion.p className="text-xl text-white/80 md:text-2xl">
                 Maia is a neural network chess model that captures human style.
