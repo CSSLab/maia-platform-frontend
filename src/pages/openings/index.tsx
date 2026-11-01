@@ -71,6 +71,7 @@ import {
   getAvailableMovesArray,
   requiresPromotion,
 } from 'src/lib/puzzle'
+import { LATE_STOCKFISH_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -2027,3 +2028,5 @@ export default function AuthenticatedOpeningsPage() {
     </>
   )
 }
+
+AuthenticatedOpeningsPage.providers = LATE_STOCKFISH_PROVIDERS

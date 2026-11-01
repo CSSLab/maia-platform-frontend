@@ -1,22 +1,19 @@
 import Head from 'next/head'
 import { Toaster } from 'react-hot-toast'
 import Script from 'next/script'
-import { useRouter } from 'next/router'
-import { ReactNode, useEffect } from 'react'
+import { useEffect } from 'react'
 import type { AppProps } from 'next/app'
 import posthog from 'posthog-js'
 import { Analytics } from '@vercel/analytics/react'
 import { PostHogProvider } from 'posthog-js/react'
 import { SoundProvider } from 'src/contexts/SoundContext'
 
-import { AnalysisListContextProvider } from 'src/contexts/AnalysisListContext'
 import { AuthContextProvider } from 'src/contexts/AuthContext'
-import { MaiaEngineContextProvider } from 'src/contexts/MaiaEngineContext'
 import { ModalContextProvider } from 'src/contexts/ModalContext'
 import { SettingsProvider } from 'src/contexts/SettingsContext'
-import { StockfishEngineContextProvider } from 'src/contexts/StockfishEngineContext'
 import { TourProvider as TourContextProvider } from 'src/contexts/TourContext'
 import { WindowSizeContextProvider } from 'src/contexts/WindowSizeContext'
+import type { PageProvider } from 'src/contexts/pageProviders'
 import 'src/styles/tailwind.css'
 import 'src/styles/themes.css'
 import 'react-tooltip/dist/react-tooltip.css'
@@ -36,30 +33,11 @@ const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
 // The material-symbols-ready guard hides icons until the font loads, so
 // display=swap never flashes the ligature text.
 
-const LateStockfishEngineContextProvider = ({
-  children,
-}: {
-  children: ReactNode
-}) => (
-  <StockfishEngineContextProvider deferStart>
-    {children}
-  </StockfishEngineContextProvider>
-)
+// Engine pages list the providers they need (see src/contexts/pageProviders).
+type PageWithProviders = AppProps['Component'] & { providers?: PageProvider[] }
 
 function MaiaPlatform({ Component, pageProps }: AppProps) {
-  const router = useRouter()
-  const isAnalysisPage = router.pathname.startsWith('/analysis')
-  // The broadcast list starts no engine: a round starts them when it opens.
-  const isBroadcastRound = router.pathname.startsWith('/broadcast/')
-  // Drills and puzzles need Stockfish only after a while (a drill is picked
-  // first; a puzzle is analysed in the background): it starts once the page
-  // has loaded.
-  const isPageWithLateStockfish = ['/drills', '/openings', '/puzzles'].includes(
-    router.pathname,
-  )
-  const isPageWithStockfish =
-    isAnalysisPage || isBroadcastRound || isPageWithLateStockfish
-  const isPageWithMaia = isPageWithStockfish || router.pathname === '/settings'
+  const pageProviders = (Component as PageWithProviders).providers ?? []
 
   useEffect(() => {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
@@ -101,15 +79,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             AuthContextProvider,
             ErrorBoundary,
             ModalContextProvider,
-            ...(isPageWithMaia ? [MaiaEngineContextProvider] : []),
-            ...(isPageWithStockfish
-              ? [
-                  isPageWithLateStockfish
-                    ? LateStockfishEngineContextProvider
-                    : StockfishEngineContextProvider,
-                ]
-              : []),
-            ...(isAnalysisPage ? [AnalysisListContextProvider] : []),
+            ...pageProviders,
           ]}
         >
           <Head>

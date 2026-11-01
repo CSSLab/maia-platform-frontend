@@ -1222,3 +1222,12 @@ export const StockfishEngineContextProvider: React.FC<{
     </StockfishEngineContext.Provider>
   )
 }
+
+// For pages that need Stockfish only after a while (see deferStart).
+export const LateStockfishEngineContextProvider: React.FC<{
+  children: ReactNode
+}> = ({ children }) => (
+  <StockfishEngineContextProvider deferStart>
+    {children}
+  </StockfishEngineContextProvider>
+)

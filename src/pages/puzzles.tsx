@@ -60,6 +60,7 @@ import {
 } from 'src/lib/puzzle'
 import { cpToWinrate } from 'src/lib/analysis'
 import { tourConfigs } from 'src/constants/tours'
+import { LATE_STOCKFISH_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -1792,3 +1793,5 @@ export default function AuthenticatedTrainPage() {
     </>
   )
 }
+
+AuthenticatedTrainPage.providers = LATE_STOCKFISH_PROVIDERS
