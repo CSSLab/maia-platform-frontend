@@ -158,12 +158,11 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
 
           <div className={`${openSansClassName} app-container`}>
             <Header />
-            {/* On a phone the footer is most of a screen tall. The page area
-                is kept at least a screen tall there, so the footer starts
-                below the fold: while a page loads (or is rendered empty on
-                the server) it would otherwise show under the header and
-                then jump down when the page appears. */}
-            <div className="content-container min-h-screen md:min-h-0">
+            {/* The page area is kept at least a screen tall, so the footer
+                starts below the fold: while a page loads (or is rendered
+                empty on the server) it would otherwise show under the
+                header and then jump down when the page appears. */}
+            <div className="content-container min-h-screen">
               <div
                 className="pointer-events-none fixed inset-0"
                 style={{
