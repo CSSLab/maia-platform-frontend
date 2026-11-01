@@ -89,9 +89,11 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     }
   }, [isClient])
 
-  // Monitor download modal visibility
+  // Monitor download modal visibility while a tour runs (it only decides
+  // whether the tour shows). The observer scans the page on every DOM change,
+  // which on the analysis page means every engine update.
   useEffect(() => {
-    if (!isClient) return
+    if (!isClient || !tourState.isActive) return
 
     const checkModal = () => {
       const modal = document.querySelector('[data-testid="download-modal"]')
@@ -119,7 +121,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     })
 
     return () => observer.disconnect()
-  }, [isClient])
+  }, [isClient, tourState.isActive])
 
   const [joyrideSteps, setJoyrideSteps] = useState<Step[]>([])
 
