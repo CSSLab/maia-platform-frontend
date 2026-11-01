@@ -12,13 +12,14 @@ const SettingsPage: NextPage = () => {
   const { user } = useContext(AuthContext)
 
   useEffect(() => {
-    if (!user?.lichessId) {
+    // `user` is null until the account has loaded.
+    if (user && !user.lichessId) {
       router.push('/')
     }
   }, [user, router])
 
   return (
-    <AuthenticatedWrapper>
+    <>
       <Head>
         <title>Settings – Maia Chess</title>
         <meta
@@ -26,8 +27,10 @@ const SettingsPage: NextPage = () => {
           content="Configure your Maia Chess experience"
         />
       </Head>
-      <SettingsPageComponent />
-    </AuthenticatedWrapper>
+      <AuthenticatedWrapper>
+        <SettingsPageComponent />
+      </AuthenticatedWrapper>
+    </>
   )
 }
 

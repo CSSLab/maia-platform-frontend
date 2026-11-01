@@ -69,21 +69,28 @@ const ProfilePage: NextPage = () => {
       setLoading(false)
     }
 
-    if (!user?.lichessId) router.push('/')
+    // `user` is null until the account has loaded.
+    if (!user) return
+    if (!user.lichessId) {
+      router.push('/')
+      return
+    }
 
     fetchStats()
   }, [user])
 
   return (
-    <AuthenticatedWrapper>
+    <>
       <Head>
         <title>Profile – Maia Chess</title>
         <meta name="description" content="User profile and statistics" />
       </Head>
-      <Loading isLoading={loading}>
-        <Profile stats={stats} />
-      </Loading>
-    </AuthenticatedWrapper>
+      <AuthenticatedWrapper>
+        <Loading isLoading={loading}>
+          <Profile stats={stats} />
+        </Loading>
+      </AuthenticatedWrapper>
+    </>
   )
 }
 
