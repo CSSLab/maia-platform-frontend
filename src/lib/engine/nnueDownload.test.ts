@@ -5,6 +5,7 @@ import {
   downloadNnue,
   fetchResumable,
   getNnueSources,
+  KNOWN_NETS,
   NnueDownloadError,
   NnueSource,
 } from './nnueDownload'
@@ -34,21 +35,39 @@ type Fault =
   | { status: number }
   | { drop: number }
   | { stall: number }
+  // The body ends early without an error, as Firefox ends a cut-off brotli body.
+  | { cut: number }
 
 // The parts of a Response that the downloader reads.
 const response = (
   status: number,
   body: ReadableStream<Uint8Array> | null,
   length: number,
+  encoding: string | null = null,
+  contentRange: string | null = null,
 ) => ({
   ok: status >= 200 && status < 300,
   status,
   headers: {
-    get: (name: string) => (name === 'content-length' ? String(length) : null),
+    get: (name: string) =>
+      name === 'content-length'
+        ? String(length)
+        : name === 'content-encoding'
+          ? encoding
+          : name === 'content-range'
+            ? contentRange
+            : null,
   },
   body,
   arrayBuffer: async () => new ArrayBuffer(length),
 })
+
+// How jsDelivr sends a net: brotli-compressed, with the compressed size as
+// Content-Length, and a Range request answered with a slice of the
+// compressed bytes. The fake's "compressed" size is 80% of the net's.
+// 'br-sent-plain': the client was sent the file uncompressed (a proxy
+// stripped Accept-Encoding), but ranges still slice the compressed copy.
+type Encoding = 'br' | 'hidden-br' | 'br-sent-plain'
 
 /**
  * A fetch that serves `bodies` in 1000-byte chunks, honouring Range, with one
@@ -57,6 +76,7 @@ const response = (
 const fakeFetch = (
   bodies: Record<string, Uint8Array>,
   faults: Record<string, Fault[]> = {},
+  encodings: Record<string, Encoding> = {},
 ) => {
   const calls: { url: string; range: string | null }[] = []
   const fetchImpl = async (url: string, init?: RequestInit) => {
@@ -70,14 +90,22 @@ const fakeFetch = (
     }
     const ranged = range !== null && fault !== 'ignore-range'
     const start = ranged ? Number(/bytes=(\d+)-/.exec(range ?? '')?.[1]) : 0
-    const body = bodies[url].subarray(start)
+    const encoding = encodings[url]
+    const compressed = Math.floor(bodies[url].byteLength * 0.8)
+    const body =
+      encoding && ranged
+        ? new Uint8Array(randomBytes(compressed - start))
+        : bodies[url].subarray(start)
     const drop = typeof fault === 'object' && 'drop' in fault
+    const cut = typeof fault === 'object' && 'cut' in fault
     const limit =
       typeof fault === 'object' && 'drop' in fault
         ? fault.drop
         : typeof fault === 'object' && 'stall' in fault
           ? fault.stall
-          : Infinity
+          : typeof fault === 'object' && 'cut' in fault
+            ? fault.cut
+            : Infinity
     let sent = 0
     let failStream: (error: unknown) => void = () => undefined
     const stream = new ReadableStream<Uint8Array>({
@@ -92,6 +120,7 @@ const fakeFetch = (
         if (sent >= body.byteLength) return controller.close()
         if (sent >= limit) {
           if (drop) return controller.error(new TypeError('network error'))
+          if (cut) return controller.close()
           return new Promise(() => undefined) // a stall
         }
         const end = Math.min(sent + 1000, limit, body.byteLength)
@@ -99,7 +128,16 @@ const fakeFetch = (
         sent = end
       },
     })
-    return response(ranged ? 206 : 200, stream, body.byteLength)
+    if (encoding && encoding !== 'br-sent-plain' && !ranged) {
+      const shown = encoding === 'br' ? 'br' : null
+      return response(200, stream, compressed, shown)
+    }
+    if (ranged) {
+      const size = encoding ? compressed : bodies[url].byteLength
+      const contentRange = `bytes ${start}-${size - 1}/${size}`
+      return response(206, stream, body.byteLength, null, contentRange)
+    }
+    return response(200, stream, body.byteLength)
   }
   return { fetchImpl: fetchImpl as unknown as typeof fetch, calls }
 }
@@ -234,6 +272,82 @@ describe('downloadNnue', () => {
     await expect(download).rejects.toThrow(/a: Failed to fetch; b: HTTP 403/)
   })
 
+  it('accepts a compressed net whose Content-Length is the compressed size', async () => {
+    const { fetchImpl, calls } = fakeFetch({ [A]: NET }, {}, { [A]: 'br' })
+    const net = await downloadNnue(FILE, [source('a')], { fetchImpl })
+    expect(same(net, NET)).toBe(true)
+    expect(calls).toHaveLength(1)
+  })
+
+  it('accepts a compressed net when CORS hides Content-Encoding', async () => {
+    const { fetchImpl } = fakeFetch({ [A]: NET }, {}, { [A]: 'hidden-br' })
+    const net = await downloadNnue(FILE, [source('a')], { fetchImpl })
+    expect(same(net, NET)).toBe(true)
+  })
+
+  it('starts a dropped compressed download again rather than resuming it', async () => {
+    for (const encoding of ['br', 'hidden-br'] as const) {
+      const { fetchImpl, calls } = fakeFetch(
+        { [A]: NET },
+        { [A]: [{ drop: encoding === 'br' ? 30000 : 90000 }] },
+        { [A]: encoding },
+      )
+      const net = await downloadNnue(FILE, [source('a')], {
+        ...fast,
+        fetchImpl,
+      })
+      expect(same(net, NET)).toBe(true)
+      expect(calls.map((c) => c.range)).toEqual([null, null])
+    }
+  })
+
+  it('starts again when a resumed range comes from a compressed copy', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET },
+      { [A]: [{ drop: 30000 }] },
+      { [A]: 'br-sent-plain' },
+    )
+    const net = await downloadNnue(FILE, [source('a')], { ...fast, fetchImpl })
+    expect(same(net, NET)).toBe(true)
+    expect(calls.map((c) => c.range)).toEqual([null, 'bytes=30000-', null])
+  })
+
+  it('fetches a known net again when its compressed body ends early', async () => {
+    KNOWN_NETS[FILE] = { size: NET.byteLength, parts: 1 }
+    try {
+      const { fetchImpl, calls } = fakeFetch(
+        { [A]: NET, [B]: NET },
+        { [A]: [{ cut: 30000 }] },
+        { [A]: 'br' },
+      )
+      const net = await downloadNnue(FILE, [source('a'), source('b')], {
+        ...fast,
+        fetchImpl,
+      })
+      expect(same(net, NET)).toBe(true)
+      expect(calls.map((c) => [c.url, c.range])).toEqual([
+        [A, null],
+        [A, null],
+      ])
+    } finally {
+      delete KNOWN_NETS[FILE]
+    }
+  })
+
+  it('gives up on a compressed download that keeps dropping', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET, [B]: NET },
+      { [A]: Array(10).fill({ drop: 30000 }) },
+      { [A]: 'br' },
+    )
+    const net = await downloadNnue(FILE, [source('a'), source('b')], {
+      ...fast,
+      fetchImpl,
+    })
+    expect(same(net, NET)).toBe(true)
+    expect(calls.filter((c) => c.url === A)).toHaveLength(4)
+  })
+
   it('stops when aborted', async () => {
     const { fetchImpl } = fakeFetch({ [A]: NET }, { [A]: [{ stall: 20000 }] })
     const controller = new AbortController()
@@ -262,6 +376,17 @@ describe('fetchResumable into a buffer', () => {
     const into = new Uint8Array(NET.byteLength)
     const got = await fetchResumable(A, { ...fast, fetchImpl, into })
     expect(got.buffer).toBe(into.buffer)
+    expect(same(into.buffer, NET)).toBe(true)
+    expect(calls.map((c) => c.range)).toEqual([null, 'bytes=30000-'])
+  })
+
+  it('resumes a body that ends before filling the buffer', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET },
+      { [A]: [{ cut: 30000 }] },
+    )
+    const into = new Uint8Array(NET.byteLength)
+    await fetchResumable(A, { ...fast, fetchImpl, into })
     expect(same(into.buffer, NET)).toBe(true)
     expect(calls.map((c) => c.range)).toEqual([null, 'bytes=30000-'])
   })

@@ -6,9 +6,9 @@
  * to fetch"): nothing retried a dropped connection, a stalled download hung
  * forever, and raw.githubusercontent.com rate-limits anonymous traffic. So a
  * net is now fetched from a list of free hosts in turn; on each host a
- * dropped or stalled download resumes where it stopped (HTTP Range), and a
- * finished net must match the SHA-256 prefix in its name before it is used
- * or cached.
+ * dropped or stalled download is retried, resuming where it stopped (HTTP
+ * Range) when the host sent the file uncompressed, and a finished net must
+ * match the SHA-256 prefix in its name before it is used or cached.
  */
 
 export type NnueSource = {
@@ -38,6 +38,7 @@ export const KNOWN_NETS: Record<string, { size: number; parts: number }> = {
 
 // jsDelivr serves files of up to 20 MB from a GitHub repo, so the tag holds
 // the big net in 16 MiB parts (`split -b 16777216 -d -a 1`).
+const PART_SIZE = 16 * 1024 * 1024
 const JSDELIVR_BASE =
   'https://cdn.jsdelivr.net/gh/CSSLab/maia-platform-frontend@stockfish-nets-1'
 // The commit that last had the nets in public/stockfish.
@@ -163,8 +164,16 @@ const concat = (chunks: Uint8Array[], length: number): Uint8Array => {
  * Access-Control-Allow-Headers). So after two resumes that got no response at
  * all, the next try starts the URL again without a Range header.
  *
+ * Ranges only make sense against the file's own bytes. jsDelivr sends a net
+ * brotli-compressed, with the compressed size as Content-Length, and answers
+ * a Range request with a slice of the compressed bytes. So a body that
+ * arrived encoded is not checked against Content-Length, and is fetched
+ * again from the start rather than resumed.
+ *
  * With `into`, the body is written straight into that buffer, so a 75 MB net
- * is held once rather than as chunks plus a joined copy.
+ * is held once rather than as chunks plus a joined copy, and a body that
+ * ends before filling it was cut short. That check is the one that works for
+ * an encoded body: Firefox ends a cut-off brotli response without an error.
  */
 export const fetchResumable = async (
   url: string,
@@ -185,6 +194,8 @@ export const fetchResumable = async (
   } = options
   let chunks: Uint8Array[] = []
   let received = 0
+  let total: number | null = null
+  let resumable = true
   const write = (chunk: Uint8Array) => {
     if (into) {
       if (received + chunk.byteLength > into.byteLength) {
@@ -195,15 +206,19 @@ export const fetchResumable = async (
       chunks.push(chunk)
     }
     received += chunk.byteLength
+    if (total !== null && received > total) {
+      // Decoded from an encoding the host's CORS headers did not show.
+      total = null
+      resumable = false
+    }
     onBytes?.(received)
   }
-  let total: number | null = null
   let failures = 0
   let rangeWithoutResponse = 0
 
   for (;;) {
     throwIfAborted(signal)
-    if (rangeWithoutResponse >= 2) {
+    if (!resumable || rangeWithoutResponse >= 2) {
       chunks = []
       received = 0
       rangeWithoutResponse = 0
@@ -238,8 +253,27 @@ export const fetchResumable = async (
         throw new HttpStatusError(response.status, url)
       }
       if (response.status === 200) {
+        const encoding = response.headers.get('content-encoding')
         const length = Number(response.headers.get('content-length'))
-        total = length > 0 ? length : null
+        resumable = !encoding || encoding === 'identity'
+        total = resumable && length > 0 ? length : null
+      }
+      // jsDelivr slices its compressed copy even when the file came
+      // uncompressed (a proxy may strip Accept-Encoding); its Content-Range
+      // then shows a start or size that does not fit.
+      const size = into?.byteLength ?? total
+      const range = /^bytes (\d+)-\d+\/(\d+)$/.exec(
+        response.headers.get('content-range') ?? '',
+      )
+      if (
+        response.status === 206 &&
+        range &&
+        (Number(range[1]) !== received ||
+          (size !== null && Number(range[2]) !== size))
+      ) {
+        resumable = false
+        void response.body?.cancel().catch(() => undefined)
+        throw new Error(`${url} answered Range from a different copy`)
       }
 
       if (!response.body) {
@@ -254,13 +288,11 @@ export const fetchResumable = async (
           arm(stallTimeoutMs)
         }
       }
-      if (total !== null && received < total) {
-        throw new Error(`connection closed at ${received} of ${total} bytes`)
+      const expected = into ? into.byteLength : total
+      if (expected !== null && received < expected) {
+        throw new Error(`connection closed at ${received} of ${expected} bytes`)
       }
-      if (total !== null && received > total) {
-        throw new CorruptNetError(`${url} sent ${received} of ${total} bytes`)
-      }
-      return into ? into.subarray(0, received) : concat(chunks, received)
+      return into ?? concat(chunks, received)
     } catch (error) {
       throwIfAborted(signal)
       const reason = stalled
@@ -269,13 +301,14 @@ export const fetchResumable = async (
       if (!isRetryable(reason) || reason instanceof CorruptNetError) {
         throw reason
       }
-      failures = received > before ? 1 : failures + 1
+      // Bytes that will be fetched again are not progress.
+      failures = resumable && received > before ? 1 : failures + 1
       if (failures >= attemptsPerUrl) throw reason
       rangeWithoutResponse =
         before > 0 && !responded ? rangeWithoutResponse + 1 : 0
       console.warn(
         `Stockfish net download interrupted (${errorText(reason)}); ` +
-          `resuming at ${received} bytes`,
+          (resumable ? `resuming at ${received} bytes` : 'starting again'),
       )
       await sleep(retryDelayMs(failures), signal)
     } finally {
@@ -321,12 +354,18 @@ export const downloadNnue = async (
     // A net of known size is written into one buffer as it arrives.
     const target = total === null ? null : new Uint8Array(total)
     const parts: Uint8Array[] = []
+    const urls = source.urls(file)
     let done = 0
     try {
-      for (const url of source.urls(file)) {
-        const part = await fetchResumable(url, {
+      for (let i = 0; i < urls.length; i++) {
+        // Each part of a known net is PART_SIZE bytes, except the last.
+        const length =
+          urls.length === 1 || total === null
+            ? total
+            : Math.min(PART_SIZE, total - i * PART_SIZE)
+        const part = await fetchResumable(urls[i], {
           ...options,
-          into: target?.subarray(done),
+          into: target?.subarray(done, done + (length ?? 0)),
           onBytes: (received) => options.onProgress?.(done + received, total),
         })
         if (!target) parts.push(part)
