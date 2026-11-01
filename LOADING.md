@@ -649,12 +649,13 @@ pulsed its 100 placeholder bars, which cost ~0.5 s of main-thread work on
 the phone; they are static, and the leaderboard's main-thread work is now
 the same as `main` (3.52 vs 3.53 s).
 
-**The home page's counters (a0b4279).** The three stats counters sprang
-from 0 to tens of millions, which took ~3 s to settle, re-laying out the
-hero on every frame (their `duration` was ignored by the spring); they now
-count up in 1.5 s. Desktop, home, main-thread work over the load and 6 s:
-2.65 → 2.04 s (every run lower). On the emulated phone no change: there
-the main thread is saturated for ~10 s anyway and draws fewer frames.
+**The home page's counters (a0b4279, a366681).** The three stats counters
+sprang from 0 to tens of millions, which took ~3 s to settle, re-laying out
+the hero on every frame (their `duration` was ignored by the spring); a0b4279
+made them count up in 1.5 s. Desktop, home, main-thread work over the load
+and 6 s: 2.65 → 2.04 s (every run lower). On the emulated phone no change:
+there the main thread is saturated for ~10 s anyway and draws fewer frames.
+a366681 shortens the count-up to 0.5 s.
 
 **Not done: the app pages.** /puzzles, /drills, Bot or Not and analysis
 also send only the header and footer: they wait for the visitor's session
@@ -774,6 +775,7 @@ as on `main`.
 | d368f65                   | The leaderboard and the broadcast list render their headings at once (the leaderboard with placeholder rows)                                                                                                                                                                                                                  | Phone, main content: /leaderboard 3.2 → 0.9 s, /broadcast 4.8 → 0.7 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | d2849bc                   | The broadcast list doesn't wait for the visitor's session (it asks only Lichess)                                                                                                                                                                                                                                              | Its heading is in the server HTML                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | a0b4279                   | The home page's stats counters count up in 1.5 s instead of springing for ~3 s                                                                                                                                                                                                                                                | Desktop, home: main-thread work 2.65 → 2.04 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| a366681                   | The home page's stats counters count up in 0.5 s                                                                                                                                                                                                                                                                              | Not measured separately                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## Things you will notice
 
@@ -806,7 +808,7 @@ as on `main`.
   0.8–1.6 s later on a returning phone visit, 2–3 s on a first one.
 - **The leaderboard shows its columns with grey placeholder rows** until the
   rankings arrive, and no longer fades in.
-- **The home page's counters** count up in 1.5 s.
+- **The home page's counters** count up in 0.5 s.
 
 ## Looked at, not changed
 
@@ -904,10 +906,14 @@ as on `main`.
   no main-thread time in the first 12 s, and would make those pages open
   more slowly.
 - **The home page on a slow phone** (round 4) keeps the main thread busy for
-  ~10 s at a quarter speed: hydrating the page, the carousel's 36 boards
-  (~1,300 piece images painted), the sections, Google Analytics. Earlier
-  rounds already cut most of what is cheap to cut; more would mean design
-  changes (fewer boards, or each board drawn as one image).
+  ~10 s at a quarter speed: hydrating the page, the Play section's grid of
+  36 boards (~1,300 piece images painted), the sections, Google Analytics.
+  Earlier rounds already cut most of what is cheap to cut; more would mean
+  design changes. Measured by leaving each out (5 loads each, main-thread
+  work, medians): without the 36-board grid, phone 6.8 → 5.8 s on a first
+  visit and 5.1 → 4.3 s on a returning one, desktop 1.29 → 0.94 s; without
+  the game carousel (the strip of game names under the hero), no measurable
+  change (phone 7.4 and 5.8 s, desktop 1.24 s).
 - **Shells for the app pages** (round 4): see "Not done: the app pages".
 
 ## Rebasing `human-bar`
