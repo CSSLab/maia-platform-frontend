@@ -569,6 +569,12 @@ unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
 - **Google Analytics' script** costs 35–65 ms of main thread on every page
   (four times that on a slow phone); loading it later would miss short
   visits.
+- **Re-rendering less often for Stockfish's updates on phones** (300 ms
+  between renders instead of 150): no change in Stockfish's depth 12 after a
+  step on the emulated phone (6 ± 267 ms later over 48 steps).
+- **A 3 s timeout for finding Stockfish's cached nets** (after 7126951): the
+  nets were downloaded again in 1 of 6 returning visits on the emulated phone
+  instead of 2 of 6, and Stockfish's timings were within noise.
 
 ## Rebasing `human-bar`
 
