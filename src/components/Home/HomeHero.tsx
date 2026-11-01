@@ -173,7 +173,9 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
         <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">
           <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[45%] md:gap-8">
             <div className="flex flex-col gap-3 md:gap-4">
-              <motion.h1 className="whitespace-nowrap text-4xl font-bold leading-tight text-white md:text-5xl">
+              {/* One line on phones (sized to fit) and wide screens; two
+                  balanced lines beside the feature grid on tablets. */}
+              <motion.h1 className="whitespace-nowrap text-[length:min(2.25rem,calc((100vw_-_2rem)/11.6))] font-bold leading-tight text-white md:whitespace-normal md:text-balance md:text-5xl xl:whitespace-nowrap">
                 Human-like chess AI
               </motion.h1>
               <motion.p className="text-xl text-white/80 md:text-2xl">
