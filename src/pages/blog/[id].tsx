@@ -74,6 +74,8 @@ const BlogPost = ({ post }: BlogPostProps) => {
                   month: 'short',
                   day: 'numeric',
                   year: 'numeric',
+                  // Post dates are days, parsed as UTC midnight.
+                  timeZone: 'UTC',
                 })}
               </p>
               {post.github && (
@@ -132,6 +134,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   const post = getPostData(params?.id as string)
+  if (!post) return { notFound: true }
 
   return {
     props: {

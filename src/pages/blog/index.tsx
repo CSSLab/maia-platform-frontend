@@ -55,6 +55,8 @@ export default function Blog({ posts }: { posts: Post[] }) {
                       month: 'short',
                       day: 'numeric',
                       year: 'numeric',
+                      // Post dates are days, parsed as UTC midnight.
+                      timeZone: 'UTC',
                     })}
                   </p>
                   <h2 className="mb-1 text-2xl font-semibold">{post.title}</h2>
