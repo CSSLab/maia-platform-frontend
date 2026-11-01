@@ -10,15 +10,15 @@ interface AnimatedNumberProps {
 
 export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
   value,
-  duration = 1.5,
+  duration = 0.5,
   formatValue = (val) => Math.round(val).toLocaleString(),
   className = '',
 }) => {
   const motionValue = useMotionValue(value)
   const displayValue = useTransform(motionValue, (val) => formatValue(val))
 
-  // A count-up of fixed length. A spring counting to tens of millions took
-  // ~3 s to settle, re-laying out its text on every frame of it.
+  // A short count-up of fixed length. A spring counting to tens of millions
+  // took ~3 s to settle, re-laying out its text on every frame of it.
   useEffect(() => {
     const controls = animate(motionValue, value, { duration, ease: 'easeOut' })
     return () => controls.stop()
