@@ -88,6 +88,10 @@ export const SoundProvider: React.FC<Props> = ({ children }) => {
         removeListeners()
         try {
           const ctx = new AudioCtx()
+          // Created after a gesture, it starts running and keeps an audio
+          // thread busy with silence. As when it was created on load, it
+          // stays suspended until playMoveSound resumes it for a sound.
+          if (ctx.state === 'running') void ctx.suspend()
           const gain = ctx.createGain()
           gain.connect(ctx.destination)
 
