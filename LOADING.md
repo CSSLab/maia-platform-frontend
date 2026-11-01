@@ -302,6 +302,51 @@ first (and then cancels the download) used the cached nets in all 6 runs:
 first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
 40.2–56.8 s. That is bef0994.
 
+#### Moving through a game on the phone: the chart and Stockfish
+
+`scripts/perf/chart-probe.mjs` steps through 8 moves of each game (after 12
+quick taps past the opening), 14 s per move on the phone and 5 s on a
+desktop. It times Maia's results, the visible moves-by-rating chart's first
+change and its first change after Maia's last result, and Stockfish's depth
+label on the new position. The builds took turns, 3 runs per game. ada's
+load was 6–53, so on the phone one position's depth 12 varied by a few
+seconds between runs; builds are compared per position (16 positions, median
+over runs).
+
+A CPU profile of 8 moves on a phone-size page at full speed showed recharts
+taking 2.0 s of the main thread and React 1.6 s. The moves-by-rating chart
+drew 16–26 times per move: every update drew it twice (it copied its props
+into state in an effect), and Stockfish's changing evaluations recolor
+moves, which redrew the chart even for moves it does not show and before the
+new position's data was in. 3c3bee3 brings that to 3–10 draws per move.
+Stockfish's search slows while the main thread is busy, so that alone made
+it faster on the phone. Then facd303 has the phone ask Maia for every 200
+points in one request and stop there.
+
+| Phone (seconds after a step; medians)            | 6297646 | 3c3bee3                  | facd303                  |
+| ------------------------------------------------ | ------- | ------------------------ | ------------------------ |
+| Chart first drawn                                | 4.31    | 4.01 (3.66 in round 2)   | 3.44                     |
+| Chart complete                                   | 6.44    | 6.51 (5.87)              | 3.44                     |
+| Stockfish's depth 12                             | 9.39    | 7.86 (6.61)              | 6.33                     |
+| Depth 12 per position, against the column before | —       | 2.27 s sooner (on 16/16) | 0.35 s sooner (on 11/16) |
+
+The first two columns are round 1 (6297646 is this branch before both);
+the numbers in brackets and facd303 are round 2 (ada was quieter). Asking
+for every 400 points first on the phone, as on the desktop, drew the chart
+at 2.55 s and completed it at 3.61 s. But it delayed depth 12 by 0.69 s
+against 3c3bee3 (14 of 16 positions; 0.49 s over all 6 runs): with the
+chart drawn sooner, it redraws for Stockfish's changing top moves through
+more of the search.
+
+On the desktop (2 runs per game), the chart starts at 0.76, 0.72 and 0.48 s
+in the three builds, and is complete at 1.23, 1.23 and 1.25 s. Stockfish's
+depth 12 is at 1.19, 1.11 and 1.14 s, and depth 18 at 4.08, 4.05 and 3.98 s.
+
+Before e6b6e79, the probes' phone had no touch: the CDP session opened for
+network throttling turned Playwright's touch emulation off. The analysis
+page's layout depends on the width only, so the earlier phone results are
+unaffected; facd303's phone check needs touch.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -344,6 +389,9 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
 | f555c4c                   | Maia answers for the selected rating, then every 200 points (600–2600), then the ratings in between; the moves-by-rating chart is drawn from the 200-point ratings, the ones in between interpolated until they arrive (within 0.45 percentage points for 90% of points, at most 2.3); the later stages render as transitions | After a step the chart starts moving at 0.90–1.11 s on a desktop instead of 1.42–1.49 s, and at 3.7–4.7 s on the phone. Stockfish while paging unchanged (depth 12 after a step 1.36–1.47 s vs 1.44–1.51 s); rendered at once, the extra render had delayed it by ~0.15–0.25 s                                                                                                                                                                                                                                                                                                                       |
 | 6a82f41                   | The moves-by-rating charts of the analysis page's mobile layout, the opening drill analysis and /openings get the current position (`positionKey`)                                                                                                                                                                            | They only took new data with it, so on a phone the chart stayed empty while moving through a game (on `main` too)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | 943d0a0, b7ff773          | Probes: `--mobile`, `--net` and `--slowdown` (with `cpu-slowdown.py`); net read times and downloads                                                                                                                                                                                                                           | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| e6b6e79                   | Probes: the phone keeps its touch emulation (a second CDP session turned it off)                                                                                                                                                                                                                                              | —                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 3c3bee3                   | The moves-by-rating chart draws only when what it shows changes: once per update (not twice), and only for its own moves' colors                                                                                                                                                                                              | Phone: 3–10 chart draws per move instead of 16–26; Stockfish's depth 12 after a step 2.27 s sooner (24%, on all 16 positions). Desktop: depth 12 0.05 s sooner, depth 18 unchanged                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| facd303                   | Maia: on a desktop every 400 points first (the chart drawn from them), then every 200, then the rest; on a phone every 200 points in one request and no more, the ratings in between interpolated in the chart and the board description                                                                                      | Desktop: the chart starts at 0.48 s instead of 0.72 s; Stockfish unchanged. Phone: chart drawn and complete at 3.44 s instead of 3.66 and 5.87 s; depth 12 0.35 s sooner                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 ## Things you will notice
 
@@ -398,6 +446,16 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
 - **The backend.** `puzzle/new_puzzle` takes ~1.6 s on every call (hidden
   for every puzzle after the first by 8aac80c), and Lichess's
   `/api/broadcast` ~1.2 s on /broadcast.
+- **Every 400 points first on a phone**: the chart came ~0.9 s sooner, but
+  Stockfish's depth 12 ~0.5 s later (see "Moving through a game on the
+  phone").
+- **Maia per rating.** Each rating is a full pass of the network (the rating
+  is one of its inputs), ~0.22 s on the emulated phone. A batch of 10
+  ratings in Node (ORT, 4 threads) took 439 ms with the fp16 model. A
+  32-bit copy took 398 ms, but is 91 MB instead of 46 MB (probabilities
+  within 0.57 percentage points). An 8-bit copy took 271 ms at 25 MB, but
+  moved probabilities by up to 15.6 points and changed the top move in 116
+  of 3,297 cases.
 
 ## Rebasing `human-bar`
 
@@ -422,3 +480,6 @@ first depth at 12.3–18.6 s, depth 12 at 24.6–33.3 s, depth 18 at
   the two `100` ms delays in `useEngineAnalysis.ts` with `ANALYSIS_DELAY_MS`;
   3b7c0ee adds a few lines at the top of `public/maia-worker.js`. `human-bar`
   doesn't touch those parts.
+- facd303 adds one conflict hunk in `useEngineAnalysis.ts` (the stage list
+  now sits before `attemptMaiaAnalysis`; this side only adds lines there);
+  3c3bee3 adds none.
