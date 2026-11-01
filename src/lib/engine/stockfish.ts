@@ -1900,6 +1900,40 @@ const withTimeout = async <T>(
   }
 }
 
+// The cache lookup's timeout is counted in timer ticks, not clock time: a
+// tick held up by a long task still counts as one, so a phone busy loading
+// the page does not give up on an answer that is waiting behind that work.
+const CACHE_LOOKUP_TICK_MS = 100
+
+const withTickedTimeout = <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    let ticksLeft = Math.ceil(timeoutMs / CACHE_LOOKUP_TICK_MS)
+    let timeoutId: ReturnType<typeof setTimeout>
+    const tick = () => {
+      ticksLeft -= 1
+      if (ticksLeft > 0) {
+        timeoutId = setTimeout(tick, CACHE_LOOKUP_TICK_MS)
+      } else {
+        reject(new Error(message))
+      }
+    }
+    timeoutId = setTimeout(tick, CACHE_LOOKUP_TICK_MS)
+    promise.then(
+      (value) => {
+        clearTimeout(timeoutId)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timeoutId)
+        reject(error)
+      },
+    )
+  })
+
 const getStockfishModuleInitTimeoutMs = (): number => {
   const raw = process.env.NEXT_PUBLIC_STOCKFISH_MODULE_INIT_TIMEOUT_MS
   const parsed = raw ? parseInt(raw, 10) : NaN
@@ -1954,7 +1988,7 @@ export const loadNnueModel = async (
   // gets much longer: on a phone it can take seconds while the page loads,
   // and downloading it again in parallel cost 78 MB and CPU on every visit.
   const lookup = findCachedNet(storage, file)
-  const found = await withTimeout(
+  const found = await withTickedTimeout(
     lookup,
     STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
     `Timed out while checking cached Stockfish model: ${file}`,

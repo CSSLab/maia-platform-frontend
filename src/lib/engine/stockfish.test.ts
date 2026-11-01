@@ -325,6 +325,20 @@ describe('loadNnueModel', () => {
     expect(storeModel).not.toHaveBeenCalled()
   })
 
+  it('does not count time the page is too busy to take the answer', async () => {
+    jest.useRealTimers()
+    const download = mockDownload(500)
+    const { storage: s } = storage(() => later(1550, found(cachedNet)))
+    const net = loadNnueModel(FILE, s, download)
+    // A long task that outlasts the lookup timeout, with the answer behind it.
+    const busyUntil = Date.now() + 1700
+    while (Date.now() < busyUntil) {
+      // busy
+    }
+    await expect(net).resolves.toBe(cachedNet)
+    expect(download).not.toHaveBeenCalled()
+  })
+
   it('downloads the net when the cache never answers', async () => {
     const download = mockDownload(500)
     const { storage: s, storeModel } = storage(() => new Promise(() => null))
