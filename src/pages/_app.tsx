@@ -2,7 +2,7 @@ import Head from 'next/head'
 import { Toaster } from 'react-hot-toast'
 import Script from 'next/script'
 import { useRouter } from 'next/router'
-import { useEffect } from 'react'
+import { ReactNode, useEffect } from 'react'
 import type { AppProps } from 'next/app'
 import posthog from 'posthog-js'
 import { Analytics } from '@vercel/analytics/react'
@@ -36,22 +36,30 @@ const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
 // The material-symbols-ready guard hides icons until the font loads, so
 // display=swap never flashes the ligature text.
 
+const LateStockfishEngineContextProvider = ({
+  children,
+}: {
+  children: ReactNode
+}) => (
+  <StockfishEngineContextProvider deferStart>
+    {children}
+  </StockfishEngineContextProvider>
+)
+
 function MaiaPlatform({ Component, pageProps }: AppProps) {
   const router = useRouter()
   const isAnalysisPage = router.pathname.startsWith('/analysis')
-  const isPageWithMaia = [
-    '/analysis',
-    '/drills',
-    '/puzzles',
-    '/settings',
-    '/broadcast',
-  ].some((path) => router.pathname.includes(path))
-  const isPageWithStockfish = [
-    '/analysis',
-    '/drills',
-    '/puzzles',
-    '/broadcast',
-  ].some((path) => router.pathname.includes(path))
+  // The broadcast list starts no engine: a round starts them when it opens.
+  const isBroadcastRound = router.pathname.startsWith('/broadcast/')
+  // Drills and puzzles need Stockfish only after a while (a drill is picked
+  // first; a puzzle is analysed in the background): it starts once the page
+  // has loaded.
+  const isPageWithLateStockfish = ['/drills', '/openings', '/puzzles'].includes(
+    router.pathname,
+  )
+  const isPageWithStockfish =
+    isAnalysisPage || isBroadcastRound || isPageWithLateStockfish
+  const isPageWithMaia = isPageWithStockfish || router.pathname === '/settings'
 
   useEffect(() => {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
@@ -94,7 +102,13 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             ErrorBoundary,
             ModalContextProvider,
             ...(isPageWithMaia ? [MaiaEngineContextProvider] : []),
-            ...(isPageWithStockfish ? [StockfishEngineContextProvider] : []),
+            ...(isPageWithStockfish
+              ? [
+                  isPageWithLateStockfish
+                    ? LateStockfishEngineContextProvider
+                    : StockfishEngineContextProvider,
+                ]
+              : []),
             ...(isAnalysisPage ? [AnalysisListContextProvider] : []),
           ]}
         >
