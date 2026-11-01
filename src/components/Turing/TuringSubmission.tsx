@@ -81,7 +81,10 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
             }}
             className={`relative flex h-8 w-16 items-center rounded-full p-1 transition duration-300 ${selected === 'white' ? 'bg-white bg-opacity-80' : 'bg-black bg-opacity-60'}`}
           >
+            {/* initial={false}: the knob starts where it rests, in the
+                server's HTML too, instead of sliding there on mount. */}
             <motion.div
+              initial={false}
               animate={{
                 x: selected === null ? 16 : selected == 'white' ? 0 : 30,
               }}

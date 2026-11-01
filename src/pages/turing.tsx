@@ -10,13 +10,13 @@ import {
   useTour,
 } from 'src/contexts'
 import {
-  Loading,
   GameInfo,
   GameBoard,
   TuringLog,
   StatsDisplay,
   MovesContainer,
   BoardController,
+  TuringShell,
   TuringSubmission,
 } from 'src/components'
 import { MaterialBalance } from 'src/components/Common/MaterialBalance'
@@ -56,9 +56,7 @@ const TuringPage: NextPage = () => {
         />
       </Head>
       {controller.loading || !controller.game ? (
-        <Loading isLoading={true}>
-          <div></div>
-        </Loading>
+        <TuringShell />
       ) : (
         <TuringControllerContext.Provider value={controller}>
           <Turing game={controller.game} stats={controller.stats} />
@@ -339,7 +337,9 @@ const Turing: React.FC<Props> = (props: Props) => {
     <>
       <TuringControllerContext.Provider value={controller}>
         <TreeControllerContext.Provider value={controller}>
-          <AnimatePresence mode="wait">
+          {/* No fade-in when the game replaces the shell, which already shows
+              the panels and board. */}
+          <AnimatePresence mode="wait" initial={false}>
             {isMobile ? mobileLayout : desktopLayout}
           </AnimatePresence>
         </TreeControllerContext.Provider>
