@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useMemo,
 } from 'react'
-import toast from 'react-hot-toast'
+import toast, { Toast } from 'react-hot-toast'
 import {
   StockfishStatus,
   StockfishEngine,
@@ -18,6 +18,10 @@ import {
   STOCKFISH_DEBUG_RERUN_KEY,
 } from 'src/constants/analysis'
 import Engine from 'src/lib/engine/stockfish'
+import {
+  trackStockfishEngineFailed,
+  trackStockfishEngineReady,
+} from 'src/lib/analytics'
 
 const STOCKFISH_LOADING_TOAST_DELAY_MS = 800
 const STOCKFISH_DEBUG_LOADING_KEY = 'maia.stockfishDebugLoading'
@@ -55,6 +59,13 @@ const getStockfishLoadingLabel = (
   engine: Engine | null,
   debugLoadingEnabled: boolean,
 ): string => {
+  const progress = engine?.initializationProgress
+  if (progress && progress.total > 0) {
+    const percent = Math.floor((100 * progress.loaded) / progress.total)
+    const megabytes = Math.round(progress.total / 1e6)
+    return `Downloading Stockfish... ${percent}% of ${megabytes} MB`
+  }
+
   if (!debugLoadingEnabled) {
     return 'Loading Stockfish...'
   }
@@ -92,6 +103,33 @@ const getOrCreateStockfishEngine = (): Engine => {
   }
 
   return sharedClientStockfishEngine
+}
+
+// Each engine's outcome is reported once, however many pages share it.
+const reportedEngines = new WeakSet<Engine>()
+const engineStartedAt = new WeakMap<Engine, number>()
+
+const reportEngineOutcome = (engine: Engine, status: StockfishStatus) => {
+  if (status === 'loading') {
+    if (!engineStartedAt.has(engine)) engineStartedAt.set(engine, Date.now())
+    return
+  }
+  if (reportedEngines.has(engine)) return
+  reportedEngines.add(engine)
+  const startedAt = engineStartedAt.get(engine)
+  // An engine that was ready before this page mounted was already reported.
+  if (startedAt === undefined) return
+  const page = window.location.pathname.split('/')[1] || 'home'
+  const seconds = (Date.now() - startedAt) / 1000
+  if (status === 'ready') {
+    trackStockfishEngineReady(seconds, page)
+  } else {
+    trackStockfishEngineFailed(
+      engine.initializationErrorDetail ?? engine.initializationError ?? '',
+      seconds,
+      page,
+    )
+  }
 }
 
 const getRunKey = (run: StockfishEvaluation): string => {
@@ -949,6 +987,7 @@ export const StockfishEngineContextProvider: React.FC<{
     getStockfishLoadingLabel(engineRef.current, debugLoadingEnabled),
   )
   const toastId = useRef<string | null>(null)
+  const errorToastId = useRef<string | null>(null)
   const loadingToastTimerRef = useRef<number | null>(null)
 
   const streamEvaluations = useCallback(
@@ -979,6 +1018,26 @@ export const StockfishEngineContextProvider: React.FC<{
   const isReady = useCallback(() => {
     return engineRef.current?.ready ?? false
   }, [])
+
+  // A failed engine is replaced by a new one, which tries the download again.
+  const retry = useCallback(() => {
+    if (!engineRef.current?.initializationError) return
+    engineRef.current = getOrCreateStockfishEngine()
+    setError(null)
+    setStatus('loading')
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.addEventListener('online', retry)
+    return () => window.removeEventListener('online', retry)
+  }, [retry])
+
+  useEffect(() => {
+    if (engineRef.current && typeof window !== 'undefined') {
+      reportEngineOutcome(engineRef.current, status)
+    }
+  }, [status])
 
   useEffect(() => {
     const checkEngineStatus = () => {
@@ -1021,10 +1080,19 @@ export const StockfishEngineContextProvider: React.FC<{
         toast.dismiss(toastId.current)
         toastId.current = null
       }
+      if (errorToastId.current) {
+        toast.dismiss(errorToastId.current)
+        errorToastId.current = null
+      }
     }
   }, [])
 
   useEffect(() => {
+    if (status !== 'error' && errorToastId.current) {
+      toast.dismiss(errorToastId.current)
+      errorToastId.current = null
+    }
+
     if (status === 'loading') {
       if (typeof window === 'undefined') {
         return
@@ -1068,18 +1136,39 @@ export const StockfishEngineContextProvider: React.FC<{
       }
     } else if (status === 'error') {
       const message = error
-        ? `Failed to load Stockfish engine: ${error}`
-        : 'Failed to load Stockfish engine'
-      if (toastId.current) {
-        toast.error(message, {
-          id: toastId.current,
-        })
-        toastId.current = null
-      } else {
-        toast.error(message)
-      }
+        ? `Stockfish couldn't load: ${error}`
+        : "Stockfish couldn't load"
+      const content = (t: Toast) => (
+        <span className="flex items-center gap-3">
+          <span>{message}</span>
+          <button
+            type="button"
+            className="shrink-0 rounded bg-human-4 px-3 py-1 text-sm text-white transition hover:bg-human-4/80"
+            onClick={() => {
+              toast.dismiss(t.id)
+              retry()
+            }}
+          >
+            Retry
+          </button>
+          <button
+            type="button"
+            className="shrink-0 py-1 text-sm opacity-60 transition hover:opacity-100"
+            onClick={() => toast.dismiss(t.id)}
+          >
+            Dismiss
+          </button>
+        </span>
+      )
+      // It stays until dismissed: without Stockfish the page has no engine.
+      errorToastId.current = toast.error(content, {
+        id: toastId.current ?? undefined,
+        duration: Infinity,
+        style: { maxWidth: 480 },
+      })
+      toastId.current = null
     }
-  }, [status, error, loadingLabel, debugLoadingEnabled])
+  }, [status, error, loadingLabel, debugLoadingEnabled, retry])
 
   const contextValue = useMemo(
     () => ({

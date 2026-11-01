@@ -9,11 +9,22 @@ import {
   StockfishStreamOptions,
 } from 'src/types'
 import { StockfishModelStorage } from './stockfishStorage'
+import {
+  downloadNnue,
+  getNnueSources,
+  GITHUB_RAW_BASE,
+  NnueDownloadError,
+} from './nnueDownload'
+
+export const NNUE_DOWNLOAD_FAILED_MESSAGE =
+  'the download failed. Check your connection.'
 
 const DEFAULT_NNUE_FETCH_TIMEOUT_MS = 30000
 const DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS = 15000
 const STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS = 1500
 const STOCKFISH_CACHE_WRITE_TIMEOUT_MS = 5000
+// How long to wait for a slow cached net once every download has failed.
+const STOCKFISH_CACHE_FALLBACK_TIMEOUT_MS = 30000
 type StockfishInitPhase =
   | 'idle'
   | 'loading-module'
@@ -78,8 +89,10 @@ class Engine {
   private evaluationPromise: Promise<StockfishEvaluation> | null
   private evaluationGenerator: AsyncGenerator<StockfishEvaluation> | null
   private initError: string | null
+  private initErrorDetail: string | null = null
   private initInFlight: boolean
   private initPhase: StockfishInitPhase
+  private downloadProgress: { loaded: number; total: number } | null = null
   private currentTargetDepth: number
   private currentMoveMapStrategy: StockfishMoveMapStrategy
   private currentAnalysisStartedAtMs: number
@@ -113,9 +126,14 @@ class Engine {
 
     this.initInFlight = true
     this.initPhase = 'loading-module'
-    setupStockfish((phase) => {
-      this.initPhase = phase
-    })
+    setupStockfish(
+      (phase) => {
+        this.initPhase = phase
+      },
+      (progress) => {
+        this.downloadProgress = progress
+      },
+    )
       .then((stockfish: StockfishWeb) => {
         this.stockfish = stockfish
         stockfish.uci('uci')
@@ -130,10 +148,14 @@ class Engine {
       })
       .catch((error) => {
         console.error('Failed to initialize Stockfish:', error)
+        this.initErrorDetail =
+          error instanceof Error ? error.message : String(error)
         this.initError =
-          error instanceof Error
-            ? error.message
-            : 'Unknown initialization error'
+          error instanceof NnueDownloadError
+            ? NNUE_DOWNLOAD_FAILED_MESSAGE
+            : error instanceof Error
+              ? error.message
+              : 'Unknown initialization error'
         this.isReady = false
         this.nnueLoaded = false
         this.initPhase = 'error'
@@ -157,6 +179,16 @@ class Engine {
 
   get initializationPhase(): StockfishInitPhase {
     return this.initPhase
+  }
+
+  /** The underlying error, with each host's failure, for logs and analytics. */
+  get initializationErrorDetail(): string | null {
+    return this.initErrorDetail
+  }
+
+  /** Bytes of the nets downloaded so far, while any are downloading. */
+  get initializationProgress(): { loaded: number; total: number } | null {
+    return this.initPhase === 'downloading-nnue' ? this.downloadProgress : null
   }
 
   async *streamEvaluations(
@@ -1825,33 +1857,6 @@ const getNnueFetchTimeoutMs = (): number => {
     : DEFAULT_NNUE_FETCH_TIMEOUT_MS
 }
 
-const fetchWithTimeout = async (
-  url: string,
-  timeoutMs: number,
-  signal?: AbortSignal,
-): Promise<Response> => {
-  if (typeof AbortController === 'undefined' || timeoutMs <= 0) {
-    return fetch(url, { signal })
-  }
-
-  const controller = new AbortController()
-  signal?.addEventListener('abort', () => controller.abort())
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await fetch(url, { signal: controller.signal })
-  } catch (error) {
-    if (signal?.aborted) throw error
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(
-        `Stockfish NNUE fetch timed out after ${timeoutMs}ms: ${url}`,
-      )
-    }
-    throw error
-  } finally {
-    clearTimeout(timeoutId)
-  }
-}
-
 const withTimeout = async <T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -1887,31 +1892,53 @@ const getStockfishModuleInitTimeoutMs = (): number => {
 
 const CACHE_LOOKUP_TIMED_OUT = Symbol('cache lookup timed out')
 
-export const loadNnueModel = async (
-  modelUrl: string,
+/**
+ * Nets are cached under their file name, so a change of host never costs a
+ * download. They used to be cached under their raw.githubusercontent.com URL;
+ * a browser that has one there keeps using it.
+ */
+export const legacyNetCacheKey = (file: string) => `${GITHUB_RAW_BASE}/${file}`
+
+const readCachedNet = async (
   storage: StockfishModelStorage,
-  timeoutMs: number,
-  onNetworkFetchStart?: () => void,
+  file: string,
+): Promise<ArrayBuffer | null> =>
+  (await storage.getModel(file)) ??
+  (await storage.getModel(legacyNetCacheKey(file)))
+
+export const loadNnueModel = async (
+  file: string,
+  storage: StockfishModelStorage,
+  download: (signal?: AbortSignal) => Promise<ArrayBuffer>,
   forceRefresh = false,
 ): Promise<ArrayBuffer> => {
-  if (forceRefresh) {
-    return downloadNnueModel(modelUrl, storage, timeoutMs, onNetworkFetchStart)
+  const downloadAndCache = async (signal?: AbortSignal) => {
+    const buffer = await download(signal)
+    void withTimeout(
+      storage.storeModel(file, buffer),
+      STOCKFISH_CACHE_WRITE_TIMEOUT_MS,
+      `Timed out while caching Stockfish model: ${file}`,
+    ).catch((error) => {
+      console.warn(error)
+    })
+    return buffer
   }
 
-  const cached = storage.getModel(modelUrl)
+  if (forceRefresh) {
+    return downloadAndCache()
+  }
+
+  const cached = readCachedNet(storage, file)
   const cachedModel = await withTimeout(
     cached,
     STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
-    `Timed out while checking cached Stockfish model: ${modelUrl}`,
+    `Timed out while checking cached Stockfish model: ${file}`,
   ).catch((error): typeof CACHE_LOOKUP_TIMED_OUT => {
     console.warn(error)
     return CACHE_LOOKUP_TIMED_OUT
   })
   if (cachedModel !== CACHE_LOOKUP_TIMED_OUT) {
-    return (
-      cachedModel ??
-      downloadNnueModel(modelUrl, storage, timeoutMs, onNetworkFetchStart)
-    )
+    return cachedModel ?? downloadAndCache()
   }
 
   // IndexedDB may never answer (Firefox after a Lichess login), but on a
@@ -1921,13 +1948,7 @@ export const loadNnueModel = async (
   // 75 MB again on every visit.
   const controller =
     typeof AbortController === 'undefined' ? null : new AbortController()
-  const download = downloadNnueModel(
-    modelUrl,
-    storage,
-    timeoutMs,
-    onNetworkFetchStart,
-    controller?.signal,
-  )
+  const downloading = downloadAndCache(controller?.signal)
   return new Promise<ArrayBuffer>((resolve, reject) => {
     cached.then((buffer) => {
       if (buffer) {
@@ -1935,39 +1956,17 @@ export const loadNnueModel = async (
         resolve(buffer)
       }
     })
-    download.then(resolve, (error) =>
-      withTimeout(cached, timeoutMs, 'Stockfish cache read timed out').then(
+    downloading.then(resolve, (error) =>
+      withTimeout(
+        cached,
+        STOCKFISH_CACHE_FALLBACK_TIMEOUT_MS,
+        'Stockfish cache read timed out',
+      ).then(
         (buffer) => (buffer ? resolve(buffer) : reject(error)),
         () => reject(error),
       ),
     )
   })
-}
-
-const downloadNnueModel = async (
-  modelUrl: string,
-  storage: StockfishModelStorage,
-  timeoutMs: number,
-  onNetworkFetchStart?: () => void,
-  signal?: AbortSignal,
-): Promise<ArrayBuffer> => {
-  onNetworkFetchStart?.()
-  const response = await fetchWithTimeout(modelUrl, timeoutMs, signal)
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch Stockfish NNUE model (${response.status}) from ${modelUrl}`,
-    )
-  }
-
-  const buffer = await response.arrayBuffer()
-  void withTimeout(
-    storage.storeModel(modelUrl, buffer),
-    STOCKFISH_CACHE_WRITE_TIMEOUT_MS,
-    `Timed out while caching Stockfish model: ${modelUrl}`,
-  ).catch((error) => {
-    console.warn(error)
-  })
-  return buffer
 }
 
 /**
@@ -2045,19 +2044,31 @@ const withPthreadPoolCap = <T>(create: () => T): T => {
 
 const setupStockfish = async (
   onPhaseChange?: (phase: StockfishInitPhase) => void,
+  onDownloadProgress?: (progress: { loaded: number; total: number }) => void,
 ): Promise<StockfishWeb> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const makeModule: any = await import('lila-stockfish-web/sf17-79.js')
 
-  // NNUE weights served via raw.githubusercontent.com permalink (CORS + COEP compatible).
-  // Override with NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL for self-hosted deployments.
-  const nnueBaseUrl =
-    process.env.NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL ??
-    'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
+  // Free hosts, tried in turn (see nnueDownload.ts). The Vercel deployment
+  // does not serve the nets: they cost too much bandwidth there.
+  const sources = getNnueSources()
   const storage = new StockfishModelStorage()
   const timeoutMs = getNnueFetchTimeoutMs()
   const moduleInitTimeoutMs = getStockfishModuleInitTimeoutMs()
-  let nnueUrls: [string, string] | null = null
+  let nnueFiles: [string, string] | null = null
+  const progress = new Map<string, { loaded: number; total: number }>()
+  const reportProgress = (
+    file: string,
+    loaded: number,
+    total: number | null,
+  ) => {
+    progress.set(file, { loaded, total: total ?? loaded })
+    let sum = { loaded: 0, total: 0 }
+    progress.forEach((p) => {
+      sum = { loaded: sum.loaded + p.loaded, total: sum.total + p.total }
+    })
+    onDownloadProgress?.(sum)
+  }
 
   void storage.requestPersistentStorage().catch((error) => {
     console.warn('Failed to request persistent storage for Stockfish:', error)
@@ -2079,39 +2090,31 @@ const setupStockfish = async (
     instance: StockfishWeb,
     forceRefresh = false,
   ): Promise<void> => {
-    if (!nnueUrls) {
-      throw new Error('Stockfish recommended NNUE URLs were not initialized')
+    if (!nnueFiles) {
+      throw new Error('Stockfish recommended NNUE files were not initialized')
     }
 
     let downloadStarted = false
+    const load = (file: string) =>
+      loadNnueModel(
+        file,
+        storage,
+        (signal) => {
+          if (!downloadStarted) {
+            downloadStarted = true
+            onPhaseChange?.('downloading-nnue')
+          }
+          return downloadNnue(file, sources, {
+            signal,
+            headerTimeoutMs: timeoutMs,
+            onProgress: (loaded, total) => reportProgress(file, loaded, total),
+          })
+        },
+        forceRefresh,
+      )
 
     onPhaseChange?.('checking-cache')
-    const buffers = await Promise.all([
-      loadNnueModel(
-        nnueUrls[0],
-        storage,
-        timeoutMs,
-        () => {
-          if (!downloadStarted) {
-            downloadStarted = true
-            onPhaseChange?.('downloading-nnue')
-          }
-        },
-        forceRefresh,
-      ),
-      loadNnueModel(
-        nnueUrls[1],
-        storage,
-        timeoutMs,
-        () => {
-          if (!downloadStarted) {
-            downloadStarted = true
-            onPhaseChange?.('downloading-nnue')
-          }
-        },
-        forceRefresh,
-      ),
-    ])
+    const buffers = await Promise.all([load(nnueFiles[0]), load(nnueFiles[1])])
 
     onPhaseChange?.('loading-nnue')
     setNnueBuffer(instance, buffers[0], 0)
@@ -2120,10 +2123,7 @@ const setupStockfish = async (
 
   try {
     let instance = await withPthreadPoolCap(createInstance)
-    nnueUrls = [
-      `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`,
-      `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`,
-    ]
+    nnueFiles = [instance.getRecommendedNnue(0), instance.getRecommendedNnue(1)]
 
     try {
       await loadWeightsIntoInstance(instance)
@@ -2136,7 +2136,12 @@ const setupStockfish = async (
         'Stockfish NNUE load failed; clearing cached weights and retrying once.',
         error,
       )
-      await Promise.all(nnueUrls.map((url) => storage.deleteModel(url)))
+      await Promise.all(
+        nnueFiles.flatMap((file) => [
+          storage.deleteModel(file),
+          storage.deleteModel(legacyNetCacheKey(file)),
+        ]),
+      )
 
       instance = await withPthreadPoolCap(createInstance)
       await loadWeightsIntoInstance(instance, true)

@@ -1,0 +1,302 @@
+import { createHash, randomBytes, webcrypto } from 'node:crypto'
+import { ReadableStream } from 'node:stream/web'
+import {
+  CorruptNetError,
+  downloadNnue,
+  fetchResumable,
+  getNnueSources,
+  NnueDownloadError,
+  NnueSource,
+} from './nnueDownload'
+
+// A fake net whose name carries its SHA-256 prefix, as Stockfish's do.
+const NET = new Uint8Array(randomBytes(100_000))
+const same = (a: ArrayBuffer, b: Uint8Array) => {
+  const bytes = new Uint8Array(a)
+  return bytes.byteLength === b.byteLength && bytes.every((v, i) => v === b[i])
+}
+
+// jsdom has no SubtleCrypto; the hash check needs one.
+beforeAll(() => {
+  if (!globalThis.crypto?.subtle) {
+    Object.defineProperty(globalThis, 'crypto', {
+      value: webcrypto,
+      configurable: true,
+    })
+  }
+})
+const FILE = `nn-${createHash('sha256').update(NET).digest('hex').slice(0, 12)}.nnue`
+
+type Fault =
+  | 'ok'
+  | 'refuse'
+  | 'ignore-range'
+  | { status: number }
+  | { drop: number }
+  | { stall: number }
+
+// The parts of a Response that the downloader reads.
+const response = (
+  status: number,
+  body: ReadableStream<Uint8Array> | null,
+  length: number,
+) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  headers: {
+    get: (name: string) => (name === 'content-length' ? String(length) : null),
+  },
+  body,
+  arrayBuffer: async () => new ArrayBuffer(length),
+})
+
+/**
+ * A fetch that serves `bodies` in 1000-byte chunks, honouring Range, with one
+ * fault taken from `faults[url]` per request.
+ */
+const fakeFetch = (
+  bodies: Record<string, Uint8Array>,
+  faults: Record<string, Fault[]> = {},
+) => {
+  const calls: { url: string; range: string | null }[] = []
+  const fetchImpl = async (url: string, init?: RequestInit) => {
+    const range =
+      (init?.headers as Record<string, string> | undefined)?.Range ?? null
+    calls.push({ url, range })
+    const fault = faults[url]?.shift() ?? 'ok'
+    if (fault === 'refuse') throw new TypeError('Failed to fetch')
+    if (typeof fault === 'object' && 'status' in fault) {
+      return response(fault.status, null, 2)
+    }
+    const ranged = range !== null && fault !== 'ignore-range'
+    const start = ranged ? Number(/bytes=(\d+)-/.exec(range ?? '')?.[1]) : 0
+    const body = bodies[url].subarray(start)
+    const drop = typeof fault === 'object' && 'drop' in fault
+    const limit =
+      typeof fault === 'object' && 'drop' in fault
+        ? fault.drop
+        : typeof fault === 'object' && 'stall' in fault
+          ? fault.stall
+          : Infinity
+    let sent = 0
+    let failStream: (error: unknown) => void = () => undefined
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        failStream = (error) => controller.error(error)
+        init?.signal?.addEventListener('abort', () =>
+          failStream(new DOMException('aborted', 'AbortError')),
+        )
+      },
+      // One chunk per read, so a drop or stall comes after the bytes before it.
+      pull(controller) {
+        if (sent >= body.byteLength) return controller.close()
+        if (sent >= limit) {
+          if (drop) return controller.error(new TypeError('network error'))
+          return new Promise(() => undefined) // a stall
+        }
+        const end = Math.min(sent + 1000, limit, body.byteLength)
+        controller.enqueue(body.slice(sent, end))
+        sent = end
+      },
+    })
+    return response(ranged ? 206 : 200, stream, body.byteLength)
+  }
+  return { fetchImpl: fetchImpl as unknown as typeof fetch, calls }
+}
+
+const source = (name: string, urls?: string[]): NnueSource => ({
+  name,
+  urls: (file) => urls ?? [`https://${name}/${file}`],
+})
+
+const fast = { retryDelayMs: () => 1, stallTimeoutMs: 50 }
+
+describe('downloadNnue', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+  })
+  afterEach(() => jest.restoreAllMocks())
+
+  const A = `https://a/${FILE}`
+  const B = `https://b/${FILE}`
+
+  it('downloads a net and checks its hash', async () => {
+    const { fetchImpl, calls } = fakeFetch({ [A]: NET })
+    const net = await downloadNnue(FILE, [source('a')], { fetchImpl })
+    expect(same(net, NET)).toBe(true)
+    expect(calls).toHaveLength(1)
+  })
+
+  it('resumes a dropped download where it stopped', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET },
+      { [A]: [{ drop: 30000 }] },
+    )
+    const net = await downloadNnue(FILE, [source('a')], { ...fast, fetchImpl })
+    expect(same(net, NET)).toBe(true)
+    expect(calls.map((c) => c.range)).toEqual([null, 'bytes=30000-'])
+  })
+
+  it('resumes a download that stalls', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET },
+      { [A]: [{ stall: 20000 }] },
+    )
+    const net = await downloadNnue(FILE, [source('a')], { ...fast, fetchImpl })
+    expect(same(net, NET)).toBe(true)
+    expect(calls.map((c) => c.range)).toEqual([null, 'bytes=20000-'])
+  })
+
+  it('starts again when a host ignores Range', async () => {
+    const { fetchImpl } = fakeFetch(
+      { [A]: NET },
+      { [A]: [{ drop: 30000 }, 'ignore-range'] },
+    )
+    const net = await downloadNnue(FILE, [source('a')], { ...fast, fetchImpl })
+    expect(same(net, NET)).toBe(true)
+  })
+
+  it('starts again without Range when resumed requests get no response', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET },
+      { [A]: [{ drop: 30000 }, 'refuse', 'refuse'] },
+    )
+    const net = await downloadNnue(FILE, [source('a')], { ...fast, fetchImpl })
+    expect(same(net, NET)).toBe(true)
+    expect(calls.map((c) => c.range)).toEqual([
+      null,
+      'bytes=30000-',
+      'bytes=30000-',
+      null,
+    ])
+  })
+
+  it('retries a rate-limited host, then uses the next one', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET, [B]: NET },
+      { [A]: Array(4).fill({ status: 429 }) },
+    )
+    const net = await downloadNnue(FILE, [source('a'), source('b')], {
+      ...fast,
+      fetchImpl,
+    })
+    expect(same(net, NET)).toBe(true)
+    expect(calls.filter((c) => c.url === A)).toHaveLength(4)
+    expect(calls.filter((c) => c.url === B)).toHaveLength(1)
+  })
+
+  it('moves to the next host at once after a 404', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET, [B]: NET },
+      { [A]: [{ status: 404 }] },
+    )
+    await downloadNnue(FILE, [source('a'), source('b')], { ...fast, fetchImpl })
+    expect(calls.map((c) => c.url)).toEqual([A, B])
+  })
+
+  it('rejects a corrupt copy and uses the next host', async () => {
+    const corrupt = NET.slice()
+    corrupt[500] ^= 1
+    const { fetchImpl } = fakeFetch({ [A]: corrupt, [B]: NET })
+    const net = await downloadNnue(FILE, [source('a'), source('b')], {
+      ...fast,
+      fetchImpl,
+    })
+    expect(same(net, NET)).toBe(true)
+  })
+
+  it('joins the parts of a split net', async () => {
+    const parts = ['https://p/0', 'https://p/1', 'https://p/2']
+    const { fetchImpl } = fakeFetch({
+      [parts[0]]: NET.subarray(0, 40000),
+      [parts[1]]: NET.subarray(40000, 80000),
+      [parts[2]]: NET.subarray(80000),
+    })
+    const progress: number[] = []
+    const net = await downloadNnue(FILE, [source('p', parts)], {
+      fetchImpl,
+      onProgress: (loaded) => progress.push(loaded),
+    })
+    expect(same(net, NET)).toBe(true)
+    expect(progress[progress.length - 1]).toBe(NET.byteLength)
+  })
+
+  it('reports every host when all of them fail', async () => {
+    const { fetchImpl } = fakeFetch(
+      {},
+      { [A]: Array(4).fill('refuse'), [B]: [{ status: 403 }] },
+    )
+    const download = downloadNnue(FILE, [source('a'), source('b')], {
+      ...fast,
+      fetchImpl,
+    })
+    await expect(download).rejects.toBeInstanceOf(NnueDownloadError)
+    await expect(download).rejects.toThrow(/a: Failed to fetch; b: HTTP 403/)
+  })
+
+  it('stops when aborted', async () => {
+    const { fetchImpl } = fakeFetch({ [A]: NET }, { [A]: [{ stall: 20000 }] })
+    const controller = new AbortController()
+    const download = downloadNnue(FILE, [source('a')], {
+      fetchImpl,
+      signal: controller.signal,
+    })
+    controller.abort()
+    await expect(download).rejects.toThrow()
+  })
+})
+
+describe('fetchResumable into a buffer', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+  })
+  afterEach(() => jest.restoreAllMocks())
+
+  const A = 'https://a/net'
+
+  it('writes a resumed download straight into the buffer', async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      { [A]: NET },
+      { [A]: [{ drop: 30000 }] },
+    )
+    const into = new Uint8Array(NET.byteLength)
+    const got = await fetchResumable(A, { ...fast, fetchImpl, into })
+    expect(got.buffer).toBe(into.buffer)
+    expect(same(into.buffer, NET)).toBe(true)
+    expect(calls.map((c) => c.range)).toEqual([null, 'bytes=30000-'])
+  })
+
+  it('rejects a host that sends more than the buffer holds', async () => {
+    const { fetchImpl } = fakeFetch({ [A]: NET })
+    const into = new Uint8Array(NET.byteLength - 1)
+    await expect(
+      fetchResumable(A, { ...fast, fetchImpl, into }),
+    ).rejects.toBeInstanceOf(CorruptNetError)
+  })
+})
+
+describe('getNnueSources', () => {
+  it('tries jsDelivr in parts, then raw.githubusercontent.com', () => {
+    const [jsdelivr, github] = getNnueSources('', '')
+    expect(jsdelivr.urls('nn-1111cefa1111.nnue')).toHaveLength(5)
+    expect(jsdelivr.urls('nn-1111cefa1111.nnue')[4]).toMatch(
+      /^https:\/\/cdn\.jsdelivr\.net\/gh\/.*\/nn-1111cefa1111\.nnue\.part4$/,
+    )
+    expect(jsdelivr.urls('nn-37f18f62d772.nnue')).toEqual([
+      expect.stringMatching(/\/nn-37f18f62d772\.nnue$/),
+    ])
+    expect(github.urls('nn-1111cefa1111.nnue')).toEqual([
+      expect.stringMatching(
+        /^https:\/\/raw\.githubusercontent\.com\/.*\/nn-1111cefa1111\.nnue$/,
+      ),
+    ])
+  })
+
+  it('reads a list of hosts from the environment', () => {
+    const sources = getNnueSources('parts:http://x/a, http://x/b', '')
+    expect(sources.map((s) => s.urls('nn-1111cefa1111.nnue')[0])).toEqual([
+      'http://x/a/nn-1111cefa1111.nnue.part0',
+      'http://x/b/nn-1111cefa1111.nnue',
+    ])
+  })
+})

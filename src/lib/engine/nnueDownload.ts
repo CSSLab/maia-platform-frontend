@@ -1,0 +1,350 @@
+/**
+ * Downloads Stockfish's NNUE nets (75 MB and 3.5 MB for sf17-79).
+ *
+ * A single 75 MB request from one host failed often enough to be the main
+ * complaint about the analysis page ("Failed to load Stockfish engine: Failed
+ * to fetch"): nothing retried a dropped connection, a stalled download hung
+ * forever, and raw.githubusercontent.com rate-limits anonymous traffic. So a
+ * net is now fetched from a list of free hosts in turn; on each host a
+ * dropped or stalled download resumes where it stopped (HTTP Range), and a
+ * finished net must match the SHA-256 prefix in its name before it is used
+ * or cached.
+ */
+
+export type NnueSource = {
+  name: string
+  /** The URLs whose bodies, concatenated, make up `file`. */
+  urls: (file: string) => string[]
+}
+
+export type NnueDownloadOptions = {
+  signal?: AbortSignal
+  /** Time allowed until response headers arrive. */
+  headerTimeoutMs?: number
+  /** A download that receives nothing for this long is aborted and resumed. */
+  stallTimeoutMs?: number
+  /** Tries per URL in a row that bring no new bytes before the next host. */
+  attemptsPerUrl?: number
+  retryDelayMs?: (failures: number) => number
+  onProgress?: (loaded: number, total: number | null) => void
+  fetchImpl?: typeof fetch
+}
+
+/** Sizes of the nets sf17-79 asks for, and how many parts jsDelivr serves. */
+export const KNOWN_NETS: Record<string, { size: number; parts: number }> = {
+  'nn-1111cefa1111.nnue': { size: 74874478, parts: 5 },
+  'nn-37f18f62d772.nnue': { size: 3519630, parts: 1 },
+}
+
+// jsDelivr serves files of up to 20 MB from a GitHub repo, so the tag holds
+// the big net in 16 MiB parts (`split -b 16777216 -d -a 1`).
+const JSDELIVR_BASE =
+  'https://cdn.jsdelivr.net/gh/CSSLab/maia-platform-frontend@stockfish-nets-1'
+// The commit that last had the nets in public/stockfish.
+export const GITHUB_RAW_BASE =
+  'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
+
+export const partUrls = (base: string, file: string): string[] => {
+  const parts = KNOWN_NETS[file]?.parts ?? 1
+  if (parts <= 1) return [`${base}/${file}`]
+  return Array.from({ length: parts }, (_, i) => `${base}/${file}.part${i}`)
+}
+
+const wholeFile =
+  (base: string): NnueSource['urls'] =>
+  (file) => [`${base}/${file}`]
+
+/**
+ * `NEXT_PUBLIC_STOCKFISH_NNUE_SOURCES` replaces the hosts with a comma-separated
+ * list of base URLs (a `parts:` prefix for a host that serves the parts);
+ * `NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL` alone means a single self-hosted copy.
+ */
+export const getNnueSources = (
+  sourcesEnv = process.env.NEXT_PUBLIC_STOCKFISH_NNUE_SOURCES,
+  baseUrlEnv = process.env.NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL,
+): NnueSource[] => {
+  if (sourcesEnv) {
+    return sourcesEnv
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) =>
+        entry.startsWith('parts:')
+          ? {
+              name: entry.slice('parts:'.length),
+              urls: (file: string) =>
+                partUrls(entry.slice('parts:'.length), file),
+            }
+          : { name: entry, urls: wholeFile(entry) },
+      )
+  }
+  if (baseUrlEnv) {
+    return [{ name: baseUrlEnv, urls: wholeFile(baseUrlEnv) }]
+  }
+  return [
+    { name: 'jsdelivr', urls: (file) => partUrls(JSDELIVR_BASE, file) },
+    { name: 'github', urls: wholeFile(GITHUB_RAW_BASE) },
+  ]
+}
+
+export class HttpStatusError extends Error {
+  constructor(
+    readonly status: number,
+    url: string,
+  ) {
+    super(`HTTP ${status} from ${url}`)
+  }
+}
+
+export class CorruptNetError extends Error {}
+
+export class NnueDownloadError extends Error {
+  constructor(
+    readonly file: string,
+    readonly failures: { source: string; error: string }[],
+  ) {
+    super(
+      `Could not download ${file}: ${failures
+        .map((f) => `${f.source}: ${f.error}`)
+        .join('; ')}`,
+    )
+  }
+}
+
+class StallError extends Error {}
+
+const errorText = (error: unknown) =>
+  error instanceof Error ? error.message : String(error)
+
+// 404, 403 and the like will not change on a retry; move on to the next host.
+const isRetryable = (error: unknown) =>
+  !(error instanceof HttpStatusError) ||
+  error.status === 408 ||
+  error.status === 429 ||
+  error.status >= 500
+
+// 0.5, 1 and 2 s: a host that is down costs 3.5 s before the next one.
+const defaultRetryDelayMs = (failures: number) =>
+  Math.min(500 * 2 ** (failures - 1), 4000)
+
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const id = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(id)
+      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+    })
+  })
+
+const throwIfAborted = (signal?: AbortSignal) => {
+  if (signal?.aborted) {
+    throw signal.reason ?? new DOMException('Aborted', 'AbortError')
+  }
+}
+
+const concat = (chunks: Uint8Array[], length: number): Uint8Array => {
+  if (chunks.length === 1 && chunks[0].byteLength === length) return chunks[0]
+  const out = new Uint8Array(length)
+  let offset = 0
+  for (const chunk of chunks) {
+    out.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return out
+}
+
+/**
+ * Fetches one URL, resuming with a Range request after a dropped or stalled
+ * connection. Gives up after `attemptsPerUrl` tries in a row that brought no
+ * new bytes, or at once on a status that a retry will not fix.
+ *
+ * Chrome sends a simple Range header without a CORS preflight; a browser that
+ * does preflight it fails on raw.githubusercontent.com (403) and jsDelivr (no
+ * Access-Control-Allow-Headers). So after two resumes that got no response at
+ * all, the next try starts the URL again without a Range header.
+ *
+ * With `into`, the body is written straight into that buffer, so a 75 MB net
+ * is held once rather than as chunks plus a joined copy.
+ */
+export const fetchResumable = async (
+  url: string,
+  options: NnueDownloadOptions & {
+    onBytes?: (received: number) => void
+    into?: Uint8Array
+  },
+): Promise<Uint8Array> => {
+  const {
+    signal,
+    headerTimeoutMs = 30000,
+    stallTimeoutMs = 20000,
+    attemptsPerUrl = 4,
+    retryDelayMs = defaultRetryDelayMs,
+    fetchImpl = fetch,
+    onBytes,
+    into,
+  } = options
+  let chunks: Uint8Array[] = []
+  let received = 0
+  const write = (chunk: Uint8Array) => {
+    if (into) {
+      if (received + chunk.byteLength > into.byteLength) {
+        throw new CorruptNetError(`${url} sent more than expected`)
+      }
+      into.set(chunk, received)
+    } else {
+      chunks.push(chunk)
+    }
+    received += chunk.byteLength
+    onBytes?.(received)
+  }
+  let total: number | null = null
+  let failures = 0
+  let rangeWithoutResponse = 0
+
+  for (;;) {
+    throwIfAborted(signal)
+    if (rangeWithoutResponse >= 2) {
+      chunks = []
+      received = 0
+      rangeWithoutResponse = 0
+    }
+    const controller = new AbortController()
+    const onAbort = () => controller.abort(signal?.reason)
+    signal?.addEventListener('abort', onAbort)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let stalled = false
+    let responded = false
+    const arm = (ms: number) => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        stalled = true
+        controller.abort()
+      }, ms)
+    }
+    const before = received
+
+    try {
+      arm(headerTimeoutMs)
+      const response = await fetchImpl(url, {
+        signal: controller.signal,
+        headers: received > 0 ? { Range: `bytes=${received}-` } : undefined,
+      })
+      responded = true
+      if (received > 0 && response.status === 200) {
+        // The host ignored the Range header: start this URL again.
+        chunks = []
+        received = 0
+      } else if (!response.ok) {
+        throw new HttpStatusError(response.status, url)
+      }
+      if (response.status === 200) {
+        const length = Number(response.headers.get('content-length'))
+        total = length > 0 ? length : null
+      }
+
+      if (!response.body) {
+        write(new Uint8Array(await response.arrayBuffer()))
+      } else {
+        const reader = response.body.getReader()
+        arm(stallTimeoutMs)
+        for (;;) {
+          const { done, value } = await reader.read()
+          if (done) break
+          write(value)
+          arm(stallTimeoutMs)
+        }
+      }
+      if (total !== null && received < total) {
+        throw new Error(`connection closed at ${received} of ${total} bytes`)
+      }
+      if (total !== null && received > total) {
+        throw new CorruptNetError(`${url} sent ${received} of ${total} bytes`)
+      }
+      return into ? into.subarray(0, received) : concat(chunks, received)
+    } catch (error) {
+      throwIfAborted(signal)
+      const reason = stalled
+        ? new StallError(`${url} stopped sending data`)
+        : error
+      if (!isRetryable(reason) || reason instanceof CorruptNetError) {
+        throw reason
+      }
+      failures = received > before ? 1 : failures + 1
+      if (failures >= attemptsPerUrl) throw reason
+      rangeWithoutResponse =
+        before > 0 && !responded ? rangeWithoutResponse + 1 : 0
+      console.warn(
+        `Stockfish net download interrupted (${errorText(reason)}); ` +
+          `resuming at ${received} bytes`,
+      )
+      await sleep(retryDelayMs(failures), signal)
+    } finally {
+      if (timer) clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+    }
+  }
+}
+
+const toHex = (buffer: ArrayBuffer) =>
+  Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 12)
+
+/** Stockfish names a net `nn-` + the first 12 hex digits of its SHA-256. */
+export const verifyNet = async (file: string, net: Uint8Array) => {
+  const known = KNOWN_NETS[file]
+  if (known && net.byteLength !== known.size) {
+    throw new CorruptNetError(
+      `${file} is ${net.byteLength} bytes, expected ${known.size}`,
+    )
+  }
+  const hash = /^nn-([0-9a-f]{12})\.nnue$/.exec(file)?.[1]
+  const subtle = globalThis.crypto?.subtle
+  if (!hash || !subtle) return
+  const digest = await subtle.digest('SHA-256', net)
+  if (toHex(digest) !== hash) {
+    throw new CorruptNetError(`${file} does not match its SHA-256`)
+  }
+}
+
+/** Downloads `file` from the first source that delivers an intact copy. */
+export const downloadNnue = async (
+  file: string,
+  sources: NnueSource[],
+  options: NnueDownloadOptions = {},
+): Promise<ArrayBuffer> => {
+  const failures: { source: string; error: string }[] = []
+  const total = KNOWN_NETS[file]?.size ?? null
+
+  for (const source of sources) {
+    throwIfAborted(options.signal)
+    // A net of known size is written into one buffer as it arrives.
+    const target = total === null ? null : new Uint8Array(total)
+    const parts: Uint8Array[] = []
+    let done = 0
+    try {
+      for (const url of source.urls(file)) {
+        const part = await fetchResumable(url, {
+          ...options,
+          into: target?.subarray(done),
+          onBytes: (received) => options.onProgress?.(done + received, total),
+        })
+        if (!target) parts.push(part)
+        done += part.byteLength
+      }
+      const net = target ? target.subarray(0, done) : concat(parts, done)
+      await verifyNet(file, net)
+      return net.byteOffset === 0 && net.byteLength === net.buffer.byteLength
+        ? (net.buffer as ArrayBuffer)
+        : (net.slice().buffer as ArrayBuffer)
+    } catch (error) {
+      throwIfAborted(options.signal)
+      failures.push({ source: source.name, error: errorText(error) })
+      console.warn(
+        `Stockfish net ${file} failed from ${source.name}: ${errorText(error)}`,
+      )
+      options.onProgress?.(0, total)
+    }
+  }
+  throw new NnueDownloadError(file, failures)
+}
