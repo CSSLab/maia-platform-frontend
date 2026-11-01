@@ -20,7 +20,7 @@ const EARLY_REQUESTS = `(function () {
   var request = fetch('https://lichess.org/game/export/' + id, {
     headers: { Accept: 'application/x-chess-pgn' },
   }).then(function (res) {
-    return res.text()
+    return res.ok ? res.text() : ''
   })
   request.catch(function () {})
   window.__lichessPgn = { id: id, request: request }

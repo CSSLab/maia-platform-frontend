@@ -63,12 +63,41 @@ export const streamLichessGames = async (
   stream.then(readLichessStream(onMessage))
 }
 
-export const fetchPgnOfLichessGame = async (id: string): Promise<string> => {
-  const res = await fetch(`https://lichess.org/game/export/${id}`, {
-    headers: {
-      Accept: 'application/x-chess-pgn',
+const looksLikePgn = (text: string) => /^\s*\[\w+\s+"/.test(text)
+
+/**
+ * `early`: the same request already started by the page's HTML (see
+ * _document.tsx), used instead of a new one.
+ */
+export const fetchPgnOfLichessGame = async (
+  id: string,
+  early?: Promise<string>,
+): Promise<string> => {
+  try {
+    const text = await (early ??
+      fetch(`https://lichess.org/game/export/${id}`, {
+        headers: {
+          Accept: 'application/x-chess-pgn',
+        },
+      }).then((res) => (res.ok ? res.text() : '')))
+    if (looksLikePgn(text)) return text
+  } catch (error) {
+    console.warn('Lichess game export failed, trying the export by id:', error)
+  }
+
+  // Lichess redirects anonymous exports of older games to its sign-up page,
+  // which fails CORS. Its export by ids still serves them, and with these
+  // options returns the same PGN as the single-game export.
+  const res = await fetch(
+    'https://lichess.org/api/games/export/_ids?clocks=true&evals=true&opening=true',
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/x-chess-pgn',
+      },
+      body: id,
     },
-  })
+  )
   return res.text()
 }
 
