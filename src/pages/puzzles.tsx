@@ -1754,13 +1754,6 @@ const Train: React.FC<Props> = ({
 
   return (
     <>
-      <Head>
-        <title>Chess Puzzles – Maia Chess</title>
-        <meta
-          name="description"
-          content="Train with Maia as your coach using human-centered puzzles. Curated based on how millions of players improve, with data showing how different ratings approach each position."
-        />
-      </Head>
       <AnimatePresence>
         {analysisController.maia.status === 'no-cache' ||
         analysisController.maia.status === 'downloading' ? (
@@ -1785,8 +1778,17 @@ const Train: React.FC<Props> = ({
 
 export default function AuthenticatedTrainPage() {
   return (
-    <AuthenticatedWrapper>
-      <TrainPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Chess Puzzles – Maia Chess</title>
+        <meta
+          name="description"
+          content="Train with Maia as your coach using human-centered puzzles. Curated based on how millions of players improve, with data showing how different ratings approach each position."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <TrainPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }

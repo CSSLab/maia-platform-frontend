@@ -36,9 +36,9 @@ export const GameClock: React.FC<Props> = (
     0,
   )
 
-  // Convert maiaVersion (e.g., "maia_kdd_1100") to display name (e.g., "Maia 1100")
+  // Convert maiaVersion (e.g., "maia_kdd_1100") to display name (e.g., "Maia-3 1100")
   const getMaiaDisplayName = (version: string): string => {
-    return version.replace('maia_kdd_', 'Maia ')
+    return version.replace('maia_kdd_', 'Maia-3 ')
   }
 
   useEffect(() => {

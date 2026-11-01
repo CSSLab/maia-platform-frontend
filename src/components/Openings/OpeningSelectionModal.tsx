@@ -3187,7 +3187,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
               Drill with Maia
             </h1>
             <p className="mt-0.5 text-[13px] text-secondary">
-              Select drills, configure settings, practice against Maia 3.
+              Select drills, configure settings, practice against Maia-3.
             </p>
           </div>
         </div>

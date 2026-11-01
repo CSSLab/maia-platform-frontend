@@ -80,13 +80,6 @@ const BroadcastsPage: NextPage = () => {
   if (loading) {
     return (
       <>
-        <Head>
-          <title>Live Broadcasts – Maia Chess</title>
-          <meta
-            name="description"
-            content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
-          />
-        </Head>
         <Loading isLoading={true}>
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="text-center">
@@ -104,9 +97,6 @@ const BroadcastsPage: NextPage = () => {
   if (broadcastState.error) {
     return (
       <>
-        <Head>
-          <title>Live Broadcasts – Maia Chess</title>
-        </Head>
         <div className="flex min-h-screen items-center justify-center bg-backdrop">
           <div className="rounded-lg border border-glass-border bg-glass p-6 text-center">
             <h2 className="mb-4 text-xl font-semibold text-red-400">
@@ -133,14 +123,6 @@ const BroadcastsPage: NextPage = () => {
 
   return (
     <>
-      <Head>
-        <title>Live Broadcasts – Maia Chess</title>
-        <meta
-          name="description"
-          content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
-        />
-      </Head>
-
       <motion.div
         className="container relative mx-auto px-6 py-8"
         initial="initial"
@@ -339,8 +321,17 @@ const BroadcastsPage: NextPage = () => {
 
 export default function AuthenticatedBroadcastsPage() {
   return (
-    <AuthenticatedWrapper>
-      <BroadcastsPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Live Broadcasts – Maia Chess</title>
+        <meta
+          name="description"
+          content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <BroadcastsPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }

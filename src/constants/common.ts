@@ -9,7 +9,7 @@ export const MAIA_RATINGS = MAIA_MODELS.map((m) =>
 
 export const MAIA_MODELS_WITH_NAMES = MAIA_MODELS.map((model) => ({
   id: model,
-  name: model.replace('maia_kdd_', 'Maia '),
+  name: model.replace('maia_kdd_', 'Maia-3 '),
 }))
 
 export const MAIA3_OPPONENT_RATINGS = Array.from({ length: 21 }, (_, i) => {

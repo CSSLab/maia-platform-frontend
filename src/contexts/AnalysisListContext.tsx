@@ -7,6 +7,7 @@ import {
   streamLichessGames,
   fetchMaiaGameList,
 } from 'src/api'
+import { formatMaiaName } from 'src/lib/maiaNames'
 
 interface IAnalysisListContext {
   analysisTournamentList: Map<string, WorldChampionshipGameListEntry[]> | null
@@ -76,7 +77,10 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     if (user?.lichessId) {
       streamLichessGames(user?.lichessId, (data) => {
-        const result = data.pgn.match(/\[Result\s+"(.+?)"\]/)[1] || '?'
+        // Lichess sends an error object instead of games (unknown user, rate
+        // limit).
+        if (!data?.pgn) return
+        const result = data.pgn.match(/\[Result\s+"(.+?)"\]/)?.[1] || '?'
 
         const game: MaiaGameListEntry = {
           id: data.id,
@@ -108,11 +112,11 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
               maia_name: string
               result: string
               player_color: 'white' | 'black'
+              created_time?: string
             },
             type: 'play' | 'hand' | 'brain' | 'custom',
           ) => {
-            const raw = game.maia_name.replace('_kdd_', ' ')
-            const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+            const maia = formatMaiaName(game.maia_name, game.created_time)
 
             return {
               id: game.game_id,

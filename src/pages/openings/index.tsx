@@ -169,7 +169,7 @@ const OpeningsPage: NextPage = () => {
 
     const maiaName = controller.currentDrill.maiaVersion.replace(
       'maia_kdd_',
-      'Maia ',
+      'Maia-3 ',
     )
     const maiaRating = parseInt(
       controller.currentDrill.maiaVersion.replace('maia_kdd_', ''),
@@ -1123,7 +1123,7 @@ const OpeningsPage: NextPage = () => {
             : ''}
         </p>
         <p className="mt-1 text-xs text-white/70">
-          Drill {controller.currentDrillNumber || 1} · vs Maia{' '}
+          Drill {controller.currentDrillNumber || 1} · vs Maia-3{' '}
           {controller.currentDrill.maiaVersion.replace('maia_kdd_', '')}
         </p>
         <p className="mt-3 text-center text-sm font-semibold uppercase tracking-wider text-white">
@@ -1150,13 +1150,6 @@ const OpeningsPage: NextPage = () => {
   if (maiaEngine.status === 'no-cache' || maiaEngine.status === 'downloading') {
     return (
       <>
-        <Head>
-          <title>Opening Drills – Maia Chess</title>
-          <meta
-            name="description"
-            content="Drill chess openings against Maia models calibrated to specific rating levels. Practice against opponents similar to those you'll face, with targeted training for your skill level."
-          />
-        </Head>
         <AnimatePresence>
           <DownloadModelModal
             progress={maiaEngine.progress}
@@ -1171,13 +1164,6 @@ const OpeningsPage: NextPage = () => {
   if (showSelectionModal) {
     return (
       <>
-        <Head>
-          <title>Opening Drills – Maia Chess</title>
-          <meta
-            name="description"
-            content="Drill chess openings against Maia models calibrated to specific rating levels. Practice against opponents similar to those you'll face, with targeted training for your skill level."
-          />
-        </Head>
         <AnimatePresence>
           <OpeningSelectionModal
             openings={openings}
@@ -1656,7 +1642,7 @@ const OpeningsPage: NextPage = () => {
               )}
               <span className="text-secondary">•</span>
               <span className="text-secondary">
-                vs Maia{' '}
+                vs Maia-3{' '}
                 {controller.currentDrill.maiaVersion.replace('maia_kdd_', '')}
               </span>
               <span className="text-secondary">•</span>
@@ -2027,8 +2013,17 @@ const OpeningsPage: NextPage = () => {
 
 export default function AuthenticatedOpeningsPage() {
   return (
-    <AuthenticatedWrapper>
-      <OpeningsPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Opening Drills – Maia Chess</title>
+        <meta
+          name="description"
+          content="Drill chess openings against Maia models calibrated to specific rating levels. Practice against opponents similar to those you'll face, with targeted training for your skill level."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <OpeningsPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }

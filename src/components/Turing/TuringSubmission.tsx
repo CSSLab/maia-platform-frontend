@@ -24,7 +24,9 @@ export const TuringSubmission = ({ rating }: { rating: number }) => {
       <div className="flex flex-col gap-5 border-t border-glass-border bg-transparent p-3">
         <h2 className="text-2xl">
           Guess {game.result.correct ? 'correct' : 'incorrect'}, <br />
-          {game.result.bot} was the bot
+          {game.result.bot.charAt(0).toUpperCase() +
+            game.result.bot.slice(1)}{' '}
+          was the bot
         </h2>
         <div className="-mt-1 flex flex-col">
           <h3>

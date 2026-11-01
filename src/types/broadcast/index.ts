@@ -116,7 +116,10 @@ export interface BroadcastStreamController {
   roundData: BroadcastRoundData | null
   broadcastState: BroadcastState
   loadBroadcasts: () => Promise<void>
-  selectBroadcast: (broadcastId: string) => Promise<void>
+  selectBroadcast: (
+    broadcastId: string,
+    roundId?: string,
+  ) => Promise<Broadcast | undefined>
   selectRound: (roundId: string) => void
   selectGame: (gameId: string) => void
   startRoundStream: (roundId: string) => void

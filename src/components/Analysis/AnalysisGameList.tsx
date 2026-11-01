@@ -20,6 +20,7 @@ import {
   updateFavoriteName,
 } from 'src/lib/favorites'
 import { MaiaGameListEntry } from 'src/types'
+import { formatMaiaName, formatSavedName } from 'src/lib/maiaNames'
 import { useRouter } from 'next/router'
 
 interface GameData {
@@ -27,6 +28,7 @@ interface GameData {
   maia_name: string
   result: string
   player_color: 'white' | 'black'
+  created_time?: string
   is_favorited?: boolean
   custom_name?: string
 }
@@ -215,19 +217,26 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
 
         fetchMaiaGameList(selected, currentPage)
           .then((data) => {
-            console.log(data)
             let parsedGames: CachedGameEntry[] = []
 
             if (selected === 'favorites') {
-              parsedGames = data.games.map((game: any) => ({
-                id: game.game_id || game.id,
-                type: game.game_type || game.type,
-                label: game.custom_name || game.label || 'Untitled',
-                result: game.result || '*',
-                pgn: game.pgn,
-                is_favorited: true, // All games in favorites are favorited
-                custom_name: game.custom_name,
-              }))
+              parsedGames = data.games.map((game: any) => {
+                const type = game.game_type || game.type
+                const customName = formatSavedName(
+                  game.custom_name,
+                  type,
+                  game.created_time,
+                )
+                return {
+                  id: game.game_id || game.id,
+                  type,
+                  label: customName || game.label || 'Untitled',
+                  result: game.result || '*',
+                  pgn: game.pgn,
+                  is_favorited: true, // All games in favorites are favorited
+                  custom_name: customName,
+                }
+              })
             } else {
               if (selected === 'custom') {
                 parsedGames = data.games.map((game: any) => ({
@@ -245,13 +254,18 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                     maia_name: string
                     result: string
                     player_color: 'white' | 'black'
+                    created_time?: string
                     is_favorited?: boolean
                     custom_name?: string
                   },
                   type: string,
                 ) => {
-                  const raw = game.maia_name.replace('_kdd_', ' ')
-                  const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+                  const maia = formatMaiaName(game.maia_name, game.created_time)
+                  const customName = formatSavedName(
+                    game.custom_name,
+                    type,
+                    game.created_time,
+                  )
 
                   const defaultLabel =
                     game.player_color === 'white'
@@ -260,11 +274,11 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
 
                   return {
                     id: game.game_id,
-                    label: game.custom_name || defaultLabel,
+                    label: customName || defaultLabel,
                     result: game.result,
                     type,
                     is_favorited: game.is_favorited || false,
-                    custom_name: game.custom_name,
+                    custom_name: customName,
                   }
                 }
 
@@ -333,13 +347,18 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                 maia_name: string
                 result: string
                 player_color: 'white' | 'black'
+                created_time?: string
                 is_favorited?: boolean
                 custom_name?: string
               },
               type: string,
             ) => {
-              const raw = game.maia_name.replace('_kdd_', ' ')
-              const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+              const maia = formatMaiaName(game.maia_name, game.created_time)
+              const customName = formatSavedName(
+                game.custom_name,
+                type,
+                game.created_time,
+              )
 
               const defaultLabel =
                 game.player_color === 'white'
@@ -348,11 +367,11 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
 
               return {
                 id: game.game_id,
-                label: game.custom_name || defaultLabel,
+                label: customName || defaultLabel,
                 result: game.result,
                 type,
                 is_favorited: game.is_favorited || false,
-                custom_name: game.custom_name,
+                custom_name: customName,
               }
             }
 
@@ -1045,14 +1064,19 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
               )}
             </>
           )}
-          {!((selected === 'play' || selected === 'hb') && totalPages > 1) &&
+          {selected !== 'tournament' &&
+            !((selected === 'play' || selected === 'hb') && totalPages > 1) &&
             getCurrentGames().length === 0 &&
             !loading && (
               <div className="flex flex-1 items-start justify-center gap-1 py-2 md:items-center">
                 <p className="text-center text-xs text-white/70">
                   {selected === 'favorites'
-                    ? ' ⭐ Hit the star to favourite games...'
-                    : 'Play more games... ^. .^₎⟆'}
+                    ? '⭐ Hit the star to favourite games...'
+                    : selected === 'lichess'
+                      ? 'No Lichess games yet'
+                      : selected === 'custom'
+                        ? 'No custom games yet'
+                        : 'Play more games... ^. .^₎⟆'}
                 </p>
               </div>
             )}

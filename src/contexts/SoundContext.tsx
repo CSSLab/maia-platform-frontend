@@ -34,6 +34,8 @@ export const SoundProvider: React.FC<Props> = ({ children }) => {
   const initializedRef = useRef(false)
 
   const [ready, setReady] = useState(false)
+  // Creates the AudioContext and decodes the sounds, once; resolves when done.
+  const startRef = useRef<(() => Promise<void>) | null>(null)
 
   useEffect(() => {
     if (initializedRef.current || typeof window === 'undefined') return
@@ -41,54 +43,92 @@ export const SoundProvider: React.FC<Props> = ({ children }) => {
 
     let canceled = false
 
-    const init = async () => {
-      try {
-        const AudioCtx: typeof AudioContext | undefined =
-          (window as any).AudioContext || (window as any).webkitAudioContext
-        if (!AudioCtx) {
-          console.warn('Web Audio API not supported; sounds disabled')
-          setReady(false)
-          return
-        }
-
-        const ctx = new AudioCtx()
-        const gain = ctx.createGain()
-        gain.connect(ctx.destination)
-
-        ctxRef.current = ctx
-        gainRef.current = gain
-
-        const loadBuffer = async (url: string): Promise<AudioBuffer | null> => {
-          try {
-            const res = await fetch(url)
-            const arr = await res.arrayBuffer()
-            const buf = await ctx.decodeAudioData(arr)
-            return buf
-          } catch (e) {
-            console.warn('Failed to load sound:', url, e)
-            return null
-          }
-        }
-
-        const [moveBuf, captureBuf] = await Promise.all([
-          loadBuffer('/assets/sound/move.mp3'),
-          loadBuffer('/assets/sound/capture.mp3'),
-        ])
-
-        if (moveBuf) buffersRef.current.set('move', moveBuf)
-        if (captureBuf) buffersRef.current.set('capture', captureBuf)
-
-        if (!canceled) setReady(buffersRef.current.size > 0)
-      } catch (error) {
-        console.warn('Failed to initialize sound:', error)
-        if (!canceled) setReady(false)
-      }
+    const AudioCtx: typeof AudioContext | undefined =
+      (window as any).AudioContext || (window as any).webkitAudioContext
+    if (!AudioCtx) {
+      console.warn('Web Audio API not supported; sounds disabled')
+      return
     }
 
-    void init()
+    // The files are small, and fetched now so that the first move has its
+    // sound.
+    const files = Promise.all(
+      ['/assets/sound/move.mp3', '/assets/sound/capture.mp3'].map((url) =>
+        fetch(url)
+          .then((res) => res.arrayBuffer())
+          .catch((e) => {
+            console.warn('Failed to load sound:', url, e)
+            return null
+          }),
+      ),
+    )
+
+    // A page's first AudioContext takes 50-80 ms of the main thread (on a
+    // desktop) to create, and browsers let it play only after a user
+    // gesture (warning if it is created before one). So it is not created
+    // while the page loads, but after the first gesture has been answered
+    // on screen, or for the first sound.
+    let starting: Promise<void> | null = null
+    const gestures = ['pointerdown', 'keydown'] as const
+    const onGesture = () => {
+      removeListeners()
+      requestAnimationFrame(() =>
+        setTimeout(() => {
+          void startRef.current?.()
+        }),
+      )
+    }
+    const removeListeners = () => {
+      for (const type of gestures)
+        window.removeEventListener(type, onGesture, true)
+    }
+
+    startRef.current = () => {
+      starting ??= (async () => {
+        removeListeners()
+        try {
+          const ctx = new AudioCtx()
+          // Created after a gesture, it starts running and keeps an audio
+          // thread busy with silence. As when it was created on load, it
+          // stays suspended until playMoveSound resumes it for a sound.
+          if (ctx.state === 'running') void ctx.suspend()
+          const gain = ctx.createGain()
+          gain.connect(ctx.destination)
+
+          ctxRef.current = ctx
+          gainRef.current = gain
+
+          const decode = (data: ArrayBuffer | null) =>
+            data
+              ? ctx.decodeAudioData(data).catch((e) => {
+                  console.warn('Failed to decode sound:', e)
+                  return null
+                })
+              : null
+          const [moveData, captureData] = await files
+          const [moveBuf, captureBuf] = await Promise.all([
+            decode(moveData),
+            decode(captureData),
+          ])
+
+          if (moveBuf) buffersRef.current.set('move', moveBuf)
+          if (captureBuf) buffersRef.current.set('capture', captureBuf)
+
+          if (!canceled) setReady(buffersRef.current.size > 0)
+        } catch (error) {
+          console.warn('Failed to initialize sound:', error)
+          if (!canceled) setReady(false)
+        }
+      })()
+      return starting
+    }
+
+    for (const type of gestures) window.addEventListener(type, onGesture, true)
 
     return () => {
       canceled = true
+      removeListeners()
+      startRef.current = null
       const gain = gainRef.current
       const ctx = ctxRef.current
       try {
@@ -113,17 +153,24 @@ export const SoundProvider: React.FC<Props> = ({ children }) => {
   const playMoveSound = useCallback(
     (isCapture = false) => {
       if (!settings.soundEnabled) return
+      const type: SoundType = isCapture ? 'capture' : 'move'
       const ctx = ctxRef.current
       const gain = gainRef.current
-      if (!ctx || !gain) return
+      const buffer = buffersRef.current.get(type)
+      if (!ctx || !gain || !buffer) {
+        // Not started, or still decoding (the gesture that starts the sounds
+        // can be the one that plays the first).
+        if (startRef.current && !buffer) {
+          void startRef.current().then(() => {
+            if (buffersRef.current.has(type)) playMoveSound(isCapture)
+          })
+        }
+        return
+      }
 
       if (ctx.state !== 'running') {
         void ctx.resume()
       }
-
-      const type: SoundType = isCapture ? 'capture' : 'move'
-      const buffer = buffersRef.current.get(type)
-      if (!buffer) return
 
       const nowMs = ctx.currentTime * 1000
       if (

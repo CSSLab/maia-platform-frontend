@@ -71,13 +71,6 @@ const CustomAnalysisLinkPage: NextPage = () => {
 
   return (
     <>
-      <Head>
-        <title>Opening Linked Analysis – Maia Chess</title>
-        <meta
-          name="description"
-          content="Open a pre-filled Maia analysis position from a direct link."
-        />
-      </Head>
       <Loading isLoading={!error}>
         <div className="flex min-h-[50vh] items-center justify-center px-6">
           <div className="max-w-md rounded-2xl border border-glass-border bg-glass px-6 py-5 text-center backdrop-blur-md">
@@ -100,8 +93,17 @@ const CustomAnalysisLinkPage: NextPage = () => {
 
 export default function AuthenticatedCustomAnalysisLinkPage() {
   return (
-    <AuthenticatedWrapper>
-      <CustomAnalysisLinkPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Opening Linked Analysis – Maia Chess</title>
+        <meta
+          name="description"
+          content="Open a pre-filled Maia analysis position from a direct link."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <CustomAnalysisLinkPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }

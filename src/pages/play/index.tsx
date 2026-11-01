@@ -74,8 +74,11 @@ const PlayPage: NextPage = () => {
   return (
     <>
       <Head>
-        <title>Maia Chess - Play</title>
-        <meta name="description" content="Play Against Maia" />
+        <title>Play – Maia Chess</title>
+        <meta
+          name="description"
+          content="Play chess against Maia, the human-like chess AI, at the rating level you choose."
+        />
       </Head>
     </>
   )

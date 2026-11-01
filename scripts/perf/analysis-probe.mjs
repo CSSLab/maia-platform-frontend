@@ -468,9 +468,9 @@ if (paging) {
   }
   const press = mobile
     ? {
-        ArrowDown: await navButton('›››'),
-        ArrowUp: await navButton('‹‹‹'),
-        ArrowRight: await navButton('›'),
+        ArrowDown: await navButton('Last move'),
+        ArrowUp: await navButton('First move'),
+        ArrowRight: await navButton('Next move'),
       }
     : Object.fromEntries(
         ['ArrowDown', 'ArrowUp', 'ArrowRight'].map((k) => [

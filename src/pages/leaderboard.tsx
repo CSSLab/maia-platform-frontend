@@ -1,5 +1,5 @@
 import Head from 'next/head'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { fetchLeaderboard } from 'src/api'
@@ -8,6 +8,7 @@ import { LeaderboardProvider } from 'src/components/Leaderboard/LeaderboardConte
 
 const Leaderboard: React.FC = () => {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [leaderboard, setLeaderboard] = useState<
     {
@@ -35,9 +36,10 @@ const Leaderboard: React.FC = () => {
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
   }
 
-  useEffect(() => {
-    ;(async () => {
-      setLoading(true)
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
       const lb = await fetchLeaderboard()
       setLastUpdated(new Date(lb.last_updated + 'Z'))
       setLeaderboard([
@@ -70,9 +72,16 @@ const Leaderboard: React.FC = () => {
           ranking: lb.brain_leaders,
         },
       ])
-      setLoading(false)
-    })()
-  }, [fetchLeaderboard])
+    } catch (err) {
+      console.error('Error fetching leaderboard:', err)
+      setError(true)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -125,13 +134,6 @@ const Leaderboard: React.FC = () => {
               style={{ willChange: 'transform, opacity' }}
               className="relative mx-auto w-full px-4 py-8 md:w-[90%] md:px-0"
             >
-              <Head>
-                <title>Leaderboard – Maia Chess</title>
-                <meta
-                  name="description"
-                  content="View top-ranked players across all Maia Chess game modes. Competitive leaderboards for regular play, puzzles, bot detection, hand & brain chess with live ratings and statistics."
-                />
-              </Head>
               <motion.div
                 variants={itemVariants}
                 className="mb-2 flex w-full flex-col items-start justify-between md:flex-row md:items-center"
@@ -144,14 +146,31 @@ const Leaderboard: React.FC = () => {
                   Last updated: {lastUpdated ? getTimeAgo(lastUpdated) : '...'}
                 </p>
               </motion.div>
-              <motion.div
-                variants={itemVariants}
-                className="grid w-full grid-cols-1 justify-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-              >
-                {leaderboard?.map((column, index) => (
-                  <LeaderboardColumn key={index} {...column} />
-                ))}
-              </motion.div>
+              {error ? (
+                <motion.div
+                  variants={itemVariants}
+                  className="flex w-full flex-col items-center gap-3 rounded-md border border-glass-border bg-glass px-6 py-10 text-center"
+                >
+                  <p className="text-secondary">
+                    Couldn&apos;t load the leaderboard.
+                  </p>
+                  <button
+                    onClick={load}
+                    className="rounded bg-human-4 px-4 py-1.5 text-sm text-white transition hover:bg-human-4/80"
+                  >
+                    Retry
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  variants={itemVariants}
+                  className="grid w-full grid-cols-1 justify-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                >
+                  {leaderboard?.map((column, index) => (
+                    <LeaderboardColumn key={index} {...column} />
+                  ))}
+                </motion.div>
+              )}
               <motion.div variants={itemVariants} className="mt-3 w-full">
                 <p className="text-xs text-white/60">
                   <span className="font-medium text-white/80">Note:</span> Each
@@ -171,6 +190,13 @@ const Leaderboard: React.FC = () => {
 const LeaderboardPage: React.FC = () => {
   return (
     <>
+      <Head>
+        <title>Leaderboard – Maia Chess</title>
+        <meta
+          name="description"
+          content="View top-ranked players across all Maia Chess game modes. Competitive leaderboards for regular play, puzzles, bot detection, hand & brain chess with live ratings and statistics."
+        />
+      </Head>
       <Leaderboard />
     </>
   )

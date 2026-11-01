@@ -70,6 +70,7 @@ import { tourConfigs } from 'src/constants/tours'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
+import { formatMaiaName } from 'src/lib/maiaNames'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
 
 const EVAL_BAR_RANGE = 4
@@ -488,13 +489,10 @@ interface Props {
   router: ReturnType<typeof useRouter>
 }
 
-const formatAnalysisPlayerName = (name: string) => {
-  const maiaMatch = name.match(/^maia_kdd_(\d+)$/i)
-  if (maiaMatch) {
-    return `Maia ${maiaMatch[1]}`
-  }
-  return name
-}
+// Stored games' names are already formatted with the game's date (see
+// fetchAnalyzedMaiaGame); any other Maia name is taken to be current.
+const formatAnalysisPlayerName = (name: string) =>
+  /^maia_kdd_\d+$/i.test(name) ? formatMaiaName(name) : name
 
 // Apart from the page so that it renders only when the game changes: each
 // render of <Head> makes Next.js update the document's head, and the page
@@ -729,12 +727,11 @@ const Analysis: React.FC<Props> = ({
           setShowCustomModal(false)
           router.push(`/analysis/${game_id}/custom`)
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'Failed to store custom game'
+          // The error holds the HTTP status and the backend's raw reply.
           console.error('Custom analysis import failed:', error)
-          toast.error(message)
+          toast.error(
+            "Couldn't import this game. Check the PGN or FEN and try again.",
+          )
         }
       })()
     },
@@ -2400,8 +2397,11 @@ export default function AuthenticatedAnalysisPage() {
   }, [query.id, user])
 
   return (
-    <AuthenticatedWrapper>
-      <AnalysisPage />
-    </AuthenticatedWrapper>
+    <>
+      <AnalysisHead />
+      <AuthenticatedWrapper>
+        <AnalysisPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }

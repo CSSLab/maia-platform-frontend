@@ -72,7 +72,6 @@ export const getLichessBroadcastById = async (
   broadcastId: string,
 ): Promise<Broadcast | null> => {
   try {
-    console.log('Fetching broadcast by ID:', broadcastId)
     const response = await fetch(
       `https://lichess.org/api/broadcast/${broadcastId}`,
       {
@@ -88,11 +87,6 @@ export const getLichessBroadcastById = async (
     }
 
     const data = await response.json()
-    console.log('Broadcast data received:', {
-      name: data.tour?.name,
-      rounds: data.rounds?.length,
-      roundNames: data.rounds?.map((r: any) => r.name),
-    })
 
     // Validate that this looks like broadcast data
     if (data.tour && data.rounds) {
@@ -121,6 +115,16 @@ export const getLichessTopBroadcasts =
 
     return response.json()
   }
+
+// Lichess gives its top tier to the biggest events, like the Candidates and
+// the World Championship.
+const BIG_TOURNAMENT_TIER = 5
+
+// The big tournaments on now, in Lichess's order.
+export const getBigLiveBroadcasts = async (): Promise<TopBroadcastItem[]> => {
+  const { active } = await getLichessTopBroadcasts()
+  return active.filter((item) => item.tour.tier >= BIG_TOURNAMENT_TIER)
+}
 
 export const convertTopBroadcastToBroadcast = (
   item: TopBroadcastItem,
@@ -215,7 +219,6 @@ export const streamBroadcastRound = async (
     onComplete()
   } catch (error) {
     if (abortSignal?.aborted) {
-      console.log('Broadcast stream aborted')
     } else {
       console.error('Broadcast stream error:', error)
       throw error
@@ -291,7 +294,6 @@ const parseSinglePGN = (pgnString: string): BroadcastGame | null => {
   const round = headers.Round || ''
 
   // Parse moves and clock information from full PGN
-  console.log(`Parsing PGN for ${white} vs ${black}`)
   const parseResult = parseMovesAndClocksFromPGN(pgnString)
   const moves = parseResult.moves
   const { whiteClock, blackClock } = parseResult
@@ -299,11 +301,6 @@ const parseSinglePGN = (pgnString: string): BroadcastGame | null => {
 
   // Debug clock parsing
   if (whiteClock || blackClock) {
-    console.log(`Clock data for ${white} vs ${black}:`, {
-      whiteClock,
-      blackClock,
-      movesSection: movesSection.substring(0, 200) + '...',
-    })
   }
 
   const game: BroadcastGame = {
@@ -415,10 +412,6 @@ const parseMovesAndClocksFromPGN = (
         } else {
           lastBlackClock = clockData
         }
-
-        console.log(
-          `Found clock for ${isWhiteToMove ? 'white' : 'black'}: ${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} = ${timeInSeconds}s`,
-        )
       }
     }
 

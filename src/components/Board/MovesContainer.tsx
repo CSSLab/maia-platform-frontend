@@ -87,13 +87,6 @@ export const MovesContainer: React.FC<
       if (startIndex !== -1) {
         // Return the main line starting from the specified node
         const customMainLine = fullMainLine.slice(startIndex)
-        console.log('MovesContainer mainLineNodes (custom start):', {
-          fullMainLineLength: fullMainLine.length,
-          startIndex,
-          customMainLineLength: customMainLine.length,
-          startNodeFen: startFromNode.fen,
-          currentNode: controller.currentNode?.fen,
-        })
         return customMainLine
       } else {
         // If start node not found in main line, build from start node
@@ -103,21 +96,10 @@ export const MovesContainer: React.FC<
           customMainLine.push(current)
           current = current.mainChild
         }
-        console.log('MovesContainer mainLineNodes (built from start):', {
-          customMainLineLength: customMainLine.length,
-          startNodeFen: startFromNode.fen,
-          currentNode: controller.currentNode?.fen,
-        })
         return customMainLine
       }
     }
 
-    console.log('MovesContainer mainLineNodes (default):', {
-      controllerTreeMainLine: controller.gameTree?.getMainLine()?.length || 0,
-      gameTreeMainLine: game?.tree?.getMainLine()?.length || 0,
-      finalMainLineLength: fullMainLine?.length || 0,
-      currentNode: controller.currentNode?.fen,
-    })
     return fullMainLine
   }, [game, controller.gameTree, controller.currentNode, startFromNode])
 
@@ -211,17 +193,6 @@ export const MovesContainer: React.FC<
     const nodes = startFromNode
       ? mainLineNodes.slice(1)
       : mainLineNodes.slice(1)
-    console.log('MovesContainer moves calculation:', {
-      mainLineNodesLength: mainLineNodes.length,
-      nodesAfterSliceLength: nodes.length,
-      firstNodeTurn: nodes[0]?.turn,
-      startFromNode: startFromNode?.fen,
-      allNodes: nodes.map((n, i) => ({
-        index: i,
-        move: n?.san,
-        turn: n?.turn,
-      })),
-    })
 
     const rows: (GameNode | null)[][] = []
 
@@ -239,7 +210,6 @@ export const MovesContainer: React.FC<
       }, [])
     }
 
-    console.log('MovesContainer final rows:', rows.length)
     return rows
   }, [mainLineNodes, startFromNode])
 

@@ -23,7 +23,7 @@ const BlogPost = ({ post }: BlogPostProps) => {
   return (
     <>
       <Head>
-        <title>{post.title} – Maia Chess</title>
+        <title>{`${post.title} – Maia Chess`}</title>
         <meta name="description" content={post.excerpt} />
 
         {/* Open Graph */}
@@ -74,6 +74,8 @@ const BlogPost = ({ post }: BlogPostProps) => {
                   month: 'short',
                   day: 'numeric',
                   year: 'numeric',
+                  // Post dates are days, parsed as UTC midnight.
+                  timeZone: 'UTC',
                 })}
               </p>
               {post.github && (
@@ -127,11 +129,13 @@ export const getStaticPaths: GetStaticPaths = async () => {
     params: { id: post.id },
   }))
 
-  return { paths, fallback: true }
+  // Every post is in the repository, so any other id is a 404.
+  return { paths, fallback: false }
 }
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {
   const post = getPostData(params?.id as string)
+  if (!post) return { notFound: true }
 
   return {
     props: {

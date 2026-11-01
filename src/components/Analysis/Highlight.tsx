@@ -378,7 +378,7 @@ export const Highlight: React.FC<Props> = ({
 
   const useCompactMobileColumnTitles = isMobile || simplified
   const maiaRating = currentMaiaModel.replace('maia_kdd_', '')
-  const mobileMaiaColumnTitle = `Maia ${maiaRating}: Human Moves`
+  const mobileMaiaColumnTitle = `Maia-3 ${maiaRating}: Human Moves`
   const mobileStockfishColumnTitle = 'SF 17: Engine Moves'
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
@@ -437,7 +437,7 @@ export const Highlight: React.FC<Props> = ({
               >
                 {useCompactMobileColumnTitles
                   ? mobileMaiaColumnTitle
-                  : `Maia ${maiaRating}`}
+                  : `Maia-3 ${maiaRating}`}
               </div>
             ) : (
               <>
@@ -447,6 +447,7 @@ export const Highlight: React.FC<Props> = ({
                   >
                     <select
                       ref={maiaHeaderSelectRef}
+                      aria-label="Maia model"
                       value={currentMaiaModel}
                       onChange={(e) => setCurrentMaiaModel(e.target.value)}
                       className="edge-dark-select pointer-events-none absolute inset-0 h-full w-full appearance-none opacity-0"
@@ -457,7 +458,7 @@ export const Highlight: React.FC<Props> = ({
                           key={model}
                           className="bg-transparent text-human-1"
                         >
-                          {`Maia ${model.replace('maia_kdd_', '')}`}
+                          {`Maia-3 ${model.replace('maia_kdd_', '')}`}
                         </option>
                       ))}
                     </select>
@@ -468,6 +469,7 @@ export const Highlight: React.FC<Props> = ({
                 ) : (
                   <select
                     ref={maiaHeaderSelectRef}
+                    aria-label="Maia model"
                     value={currentMaiaModel}
                     onChange={(e) => setCurrentMaiaModel(e.target.value)}
                     className={`edge-dark-select cursor-pointer appearance-none bg-transparent text-center ${splitTitleTextClass} text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80`}
@@ -478,7 +480,7 @@ export const Highlight: React.FC<Props> = ({
                         key={model}
                         className="bg-transparent text-human-1"
                       >
-                        {`Maia ${model.replace('maia_kdd_', '')}`}
+                        {`Maia-3 ${model.replace('maia_kdd_', '')}`}
                       </option>
                     ))}
                   </select>

@@ -241,7 +241,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                       </div>
                     </div>
                     <div className="rounded-b-sm bg-white/5 p-2 text-left text-sm font-medium text-primary/80">
-                      Petrosian, Tigran V
+                      Petrosian, Tigran V.
                     </div>
                   </div>
                 </div>
