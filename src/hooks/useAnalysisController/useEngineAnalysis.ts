@@ -7,7 +7,11 @@ import {
   STOCKFISH_DEBUG_RERUN_KEY,
 } from 'src/constants/analysis'
 import { GameNode, MaiaEvaluation } from 'src/types'
-import { MaiaEngineContext, StockfishEngineContext } from 'src/contexts'
+import {
+  MaiaEngineContext,
+  PHONE_BREAKPOINT_PX,
+  StockfishEngineContext,
+} from 'src/contexts'
 
 /** Most ratings per Maia request (~0.55 s for 11 on a desktop). */
 const MAIA_BATCH_SIZE = 11
@@ -27,6 +31,19 @@ const STOCKFISH_RENDER_INTERVAL_MS = 150
  * inference, and the last position's moves came later.
  */
 const ANALYSIS_DELAY_MS = 50
+
+/**
+ * A phone: a touch screen whose shorter side is a phone's. Each Maia rating
+ * takes ~0.22 s there (~0.05 s on a desktop), so phones analyse every 200
+ * points only, in one request, and the moves-by-rating chart interpolates the
+ * ratings in between. Every 400 points first drew the chart ~0.9 s sooner on
+ * an emulated phone, but Stockfish reached depth 12 ~0.5 s later: the chart
+ * then redraws for Stockfish's changing top moves through more of its search.
+ */
+const isPhone = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(pointer: coarse)').matches &&
+  Math.min(window.screen.width, window.screen.height) <= PHONE_BREAKPOINT_PX
 
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
@@ -116,9 +133,30 @@ export const useEngineAnalysis = (
     // reaches the Maia worker (requests otherwise pile up while paging).
     const maiaController = new AbortController()
 
+    // The selected rating first (one position, ~0.1 s on a desktop), so its
+    // moves show at once. Then, on a desktop, every 400 points from 600 to
+    // 2600, from which the moves-by-rating chart is drawn (the ratings in
+    // between interpolated), the rest of every 200 points, and those in
+    // between; on a phone every 200 points and no more. Each stage is one
+    // request, so a newer position never waits long behind it, and is added
+    // as it arrives, keeping what the node already has.
+    const ratings = (keep: (index: number) => boolean) =>
+      MAIA_MODELS.filter((model, i) => keep(i) && model !== currentMaiaModel)
+    const selected = MAIA_MODELS.includes(currentMaiaModel)
+      ? [currentMaiaModel]
+      : []
+    const stages = isPhone()
+      ? [selected, ratings((i) => i % 2 === 0)]
+      : [
+          selected,
+          ratings((i) => i % 4 === 0),
+          ratings((i) => i % 4 === 2),
+          ratings((i) => i % 2 === 1),
+        ]
+
     const attemptMaiaAnalysis = async () => {
-      const hasAllModelAnalysis = MAIA_MODELS.every(
-        (model) => !!currentNode?.analysis.maia?.[model],
+      const hasAllModelAnalysis = stages.every((stage) =>
+        stage.every((model) => !!currentNode?.analysis.maia?.[model]),
       )
       if (
         !currentNode ||
@@ -149,21 +187,6 @@ export const useEngineAnalysis = (
             ? fetchOpeningBook(board)
             : Promise.resolve(null)
 
-        // The selected rating first (one position, ~0.1 s), so its moves
-        // show at once; then every 200 points from 600 to 2600, from which
-        // the moves-by-rating chart is drawn (the ratings in between
-        // interpolated); then those in between. Each stage is one request
-        // (~0.05 s per rating), so a newer position never waits long behind
-        // it, and is added as it arrives, keeping what the node already has.
-        const others = (parity: number) =>
-          MAIA_MODELS.filter(
-            (model, i) => i % 2 === parity && model !== currentMaiaModel,
-          )
-        const stages = [
-          MAIA_MODELS.includes(currentMaiaModel) ? [currentMaiaModel] : [],
-          others(0),
-          others(1),
-        ]
         for (const stage of stages) {
           const missing = stage.filter(
             (model) => !currentNode.analysis.maia?.[model],

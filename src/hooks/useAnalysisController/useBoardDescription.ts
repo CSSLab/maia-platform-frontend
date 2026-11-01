@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { MAIA_MODELS } from 'src/constants/common'
 import { describePosition } from './useDescriptionGenerator'
+import { ratingProbability } from './useMoveRecommendations'
 import { GameNode, MaiaEvaluation, StockfishEvaluation } from 'src/types'
 
 export const useBoardDescription = (
@@ -40,6 +41,15 @@ export const useBoardDescription = (
           }
           maiaEvals[move][index] = probability
         })
+      }
+    })
+    // Ratings Maia has not answered for (phones skip those between every 200
+    // points) are interpolated, as in the moves-by-rating chart.
+    MAIA_MODELS.forEach((model, index) => {
+      if (allMaiaAnalysis[model]?.policy) return
+      for (const move of Object.keys(maiaEvals)) {
+        maiaEvals[move][index] =
+          ratingProbability(allMaiaAnalysis, index, move) ?? 0
       }
     })
 
