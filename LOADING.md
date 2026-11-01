@@ -557,7 +557,10 @@ poll were removed (92ced56).
   the broadcast list when none is on (4819438).
 - Model names are written with a hyphen everywhere: the home page, the
   drills dialog and the v1 blog post wrote "Maia 2" and "Maia 3" (441a1de).
-  Rating labels such as "Maia 1100" are unchanged.
+  Rating models are named the same way (be4b6ea): the analysis model menus,
+  play setup, clocks, player names and drills said "Maia 1100" and now say
+  "Maia-3 1100". The footer's Lichess bots and the 2020 blog post are the
+  original models, so they say "Maia-1 1100".
 
 Over all routes at both sizes, as a new visitor: controls without an
 accessible name 31 → 0, form fields without a label 12 → 0, console messages
@@ -651,6 +654,7 @@ later, within noise.
 | 43dba6e                   | The /401 page asks visitors to try again instead of to join the beta                                                                                                                                                                                                                                                          | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | 4819438                   | /candidates links to the big tournament on now                                                                                                                                                                                                                                                                                | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | 441a1de                   | Model names with a hyphen (Maia-2, Maia-3)                                                                                                                                                                                                                                                                                    | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| be4b6ea                   | Rating models named Maia-3 1100 (Maia-1 1100 for the Lichess bots)                                                                                                                                                                                                                                                            | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Things you will notice
 
@@ -662,7 +666,7 @@ later, within noise.
   `scrollBy(0.5)`, which Chrome rounds to nothing, so on maiachess.com it
   stands still in Chrome; it now slides at the intended 25 px/s everywhere.
 - **/play/maia and /play/hb create one game per visit**; `main` also created
-  an abandoned one with the default settings (Maia 1100, white).
+  an abandoned one with the default settings (Maia-3 1100, white).
 - **Promotions** in a Lichess game keep their piece in the move (`a7a8q`), as
   Stockfish and Maia write moves; `analyze_user_game` dropped it.
 
