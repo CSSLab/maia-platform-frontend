@@ -9,6 +9,10 @@ const normalizeOpeningBookFen = (fen: string) => {
   return fen.trim()
 }
 
+// The Maia that plays on the play pages. start_game records it with the game,
+// which keeps each model's rating separate from the others'.
+const PLAY_MAIA_VERSION = 'maia3'
+
 export const startGame = async (
   playerColor: Color,
   maiaVersion: string,
@@ -20,7 +24,9 @@ export const startGame = async (
   const params: Record<string, string> = maiaPartnerVersion
     ? {
         maia_name: maiaVersion,
+        maia_version: PLAY_MAIA_VERSION,
         maia_friendly_name: maiaPartnerVersion,
+        maia_friendly_version: PLAY_MAIA_VERSION,
         player_color: playerColor,
         game_type: gameType,
         sample_moves: sampleMoves.toString(),
@@ -28,6 +34,7 @@ export const startGame = async (
       }
     : {
         maia_name: maiaVersion,
+        maia_version: PLAY_MAIA_VERSION,
         player_color: playerColor,
         game_type: gameType,
         sample_moves: sampleMoves.toString(),
@@ -76,14 +83,14 @@ export const fetchGameMove = async (
                   piece: piece || '',
                   initial_clock: initial_clock.toString(),
                   current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
+                  maia_version: PLAY_MAIA_VERSION,
                 }
               : {
                   maia_name: maiaVersion,
                   piece: piece || '',
                   initial_clock: initial_clock.toString(),
                   current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
+                  maia_version: PLAY_MAIA_VERSION,
                 }
             : fen
               ? {
@@ -91,13 +98,13 @@ export const fetchGameMove = async (
                   maia_name: maiaVersion,
                   initial_clock: initial_clock.toString(),
                   current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
+                  maia_version: PLAY_MAIA_VERSION,
                 }
               : {
                   maia_name: maiaVersion,
                   initial_clock: initial_clock.toString(),
                   current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
+                  maia_version: PLAY_MAIA_VERSION,
                 },
         ),
     ),
