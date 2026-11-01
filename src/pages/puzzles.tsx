@@ -28,7 +28,7 @@ import {
   trackPuzzleCompleted,
 } from 'src/lib/analytics'
 import {
-  Loading,
+  PuzzlesShell,
   GameInfo,
   Feedback,
   PuzzleLog,
@@ -263,11 +263,7 @@ const TrainPage: NextPage = () => {
   }, [getNewGame, trainingGames.length, loadingGame])
 
   if (loadingGame || trainingGames.length === 0) {
-    return (
-      <Loading isLoading={true}>
-        <div></div>
-      </Loading>
-    )
+    return <PuzzlesShell />
   }
 
   if (trainingGames.length && trainingGames[currentIndex])
@@ -303,11 +299,7 @@ const TrainPage: NextPage = () => {
       />
     )
 
-  return (
-    <Loading isLoading={true}>
-      <div></div>
-    </Loading>
-  )
+  return <PuzzlesShell />
 }
 
 interface Props {
@@ -1765,7 +1757,9 @@ const Train: React.FC<Props> = ({
         ) : null}
       </AnimatePresence>
       <TrainingControllerContext.Provider value={controller}>
-        <AnimatePresence mode="wait">
+        {/* No fade-in when the puzzle replaces the shell, which already shows
+            the panels and board. */}
+        <AnimatePresence mode="wait" initial={false}>
           {trainingGame && (
             <motion.div key={trainingGame.id}>
               {isMobile ? mobileLayout : desktopLayout}
@@ -1787,7 +1781,7 @@ export default function AuthenticatedTrainPage() {
           content="Train with Maia as your coach using human-centered puzzles. Curated based on how millions of players improve, with data showing how different ratings approach each position."
         />
       </Head>
-      <AuthenticatedWrapper>
+      <AuthenticatedWrapper fallback={<PuzzlesShell />}>
         <TrainPage />
       </AuthenticatedWrapper>
     </>
