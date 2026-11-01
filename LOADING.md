@@ -455,6 +455,111 @@ step went from 15.03 to 15.28 on average. On the emulated phone it was
 unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
 30 of 32 on `main`.
 
+### Round 3: after #322 was merged
+
+Measured against `main` at e56f6d0, in local production builds behind
+`scripts/perf/stub-proxy.mjs`. This round also looked for things that make
+the site look broken or unfinished: every route was opened as a new visitor
+at phone (412 px) and desktop (1440 px) size, recording console errors,
+failed requests, the server-rendered `<title>` and description, controls
+without an accessible name, layout shift and a screenshot, and the source
+was read for wording, links and error handling.
+
+**Titles and descriptions in the server HTML.** Most pages rendered their
+`<Head>` inside `AuthenticatedWrapper`, which renders nothing until the
+account has loaded in the browser, or inside a loading state. The HTML of
+/analysis (and every game), /drills, /puzzles, /turing, /leaderboard,
+/broadcast, /settings and /profile had no `<title>` or description, so link
+previews and crawlers saw an untitled page and the tab showed the URL while
+the page loaded; production serves the same today. 38d4304 renders each
+page's head outside those (a game or broadcast keeps a generic title until
+it loads). A blog post's title read "Introducing Maia Platform v1<!-- --> –
+Maia Chess" in the HTML (two JSX children); 9cd8ee1 makes it one string.
+
+**Layout shift on desktop.** While a page loaded its data the footer showed
+mid-screen and then jumped down; 95da846 had fixed this for phones only.
+c635868 keeps the page area a screen tall at every size. Desktop first
+visits, CLS:
+
+| Page (desktop)   | `main` | branch |
+| ---------------- | ------ | ------ |
+| /broadcast       | 0.127  | 0.001  |
+| /puzzles         | 0.049  | 0.001  |
+| /leaderboard     | 0.027  | 0      |
+| /turing          | 0.025  | 0      |
+| /analysis/<game> | 0.025  | 0.001  |
+
+/, /drills, /play, /blog and /candidates were unchanged (0–0.006).
+
+**The AudioContext on every page.** The sound provider created an
+AudioContext as every page loaded. A page's first one took 57–60 ms of the
+main thread to create (home page, desktop size, 4 runs; 53–78 ms in the CPU
+profile), four times that on a slow phone, and Chrome warned that it was not
+allowed to start. 0aed6a5 still fetches the two sounds on load, but creates
+the context just after the first pointer or key gesture has been answered on
+screen, or for the first sound if one comes before, and 8157834 keeps it
+suspended until a sound plays (created after a gesture it would start
+running, keeping an audio thread busy with silence on pages that never play
+one, like analysis; created on load it had stayed suspended). In /settings
+the "Move Sound" test button plays as the first gesture on a page, and
+"Capture Sound" after a click elsewhere; on the analysis page the context
+stays suspended after a tap.
+
+**Broken things fixed** (each checked in a local build):
+
+- Signed-in users who opened or reloaded /settings or /profile were sent
+  home: the pages checked for a Lichess account before the account had
+  loaded (903191a).
+- Links to older broadcasts (e.g. /candidates' "Watch Candidates
+  Broadcast") showed "Loading..." forever, and a broadcast link opened the
+  broadcast's default round, not the one in the URL: Round 10's link opened
+  Round 1 (6cf2da3, 591f5ea).
+- The leaderboard spun forever when its request failed (the backend
+  answers 500 now and then); it now offers Retry (fc04dbe).
+- Unknown URLs showed Next.js's unstyled 404 (4274479); unknown blog posts
+  answered 200 with an empty page (8a9093f, 9cd8ee1).
+- The home headline was cut off on every phone ("Human-like chess A" at 412
+  px) and ran 22–137 px into the feature grid on tablets (281c0e6, abdf95b).
+- Blog dates showed a day early west of UTC (8a9093f).
+- /play/maia's and /play/hb's titles were replaced by the board's own
+  ("Maia Chess - Play", description "Turing survey") once a game showed.
+- When Lichess answered with an error object (an unknown user, a rate
+  limit), the profile and analysis game lists threw on `data.pgn` (9cd8ee1).
+- The analysis game list's World Championship tab showed "Play more
+  games... ^. .^" under its games (46e45c0).
+
+**Polish.** 31 controls had no accessible name (the board's flip and move
+buttons on every board, the header's Discord icon); there are none now, and
+the Maia model and broadcast round selects have labels (8dd059b, 27f05ce).
+The desktop header's PLAY and MORE menus and the signed-in user's menu
+opened on hover only, so keyboard users could not reach Play Maia, Hand and
+Brain, Leaderboard, Blog, Profile, Settings or Log out; they now open on
+focus and click and close when the focus leaves or on Escape (c7a4fd5). A
+failed custom game import showed the HTTP status and the backend's raw
+reply in a toast; it now says to check the PGN or FEN (d238090).
+Wording fixes (46e45c0): "favourite" → "favorite", "white was the bot" →
+"White", "44mb" → "44 MB", "-%" → "–", "Logout" → "Log out", "If you part of
+the beta" → "If you are part of", the footer's year and https link, the
+mobile menu's close icon. `console.log` calls on every move (the move list
+also walked the main line twice just to log it), drill move and broadcast
+poll were removed (92ced56).
+
+Over all routes at both sizes, as a new visitor: controls without an
+accessible name 31 → 0, form fields without a label 12 → 0, console messages
+157 → 117 (the AudioContext warning was on every page; the rest come from
+the local setup: no PostHog key, no Vercel Insights, Google Analytics
+blocked), and no desktop page above 0.02 CLS.
+
+Stockfish with the whole branch (`scripts/perf/chart-probe.mjs`, 8 steps
+per run): on a desktop (2 runs per game, before 8157834) depth 12 came 0.07
+s sooner after a step (± 0.07 s; sooner on 20 of 32 steps), and the depth
+reached before the next step went from 16.31 to 16.53. On the emulated phone
+(3 runs per game) depth 12 came 0.45 s sooner (± 0.31 s; sooner on 25 of 39
+steps), it was reached on 43 of 48 steps against 41, and the depth before
+the next step went from 13.75 to 13.98. Without 8157834 (the AudioContext
+running after the first tap; 2 runs per game) the phone gave 0.36 ± 0.42 s
+later, within noise.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -511,6 +616,22 @@ unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
 | e6d0417                   | The tour provider watches the page for the download window only while a tour runs                                                                                                                                                                                                                                             | It searched the whole page on every DOM change on every page; home page querySelector 36-39 ms -> 0-8 ms in the first 8 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 7126951                   | Stockfish waits up to 20 s for a cached net it has found, instead of 1.5 s, before downloading it too                                                                                                                                                                                                                         | Phone, returning visit: nets downloaded again in 2 of 6 visits instead of 6 of 6; first depth 13.7 -> 11.9 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 31452ae                   | Stockfish's cache lookup timeout counts 100 ms timer ticks, so time the page is too busy to take the answer does not count                                                                                                                                                                                                    | Phone, returning visit: the lookup timed out (and the download started) in 0 of 12 visits instead of 5 of 12; Stockfish's timings unchanged                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 903191a                   | /settings and /profile wait for the account before sending guests home                                                                                                                                                                                                                                                        | A signed-in user who opened or reloaded either page was sent home                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 4274479                   | A 404 page in the site's style                                                                                                                                                                                                                                                                                                | Unknown URLs showed Next.js's unstyled 404                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 281c0e6, abdf95b          | The home headline fits phones (sized to fit) and wraps on tablets                                                                                                                                                                                                                                                             | It was cut off on every phone and ran 22-137 px into the feature grid on tablets                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 8dd059b, 27f05ce          | Board buttons, the Discord icon and the Maia model and round selects are labelled                                                                                                                                                                                                                                             | Controls without an accessible name: 31 -> 0 over all routes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 38d4304                   | Every page renders its title and description outside the auth wrapper and loading states                                                                                                                                                                                                                                      | Server HTML of 8 routes had no title or description; now all do                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 8a9093f                   | Blog dates in UTC; unknown posts 404                                                                                                                                                                                                                                                                                          | Dates were a day early west of UTC                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 46e45c0                   | Wording, empty-list messages, footer links, mobile menu                                                                                                                                                                                                                                                                       | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 92ced56                   | Debug console.log calls removed from move, drill and broadcast code                                                                                                                                                                                                                                                           | The move list logged (and walked the main line twice) on every move                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 9cd8ee1                   | Blog post titles are one string; the post page has no fallback; Lichess error replies are skipped                                                                                                                                                                                                                             | Titles read "...<!-- --> - Maia Chess" in the HTML; unknown posts answered 200                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 6cf2da3, 591f5ea          | Broadcast round pages fetch the broadcast by id and open the round in the URL                                                                                                                                                                                                                                                 | Older broadcast links loaded forever; links opened the default round                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| fc04dbe                   | The leaderboard shows an error with Retry when its request fails                                                                                                                                                                                                                                                              | It spun forever                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| c635868                   | The page area is a screen tall on desktop too                                                                                                                                                                                                                                                                                 | Desktop CLS: /broadcast 0.127 -> 0.001, /puzzles 0.049 -> 0.001, others 0.025-0.027 -> 0-0.001                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 0aed6a5                   | The AudioContext is created after the first gesture, not on load                                                                                                                                                                                                                                                              | 57-60 ms of main thread off every page load (desktop)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 8157834                   | The AudioContext stays suspended until a sound plays                                                                                                                                                                                                                                                                          | Created after a gesture it ran (silently) for the rest of the visit, also on analysis                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| c7a4fd5                   | The header menus open on keyboard focus and click, close on focus out and Escape                                                                                                                                                                                                                                              | Keyboard users could not reach the PLAY, MORE and user menus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| d238090                   | A plain message when a custom game cannot be imported                                                                                                                                                                                                                                                                         | The toast showed the HTTP status and the raw backend reply                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ## Things you will notice
 
@@ -525,6 +646,12 @@ unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
   an abandoned one with the default settings (Maia 1100, white).
 - **Promotions** in a Lichess game keep their piece in the move (`a7a8q`), as
   Stockfish and Maia write moves; `analyze_user_game` dropped it.
+
+- **On a desktop, a page shorter than the screen** (/blog, /404) no longer
+  shows the start of the footer without scrolling (c635868), as on phones
+  since 95da846.
+- **Broadcast links open the round they name** (591f5ea); before, every
+  link opened the broadcast's default round.
 
 ## Looked at, not changed
 
@@ -599,6 +726,21 @@ unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
   nets were downloaded again in 1 of 6 returning visits on the emulated phone
   instead of 2 of 6, and Stockfish's timings were within noise. 31452ae
   counts the timeout in timer ticks instead.
+
+- **The home page's animated counters** (round 3): the CPU profile put
+  33–50 ms of a first visit on their formatting function, but formatting a
+  number costs about 2 µs in Chromium (a shared `Intl.NumberFormat` is no
+  faster); the time is the counters' per-frame updates.
+- **Stockfish and Maia on the /broadcast list**: the page starts both
+  engines (Stockfish's 77 MB on a first visit) because `_app.tsx` matches
+  any path containing `/broadcast`. Left for a decision: it helps a visitor
+  who opens a round next.
+- **The Stockfish debug panel** reads localStorage and sets new state every
+  500 ms on engine pages, re-rendering a component that renders nothing
+  while the panel is off: negligible.
+- **The duplicate `analysis-game-list` id** on desktop analysis (the game
+  info panel and the game list): the tour's "Game Selection" step targets
+  it, so changing it changes what the tour highlights.
 
 ## Rebasing `human-bar`
 
