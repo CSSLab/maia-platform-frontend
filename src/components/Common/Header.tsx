@@ -316,6 +316,8 @@ export const Header: React.FC = () => {
           target="_blank"
           rel="noreferrer"
           href="https://discord.gg/Az93GqEAs7"
+          aria-label="Discord"
+          title="Discord"
         >
           {DiscordIcon}
         </a>
