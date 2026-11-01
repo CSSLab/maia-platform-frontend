@@ -11,6 +11,7 @@ import {
 import { memo, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ColorSanMapping } from 'src/types'
 import { WindowSizeContext } from 'src/contexts'
+import { useContentStable } from 'src/hooks/useContentStable'
 
 interface Props {
   moves: { [key: string]: number }[] | undefined
@@ -19,38 +20,84 @@ interface Props {
   positionKey?: string
 }
 
+/**
+ * Keeps showing the last position's moves until the new position's arrive
+ * (`positionKey`), and redraws the chart only when what it shows changes. The
+ * analysis page re-renders on every engine update, and Stockfish's changing
+ * evaluations recolor moves the chart does not show; a phone took 16-26
+ * chart renders per move (each update drew twice, through an effect).
+ */
 const MovesByRatingChart: React.FC<Props> = ({
   moves,
   colorSanMapping,
   isHomePage = false,
   positionKey,
 }: Props) => {
+  const [shown, setShown] = useState({ moves, colorSanMapping, positionKey })
+  if (
+    moves?.length &&
+    positionKey &&
+    (moves !== shown.moves ||
+      colorSanMapping !== shown.colorSanMapping ||
+      positionKey !== shown.positionKey)
+  ) {
+    // Set while rendering: React renders again before rendering the chart.
+    setShown({ moves, colorSanMapping, positionKey })
+  }
+
+  const moveKeys = useMemo(() => {
+    if (!shown.moves?.length) return []
+    return Object.keys(shown.moves[0]).filter((move) => move !== 'rating')
+  }, [shown.moves])
+
+  const shownColorSanMapping = useContentStable(
+    useMemo(
+      () =>
+        Object.fromEntries(
+          moveKeys
+            .filter((move) => shown.colorSanMapping[move])
+            .map((move) => [move, shown.colorSanMapping[move]]),
+        ),
+      [moveKeys, shown.colorSanMapping],
+    ),
+  )
+
+  return (
+    <MovesByRatingPlot
+      displayedMoves={shown.moves}
+      moveKeys={moveKeys}
+      displayedColorSanMapping={shownColorSanMapping}
+      isHomePage={isHomePage}
+      displayedPositionKey={shown.positionKey}
+    />
+  )
+}
+
+interface PlotProps {
+  displayedMoves: Props['moves']
+  moveKeys: string[]
+  displayedColorSanMapping: ColorSanMapping
+  isHomePage: boolean
+  displayedPositionKey?: string
+}
+
+const MovesByRatingPlot = memo(function MovesByRatingPlot({
+  displayedMoves,
+  moveKeys,
+  displayedColorSanMapping,
+  isHomePage,
+  displayedPositionKey,
+}: PlotProps) {
   const { isMobile } = useContext(WindowSizeContext)
-  const [displayedMoves, setDisplayedMoves] = useState(moves)
-  const [displayedColorSanMapping, setDisplayedColorSanMapping] =
-    useState(colorSanMapping)
-  const [displayedPositionKey, setDisplayedPositionKey] = useState(positionKey)
-  const lastRenderedPositionKeyRef = useRef<string | undefined>(positionKey)
+  const lastRenderedPositionKeyRef = useRef(displayedPositionKey)
   const shouldAnimateSeries =
     !!displayedPositionKey &&
     displayedPositionKey !== lastRenderedPositionKeyRef.current
 
   useEffect(() => {
-    if (!moves?.length || !positionKey) return
-    setDisplayedMoves(moves)
-    setDisplayedColorSanMapping(colorSanMapping)
-    setDisplayedPositionKey(positionKey)
-  }, [moves, colorSanMapping, positionKey])
-
-  useEffect(() => {
     if (!displayedPositionKey) return
     lastRenderedPositionKeyRef.current = displayedPositionKey
   }, [displayedPositionKey])
-
-  const moveKeys = useMemo(() => {
-    if (!displayedMoves?.length) return []
-    return Object.keys(displayedMoves[0]).filter((move) => move !== 'rating')
-  }, [displayedMoves])
 
   const maxValue = displayedMoves
     ? Math.max(
@@ -330,7 +377,7 @@ const MovesByRatingChart: React.FC<Props> = ({
       </ResponsiveContainer>
     </div>
   )
-}
+})
 
 // Re-renders only when its props change: the analysis page re-renders on
 // every engine update, and each chart render takes tens of milliseconds.
