@@ -125,13 +125,6 @@ const Leaderboard: React.FC = () => {
               style={{ willChange: 'transform, opacity' }}
               className="relative mx-auto w-full px-4 py-8 md:w-[90%] md:px-0"
             >
-              <Head>
-                <title>Leaderboard – Maia Chess</title>
-                <meta
-                  name="description"
-                  content="View top-ranked players across all Maia Chess game modes. Competitive leaderboards for regular play, puzzles, bot detection, hand & brain chess with live ratings and statistics."
-                />
-              </Head>
               <motion.div
                 variants={itemVariants}
                 className="mb-2 flex w-full flex-col items-start justify-between md:flex-row md:items-center"
@@ -171,6 +164,13 @@ const Leaderboard: React.FC = () => {
 const LeaderboardPage: React.FC = () => {
   return (
     <>
+      <Head>
+        <title>Leaderboard – Maia Chess</title>
+        <meta
+          name="description"
+          content="View top-ranked players across all Maia Chess game modes. Competitive leaderboards for regular play, puzzles, bot detection, hand & brain chess with live ratings and statistics."
+        />
+      </Head>
       <Leaderboard />
     </>
   )

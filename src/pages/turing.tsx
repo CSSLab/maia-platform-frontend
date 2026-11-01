@@ -46,18 +46,25 @@ const TuringPage: NextPage = () => {
     }
   }, [controller.game, controller.stats?.rating])
 
-  if (controller.loading || !controller.game) {
-    return (
-      <Loading isLoading={true}>
-        <div></div>
-      </Loading>
-    )
-  }
-
   return (
-    <TuringControllerContext.Provider value={controller}>
-      <Turing game={controller.game} stats={controller.stats} />
-    </TuringControllerContext.Provider>
+    <>
+      <Head>
+        <title>Bot or Not – Maia Chess</title>
+        <meta
+          name="description"
+          content="Test your ability to distinguish between human and AI chess play. This Turing Test for chess is a fun way to see if you understand the differences between human and engine moves."
+        />
+      </Head>
+      {controller.loading || !controller.game ? (
+        <Loading isLoading={true}>
+          <div></div>
+        </Loading>
+      ) : (
+        <TuringControllerContext.Provider value={controller}>
+          <Turing game={controller.game} stats={controller.stats} />
+        </TuringControllerContext.Provider>
+      )}
+    </>
   )
 }
 
@@ -330,13 +337,6 @@ const Turing: React.FC<Props> = (props: Props) => {
 
   return (
     <>
-      <Head>
-        <title>Bot or Not – Maia Chess</title>
-        <meta
-          name="description"
-          content="Test your ability to distinguish between human and AI chess play. This Turing Test for chess is a fun way to see if you understand the differences between human and engine moves."
-        />
-      </Head>
       <TuringControllerContext.Provider value={controller}>
         <TreeControllerContext.Provider value={controller}>
           <AnimatePresence mode="wait">

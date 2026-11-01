@@ -2400,8 +2400,11 @@ export default function AuthenticatedAnalysisPage() {
   }, [query.id, user])
 
   return (
-    <AuthenticatedWrapper>
-      <AnalysisPage />
-    </AuthenticatedWrapper>
+    <>
+      <AnalysisHead />
+      <AuthenticatedWrapper>
+        <AnalysisPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }

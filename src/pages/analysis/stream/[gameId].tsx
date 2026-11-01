@@ -157,18 +157,22 @@ const StreamAnalysisPage: NextPage = () => {
   //   )
   // }
 
+  // Until both names are known, the page keeps its generic title.
+  const whiteName = streamController.game?.whitePlayer.name
+  const blackName = streamController.game?.blackPlayer.name
+  const players = whiteName && blackName ? `${whiteName} vs ${blackName}` : null
+
   return (
     <>
-      <Head>
-        <title>
-          Live Analysis: {streamController.game?.whitePlayer.name || 'Unknown'}{' '}
-          vs {streamController.game?.blackPlayer.name || 'Unknown'} – Maia Chess
-        </title>
-        <meta
-          name="description"
-          content={`Watch live analysis of ${streamController.game?.whitePlayer.name || 'Unknown'} vs ${streamController.game?.blackPlayer.name || 'Unknown'} with real-time Maia AI insights.`}
-        />
-      </Head>
+      {players && (
+        <Head>
+          <title>{`Live Analysis: ${players} – Maia Chess`}</title>
+          <meta
+            name="description"
+            content={`Watch live analysis of ${players} with real-time Maia AI insights.`}
+          />
+        </Head>
+      )}
 
       <AnimatePresence>
         {analysisController &&
@@ -224,8 +228,17 @@ const StreamAnalysisPage: NextPage = () => {
 
 export default function AuthenticatedStreamAnalysisPage() {
   return (
-    <AuthenticatedWrapper>
-      <StreamAnalysisPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Live Analysis – Maia Chess</title>
+        <meta
+          name="description"
+          content="Watch live analysis of a chess game with real-time Maia AI insights."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <StreamAnalysisPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }

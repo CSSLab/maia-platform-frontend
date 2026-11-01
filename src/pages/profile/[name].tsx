@@ -76,7 +76,7 @@ const ProfilePage: NextPage = () => {
   }, [router.query])
 
   return (
-    <AuthenticatedWrapper>
+    <>
       <Head>
         <title>
           {name ? `${name}'s Profile – Maia Chess` : 'Profile – Maia Chess'}
@@ -90,10 +90,12 @@ const ProfilePage: NextPage = () => {
           }
         />
       </Head>
-      <Loading isLoading={loading}>
-        <Profile name={name} stats={stats} />
-      </Loading>
-    </AuthenticatedWrapper>
+      <AuthenticatedWrapper>
+        <Loading isLoading={loading}>
+          <Profile name={name} stats={stats} />
+        </Loading>
+      </AuthenticatedWrapper>
+    </>
   )
 }
 

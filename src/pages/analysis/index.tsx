@@ -1,3 +1,4 @@
+import Head from 'next/head'
 import { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import { Loading } from 'src/components'
@@ -57,9 +58,18 @@ const AnalysisPage: NextPage = () => {
   }, [analysisTournamentList, analysisPlayList, push])
 
   return (
-    <Loading isLoading={loading}>
-      <div></div>
-    </Loading>
+    <>
+      <Head>
+        <title>Analyze – Maia Chess</title>
+        <meta
+          name="description"
+          content="Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers."
+        />
+      </Head>
+      <Loading isLoading={loading}>
+        <div></div>
+      </Loading>
+    </>
   )
 }
 

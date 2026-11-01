@@ -304,8 +304,17 @@ const BroadcastAnalysisPage: NextPage = () => {
 
 export default function AuthenticatedBroadcastAnalysisPage() {
   return (
-    <AuthenticatedWrapper>
-      <BroadcastAnalysisPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Live Broadcast – Maia Chess</title>
+        <meta
+          name="description"
+          content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <BroadcastAnalysisPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }

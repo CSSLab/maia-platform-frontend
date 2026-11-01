@@ -8,7 +8,6 @@ import {
   MovesContainer,
   BoardController,
 } from 'src/components'
-import Head from 'next/head'
 import { useUnload } from 'src/hooks/useUnload'
 import type { DrawShape } from 'chessground/draw'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
@@ -365,10 +364,6 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
 
   return (
     <>
-      <Head>
-        <title>Maia Chess - Play</title>
-        <meta name="description" content="Turing survey" />
-      </Head>
       <TreeControllerContext.Provider
         value={{
           gameTree,
