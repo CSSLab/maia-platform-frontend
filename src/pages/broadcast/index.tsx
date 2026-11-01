@@ -4,7 +4,6 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { motion } from 'framer-motion'
 
-import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { useBroadcastController } from 'src/hooks/useBroadcastController'
 import { Broadcast, BroadcastRound } from 'src/types'
 
@@ -326,9 +325,9 @@ export default function AuthenticatedBroadcastsPage() {
           content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
         />
       </Head>
-      <AuthenticatedWrapper>
-        <BroadcastsPage />
-      </AuthenticatedWrapper>
+      {/* No AuthenticatedWrapper: the list asks only Lichess, so it needn't
+          wait for the visitor's session (and renders on the server). */}
+      <BroadcastsPage />
     </>
   )
 }
