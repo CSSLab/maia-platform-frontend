@@ -1,5 +1,10 @@
 import { Chess } from 'chess.ts'
-import Engine, { legacyNetCacheKey, loadNnueModel } from './stockfish'
+import Engine, {
+  legacyNetCacheKey,
+  loadNnueModel,
+  sharedWasmMemory,
+  STOCKFISH_MAX_MEMORY_PAGES,
+} from './stockfish'
 import { StockfishModelStorage } from './stockfishStorage'
 
 /**
@@ -350,5 +355,42 @@ describe('loadNnueModel', () => {
     await jest.advanceTimersByTimeAsync(25)
     await expect(net).resolves.toBe(cachedNet)
     expect(download).not.toHaveBeenCalled()
+  })
+})
+
+describe('sharedWasmMemory', () => {
+  const NativeMemory = WebAssembly.Memory
+  afterEach(() => {
+    WebAssembly.Memory = NativeMemory
+  })
+
+  // Records each request, and refuses ones above `limit` pages as a browser
+  // that cannot reserve that much does.
+  const fakeMemory = (limit: number) => {
+    const asked: WebAssembly.MemoryDescriptor[] = []
+    WebAssembly.Memory = function Memory(
+      descriptor: WebAssembly.MemoryDescriptor,
+    ) {
+      asked.push(descriptor)
+      if ((descriptor.maximum ?? 0) > limit)
+        throw new RangeError('Out of memory')
+      return {} as WebAssembly.Memory
+    } as unknown as typeof WebAssembly.Memory
+    return asked
+  }
+
+  it('reserves at most 1 GB', () => {
+    const asked = fakeMemory(Infinity)
+    sharedWasmMemory(2560)
+    expect(STOCKFISH_MAX_MEMORY_PAGES * 64 * 1024).toBe(2 ** 30)
+    expect(asked).toEqual([
+      { shared: true, initial: 2560, maximum: STOCKFISH_MAX_MEMORY_PAGES },
+    ])
+  })
+
+  it('asks for less when the browser cannot reserve the maximum', () => {
+    const asked = fakeMemory(8192)
+    sharedWasmMemory(2560)
+    expect(asked.map((d) => d.maximum)).toEqual([16384, 12288, 8192])
   })
 })

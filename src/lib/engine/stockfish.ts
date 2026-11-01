@@ -1838,8 +1838,21 @@ const legalMaiaCandidates = (
   ),
 })
 
-const sharedWasmMemory = (lo: number, hi = 32767): WebAssembly.Memory => {
-  let shrink = 4 // 32767 -> 24576 -> 16384 -> 12288 -> 8192 -> 6144 -> etc
+/**
+ * Stockfish's memory may grow to 1 GB (in 64 KiB pages). A shared memory's
+ * maximum is reserved when it is created, and iOS limits how much a tab can
+ * reserve: with the old 2 GB, Maia then ran out after a reload on an iPhone,
+ * since the previous page's memory is held for a while. Stockfish grows to
+ * about 400 MB here (the nets are copied in and unpacked; the hash stays at
+ * its 16 MB default).
+ */
+export const STOCKFISH_MAX_MEMORY_PAGES = 16384
+
+export const sharedWasmMemory = (
+  lo: number,
+  hi = STOCKFISH_MAX_MEMORY_PAGES,
+): WebAssembly.Memory => {
+  let shrink = 4 // 16384 -> 12288 -> 8192 -> 6144 -> etc
   while (true) {
     try {
       return new WebAssembly.Memory({ shared: true, initial: lo, maximum: hi })
