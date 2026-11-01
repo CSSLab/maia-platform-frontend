@@ -105,7 +105,7 @@ const researchPapers: {
     description:
       'This paper introduces Maia, a chess engine trained to imitate real human moves at different rating levels. Instead of always picking the best move, Maia predicts what a human player of a given skill would actually play. This makes it ideal for training, game analysis, and even coaching, as it helps players learn from realistic decisions rather than computer perfection. It was the first AI to prioritize human-likeness over engine strength, making it a powerful tool for improvement.',
     image: 'maia1.jpg',
-    shortName: 'Maia 1',
+    shortName: 'Maia-1',
   },
   maia2: {
     title: 'Maia‑2: A Unified Model for Human‑AI Alignment in Chess',
@@ -113,7 +113,7 @@ const researchPapers: {
     description:
       "Maia‑2 is the evolution of Maia into a single model that can simulate any skill level in chess. Instead of using separate models for different ratings, it understands and adapts to your level in real time. Whether you're a beginner or a master, Maia‑2 predicts the moves players like you would actually make. It's built to feel human, teach naturally, and support personalized analysis without needing to toggle between bots.",
     image: 'maia2.jpg',
-    shortName: 'Maia 2',
+    shortName: 'Maia-2',
   },
   maia3: {
     title: 'Chessformer: A Unified Architecture for Chess Modeling',
@@ -121,7 +121,7 @@ const researchPapers: {
     description:
       'Introduces Chessformer, a transformer-based architecture that unifies chess modeling to capture how human players make decisions across a wide range of skill levels.',
     image: 'maia3.png',
-    shortName: 'Maia 3',
+    shortName: 'Maia-3',
   },
   others: [
     {
@@ -279,7 +279,7 @@ export const AboutMaia = () => {
 
             <p className="text-primary/90">
               We introduced Maia in our paper that appeared at KDD 2020, and
-              Maia 2 in our paper that appeared at NeurIPS 2024.
+              Maia-2 in our paper that appeared at NeurIPS 2024.
             </p>
           </div>
         </div>
