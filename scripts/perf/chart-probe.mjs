@@ -158,7 +158,7 @@ console.log('device', JSON.stringify(device))
 // Start a few moves in, past the opening book.
 const nextBox = phone
   ? await page
-      .getByRole('button', { name: '›', exact: true })
+      .getByRole('button', { name: 'Next move', exact: true })
       .first()
       .boundingBox()
   : null
