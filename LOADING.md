@@ -558,9 +558,16 @@ poll were removed (92ced56).
 - Model names are written with a hyphen everywhere: the home page, the
   drills dialog and the v1 blog post wrote "Maia 2" and "Maia 3" (441a1de).
   Rating models are named the same way (be4b6ea): the analysis model menus,
-  play setup, clocks, player names and drills said "Maia 1100" and now say
-  "Maia-3 1100". The footer's Lichess bots and the 2020 blog post are the
-  original models, so they say "Maia-1 1100".
+  play setup, clocks and drills said "Maia 1100" and now say "Maia-3
+  1100". The footer's Lichess bots and the 2020 blog post are the original
+  models, so they say "Maia-1 1100".
+- Stored games name the model that played them (31abb1d). The play pages
+  used Maia-1 until 2025-07-12 (#49) and Maia-2 until 2026-02-09 (555a92d);
+  the backend records every game as `maia1`, so the game lists and the
+  analysis page tell the model by the game's `created_time` (UTC). On one
+  public profile's 320 games: 68 Maia-1, 127 Maia-2, 124 Maia-3, and the
+  first games after 2026-02-09 09:42 UTC are at 600 and 2600, which only
+  Maia-3 offers.
 
 Over all routes at both sizes, as a new visitor: controls without an
 accessible name 31 → 0, form fields without a label 12 → 0, console messages
@@ -655,6 +662,7 @@ later, within noise.
 | 4819438                   | /candidates links to the big tournament on now                                                                                                                                                                                                                                                                                | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | 441a1de                   | Model names with a hyphen (Maia-2, Maia-3)                                                                                                                                                                                                                                                                                    | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | be4b6ea                   | Rating models named Maia-3 1100 (Maia-1 1100 for the Lichess bots)                                                                                                                                                                                                                                                            | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 31abb1d                   | Stored games name the model that played them, by the game's date                                                                                                                                                                                                                                                              | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Things you will notice
 
