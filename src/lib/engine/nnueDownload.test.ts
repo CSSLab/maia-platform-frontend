@@ -396,13 +396,13 @@ describe('fetchResumable into a buffer', () => {
 })
 
 describe('getNnueSources', () => {
-  it('tries jsDelivr and unpkg for the npm package, then GitHub', () => {
+  it('tries unpkg and jsDelivr for the npm package, then GitHub', () => {
     const urls = getNnueSources('', '').map((s) =>
       s.url('nn-1111cefa1111.nnue'),
     )
     expect(urls).toEqual([
-      'https://cdn.jsdelivr.net/npm/maia-stockfish-nets@17.0.0/nn-1111cefa1111.nnue',
       'https://unpkg.com/maia-stockfish-nets@17.0.0/nn-1111cefa1111.nnue',
+      'https://cdn.jsdelivr.net/npm/maia-stockfish-nets@17.0.0/nn-1111cefa1111.nnue',
       expect.stringMatching(
         /^https:\/\/raw\.githubusercontent\.com\/.*\/nn-1111cefa1111\.nnue$/,
       ),

@@ -6,7 +6,7 @@
  * to fetch"): nothing retried a dropped connection, a stalled download hung
  * forever, and raw.githubusercontent.com rate-limits anonymous traffic. So a
  * net is now fetched from a list of free hosts in turn: the npm package
- * maia-stockfish-nets through jsDelivr and unpkg, then
+ * maia-stockfish-nets through unpkg and jsDelivr, then
  * raw.githubusercontent.com. On each host a dropped or stalled download is
  * retried, resuming where it stopped (HTTP Range) when the host sent the file
  * uncompressed, and a finished net must match the SHA-256 prefix in its name
@@ -37,8 +37,9 @@ export const KNOWN_NETS: Record<string, number> = {
   'nn-37f18f62d772.nnue': 3519630,
 }
 
-// jsDelivr serves files of up to 20 MB from GitHub but much larger ones from
-// npm, so the nets are published unchanged as an npm package.
+// The nets, published unchanged as an npm package. jsDelivr serves npm files
+// of up to 50 MB (20 MB from GitHub), so for now it is a second host for the
+// small net only; for the big one it answers 403 and the next host is tried.
 const NPM_PACKAGE = 'maia-stockfish-nets@17.0.0'
 // The commit that last had the nets in public/stockfish.
 export const GITHUB_RAW_BASE =
@@ -67,8 +68,8 @@ export const getNnueSources = (
   }
   if (baseUrlEnv) return [atBase(baseUrlEnv, baseUrlEnv)]
   return [
-    atBase('jsdelivr', `https://cdn.jsdelivr.net/npm/${NPM_PACKAGE}`),
     atBase('unpkg', `https://unpkg.com/${NPM_PACKAGE}`),
+    atBase('jsdelivr', `https://cdn.jsdelivr.net/npm/${NPM_PACKAGE}`),
     atBase('github', GITHUB_RAW_BASE),
   ]
 }
