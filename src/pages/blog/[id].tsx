@@ -23,7 +23,7 @@ const BlogPost = ({ post }: BlogPostProps) => {
   return (
     <>
       <Head>
-        <title>{post.title} – Maia Chess</title>
+        <title>{`${post.title} – Maia Chess`}</title>
         <meta name="description" content={post.excerpt} />
 
         {/* Open Graph */}
@@ -129,7 +129,8 @@ export const getStaticPaths: GetStaticPaths = async () => {
     params: { id: post.id },
   }))
 
-  return { paths, fallback: true }
+  // Every post is in the repository, so any other id is a 404.
+  return { paths, fallback: false }
 }
 
 export const getStaticProps: GetStaticProps = async ({ params }) => {

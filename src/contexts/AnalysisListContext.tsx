@@ -76,7 +76,10 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
   useEffect(() => {
     if (user?.lichessId) {
       streamLichessGames(user?.lichessId, (data) => {
-        const result = data.pgn.match(/\[Result\s+"(.+?)"\]/)[1] || '?'
+        // Lichess sends an error object instead of games (unknown user, rate
+        // limit).
+        if (!data?.pgn) return
+        const result = data.pgn.match(/\[Result\s+"(.+?)"\]/)?.[1] || '?'
 
         const game: MaiaGameListEntry = {
           id: data.id,
