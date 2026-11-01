@@ -13,6 +13,24 @@
  *   { type: 'inference-result', id, logitsMove, logitsValue }
  */
 
+// ONNX Runtime asks for a shared WebAssembly memory that may grow to 4 GB,
+// and a shared memory's maximum is reserved when it is created. iOS limits
+// how much a tab can reserve, and after a reload the previous page's
+// Stockfish memory (up to 2 GB) is still held for a while, so on an iPhone
+// Maia failed to start after a reload ("RangeError: Out of memory"). Maia
+// uses ~110 MB, ~190 MB for 21 ratings at once (the most the site asks
+// for), so its memory may grow to 512 MB.
+const MAX_MEMORY_PAGES = 8192 // of 64 KiB
+const NativeMemory = WebAssembly.Memory
+WebAssembly.Memory = function Memory(descriptor) {
+  return new NativeMemory(
+    descriptor && descriptor.shared && descriptor.maximum > MAX_MEMORY_PAGES
+      ? { ...descriptor, maximum: MAX_MEMORY_PAGES }
+      : descriptor,
+  )
+}
+WebAssembly.Memory.prototype = NativeMemory.prototype
+
 importScripts('/ort/ort.wasm.min.js')
 
 const ORT = ort
