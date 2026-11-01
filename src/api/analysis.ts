@@ -14,6 +14,7 @@ import {
   insertBackendStockfishEvalToGameTree,
 } from 'src/lib'
 import { buildUrl } from './utils'
+import { formatMaiaName } from 'src/lib/maiaNames'
 import { AvailableMoves } from 'src/types/puzzle'
 import { Chess } from 'chess.ts'
 
@@ -272,11 +273,11 @@ export const fetchAnalyzedMaiaGame = async (
   const maiaPattern = /maia_kdd_\d{3,4}/
 
   if (blackPlayer.name && maiaPattern.test(blackPlayer.name)) {
-    blackPlayer.name = blackPlayer.name.replace('maia_kdd_', 'Maia-3 ')
+    blackPlayer.name = formatMaiaName(blackPlayer.name, data['created_time'])
   }
 
   if (whitePlayer.name && maiaPattern.test(whitePlayer.name)) {
-    whitePlayer.name = whitePlayer.name.replace('maia_kdd_', 'Maia-3 ')
+    whitePlayer.name = formatMaiaName(whitePlayer.name, data['created_time'])
   }
 
   const maiaEvals: { [model: string]: MoveValueMapping[] } = {}

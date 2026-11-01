@@ -4,12 +4,14 @@ import React, { useState, useEffect, useContext } from 'react'
 import { AuthContext } from 'src/contexts'
 import { MaiaGameListEntry } from 'src/types'
 import { streamLichessGames, fetchMaiaGameList } from 'src/api'
+import { formatMaiaName } from 'src/lib/maiaNames'
 
 interface GameData {
   game_id: string
   maia_name: string
   result: string
   player_color: 'white' | 'black'
+  created_time?: string
 }
 
 interface GameListProps {
@@ -138,13 +140,13 @@ export const GameList = ({
                   maia_name: string
                   result: string
                   player_color: 'white' | 'black'
+                  created_time?: string
                   is_favorited?: boolean
                   custom_name?: string
                 },
                 type: string,
               ) => {
-                const raw = game.maia_name.replace('_kdd_', ' ')
-                const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+                const maia = formatMaiaName(game.maia_name, game.created_time)
 
                 const playerLabel = userName || 'You'
 

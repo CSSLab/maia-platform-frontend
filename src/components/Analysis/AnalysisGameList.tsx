@@ -20,6 +20,7 @@ import {
   updateFavoriteName,
 } from 'src/lib/favorites'
 import { MaiaGameListEntry } from 'src/types'
+import { formatMaiaName } from 'src/lib/maiaNames'
 import { useRouter } from 'next/router'
 
 interface GameData {
@@ -27,6 +28,7 @@ interface GameData {
   maia_name: string
   result: string
   player_color: 'white' | 'black'
+  created_time?: string
   is_favorited?: boolean
   custom_name?: string
 }
@@ -244,13 +246,13 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                     maia_name: string
                     result: string
                     player_color: 'white' | 'black'
+                    created_time?: string
                     is_favorited?: boolean
                     custom_name?: string
                   },
                   type: string,
                 ) => {
-                  const raw = game.maia_name.replace('_kdd_', ' ')
-                  const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+                  const maia = formatMaiaName(game.maia_name, game.created_time)
 
                   const defaultLabel =
                     game.player_color === 'white'
@@ -332,13 +334,13 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                 maia_name: string
                 result: string
                 player_color: 'white' | 'black'
+                created_time?: string
                 is_favorited?: boolean
                 custom_name?: string
               },
               type: string,
             ) => {
-              const raw = game.maia_name.replace('_kdd_', ' ')
-              const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+              const maia = formatMaiaName(game.maia_name, game.created_time)
 
               const defaultLabel =
                 game.player_color === 'white'

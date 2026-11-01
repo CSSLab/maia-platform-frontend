@@ -7,6 +7,7 @@ import {
   streamLichessGames,
   fetchMaiaGameList,
 } from 'src/api'
+import { formatMaiaName } from 'src/lib/maiaNames'
 
 interface IAnalysisListContext {
   analysisTournamentList: Map<string, WorldChampionshipGameListEntry[]> | null
@@ -111,11 +112,11 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
               maia_name: string
               result: string
               player_color: 'white' | 'black'
+              created_time?: string
             },
             type: 'play' | 'hand' | 'brain' | 'custom',
           ) => {
-            const raw = game.maia_name.replace('_kdd_', ' ')
-            const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+            const maia = formatMaiaName(game.maia_name, game.created_time)
 
             return {
               id: game.game_id,
