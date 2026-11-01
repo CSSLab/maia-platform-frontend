@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { motion, useSpring, useTransform } from 'framer-motion'
+import { useEffect } from 'react'
+import { animate, motion, useMotionValue, useTransform } from 'framer-motion'
 
 interface AnimatedNumberProps {
   value: number
@@ -14,22 +14,15 @@ export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
   formatValue = (val) => Math.round(val).toLocaleString(),
   className = '',
 }) => {
-  const springValue = useSpring(value, {
-    stiffness: 150,
-    damping: 30,
-    duration,
-    // The number is shown rounded, so the spring can stop within 0.5 of it
-    // (framer-motion's default at this scale). At 0.001 a count of tens of
-    // millions kept animating, and redrawing the page, for seconds after
-    // its display had stopped changing.
-    restDelta: 0.5,
-  })
+  const motionValue = useMotionValue(value)
+  const displayValue = useTransform(motionValue, (val) => formatValue(val))
 
-  const displayValue = useTransform(springValue, (val) => formatValue(val))
-
+  // A count-up of fixed length. A spring counting to tens of millions took
+  // ~3 s to settle, re-laying out its text on every frame of it.
   useEffect(() => {
-    springValue.set(value)
-  }, [springValue, value])
+    const controls = animate(motionValue, value, { duration, ease: 'easeOut' })
+    return () => controls.stop()
+  }, [motionValue, value, duration])
 
   return <motion.span className={className}>{displayValue}</motion.span>
 }
