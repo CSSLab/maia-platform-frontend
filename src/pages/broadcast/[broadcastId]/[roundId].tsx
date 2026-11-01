@@ -48,23 +48,20 @@ const BroadcastAnalysisPage: NextPage = () => {
           await broadcastController.loadBroadcasts()
         }
 
-        // Select the broadcast, fetched by its id: the broadcast list holds
-        // only live, upcoming and recent broadcasts, so an older one (e.g. a
-        // link from /candidates) is not in it.
-        const broadcast = await broadcastController.selectBroadcast(broadcastId)
+        // Select the broadcast and the round, fetched by the broadcast's id:
+        // the broadcast list holds only live, upcoming and recent
+        // broadcasts, so an older one (e.g. a link from /candidates) is not
+        // in it.
+        const broadcast = await broadcastController.selectBroadcast(
+          broadcastId,
+          roundId,
+        )
         if (!broadcast) {
           throw new Error('Broadcast not found')
         }
-
-        // Find the round
-        const round = broadcast.rounds.find(
-          (r: { id: string }) => r.id === roundId,
-        )
-        if (!round) {
+        if (!broadcast.rounds.some((r) => r.id === roundId)) {
           throw new Error('Round not found')
         }
-
-        broadcastController.selectRound(roundId)
 
         setLoading(false)
       } catch (err) {

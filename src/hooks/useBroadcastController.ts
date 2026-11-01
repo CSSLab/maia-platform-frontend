@@ -177,7 +177,7 @@ export const useBroadcastController = (): BroadcastStreamController => {
   }, [])
 
   const selectBroadcast = useCallback(
-    async (broadcastId: string) => {
+    async (broadcastId: string, roundId?: string) => {
       // Always fetch complete broadcast data directly from API to ensure we get ALL rounds
       // The /api/broadcast endpoint often only returns currently ongoing rounds
       let broadcast: Broadcast | undefined
@@ -202,10 +202,12 @@ export const useBroadcastController = (): BroadcastStreamController => {
 
       if (broadcast) {
         setCurrentBroadcast(broadcast)
-        // Auto-select default round if available
-        const defaultRound = getPreferredBroadcastRound(broadcast)
-        if (defaultRound) {
-          setCurrentRound(defaultRound)
+        // The requested round, or else the default one
+        const round =
+          broadcast.rounds.find((r) => r.id === roundId) ??
+          getPreferredBroadcastRound(broadcast)
+        if (round) {
+          setCurrentRound(round)
         }
       } else {
         console.error('Broadcast not found:', broadcastId)
