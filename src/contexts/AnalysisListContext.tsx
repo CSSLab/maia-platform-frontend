@@ -69,7 +69,9 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
     }
 
     getAndSetData()
-  }, [router])
+    // Once: the router object changes when the URL's query is filled in after
+    // the first render, which fetched the list a second time.
+  }, [])
 
   useEffect(() => {
     if (user?.lichessId) {

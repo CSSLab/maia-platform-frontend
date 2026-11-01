@@ -196,6 +196,20 @@ export const fetchAnalyzedPgnGame = async (id: string, pgn: string) => {
   } as AnalyzedGame
 }
 
+/**
+ * Sends a PGN to `analyze_user_game` without reading the reply, for games the
+ * page builds itself (see parseLichessPgn), in case the backend records it.
+ */
+export const sendPgnGame = (pgn: string) => {
+  fetch(buildUrl('analysis/analyze_user_game'), {
+    method: 'POST',
+    body: pgn,
+    headers: {
+      'Content-Type': 'text/plain',
+    },
+  }).catch(() => undefined)
+}
+
 export const fetchAnalyzedMaiaGame = async (
   id: string,
   game_type: 'play' | 'hand' | 'brain' | 'custom',

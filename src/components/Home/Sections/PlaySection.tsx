@@ -5,7 +5,13 @@ import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import Chessground from '@react-chess/chessground'
 import { useInView } from 'react-intersection-observer'
-import { useContext, useState, useEffect } from 'react'
+import {
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  type ElementType,
+} from 'react'
 import { AuthContext } from 'src/contexts/AuthContext'
 import { ModalContext } from 'src/contexts/ModalContext'
 
@@ -86,7 +92,7 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
         >
           <div className="relative flex aspect-square w-full items-center justify-center">
             <div className="absolute left-0 top-0 grid h-3/4 w-3/4 grid-cols-6 grid-rows-6 gap-0.5 bg-transparent">
-              <AnimatedTrainingBoards inView={inView} />
+              <AnimatedTrainingBoards />
             </div>
             <motion.div
               className="from-white/8 to-white/4 absolute bottom-0 right-0 z-10 h-3/4 w-3/4 overflow-hidden border border-glass-border bg-gradient-to-br backdrop-blur-md"
@@ -105,45 +111,109 @@ export const PlaySection = ({ id }: PlaySectionProps) => {
   )
 }
 
-const AnimatedTrainingBoards = ({ inView }: { inView: boolean }) => {
-  const [currentBatch, setCurrentBatch] = useState(0)
-  // This will force a re-render when needed
-  const [renderKey, setRenderKey] = useState(0)
+// chessground's elements, which its board and piece styles are written for.
+const CgContainer = 'cg-container' as unknown as ElementType
+const CgBoard = 'cg-board' as unknown as ElementType
+const Piece = 'piece' as unknown as ElementType
+
+const PIECE_ROLES: Record<string, string> = {
+  p: 'pawn',
+  n: 'knight',
+  b: 'bishop',
+  r: 'rook',
+  q: 'queen',
+  k: 'king',
+}
+
+/**
+ * A board as chessground draws it (same elements, classes and size), but
+ * without a chessground instance: these never change. chessground moves
+ * every piece with a transform on its own compositing layer, and the grid's
+ * ~1100 piece layers made each frame of the page's animations cost tens of
+ * milliseconds of compositing.
+ */
+const StaticBoard = ({
+  fen,
+  size,
+}: {
+  fen: string
+  size: { width: number; height: number } | null
+}) => (
+  <div style={{ height: '100%', width: '100%' }}>
+    <div
+      className="cg-wrap orientation-white"
+      style={{ height: '100%', width: '100%', display: 'table' }}
+    >
+      {size !== null && (
+        <CgContainer style={size}>
+          <CgBoard>
+            {fen
+              .split(' ')[0]
+              .split('/')
+              .flatMap((row, rank) => {
+                let file = 0
+                return [...row].flatMap((symbol) => {
+                  if (/\d/.test(symbol)) {
+                    file += Number(symbol)
+                    return []
+                  }
+                  const color =
+                    symbol === symbol.toUpperCase() ? 'white' : 'black'
+                  const piece = (
+                    <Piece
+                      key={`${rank}-${file}`}
+                      className={`${color} ${PIECE_ROLES[symbol.toLowerCase()]}`}
+                      style={{
+                        left: `${file * 12.5}%`,
+                        top: `${rank * 12.5}%`,
+                        willChange: 'auto',
+                      }}
+                    />
+                  )
+                  file++
+                  return [piece]
+                })
+              })}
+          </CgBoard>
+        </CgContainer>
+      )}
+    </div>
+  </div>
+)
+
+const AnimatedTrainingBoards = () => {
+  // The board size chessground would use: the cell's width rounded down to
+  // a multiple of 8 device pixels, and its shape. Measured after the first
+  // paint (the grid is below the fold), so the boards' ~1100 pieces don't
+  // delay it.
+  const [size, setSize] = useState<{ width: number; height: number } | null>(
+    null,
+  )
+  const firstCell = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!inView) return
-
-    const interval = setInterval(() => {
-      setCurrentBatch((prev) => (prev + 1) % 3)
-    }, 3000)
-
-    const timeoutId = setTimeout(() => {
-      setRenderKey((prev) => prev + 1)
-    }, 100)
-
-    return () => {
-      clearInterval(interval)
-      clearTimeout(timeoutId)
+    const cell = firstCell.current
+    if (!cell) return
+    const measure = () => {
+      const bounds = cell.getBoundingClientRect()
+      const ratio = window.devicePixelRatio
+      const width = (Math.floor((bounds.width * ratio) / 8) * 8) / ratio
+      setSize({ width, height: (width * bounds.height) / bounds.width })
     }
-  }, [inView])
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(cell)
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <>
       {[...Array(36)].map((_, i) => (
         <motion.div key={i} className="relative">
-          <div className="h-full w-full">
-            <Chessground
-              key={`board-${i}-${renderKey}`}
-              contained
-              config={{
-                fen: TRAINING_POSITIONS[i % TRAINING_POSITIONS.length],
-                viewOnly: true,
-                coordinates: false,
-                drawable: { enabled: false },
-                animation: {
-                  duration: 0,
-                },
-              }}
+          <div className="h-full w-full" ref={i === 0 ? firstCell : undefined}>
+            <StaticBoard
+              fen={TRAINING_POSITIONS[i % TRAINING_POSITIONS.length]}
+              size={size}
             />
           </div>
         </motion.div>

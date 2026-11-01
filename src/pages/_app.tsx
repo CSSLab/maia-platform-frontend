@@ -29,15 +29,12 @@ import { FeedbackButton } from 'src/components/Common/FeedbackButton'
 import { Footer } from 'src/components/Common/Footer'
 import { Header } from 'src/components/Common/Header'
 import { browserPostHogConfig } from 'src/lib/posthog-browser-config'
+import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
 
 const openSansClassName = 'font-sans'
 const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
-// Only wght 200-400 and FILL 0/1 are actually used, so pin opsz=24/GRAD=0 and
-// narrow the ranges: Google serves a ~1.1MB instance instead of the full
-// ~3.8MB variable font. The material-symbols-ready guard hides icons until the
-// font loads, so display=swap never flashes the ligature text.
-const MATERIAL_SYMBOLS_STYLESHEET =
-  'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200..400,0..1,0&display=swap'
+// The material-symbols-ready guard hides icons until the font loads, so
+// display=swap never flashes the ligature text.
 
 function MaiaPlatform({ Component, pageProps }: AppProps) {
   const router = useRouter()

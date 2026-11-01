@@ -1,11 +1,175 @@
-import { Chess } from 'chess.ts'
+import { Chess, type Move, type PartialMove, type PieceSymbol } from 'chess.ts'
 import {
   GameTree,
   StreamedMove,
+  type AnalyzedGame,
   type LiveGame,
   type Player,
   type AvailableMoves,
+  type Termination,
 } from 'src/types'
+
+/**
+ * A FEN as python-chess writes it (and so as the backend stores positions):
+ * the en passant square only when a capture there is legal.
+ */
+const fenWithLegalEnPassant = (chess: Chess) => {
+  const fen = chess.fen()
+  const fields = fen.split(' ')
+  const target = fields[3]
+  if (target === '-') return fen
+
+  // Only the pawns beside the one that just moved two squares can capture.
+  const rank = chess.turn() === 'w' ? '5' : '4'
+  const file = 'abcdefgh'.indexOf(target[0])
+  const canCapture = [file - 1, file + 1].some(
+    (neighbour) =>
+      neighbour >= 0 &&
+      neighbour < 8 &&
+      chess
+        .moves({ square: `${'abcdefgh'[neighbour]}${rank}`, verbose: true })
+        .some((move) => move.flags.includes('e')),
+  )
+  if (canCapture) return fen
+  fields[3] = '-'
+  return fields.join(' ')
+}
+
+const pgnPlayer = (name?: string, elo?: string, title?: string): Player => {
+  const rating = Number(elo)
+  return {
+    name: name ?? '?',
+    rating: Number.isFinite(rating) ? rating : 0,
+    title,
+  }
+}
+
+const SAN_PATTERN = /^([NBRQK])?([a-h])?([1-8])?x?([a-h][1-8])(?:=([NBRQ]))?$/
+const withoutCheck = (san: string) => san.replace(/[+#]$/, '')
+
+/**
+ * Plays a SAN move, trying only the pieces that could make it. chess.ts
+ * reading SAN itself computes the SAN of every legal move (about 1 ms per
+ * move, 70-140 ms for a long game); the SAN of the move played still has to
+ * match.
+ */
+const playSan = (chess: Chess, san: string): Move | null => {
+  const target = withoutCheck(san)
+  const color = chess.turn()
+  const candidates: PartialMove[] = []
+
+  if (target === 'O-O' || target === 'O-O-O') {
+    const rank = color === 'w' ? '1' : '8'
+    candidates.push({
+      from: `e${rank}`,
+      to: `${target === 'O-O' ? 'g' : 'c'}${rank}`,
+    })
+  } else {
+    const match = SAN_PATTERN.exec(target)
+    if (!match) return null
+    const [, piece = 'P', file, rank, to, promotion] = match
+    chess.board().forEach((row, rowIndex) =>
+      row.forEach((square, fileIndex) => {
+        if (square?.color !== color || square.type !== piece.toLowerCase()) {
+          return
+        }
+        const from = `${'abcdefgh'[fileIndex]}${8 - rowIndex}`
+        if ((file && from[0] !== file) || (rank && from[1] !== rank)) return
+        candidates.push({
+          from,
+          to,
+          promotion: promotion?.toLowerCase() as PieceSymbol | undefined,
+        })
+      }),
+    )
+  }
+
+  for (const candidate of candidates) {
+    const move = chess.move(candidate)
+    if (!move) continue
+    if (withoutCheck(move.san) === target) return move
+    chess.undo()
+  }
+  return null
+}
+
+const readPgnHeaders = (pgn: string) => {
+  const headers: Record<string, string> = {}
+  for (const [, key, value] of pgn.matchAll(/^\[(\w+)\s+"(.*)"\]\s*$/gm)) {
+    headers[key] = value.replace(/\\(["\\])/g, '$1')
+  }
+  return headers
+}
+
+/** The SAN moves of a PGN's main line, without comments, variations or NAGs. */
+const readPgnMoves = (pgn: string) => {
+  let text = pgn
+    .replace(/^\[.*\]\s*$/gm, ' ')
+    .replace(/\{[^}]*\}/g, ' ')
+    .replace(/;[^\n]*/g, ' ')
+    .replace(/\$\d+/g, ' ')
+  for (let previous = ''; previous !== text; ) {
+    previous = text
+    text = text.replace(/\([^()]*\)/g, ' ')
+  }
+  return text
+    .split(/\s+/)
+    .map((token) => token.replace(/^\d+\.+/, '').replace(/[!?]+$/, ''))
+    .filter((token) => token && !/^(1-0|0-1|1\/2-1\/2|\*)$/.test(token))
+}
+
+/**
+ * Builds a Lichess game from its PGN as the backend's `analyze_user_game`
+ * does (same players, result and FENs), so the board need not wait for that
+ * request. Returns null for games left to the backend: variants, games from a
+ * set-up position and PGNs this cannot read.
+ */
+export const parseLichessPgn = (
+  id: string,
+  pgn: string,
+): Omit<AnalyzedGame, 'type'> | null => {
+  const headers = readPgnHeaders(pgn)
+  if (
+    (headers.Variant && headers.Variant !== 'Standard') ||
+    headers.SetUp ||
+    headers.FEN
+  ) {
+    return null
+  }
+
+  const chess = new Chess()
+  const tree = new GameTree(chess.fen())
+  for (const san of readPgnMoves(pgn)) {
+    const move = playSan(chess, san)
+    if (!move) return null
+    tree
+      .getLastMainlineNode()
+      .addChild(
+        fenWithLegalEnPassant(chess),
+        `${move.from}${move.to}${move.promotion ?? ''}`,
+        move.san,
+        true,
+      )
+  }
+
+  const result = headers.Result ?? '*'
+  const termination: Termination = {
+    result,
+    winner: result === '1-0' ? 'white' : result === '0-1' ? 'black' : 'none',
+    condition: 'Normal',
+  }
+
+  return {
+    id,
+    whitePlayer: pgnPlayer(headers.White, headers.WhiteElo, headers.WhiteTitle),
+    blackPlayer: pgnPlayer(headers.Black, headers.BlackElo, headers.BlackTitle),
+    // Not read for Lichess games (the page lists moves from the tree).
+    availableMoves: [],
+    gameType: 'blitz',
+    termination,
+    tree,
+  }
+}
 
 export const readLichessStream =
   (processLine: (data: any) => void) => (response: any) => {

@@ -5,6 +5,7 @@ import { Component } from 'react'
 import { Header } from './Header'
 import { Footer } from './Footer'
 import { trackErrorEncountered } from 'src/lib/analytics'
+import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
 
 const ErrorChessground = dynamic(() => import('@react-chess/chessground'), {
   ssr: false,
@@ -66,10 +67,7 @@ export class ErrorBoundary extends Component<Props, State> {
         return (
           <>
             <Head>
-              <link
-                rel="stylesheet"
-                href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-              />
+              <link rel="stylesheet" href={MATERIAL_SYMBOLS_STYLESHEET} />
             </Head>
             <div className={`${openSansClassName} app-container`}>
               <div className="flex min-h-screen w-screen flex-col bg-backdrop">
@@ -102,10 +100,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <>
           <Head>
-            <link
-              rel="stylesheet"
-              href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-            />
+            <link rel="stylesheet" href={MATERIAL_SYMBOLS_STYLESHEET} />
           </Head>
           <div
             className={`${openSansClassName} app-container flex min-h-screen w-screen flex-col bg-backdrop`}

@@ -354,6 +354,27 @@ export const Highlight: React.FC<Props> = ({
     }
   }, [boardDescription?.segments?.length])
 
+  // In the stacked (phone) layout the page flows below this panel, so the
+  // move lists keep room for their 4 rows and the description for 4 lines:
+  // emptied on every move and filled again as Maia and Stockfish answer,
+  // they moved everything below up and down by 50-80 px each time.
+  const emptyRows = (shown: number) =>
+    isMobile
+      ? Array.from({ length: Math.max(0, 4 - shown) }, (_, index) => (
+          <div
+            key={`empty-${index}`}
+            aria-hidden
+            className="invisible flex w-full"
+          >
+            <p
+              className={`font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
+            >
+              &nbsp;
+            </p>
+          </div>
+        ))
+      : null
+
   const useCompactMobileColumnTitles = isMobile || simplified
   const maiaRating = currentMaiaModel.replace('maia_kdd_', '')
   const mobileMaiaColumnTitle = `Maia ${maiaRating}: Human Moves`
@@ -552,6 +573,7 @@ export const Highlight: React.FC<Props> = ({
                 </button>
               )
             })}
+            {emptyRows(recommendations.maia?.slice(0, 4).length ?? 0)}
           </div>
         </div>
         <div
@@ -682,35 +704,38 @@ export const Highlight: React.FC<Props> = ({
                   </button>
                 )
               })}
+            {emptyRows(recommendations.stockfish?.slice(0, 4).length ?? 0)}
           </div>
         </div>
       </div>
       <div
         className={`flex flex-col items-start justify-start bg-transparent text-sm ${simplified ? 'p-3' : 'p-2'}`}
       >
-        <AnimatePresence mode="wait">
-          {boardDescription?.segments?.length > 0 ? (
-            <motion.div
-              key={animationKey}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.075 }}
-              className="w-full"
-            >
-              <InteractiveDescription
-                description={boardDescription}
-                colorSanMapping={colorSanMapping}
-                moveEvaluation={moveEvaluation}
-                hover={hover}
-                makeMove={makeMove}
-                isHomePage={isHomePage}
-                simplified={simplified}
-                playerToMove={currentTurn}
-              />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        <div className={`w-full ${isMobile ? 'min-h-[5em]' : ''}`}>
+          <AnimatePresence mode="wait">
+            {boardDescription?.segments?.length > 0 ? (
+              <motion.div
+                key={animationKey}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.075 }}
+                className="w-full"
+              >
+                <InteractiveDescription
+                  description={boardDescription}
+                  colorSanMapping={colorSanMapping}
+                  moveEvaluation={moveEvaluation}
+                  hover={hover}
+                  makeMove={makeMove}
+                  isHomePage={isHomePage}
+                  simplified={simplified}
+                  playerToMove={currentTurn}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Tooltip */}

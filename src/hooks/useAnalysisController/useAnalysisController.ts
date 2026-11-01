@@ -21,6 +21,7 @@ import { useAutoSave } from './useAutoSave'
 import { MaiaEngineContext } from 'src/contexts/MaiaEngineContext'
 import { generateColorSanMapping, calculateBlunderMeter } from './utils'
 import { StockfishEngineContext } from 'src/contexts/StockfishEngineContext'
+import { useContentStable } from 'src/hooks/useContentStable'
 
 export const useAnalysisController = (
   game: AnalyzedGame,
@@ -39,6 +40,10 @@ export const useAnalysisController = (
   const controller = useTreeController(game.tree, defaultOrientation)
 
   const [analysisState, setAnalysisState] = useState(0)
+  const refreshAnalysis = useCallback(
+    () => setAnalysisState((state) => state + 1),
+    [],
+  )
   const inProgressAnalyses = useMemo(() => new Set<string>(), [])
 
   const autoSaveController = useAutoSave({
@@ -105,14 +110,16 @@ export const useAnalysisController = (
     return moveMap
   }, [controller.currentNode])
 
-  const colorSanMapping = useMemo(() => {
-    if (!controller.currentNode) return {}
+  const colorSanMapping = useContentStable(
+    useMemo(() => {
+      if (!controller.currentNode) return {}
 
-    return generateColorSanMapping(
-      controller.currentNode.analysis.stockfish,
-      controller.currentNode.fen,
-    )
-  }, [controller.currentNode, analysisState])
+      return generateColorSanMapping(
+        controller.currentNode.analysis.stockfish,
+        controller.currentNode.fen,
+      )
+    }, [controller.currentNode, analysisState]),
+  )
 
   const moveEvaluation = useMemo(() => {
     if (!controller.currentNode) return null
@@ -131,13 +138,14 @@ export const useAnalysisController = (
 
   const {
     recommendations: moveRecommendations,
-    movesByRating,
+    movesByRating: latestMovesByRating,
     moveMap,
   } = useMoveRecommendations(
     controller.currentNode || null,
     moveEvaluation,
     currentMaiaModel,
   )
+  const movesByRating = useContentStable(latestMovesByRating)
 
   const boardDescription = useBoardDescription(
     controller.currentNode || null,
@@ -264,5 +272,7 @@ export const useAnalysisController = (
       autoSave: autoSaveController.autoSave,
     },
     learnFromMistakes: learnFromMistakesController,
+    /** Re-reads the analysis stored on the tree's nodes. */
+    refreshAnalysis,
   }
 }

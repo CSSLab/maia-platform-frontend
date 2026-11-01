@@ -1,6 +1,13 @@
 {
   "name": "next-app",
   "private": true,
+  "sideEffects": [
+    "*.css",
+    "./instrumentation-client.ts"
+  ],
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -105,11 +105,20 @@ const TrainPage: NextPage = () => {
     }
   }, [initialTourCheck, startTour, tourState.ready])
 
+  // new_puzzle takes ~1.6 s on the backend, so the next puzzle is requested
+  // as soon as the current one's result is logged (its first answer, or
+  // giving up), and is usually ready by the time the user asks for it.
+  const nextPuzzle = useRef<ReturnType<typeof fetchPuzzle> | null>(null)
+
   const getNewGame = useCallback(async () => {
     setLoadingGame(true)
     let game
     try {
-      game = await fetchPuzzle()
+      const prefetched = nextPuzzle.current
+      nextPuzzle.current = null
+      game = await (prefetched
+        ? prefetched.catch(() => fetchPuzzle())
+        : fetchPuzzle())
     } catch (e) {
       router.push('/401')
       return
@@ -159,6 +168,11 @@ const TrainPage: NextPage = () => {
         newGuesses,
         status === 'forfeit',
       )
+      if (userGuesses.length === 0) {
+        const request = fetchPuzzle()
+        request.catch(() => undefined)
+        nextPuzzle.current = request
+      }
       const solutionMoveUci = response.correct_moves?.[0]
       const solutionSan =
         solutionMoveUci && trainingGames[puzzleIdx]

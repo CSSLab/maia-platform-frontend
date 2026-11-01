@@ -12,7 +12,22 @@ const parseAccountInfo = (data: { [x: string]: string }) => {
   }
 }
 
+declare global {
+  interface Window {
+    /** Started by the page's HTML (see _document.tsx). */
+    __account?: Promise<{ [x: string]: string }>
+  }
+}
+
 export const fetchAccount = async () => {
+  // The first call takes the request the page's HTML started.
+  const early = typeof window !== 'undefined' ? window.__account : undefined
+  if (early) {
+    delete window.__account
+    const data = await early.catch(() => null)
+    if (data) return parseAccountInfo(data)
+  }
+
   const res = await fetch(buildUrl('auth/account'))
   const data = await res.json()
 
@@ -25,9 +40,17 @@ export const logoutAndFetchAccount = async () => {
   return fetchAccount()
 }
 
-export const fetchLeaderboard = async () => {
-  const res = await fetch(buildUrl('auth/leaderboard'))
-  const data = await res.json()
+// The header's leaderboard badge and the leaderboard page ask at the same
+// time; they share a request while it is in flight.
+let leaderboardRequest: Promise<any> | null = null
 
-  return data
+export const fetchLeaderboard = async () => {
+  if (!leaderboardRequest) {
+    leaderboardRequest = fetch(buildUrl('auth/leaderboard'))
+      .then((res) => res.json())
+      .finally(() => {
+        leaderboardRequest = null
+      })
+  }
+  return leaderboardRequest
 }

@@ -15,6 +15,7 @@ import {
   fetchAnalyzedPgnGame,
   fetchAnalyzedWorldChampionshipGame,
   retrieveGameAnalysisCache,
+  sendPgnGame,
   storeCustomGame,
 } from 'src/api'
 import {
@@ -23,8 +24,13 @@ import {
   StockfishEvaluation,
   GameNode,
 } from 'src/types'
-import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
-import { Loading } from 'src/components'
+import {
+  AuthContext,
+  WindowSizeContext,
+  TreeControllerContext,
+  useTour,
+} from 'src/contexts'
+import { Loading, UnderlineTabs } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import {
   AnalysisSidebar,
@@ -64,7 +70,7 @@ import { tourConfigs } from 'src/constants/tours'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
-import { cpToWinrate } from 'src/lib'
+import { cpToWinrate, parseLichessPgn } from 'src/lib'
 
 const EVAL_BAR_RANGE = 4
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
@@ -220,6 +226,55 @@ const applyCustomPgnResultOverride = (
   }
 }
 
+/**
+ * Lichess PGN requests started before AnalysisPage mounts (it waits for the
+ * account to load), by game id. Each is used once, so opening a game again
+ * fetches it again.
+ */
+const prefetchedLichessPgns = new Map<string, Promise<string>>()
+
+declare global {
+  interface Window {
+    /** Started by the page's HTML on a first load (see _document.tsx). */
+    __lichessPgn?: { id: string; request: Promise<string> }
+  }
+}
+
+const requestLichessPgn = (gameId: string): Promise<string> => {
+  const early = typeof window !== 'undefined' ? window.__lichessPgn : undefined
+  if (early?.id === gameId) {
+    delete window.__lichessPgn
+    return early.request
+  }
+  return fetchPgnOfLichessGame(gameId)
+}
+
+const prefetchLichessPgn = (gameId: string) => {
+  if (prefetchedLichessPgns.has(gameId)) return
+  const request = requestLichessPgn(gameId)
+  // If the prefetch fails, the page makes its own request.
+  request.catch(() => prefetchedLichessPgns.delete(gameId))
+  prefetchedLichessPgns.set(gameId, request)
+}
+
+const takeLichessPgn = (gameId: string): Promise<string> => {
+  const request = prefetchedLichessPgns.get(gameId)
+  prefetchedLichessPgns.delete(gameId)
+  return request ?? requestLichessPgn(gameId)
+}
+
+/**
+ * Starts fetching a game's stored engine analysis, which needs only its id,
+ * so it loads alongside the game rather than after it. If it is back by the
+ * time the game is set, it is applied before the first render.
+ */
+const requestGameAnalysisCache = (gameId: string) => {
+  const request = retrieveGameAnalysisCache(gameId)
+  // Handled by loadGameAnalysisCache; this covers a failed game fetch.
+  request.catch(() => undefined)
+  return request
+}
+
 const AnalysisPage: NextPage = () => {
   const { startTour, tourState } = useTour()
 
@@ -240,21 +295,30 @@ const AnalysisPage: NextPage = () => {
     }
   }, [initialTourCheck, startTour, tourState.ready])
   const [currentId, setCurrentId] = useState<string[]>(id as string[])
+  const [storedAnalysisRevision, setStoredAnalysisRevision] = useState(0)
 
-  const loadGameAnalysisCache = useCallback(async (game: AnalyzedGame) => {
-    if (!game.id || game.type === 'tournament') {
-      return
-    }
-
-    try {
-      const storedAnalysis = await retrieveGameAnalysisCache(game.id)
-      if (storedAnalysis && storedAnalysis.positions.length > 0) {
-        applyEngineAnalysisData(game.tree, storedAnalysis.positions)
+  const loadGameAnalysisCache = useCallback(
+    async (
+      game: AnalyzedGame,
+      storedAnalysisRequest?: ReturnType<typeof retrieveGameAnalysisCache>,
+    ) => {
+      if (!game.id || game.type === 'tournament') {
+        return
       }
-    } catch (error) {
-      console.warn('Failed to load stored analysis:', error)
-    }
-  }, [])
+
+      try {
+        const storedAnalysis = await (storedAnalysisRequest ??
+          retrieveGameAnalysisCache(game.id))
+        if (storedAnalysis && storedAnalysis.positions.length > 0) {
+          applyEngineAnalysisData(game.tree, storedAnalysis.positions)
+          setStoredAnalysisRevision((revision) => revision + 1)
+        }
+      } catch (error) {
+        console.warn('Failed to load stored analysis:', error)
+      }
+    },
+    [],
+  )
 
   const getAndSetWorldChampionshipGame = useCallback(
     async (
@@ -291,7 +355,12 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
-      const game = await fetchAnalyzedPgnGame(id, pgn)
+      const storedAnalysisRequest = requestGameAnalysisCache(id)
+      // Built here, rather than waiting ~0.5 s for the backend to parse the
+      // PGN; variants and set-up positions are still left to the backend.
+      const localGame = parseLichessPgn(id, pgn)
+      if (localGame) sendPgnGame(pgn)
+      const game = localGame ?? (await fetchAnalyzedPgnGame(id, pgn))
 
       if (setCurrentMove) setCurrentMove(0)
 
@@ -301,7 +370,10 @@ const AnalysisPage: NextPage = () => {
       })
       setCurrentId([id, 'lichess'])
 
-      await loadGameAnalysisCache({ ...game, type: 'lichess' })
+      await loadGameAnalysisCache(
+        { ...game, type: 'lichess' },
+        storedAnalysisRequest,
+      )
 
       if (updateUrl) {
         router.push(`/analysis/${id}/lichess`, undefined, { shallow: true })
@@ -317,6 +389,7 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
+      const storedAnalysisRequest = requestGameAnalysisCache(id)
       const rawGame = await fetchAnalyzedMaiaGame(id, type)
       const game =
         type === 'custom' ? applyCustomPgnResultOverride(id, rawGame) : rawGame
@@ -325,7 +398,7 @@ const AnalysisPage: NextPage = () => {
 
       setAnalyzedGame({ ...game, type })
       setCurrentId([id, type])
-      await loadGameAnalysisCache({ ...game, type })
+      await loadGameAnalysisCache({ ...game, type }, storedAnalysisRequest)
 
       if (updateUrl) {
         router.push(`/analysis/${id}/${type}`, undefined, {
@@ -346,7 +419,7 @@ const AnalysisPage: NextPage = () => {
 
       if (needsNewGame) {
         if (queryId[1] === 'lichess') {
-          const pgn = await fetchPgnOfLichessGame(queryId[0])
+          const pgn = await takeLichessPgn(queryId[0])
           getAndSetLichessGame(queryId[0], pgn, undefined, false)
         } else if (['play', 'hand', 'brain', 'custom'].includes(queryId[1])) {
           getAndSetUserGame(
@@ -377,6 +450,7 @@ const AnalysisPage: NextPage = () => {
           getAndSetTournamentGame={getAndSetWorldChampionshipGame}
           getAndSetLichessGame={getAndSetLichessGame}
           getAndSetUserGame={getAndSetUserGame}
+          storedAnalysisRevision={storedAnalysisRevision}
           router={router}
         />
       ) : (
@@ -409,8 +483,54 @@ interface Props {
     setCurrentMove?: Dispatch<SetStateAction<number>>,
     updateUrl?: boolean,
   ) => Promise<void>
+  /** Bumped when stored engine analysis has been applied to the game tree. */
+  storedAnalysisRevision: number
   router: ReturnType<typeof useRouter>
 }
+
+const formatAnalysisPlayerName = (name: string) => {
+  const maiaMatch = name.match(/^maia_kdd_(\d+)$/i)
+  if (maiaMatch) {
+    return `Maia ${maiaMatch[1]}`
+  }
+  return name
+}
+
+// Apart from the page so that it renders only when the game changes: each
+// render of <Head> makes Next.js update the document's head, and the page
+// re-renders on every engine update.
+const AnalysisHead = React.memo(function AnalysisHead({
+  whitePlayer,
+  blackPlayer,
+}: {
+  whitePlayer?: string
+  blackPlayer?: string
+}) {
+  const players =
+    whitePlayer !== undefined && blackPlayer !== undefined
+      ? `${formatAnalysisPlayerName(whitePlayer)} vs ${formatAnalysisPlayerName(blackPlayer)}`
+      : null
+  return (
+    <Head>
+      <title>
+        {players ? `Analyze: ${players} – Maia Chess` : 'Analyze – Maia Chess'}
+      </title>
+      <meta
+        name="description"
+        content={
+          players
+            ? `Analyze ${players} with human-aware AI. See what real players would do, explore moves by rating level, and spot where blunders are most likely to occur.`
+            : 'Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers.'
+        }
+      />
+    </Head>
+  )
+})
+
+const DESKTOP_LEFT_PANEL_TABS = [
+  { id: 'moves', name: 'Moves' },
+  { id: 'select-game', name: 'Select Game' },
+] as const
 
 const Analysis: React.FC<Props> = ({
   currentId,
@@ -418,7 +538,7 @@ const Analysis: React.FC<Props> = ({
   getAndSetTournamentGame,
   getAndSetLichessGame,
   getAndSetUserGame,
-
+  storedAnalysisRevision,
   router,
 }: Props) => {
   const { width, height } = useContext(WindowSizeContext)
@@ -494,6 +614,12 @@ const Analysis: React.FC<Props> = ({
   >('not-learning')
 
   const controller = useAnalysisController(analyzedGame)
+  const { refreshAnalysis } = controller
+  useEffect(() => {
+    // Stored analysis can arrive after the game is on screen: show it, and let
+    // the engine effects see that the position is already analysed.
+    if (storedAnalysisRevision > 0) refreshAnalysis()
+  }, [storedAnalysisRevision, refreshAnalysis])
   const userGamePovOrientation = useMemo(() => {
     if (!['play', 'hand', 'brain'].includes(analyzedGame.type)) {
       return null
@@ -1208,19 +1334,9 @@ const Analysis: React.FC<Props> = ({
       controller.currentMaiaModel?.replace('maia_kdd_', '') || '----'
     return `Maia %\n@ ${ratingLevel}`
   }, [controller.currentMaiaModel])
-  const desktopLeftPanelTabs = [
-    {
-      id: 'moves',
-      name: 'Moves',
-    },
-    {
-      id: 'select-game',
-      name: 'Select Game',
-    },
-  ] as const
   const [desktopLeftPanelTab, setDesktopLeftPanelTab] = useState<
-    (typeof desktopLeftPanelTabs)[number]['id']
-  >(desktopLeftPanelTabs[0].id)
+    (typeof DESKTOP_LEFT_PANEL_TABS)[number]['id']
+  >(DESKTOP_LEFT_PANEL_TABS[0].id)
   const showDesktopMovesAfterNavigation = useCallback(() => {
     if (desktopLeftPanelTab !== 'select-game') return
 
@@ -1312,14 +1428,6 @@ const Analysis: React.FC<Props> = ({
   useIsomorphicLayoutEffect(() => {
     smoothedEvalPosition.set(evalBarPositionTargetPercent)
   }, [evalBarPositionTargetPercent, smoothedEvalPosition])
-
-  const formatAnalysisPlayerName = (name: string) => {
-    const maiaMatch = name.match(/^maia_kdd_(\d+)$/i)
-    if (maiaMatch) {
-      return `Maia ${maiaMatch[1]}`
-    }
-    return name
-  }
 
   const NestedGameInfo = () => (
     <div className="flex w-full flex-col">
@@ -1464,35 +1572,13 @@ const Analysis: React.FC<Props> = ({
             </GameInfo>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
-            <div className="flex flex-row border-b border-glass-border">
-              {desktopLeftPanelTabs.map((tab) => {
-                const selected = tab.id === desktopLeftPanelTab
-                return (
-                  <div
-                    key={tab.id}
-                    tabIndex={0}
-                    role="button"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') setDesktopLeftPanelTab(tab.id)
-                    }}
-                    onClick={() => setDesktopLeftPanelTab(tab.id)}
-                    className={`relative flex cursor-pointer select-none flex-row px-3 py-1.5 outline-none transition duration-200 focus:outline-none focus-visible:outline-none ${selected ? 'bg-white/5' : 'hover:bg-white hover:bg-opacity-[0.02]'}`}
-                  >
-                    <p
-                      className={`text-xs transition duration-200 2xl:text-sm ${selected ? 'text-primary' : 'text-secondary'}`}
-                    >
-                      {tab.name}
-                    </p>
-                    {selected ? (
-                      <motion.div
-                        layoutId="analysisDesktopLeftPanelTab"
-                        className="absolute bottom-0 left-0 h-[1px] w-full bg-white"
-                      />
-                    ) : null}
-                  </div>
-                )
-              })}
-            </div>
+            <UnderlineTabs
+              tabs={DESKTOP_LEFT_PANEL_TABS}
+              selected={desktopLeftPanelTab}
+              onSelect={setDesktopLeftPanelTab}
+              layoutId="analysisDesktopLeftPanelTab"
+              tabClassName="outline-none focus:outline-none focus-visible:outline-none"
+            />
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="relative min-h-0 flex-1 overflow-hidden">
                 <div
@@ -2181,6 +2267,12 @@ const Analysis: React.FC<Props> = ({
                       ? controller.colorSanMapping
                       : {}
                   }
+                  positionKey={
+                    analysisEnabled &&
+                    !controller.learnFromMistakes.state.isActive
+                      ? controller.currentNode?.fen
+                      : undefined
+                  }
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
@@ -2239,21 +2331,10 @@ const Analysis: React.FC<Props> = ({
 
   return (
     <>
-      <Head>
-        <title>
-          {analyzedGame
-            ? `Analyze: ${formatAnalysisPlayerName(analyzedGame.whitePlayer.name)} vs ${formatAnalysisPlayerName(analyzedGame.blackPlayer.name)} – Maia Chess`
-            : 'Analyze – Maia Chess'}
-        </title>
-        <meta
-          name="description"
-          content={
-            analyzedGame
-              ? `Analyze ${formatAnalysisPlayerName(analyzedGame.whitePlayer.name)} vs ${formatAnalysisPlayerName(analyzedGame.blackPlayer.name)} with human-aware AI. See what real players would do, explore moves by rating level, and spot where blunders are most likely to occur.`
-              : 'Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers.'
-          }
-        />
-      </Head>
+      <AnalysisHead
+        whitePlayer={analyzedGame?.whitePlayer.name}
+        blackPlayer={analyzedGame?.blackPlayer.name}
+      />
       <AnimatePresence>
         {controller.maia.status === 'no-cache' ||
         controller.maia.status === 'downloading' ? (
@@ -2306,6 +2387,18 @@ const Analysis: React.FC<Props> = ({
 }
 
 export default function AuthenticatedAnalysisPage() {
+  const { query } = useRouter()
+  const { user } = useContext(AuthContext)
+
+  useEffect(() => {
+    // AnalysisPage mounts once the account has loaded; the game's PGN does not
+    // depend on it, so start fetching it now.
+    const queryId = query.id
+    if (!user && Array.isArray(queryId) && queryId[1] === 'lichess') {
+      prefetchLichessPgn(queryId[0])
+    }
+  }, [query.id, user])
+
   return (
     <AuthenticatedWrapper>
       <AnalysisPage />

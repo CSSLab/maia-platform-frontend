@@ -53,6 +53,7 @@ type AnalysisRunContext = {
   maiaCandidateMoves: string[]
   forcedCandidateMoves: string[]
   maiaPolicy: Record<string, number>
+  getMaiaCandidates?: StockfishStreamOptions['getMaiaCandidates']
   kSf: number
   targetDepth: number
   analysisStartedAtMs: number
@@ -169,8 +170,11 @@ class Engine {
         global.gc()
       }
 
-      // Stop any previous evaluation
-      this.stopEvaluation()
+      // Stop any previous evaluation. `stop` goes out even if the previous
+      // run is already closed: its last search may still be running, and the
+      // `ucinewgame` below would wait for it to finish.
+      this.isEvaluating = false
+      this.sendMessage('stop')
       this.store = {}
       this.legalMoveCount = legalMoveCount
       const board = new Chess(fen)
@@ -187,17 +191,13 @@ class Engine {
       const moveMapStrategy = this.resolveMoveMapStrategy(options)
       this.currentMoveMapStrategy = moveMapStrategy
       this.currentDiagnosticsToConsole = this.resolveDiagnosticsToConsole()
-      const maiaCandidateMoves = Array.from(
-        new Set(options?.maiaCandidateMoves || []),
-      ).filter((move) => this.moves.includes(move))
+      const { maiaCandidateMoves, maiaPolicy } = legalMaiaCandidates(
+        options,
+        this.moves,
+      )
       const forcedCandidateMoves = Array.from(
         new Set(options?.forcedCandidateMoves || []),
       ).filter((move) => this.moves.includes(move))
-      const maiaPolicy = Object.fromEntries(
-        Object.entries(options?.maiaPolicy || {}).filter(
-          ([move, prob]) => this.moves.includes(move) && Number.isFinite(prob),
-        ),
-      )
       const kSfFromOptions = Number.isFinite(options?.kSf)
         ? Math.max(1, Math.floor(options?.kSf || 1))
         : undefined
@@ -209,6 +209,7 @@ class Engine {
         maiaCandidateMoves,
         forcedCandidateMoves,
         maiaPolicy,
+        getMaiaCandidates: options?.getMaiaCandidates,
         kSf: kSfFromOptions || 0,
         targetDepth,
         analysisStartedAtMs: this.currentAnalysisStartedAtMs,
@@ -293,6 +294,31 @@ class Engine {
     return this.isEvaluating && this.currentPositionId === positionId
   }
 
+  /** Takes up Maia's moves if they have arrived since the run started. */
+  private refreshMaiaCandidates(runContext: AnalysisRunContext) {
+    if (!runContext.getMaiaCandidates) return
+    const latest = legalMaiaCandidates(
+      runContext.getMaiaCandidates(),
+      runContext.legalMoves,
+    )
+    if (latest.maiaCandidateMoves.length === 0) return
+    runContext.maiaCandidateMoves = latest.maiaCandidateMoves
+    runContext.maiaPolicy = latest.maiaPolicy
+  }
+
+  /**
+   * Hands the engine's output back to `onMessage`, but only if `listener` is
+   * still the one installed. A run that was superseded finishes after the
+   * next run has installed its own listener; restoring the listener it
+   * replaced would detach the new run, which then waits forever for a
+   * `readyok` or `bestmove` it never sees.
+   */
+  private releaseListener(listener: (msg: string) => void): boolean {
+    if (!this.stockfish || this.stockfish.listen !== listener) return false
+    this.stockfish.listen = this.onMessage
+    return true
+  }
+
   private async waitForReady(): Promise<void> {
     if (!this.stockfish) return
 
@@ -308,9 +334,7 @@ class Engine {
       const tempListener = (msg: string) => {
         if (msg.includes('readyok') && !resolved) {
           resolved = true
-          if (this.stockfish) {
-            this.stockfish.listen = originalListen
-          }
+          this.releaseListener(tempListener)
           resolve()
         } else {
           // Forward all other messages to the original listener
@@ -395,7 +419,13 @@ class Engine {
     elapsedMs: number
     moves: RootSearchResult[]
   }> {
-    if (!this.stockfish || requestedMultiPv <= 0) {
+    // A superseded run must not reach waitForReady: its listener would take
+    // the new run's `readyok` and then detach the new run's listener.
+    if (
+      !this.stockfish ||
+      requestedMultiPv <= 0 ||
+      !this.isActiveRun(runContext.positionId)
+    ) {
       return
     }
 
@@ -404,7 +434,6 @@ class Engine {
       Math.min(requestedMultiPv, runContext.legalMoveCount),
     )
     const engine = this.stockfish
-    const originalListen = engine.listen
 
     await this.waitForReady()
     if (!this.isActiveRun(runContext.positionId)) {
@@ -569,34 +598,35 @@ class Engine {
       emitDepthIfReady(depth)
     }
 
-    try {
-      engine.listen = (msg: string) => {
-        if (!this.isActiveRun(runContext.positionId)) {
+    const listener = (msg: string) => {
+      if (!this.isActiveRun(runContext.positionId)) {
+        finish()
+        return
+      }
+
+      const lines = msg
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+
+      for (const line of lines) {
+        parseInfoLine(line)
+        if (line.startsWith('bestmove ')) {
+          const knownDepths = Object.keys(depthBuckets)
+            .map((d) => Number.parseInt(d, 10))
+            .filter((d) => Number.isFinite(d))
+            .sort((a, b) => a - b)
+          for (const depth of knownDepths) {
+            emitDepthIfReady(depth)
+          }
           finish()
           return
         }
-
-        const lines = msg
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean)
-
-        for (const line of lines) {
-          parseInfoLine(line)
-          if (line.startsWith('bestmove ')) {
-            const knownDepths = Object.keys(depthBuckets)
-              .map((d) => Number.parseInt(d, 10))
-              .filter((d) => Number.isFinite(d))
-              .sort((a, b) => a - b)
-            for (const depth of knownDepths) {
-              emitDepthIfReady(depth)
-            }
-            finish()
-            return
-          }
-        }
       }
+    }
 
+    try {
+      engine.listen = listener
       engine.uci(`position fen ${runContext.fen}`)
       engine.uci(`go depth ${targetDepth}`)
 
@@ -627,9 +657,14 @@ class Engine {
         yield next
       }
     } finally {
-      if (this.stockfish) {
-        this.stockfish.listen = originalListen
-        this.stockfish.uci('setoption name MultiPV value 100')
+      // A superseded run leaves the engine (and its MultiPV) to the new run.
+      if (this.releaseListener(listener)) {
+        // Leaving before `bestmove` (the caller stopped reading): stop the
+        // search first. Stockfish runs `setoption` only once the search is
+        // over, so on its own it would hold every later command (the next
+        // position's included) until this search reached its full depth.
+        if (!finished) engine.uci('stop')
+        engine.uci('setoption name MultiPV value 100')
       }
     }
   }
@@ -765,13 +800,17 @@ class Engine {
           runContext.kSf > 0 ? runContext.kSf : 4,
         ),
       )
-      const maiaTopMoves = runContext.maiaCandidateMoves.slice(
-        0,
-        MAX_MAIA_DEEPEN_MOVES,
-      )
-      const targetDeepeningMoves = Array.from(
-        new Set([...maiaTopMoves, ...runContext.forcedCandidateMoves]),
-      )
+      // Maia's policy often arrives during the screening search (the page
+      // asks for it at the same time); it is used from here on.
+      this.refreshMaiaCandidates(runContext)
+      const getTargetDeepeningMoves = () =>
+        Array.from(
+          new Set([
+            ...runContext.maiaCandidateMoves.slice(0, MAX_MAIA_DEEPEN_MOVES),
+            ...runContext.forcedCandidateMoves,
+          ]),
+        )
+      let targetDeepeningMoves = getTargetDeepeningMoves()
       const maiaMidDepth = Math.min(MAIA_MID_DEPTH, targetDepth)
 
       if (maiaMidDepth > plan.screeningDepth) {
@@ -892,6 +931,10 @@ class Engine {
         yield streamingEval
       }
 
+      // Maia's moves that arrived after the screening search still get
+      // deepened to the target depth.
+      this.refreshMaiaCandidates(runContext)
+      targetDeepeningMoves = getTargetDeepeningMoves()
       for (const move of targetDeepeningMoves) {
         if (!this.isActiveRun(runContext.positionId)) {
           return
@@ -989,8 +1032,10 @@ class Engine {
       )
       yield finalEval
     } finally {
+      // Also ends the search of a run its caller stopped reading (the user
+      // moved on), which would otherwise keep the engine busy.
       if (this.currentPositionId === runContext.positionId) {
-        this.isEvaluating = false
+        this.stopEvaluation()
       }
     }
   }
@@ -1067,8 +1112,10 @@ class Engine {
       )
       yield finalEval
     } finally {
+      // Also ends the search of a run its caller stopped reading (the user
+      // moved on), which would otherwise keep the engine busy.
       if (this.currentPositionId === runContext.positionId) {
-        this.isEvaluating = false
+        this.stopEvaluation()
       }
     }
   }
@@ -1376,7 +1423,6 @@ class Engine {
     }
 
     const engine = this.stockfish
-    const originalListen = engine.listen
     const expectedMove = searchMove
     const isBlackTurn = new Chess(runContext.fen).turn() === 'b'
 
@@ -1479,13 +1525,11 @@ class Engine {
       const finish = (result: RootSearchResult | null) => {
         if (resolved) return
         resolved = true
-        if (this.stockfish) {
-          this.stockfish.listen = originalListen
-        }
+        this.releaseListener(listener)
         resolve(result)
       }
 
-      engine.listen = (msg: string) => {
+      const listener = (msg: string) => {
         const lines = msg
           .split(/\r?\n/)
           .map((line) => line.trim())
@@ -1535,6 +1579,7 @@ class Engine {
         }
       }
 
+      engine.listen = listener
       engine.uci(`position fen ${runContext.fen}`)
       engine.uci(
         searchMove
@@ -1742,6 +1787,23 @@ class Engine {
   }
 }
 
+/** Maia's candidate moves and policy, keeping only legal moves. */
+const legalMaiaCandidates = (
+  options:
+    | Pick<StockfishStreamOptions, 'maiaCandidateMoves' | 'maiaPolicy'>
+    | undefined,
+  legalMoves: string[],
+) => ({
+  maiaCandidateMoves: Array.from(
+    new Set(options?.maiaCandidateMoves || []),
+  ).filter((move) => legalMoves.includes(move)),
+  maiaPolicy: Object.fromEntries(
+    Object.entries(options?.maiaPolicy || {}).filter(
+      ([move, prob]) => legalMoves.includes(move) && Number.isFinite(prob),
+    ),
+  ),
+})
+
 const sharedWasmMemory = (lo: number, hi = 32767): WebAssembly.Memory => {
   let shrink = 4 // 32767 -> 24576 -> 16384 -> 12288 -> 8192 -> 6144 -> etc
   while (true) {
@@ -1766,16 +1828,19 @@ const getNnueFetchTimeoutMs = (): number => {
 const fetchWithTimeout = async (
   url: string,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<Response> => {
   if (typeof AbortController === 'undefined' || timeoutMs <= 0) {
-    return fetch(url)
+    return fetch(url, { signal })
   }
 
   const controller = new AbortController()
+  signal?.addEventListener('abort', () => controller.abort())
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
   try {
     return await fetch(url, { signal: controller.signal })
   } catch (error) {
+    if (signal?.aborted) throw error
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new Error(
         `Stockfish NNUE fetch timed out after ${timeoutMs}ms: ${url}`,
@@ -1820,29 +1885,74 @@ const getStockfishModuleInitTimeoutMs = (): number => {
     : DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS
 }
 
-const loadNnueModel = async (
+const CACHE_LOOKUP_TIMED_OUT = Symbol('cache lookup timed out')
+
+export const loadNnueModel = async (
   modelUrl: string,
   storage: StockfishModelStorage,
   timeoutMs: number,
   onNetworkFetchStart?: () => void,
   forceRefresh = false,
 ): Promise<ArrayBuffer> => {
-  if (!forceRefresh) {
-    const cachedModel = await withTimeout(
-      storage.getModel(modelUrl),
-      STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
-      `Timed out while checking cached Stockfish model: ${modelUrl}`,
-    ).catch((error) => {
-      console.warn(error)
-      return null
-    })
-    if (cachedModel) {
-      return cachedModel
-    }
+  if (forceRefresh) {
+    return downloadNnueModel(modelUrl, storage, timeoutMs, onNetworkFetchStart)
   }
 
+  const cached = storage.getModel(modelUrl)
+  const cachedModel = await withTimeout(
+    cached,
+    STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
+    `Timed out while checking cached Stockfish model: ${modelUrl}`,
+  ).catch((error): typeof CACHE_LOOKUP_TIMED_OUT => {
+    console.warn(error)
+    return CACHE_LOOKUP_TIMED_OUT
+  })
+  if (cachedModel !== CACHE_LOOKUP_TIMED_OUT) {
+    return (
+      cachedModel ??
+      downloadNnueModel(modelUrl, storage, timeoutMs, onNetworkFetchStart)
+    )
+  }
+
+  // IndexedDB may never answer (Firefox after a Lichess login), but on a
+  // phone reading the 75 MB net while the page loads can also take longer
+  // than the lookup timeout. Download the net, but keep waiting for the cached
+  // copy and use whichever arrives first, so a slow device does not download
+  // 75 MB again on every visit.
+  const controller =
+    typeof AbortController === 'undefined' ? null : new AbortController()
+  const download = downloadNnueModel(
+    modelUrl,
+    storage,
+    timeoutMs,
+    onNetworkFetchStart,
+    controller?.signal,
+  )
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    cached.then((buffer) => {
+      if (buffer) {
+        controller?.abort()
+        resolve(buffer)
+      }
+    })
+    download.then(resolve, (error) =>
+      withTimeout(cached, timeoutMs, 'Stockfish cache read timed out').then(
+        (buffer) => (buffer ? resolve(buffer) : reject(error)),
+        () => reject(error),
+      ),
+    )
+  })
+}
+
+const downloadNnueModel = async (
+  modelUrl: string,
+  storage: StockfishModelStorage,
+  timeoutMs: number,
+  onNetworkFetchStart?: () => void,
+  signal?: AbortSignal,
+): Promise<ArrayBuffer> => {
   onNetworkFetchStart?.()
-  const response = await fetchWithTimeout(modelUrl, timeoutMs)
+  const response = await fetchWithTimeout(modelUrl, timeoutMs, signal)
   if (!response.ok) {
     throw new Error(
       `Failed to fetch Stockfish NNUE model (${response.status}) from ${modelUrl}`,
@@ -1860,6 +1970,33 @@ const loadNnueModel = async (
   return buffer
 }
 
+/**
+ * lila-stockfish-web copies a net into the engine through `Module.HEAPU8`, a
+ * view of the shared WASM memory that it renews only when the main thread
+ * grows the memory. The engine's own threads grow it while starting (from 160
+ * to 284 MB on every load in a headless test), so the view is out of date,
+ * and when the net lands past its end the copy fails with "offset is out of
+ * bounds" (1 load in 9 in that test). Setup then cleared the cached nets,
+ * downloaded them again (78 MB) and started a second engine. Renewing the
+ * view before each copy avoids that.
+ */
+const setNnueBuffer = (
+  instance: StockfishWeb,
+  buffer: ArrayBuffer,
+  index: number,
+) => {
+  const emscriptenModule = instance as StockfishWeb & {
+    HEAPU8?: Uint8Array
+    wasmMemory?: WebAssembly.Memory
+  }
+  const memory = emscriptenModule.wasmMemory
+  const view = emscriptenModule.HEAPU8
+  if (memory && view && view.buffer.byteLength !== memory.buffer.byteLength) {
+    emscriptenModule.HEAPU8 = new Uint8Array(memory.buffer)
+  }
+  instance.setNnueBuffer(new Uint8Array(buffer), index)
+}
+
 const shouldRetryNnueLoad = (error: unknown): boolean => {
   if (error instanceof RangeError) {
     return true
@@ -1874,6 +2011,36 @@ const shouldRetryNnueLoad = (error: unknown): boolean => {
     /could not allocate/i.test(error.message) ||
     /bytes\?/i.test(error.message)
   )
+}
+
+/**
+ * lila-stockfish-web starts one pthread worker per
+ * `navigator.hardwareConcurrency` when a module is created and waits for all
+ * of them to load. The site searches with Stockfish's default single thread,
+ * which needs two (UCI loop and search), so a 16-32 core desktop started 16-32
+ * workers per engine (160 on a large server). Creating the module while a
+ * smaller count is reported keeps the pool small; any further threads are
+ * still started on demand.
+ */
+const STOCKFISH_PTHREAD_POOL_SIZE = 4
+
+const withPthreadPoolCap = <T>(create: () => T): T => {
+  const cores = navigator.hardwareConcurrency
+  if (!(cores > STOCKFISH_PTHREAD_POOL_SIZE)) return create()
+  try {
+    Object.defineProperty(navigator, 'hardwareConcurrency', {
+      configurable: true,
+      get: () => STOCKFISH_PTHREAD_POOL_SIZE,
+    })
+  } catch {
+    return create()
+  }
+  try {
+    // The pool is created synchronously inside the module factory.
+    return create()
+  } finally {
+    Reflect.deleteProperty(navigator, 'hardwareConcurrency')
+  }
 }
 
 const setupStockfish = async (
@@ -1947,12 +2114,12 @@ const setupStockfish = async (
     ])
 
     onPhaseChange?.('loading-nnue')
-    instance.setNnueBuffer(new Uint8Array(buffers[0]), 0)
-    instance.setNnueBuffer(new Uint8Array(buffers[1]), 1)
+    setNnueBuffer(instance, buffers[0], 0)
+    setNnueBuffer(instance, buffers[1], 1)
   }
 
   try {
-    let instance = await createInstance()
+    let instance = await withPthreadPoolCap(createInstance)
     nnueUrls = [
       `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`,
       `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`,
@@ -1971,7 +2138,7 @@ const setupStockfish = async (
       )
       await Promise.all(nnueUrls.map((url) => storage.deleteModel(url)))
 
-      instance = await createInstance()
+      instance = await withPthreadPoolCap(createInstance)
       await loadWeightsIntoInstance(instance, true)
     }
 

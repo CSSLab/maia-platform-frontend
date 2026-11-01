@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Chessground from '@react-chess/chessground'
 import type { DrawShape } from 'chessground/draw'
 import type { Key } from 'chessground/types'
@@ -117,6 +117,21 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
     triggerOnce: false,
     threshold: 0.1,
   })
+  // The board and the chart are drawn once the section is within a screen
+  // of the viewport. They are transparent until it scrolls into view, and
+  // drawing them at load was most of the home page's main-thread work after
+  // hydration.
+  const [nearRef, isNear] = useInView({
+    triggerOnce: true,
+    rootMargin: '100% 0px',
+  })
+  const sectionRef = useCallback(
+    (node: HTMLElement | null) => {
+      ref(node)
+      nearRef(node)
+    },
+    [ref, nearRef],
+  )
 
   const [renderKey, setRenderKey] = useState(0)
   const [tooltipData, setTooltipData] = useState<{
@@ -214,7 +229,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
     <section
       id={id}
       className="relative w-full flex-col items-center overflow-hidden bg-transparent py-10 md:py-16"
-      ref={ref}
+      ref={sectionRef}
     >
       <div className="z-10 mx-auto flex w-full max-w-[95%] flex-col items-center px-2 md:max-w-[90%] md:flex-row md:gap-12 md:px-4 lg:gap-16">
         <div className="mb-6 w-full md:mb-10 md:w-2/5">
@@ -295,7 +310,7 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                           transform: 'translateZ(0)',
                         }}
                       >
-                        <PuzzleChessboard forceKey={renderKey} />
+                        {isNear && <PuzzleChessboard forceKey={renderKey} />}
                       </div>
                     </div>
                   </div>
@@ -313,11 +328,13 @@ export const TrainSection = ({ id }: TrainSectionProps) => {
                   transition={{ duration: 0.3, delay: 0.5 }}
                 >
                   <div className="from-white/8 to-white/4 h-full w-full rounded border border-glass-border bg-gradient-to-br backdrop-blur-md">
-                    <MovesByRating
-                      moves={puzzleMockData.movesByRating}
-                      colorSanMapping={puzzleMockData.colorSanMapping}
-                      isHomePage={true}
-                    />
+                    {isNear && (
+                      <MovesByRating
+                        moves={puzzleMockData.movesByRating}
+                        colorSanMapping={puzzleMockData.colorSanMapping}
+                        isHomePage={true}
+                      />
+                    )}
                   </div>
                 </motion.div>
 

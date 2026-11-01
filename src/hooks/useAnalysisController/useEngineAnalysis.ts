@@ -1,13 +1,49 @@
 import { Chess } from 'chess.ts'
 import { fetchOpeningBookMoves } from 'src/api'
-import { useEffect, useContext, useRef, useState } from 'react'
+import { startTransition, useEffect, useContext, useRef, useState } from 'react'
 import { MAIA_MODELS, MAIA_RATINGS } from 'src/constants/common'
 import {
   STOCKFISH_DEBUG_RERUN_EVENT,
   STOCKFISH_DEBUG_RERUN_KEY,
 } from 'src/constants/analysis'
 import { GameNode, MaiaEvaluation } from 'src/types'
-import { MaiaEngineContext, StockfishEngineContext } from 'src/contexts'
+import {
+  MaiaEngineContext,
+  PHONE_BREAKPOINT_PX,
+  StockfishEngineContext,
+} from 'src/contexts'
+
+/** Most ratings per Maia request (~0.55 s for 11 on a desktop). */
+const MAIA_BATCH_SIZE = 11
+
+/**
+ * Shortest time between re-renders for Stockfish's updates. Each re-renders
+ * the analysis page (50-85 ms once Maia's data is on screen), and Stockfish's
+ * output is handled on the main thread, so rendering every depth slowed the
+ * search itself 2-3 times.
+ */
+const STOCKFISH_RENDER_INTERVAL_MS = 150
+
+/**
+ * Wait after the position changes before starting Maia and Stockfish on it,
+ * so holding an arrow key does not start them on every position passed. 50 ms
+ * still skips key-repeat positions; at 0 ms ten quick presses each started an
+ * inference, and the last position's moves came later.
+ */
+const ANALYSIS_DELAY_MS = 50
+
+/**
+ * A phone: a touch screen whose shorter side is a phone's. Each Maia rating
+ * takes ~0.22 s there (~0.05 s on a desktop), so phones analyse every 200
+ * points only, in one request, and the moves-by-rating chart interpolates the
+ * ratings in between. Every 400 points first drew the chart ~0.9 s sooner on
+ * an emulated phone, but Stockfish reached depth 12 ~0.5 s later: the chart
+ * then redraws for Stockfish's changing top moves through more of its search.
+ */
+const isPhone = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(pointer: coarse)').matches &&
+  Math.min(window.screen.width, window.screen.height) <= PHONE_BREAKPOINT_PX
 
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
@@ -51,21 +87,29 @@ export const useEngineAnalysis = (
     }
   }, [])
 
-  async function inferenceMaiaModel(board: Chess): Promise<{
+  async function inferenceMaiaModel(
+    board: Chess,
+    models: string[],
+    signal: AbortSignal,
+  ): Promise<{
     [key: string]: MaiaEvaluation
   }> {
     if (!maia.maia) {
       throw new Error('Maia engine not initialized')
     }
 
+    const ratings = models.map(
+      (model) => MAIA_RATINGS[MAIA_MODELS.indexOf(model)],
+    )
     const { result } = await maia.maia.batchEvaluateMaia3(
-      Array(MAIA_RATINGS.length).fill(board.fen()),
-      MAIA_RATINGS,
-      MAIA_RATINGS,
+      Array(ratings.length).fill(board.fen()),
+      ratings,
+      ratings,
+      { signal },
     )
 
     const maiaEvaluations: { [key: string]: MaiaEvaluation } = {}
-    MAIA_MODELS.forEach((model, index) => {
+    models.forEach((model, index) => {
       maiaEvaluations[model] = result[index]
     })
 
@@ -85,13 +129,38 @@ export const useEngineAnalysis = (
     const nodeFen = currentNode.fen
 
     let maiaCancelled = false
+    // Drops this position's Maia request if the user moves on before it
+    // reaches the Maia worker (requests otherwise pile up while paging).
+    const maiaController = new AbortController()
+
+    // The selected rating first (one position, ~0.1 s on a desktop), so its
+    // moves show at once. Then, on a desktop, every 400 points from 600 to
+    // 2600, from which the moves-by-rating chart is drawn (the ratings in
+    // between interpolated), the rest of every 200 points, and those in
+    // between; on a phone every 200 points and no more. Each stage is one
+    // request, so a newer position never waits long behind it, and is added
+    // as it arrives, keeping what the node already has.
+    const ratings = (keep: (index: number) => boolean) =>
+      MAIA_MODELS.filter((model, i) => keep(i) && model !== currentMaiaModel)
+    const selected = MAIA_MODELS.includes(currentMaiaModel)
+      ? [currentMaiaModel]
+      : []
+    const stages = isPhone()
+      ? [selected, ratings((i) => i % 2 === 0)]
+      : [
+          selected,
+          ratings((i) => i % 4 === 0),
+          ratings((i) => i % 4 === 2),
+          ratings((i) => i % 2 === 1),
+        ]
 
     const attemptMaiaAnalysis = async () => {
-      const hasSelectedModelAnalysis =
-        !!currentNode?.analysis.maia?.[currentMaiaModel]
+      const hasAllModelAnalysis = stages.every((stage) =>
+        stage.every((model) => !!currentNode?.analysis.maia?.[model]),
+      )
       if (
         !currentNode ||
-        hasSelectedModelAnalysis ||
+        hasAllModelAnalysis ||
         inProgressAnalyses.has(nodeFen)
       )
         return
@@ -118,48 +187,79 @@ export const useEngineAnalysis = (
             ? fetchOpeningBook(board)
             : Promise.resolve(null)
 
-        const maiaEvaluations = await inferenceMaiaModel(board)
+        for (const stage of stages) {
+          const missing = stage.filter(
+            (model) => !currentNode.analysis.maia?.[model],
+          )
+          if (missing.length === 0) continue
 
-        if (maiaCancelled) return
-
-        const openingBookMoves = await openingBookPromise
-
-        if (openingBookMoves && currentNode.moveNumber <= 5) {
-          const analysis: { [key: string]: MaiaEvaluation } = {}
-          for (const model of MAIA_MODELS) {
-            const policySource = Object.keys(openingBookMoves[model] || {})
-              .length
-              ? openingBookMoves[model]
-              : maiaEvaluations[model].policy
-
-            const sortedPolicy = Object.entries(policySource).sort(
-              ([, a], [, b]) => (b as number) - (a as number),
-            )
-
-            analysis[model] = {
-              value: maiaEvaluations[model].value,
-              policy: Object.fromEntries(
-                sortedPolicy,
-              ) as MaiaEvaluation['policy'],
+          let maiaEvaluations: { [key: string]: MaiaEvaluation } = {}
+          try {
+            for (let i = 0; i < missing.length; i += MAIA_BATCH_SIZE) {
+              Object.assign(
+                maiaEvaluations,
+                await inferenceMaiaModel(
+                  board,
+                  missing.slice(i, i + MAIA_BATCH_SIZE),
+                  maiaController.signal,
+                ),
+              )
             }
+          } catch (error) {
+            if (maiaController.signal.aborted) return
+            throw error
           }
-          currentNode.addMaiaAnalysis(analysis, currentMaiaModel)
-        } else {
-          currentNode.addMaiaAnalysis(maiaEvaluations, currentMaiaModel)
+
+          if (maiaCancelled) return
+
+          const openingBookMoves = await openingBookPromise
+
+          if (openingBookMoves && currentNode.moveNumber <= 5) {
+            const analysis: { [key: string]: MaiaEvaluation } = {}
+            for (const model of missing) {
+              const policySource = Object.keys(openingBookMoves[model] || {})
+                .length
+                ? openingBookMoves[model]
+                : maiaEvaluations[model].policy
+
+              const sortedPolicy = Object.entries(policySource).sort(
+                ([, a], [, b]) => (b as number) - (a as number),
+              )
+
+              analysis[model] = {
+                value: maiaEvaluations[model].value,
+                policy: Object.fromEntries(
+                  sortedPolicy,
+                ) as MaiaEvaluation['policy'],
+              }
+            }
+            maiaEvaluations = analysis
+          }
+          currentNode.addMaiaAnalysis(
+            { ...currentNode.analysis.maia, ...maiaEvaluations },
+            currentMaiaModel,
+          )
+          if (stage === stages[0]) {
+            setAnalysisState((state) => state + 1)
+          } else {
+            // The other ratings only feed the moves-by-rating chart: render
+            // them as a transition, in short slices, so that Stockfish's
+            // messages (handled on the main thread) are not held up.
+            startTransition(() => setAnalysisState((state) => state + 1))
+          }
         }
-        setAnalysisState((state) => state + 1)
       } finally {
         inProgressAnalyses.delete(nodeFen)
       }
     }
 
-    // Delay Maia analysis to prevent rapid fire when moving quickly
     const timeoutId = setTimeout(() => {
       attemptMaiaAnalysis()
-    }, 100)
+    }, ANALYSIS_DELAY_MS)
 
     return () => {
       maiaCancelled = true
+      maiaController.abort()
       clearTimeout(timeoutId)
     }
   }, [
@@ -214,26 +314,35 @@ export const useEngineAnalysis = (
           .moves({ verbose: true })
           .map((move) => `${move.from}${move.to}${move.promotion || ''}`),
       )
-      const maiaPolicy = currentNode.analysis.maia?.[currentMaiaModel]?.policy
-      const maiaCandidateMoves: string[] = []
       const playedMove = currentNode.mainChild?.move
       const forcedCandidateMoves =
         playedMove && legalMoves.has(playedMove) ? [playedMove] : []
 
-      if (maiaPolicy) {
-        let cumulative = 0
-        const sortedMaiaMoves = Object.entries(maiaPolicy)
-          .filter(([, prob]) => Number.isFinite(prob) && prob > 0)
-          .sort(([, a], [, b]) => b - a)
+      // Maia's likely moves (95% of its policy). Stockfish reads them again
+      // when it reaches the phases that use them, so a policy that arrives
+      // during the search (usually ~0.3 s after a move) is used without
+      // restarting the search.
+      const readMaiaCandidates = () => {
+        const maiaPolicy = currentNode.analysis.maia?.[currentMaiaModel]?.policy
+        const maiaCandidateMoves: string[] = []
 
-        for (const [move, prob] of sortedMaiaMoves) {
-          if (!legalMoves.has(move)) continue
-          maiaCandidateMoves.push(move)
-          cumulative += prob
-          if (cumulative >= 0.95) {
-            break
+        if (maiaPolicy) {
+          let cumulative = 0
+          const sortedMaiaMoves = Object.entries(maiaPolicy)
+            .filter(([, prob]) => Number.isFinite(prob) && prob > 0)
+            .sort(([, a], [, b]) => b - a)
+
+          for (const [move, prob] of sortedMaiaMoves) {
+            if (!legalMoves.has(move)) continue
+            maiaCandidateMoves.push(move)
+            cumulative += prob
+            if (cumulative >= 0.95) {
+              break
+            }
           }
         }
+
+        return { maiaCandidateMoves, maiaPolicy }
       }
 
       const evaluationStream = stockfish.streamEvaluations(
@@ -241,14 +350,23 @@ export const useEngineAnalysis = (
         chess.moves().length,
         targetDepth,
         {
-          maiaCandidateMoves,
+          ...readMaiaCandidates(),
           forcedCandidateMoves,
-          maiaPolicy,
+          getMaiaCandidates: readMaiaCandidates,
         },
       )
 
       if (evaluationStream && !cancelled) {
         const nodeForAnalysis = currentNode // Capture the node reference
+        let lastRenderAt = 0
+        let pendingRender: ReturnType<typeof setTimeout> | null = null
+        const render = () => {
+          pendingRender = null
+          lastRenderAt = performance.now()
+          // A transition renders in short slices, so the engine's messages
+          // are handled in between instead of waiting for the whole page.
+          startTransition(() => setAnalysisState((state) => state + 1))
+        }
         try {
           for await (const evaluation of evaluationStream) {
             if (
@@ -259,7 +377,14 @@ export const useEngineAnalysis = (
               break
             }
             nodeForAnalysis.addStockfishAnalysis(evaluation, currentMaiaModel)
-            setAnalysisState((state) => state + 1)
+            // The first update renders at once, later ones at most every
+            // STOCKFISH_RENDER_INTERVAL_MS (the last one always renders).
+            const wait =
+              lastRenderAt + STOCKFISH_RENDER_INTERVAL_MS - performance.now()
+            if (wait <= 0) render()
+            else if (pendingRender === null) {
+              pendingRender = setTimeout(render, wait)
+            }
           }
         } catch (error) {
           if (!cancelled) {
@@ -269,11 +394,10 @@ export const useEngineAnalysis = (
       }
     }
 
-    // Delay Stockfish analysis to prevent rapid fire when moving quickly
     const timeoutId = setTimeout(() => {
       if (cancelled) return
       attemptStockfishAnalysis()
-    }, 100)
+    }, ANALYSIS_DELAY_MS)
 
     return () => {
       cancelled = true
@@ -286,7 +410,6 @@ export const useEngineAnalysis = (
     setAnalysisState,
     targetDepth,
     stockfishDebugRerunToken,
-    currentNode?.analysis.maia?.[currentMaiaModel]?.policy,
     currentNode?.mainChild?.move,
     enabled,
   ])

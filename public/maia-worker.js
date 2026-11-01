@@ -13,10 +13,50 @@
  *   { type: 'inference-result', id, logitsMove, logitsValue }
  */
 
+// ONNX Runtime asks for a shared WebAssembly memory that may grow to 4 GB,
+// and a shared memory's maximum is reserved when it is created. iOS limits
+// how much a tab can reserve, and after a reload the previous page's
+// Stockfish memory (up to 2 GB) is still held for a while, so on an iPhone
+// Maia failed to start after a reload ("RangeError: Out of memory"). Maia
+// uses ~110 MB, ~190 MB for 21 ratings at once (the most the site asks
+// for), so its memory may grow to 512 MB.
+const MAX_MEMORY_PAGES = 8192 // of 64 KiB
+const NativeMemory = WebAssembly.Memory
+WebAssembly.Memory = function Memory(descriptor) {
+  return new NativeMemory(
+    descriptor && descriptor.shared && descriptor.maximum > MAX_MEMORY_PAGES
+      ? { ...descriptor, maximum: MAX_MEMORY_PAGES }
+      : descriptor,
+  )
+}
+WebAssembly.Memory.prototype = NativeMemory.prototype
+
 importScripts('/ort/ort.wasm.min.js')
 
 const ORT = ort
 ORT.env.wasm.wasmPaths = '/ort/'
+
+// A session for a one-node model (y = Identity(x)) starts ORT's WebAssembly
+// runtime (~0.2-0.35 s) while the real model is read from IndexedDB. It is
+// started only once a cached model is found: before that, it would make a
+// first-time visitor download ORT's 11.8 MB WebAssembly file, which on a slow
+// connection held up the rest of the page.
+const RUNTIME_MODEL = Uint8Array.from(
+  atob(
+    'CAc6NwoQCgF4EgF5IghJZGVudGl0eRIBZ1oPCgF4EgoKCAgBEgQKAggBYg8KAXkSCgoICAESBAoCCAFCAhAN',
+  ),
+  (c) => c.charCodeAt(0),
+)
+let runtimeReady = null
+
+function startRuntime() {
+  if (!runtimeReady) {
+    runtimeReady = ORT.InferenceSession.create(RUNTIME_MODEL)
+      .then((runtimeSession) => runtimeSession.release())
+      .catch(() => undefined)
+  }
+  return runtimeReady
+}
 
 // ── IndexedDB storage (mirrors MaiaModelStorage) ─────────────────────────────
 
@@ -61,6 +101,7 @@ async function getCachedModel(modelUrl, modelVersion) {
     return null
   }
 
+  startRuntime()
   return await data.data.arrayBuffer()
 }
 
@@ -89,8 +130,17 @@ let session = null
 let modelUrl = null
 let modelVersion = null
 
+// 'basic' graph optimisation, not the default 'all': on 157 positions of two
+// real games at all 21 ratings, 'basic' gave exactly the unoptimised model's
+// outputs, while 'all' moved move probabilities by up to 0.64 percentage
+// points (and the top move in 5 of 3297 cases). It also creates the session
+// sooner: Maia's moves showed 0.34 s earlier on a desktop and 1.2 s earlier
+// on an emulated phone; later inferences take about as long.
 async function initSession(buffer) {
-  session = await ORT.InferenceSession.create(buffer)
+  await startRuntime()
+  session = await ORT.InferenceSession.create(buffer, {
+    graphOptimizationLevel: 'basic',
+  })
 }
 
 // ── Message handler ──────────────────────────────────────────────────────────
