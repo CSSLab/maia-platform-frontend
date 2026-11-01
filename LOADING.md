@@ -510,8 +510,8 @@ stays suspended after a tap.
 - Signed-in users who opened or reloaded /settings or /profile were sent
   home: the pages checked for a Lichess account before the account had
   loaded (903191a).
-- Links to older broadcasts (e.g. /candidates' "Watch Candidates
-  Broadcast") showed "Loading..." forever, and a broadcast link opened the
+- Links to older broadcasts (e.g. the 2026 Candidates, which /candidates
+  linked to) showed "Loading..." forever, and a broadcast link opened the
   broadcast's default round, not the one in the URL: Round 10's link opened
   Round 1 (6cf2da3, 591f5ea).
 - The leaderboard spun forever when its request failed (the backend
@@ -537,12 +537,27 @@ Brain, Leaderboard, Blog, Profile, Settings or Log out; they now open on
 focus and click and close when the focus leaves or on Escape (c7a4fd5). A
 failed custom game import showed the HTTP status and the backend's raw
 reply in a toast; it now says to check the PGN or FEN (d238090).
-Wording fixes (46e45c0): "favourite" → "favorite", "white was the bot" →
-"White", "44mb" → "44 MB", "-%" → "–", "Logout" → "Log out", "If you part of
-the beta" → "If you are part of", the footer's year and https link, the
-mobile menu's close icon. `console.log` calls on every move (the move list
+Wording fixes (46e45c0): "white was the bot" → "White", "44mb" → "44 MB",
+"-%" → "–", "Logout" → "Log out", the footer's year and https link, the
+mobile menu's close icon. It also changed "favourite" to "favorite", which
+0fd3ef5 undid: the site uses Canadian spelling. `console.log` calls on every move (the move list
 also walked the main line twice just to log it), drill move and broadcast
 poll were removed (92ced56).
+
+**After review:**
+
+- The /401 page, where pages send visitors whenever a request to the Maia
+  server fails, invited them to sign up for a beta that has ended. It now
+  says the request failed and offers Try again (back to the page that
+  failed), Go home, signing in with Lichess (when signed out) and Discord;
+  signed-in visitors are no longer sent home from it (43dba6e).
+- /candidates linked to the finished Candidates broadcasts and showed "Round
+  10" as if the event were on. It now links to the top-tier (tier 5) Lichess
+  broadcasts that are live, checked every 5 minutes on the server, or to
+  the broadcast list when none is on (4819438).
+- Model names are written with a hyphen everywhere: the home page, the
+  drills dialog and the v1 blog post wrote "Maia 2" and "Maia 3" (441a1de).
+  Rating labels such as "Maia 1100" are unchanged.
 
 Over all routes at both sizes, as a new visitor: controls without an
 accessible name 31 → 0, form fields without a label 12 → 0, console messages
@@ -632,6 +647,10 @@ later, within noise.
 | 8157834                   | The AudioContext stays suspended until a sound plays                                                                                                                                                                                                                                                                          | Created after a gesture it ran (silently) for the rest of the visit, also on analysis                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | c7a4fd5                   | The header menus open on keyboard focus and click, close on focus out and Escape                                                                                                                                                                                                                                              | Keyboard users could not reach the PLAY, MORE and user menus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | d238090                   | A plain message when a custom game cannot be imported                                                                                                                                                                                                                                                                         | The toast showed the HTTP status and the raw backend reply                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 0fd3ef5                   | Keeps the Canadian spelling of "favourite"                                                                                                                                                                                                                                                                                    | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 43dba6e                   | The /401 page asks visitors to try again instead of to join the beta                                                                                                                                                                                                                                                          | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 4819438                   | /candidates links to the big tournament on now                                                                                                                                                                                                                                                                                | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 441a1de                   | Model names with a hyphen (Maia-2, Maia-3)                                                                                                                                                                                                                                                                                    | See "Round 3"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Things you will notice
 
@@ -652,6 +671,10 @@ later, within noise.
   since 95da846.
 - **Broadcast links open the round they name** (591f5ea); before, every
   link opened the broadcast's default round.
+- **/candidates links to the big tournament on now** (4819438), or to the
+  broadcast list, instead of the 2026 Candidates.
+- **A failed request shows "Something went wrong"** with Try again
+  (43dba6e), not the beta sign-up page.
 
 ## Looked at, not changed
 
