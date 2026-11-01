@@ -16,7 +16,7 @@ export const FavoriteModal: React.FC<FavoriteModalProps> = ({
   onClose,
   onSave,
   onDelete,
-  title = 'Edit Favorite Game',
+  title = 'Edit Favourite Game',
   deleteLabel = 'Delete',
 }) => {
   const [name, setName] = useState(currentName)

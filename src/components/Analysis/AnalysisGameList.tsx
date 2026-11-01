@@ -962,8 +962,8 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                               }`}
                               title={
                                 isFavorited
-                                  ? 'Remove from favorites'
-                                  : 'Add to favorites'
+                                  ? 'Remove from favourites'
+                                  : 'Add to favourites'
                               }
                             >
                               <span
@@ -1051,7 +1051,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
               <div className="flex flex-1 items-start justify-center gap-1 py-2 md:items-center">
                 <p className="text-center text-xs text-white/70">
                   {selected === 'favorites'
-                    ? '⭐ Hit the star to favorite games...'
+                    ? '⭐ Hit the star to favourite games...'
                     : selected === 'lichess'
                       ? 'No Lichess games yet'
                       : selected === 'custom'
