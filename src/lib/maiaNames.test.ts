@@ -1,4 +1,8 @@
-import { formatMaiaName, getMaiaModelVersion } from './maiaNames'
+import {
+  formatMaiaName,
+  formatSavedName,
+  getMaiaModelVersion,
+} from './maiaNames'
 
 describe('formatMaiaName', () => {
   it('names the model that was playing when the game was created', () => {
@@ -26,5 +30,27 @@ describe('formatMaiaName', () => {
     expect(formatMaiaName('maia_kdd_1100')).toBe('Maia-3 1100')
     expect(formatMaiaName('maia_kdd_1100', null)).toBe('Maia-3 1100')
     expect(formatMaiaName('maia_kdd_1100', 'not a date')).toBe('Maia-3 1100')
+  })
+})
+
+describe('formatSavedName', () => {
+  it('names the model in saved names of played games', () => {
+    const before = '2025-08-25T13:26:51.281000'
+    expect(formatSavedName('You vs. Maia 1100', 'play', before)).toBe(
+      'You vs. Maia-2 1100',
+    )
+    expect(formatSavedName('maia 1500 vs. You', 'brain', before)).toBe(
+      'Maia-2 1500 vs. You',
+    )
+    expect(formatSavedName('Best win vs Maia-2 1100', 'play', before)).toBe(
+      'Best win vs Maia-2 1100',
+    )
+  })
+
+  it('leaves custom games and empty names alone', () => {
+    expect(formatSavedName('Maia 1100 vs Leela', 'custom', undefined)).toBe(
+      'Maia 1100 vs Leela',
+    )
+    expect(formatSavedName(undefined, 'play', undefined)).toBeUndefined()
   })
 })

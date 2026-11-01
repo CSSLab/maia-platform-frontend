@@ -20,3 +20,18 @@ export const getMaiaModelVersion = (createdTime?: string | null) => {
 // "maia_kdd_1100" → "Maia-3 1100", or Maia-2/Maia-1 for older games.
 export const formatMaiaName = (maiaName: string, createdTime?: string | null) =>
   maiaName.replace(/maia_kdd_/i, `${getMaiaModelVersion(createdTime)} `)
+
+// A saved name of a played game, with "Maia 1100" (how the default label,
+// often saved as the name, used to read) naming the model that played.
+// Imported custom games keep their names as they are.
+export const formatSavedName = (
+  name: string | undefined,
+  gameType: string | undefined,
+  createdTime?: string | null,
+) =>
+  name && gameType !== 'custom'
+    ? name.replace(
+        /\bMaia (\d{3,4})\b/gi,
+        `${getMaiaModelVersion(createdTime)} $1`,
+      )
+    : name

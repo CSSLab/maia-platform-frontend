@@ -4,7 +4,7 @@ import React, { useState, useEffect, useContext } from 'react'
 import { AuthContext } from 'src/contexts'
 import { MaiaGameListEntry } from 'src/types'
 import { streamLichessGames, fetchMaiaGameList } from 'src/api'
-import { formatMaiaName } from 'src/lib/maiaNames'
+import { formatMaiaName, formatSavedName } from 'src/lib/maiaNames'
 
 interface GameData {
   game_id: string
@@ -123,15 +123,23 @@ export const GameList = ({
 
             if (gameType === 'favorites') {
               // Handle favorites response format
-              parsedGames = data.games.map((game: any) => ({
-                id: game.game_id || game.id,
-                type: game.game_type || game.type,
-                label: game.custom_name || game.label || 'Untitled',
-                result: game.result || '*',
-                pgn: game.pgn,
-                is_favorited: true, // All games in favorites are favorited
-                custom_name: game.custom_name,
-              }))
+              parsedGames = data.games.map((game: any) => {
+                const type = game.game_type || game.type
+                const customName = formatSavedName(
+                  game.custom_name,
+                  type,
+                  game.created_time,
+                )
+                return {
+                  id: game.game_id || game.id,
+                  type,
+                  label: customName || game.label || 'Untitled',
+                  result: game.result || '*',
+                  pgn: game.pgn,
+                  is_favorited: true, // All games in favorites are favorited
+                  custom_name: customName,
+                }
+              })
             } else {
               // Handle regular games response format
               const parse = (
@@ -147,6 +155,11 @@ export const GameList = ({
                 type: string,
               ) => {
                 const maia = formatMaiaName(game.maia_name, game.created_time)
+                const customName = formatSavedName(
+                  game.custom_name,
+                  type,
+                  game.created_time,
+                )
 
                 const playerLabel = userName || 'You'
 
@@ -158,11 +171,11 @@ export const GameList = ({
 
                 return {
                   id: game.game_id,
-                  label: game.custom_name || defaultLabel,
+                  label: customName || defaultLabel,
                   result: game.result,
                   type,
                   is_favorited: game.is_favorited || false,
-                  custom_name: game.custom_name,
+                  custom_name: customName,
                 }
               }
 
