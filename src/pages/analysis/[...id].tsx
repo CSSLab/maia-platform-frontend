@@ -729,12 +729,11 @@ const Analysis: React.FC<Props> = ({
           setShowCustomModal(false)
           router.push(`/analysis/${game_id}/custom`)
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'Failed to store custom game'
+          // The error holds the HTTP status and the backend's raw reply.
           console.error('Custom analysis import failed:', error)
-          toast.error(message)
+          toast.error(
+            "Couldn't import this game. Check the PGN or FEN and try again.",
+          )
         }
       })()
     },
