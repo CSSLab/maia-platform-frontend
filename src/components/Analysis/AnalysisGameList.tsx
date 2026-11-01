@@ -1,4 +1,5 @@
 import React, {
+  memo,
   useRef,
   useMemo,
   Dispatch,
@@ -439,12 +440,6 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
     }
   }
 
-  const handleTabChange = (
-    newTab: 'tournament' | 'play' | 'hb' | 'custom' | 'lichess' | 'favorites',
-  ) => {
-    setSelected(newTab)
-  }
-
   const getDisplayName = (game: CachedGameEntry) => {
     return customNameOverrides[game.id] ?? game.custom_name ?? game.label
   }
@@ -784,38 +779,38 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
             label="★"
             name="favorites"
             selected={selected}
-            setSelected={handleTabChange}
+            setSelected={setSelected}
           />
           <div className="grid flex-1 grid-cols-5">
             <Header
               label="Play"
               name="play"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
             <Header
               label="H&B"
               name="hb"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
             <Header
               label="Custom"
               name="custom"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
             <Header
               label="Lichess"
               name="lichess"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
             <Header
               label="WC"
               name="tournament"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
           </div>
         </div>
@@ -1080,7 +1075,12 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   ) : null
 }
 
-function Header({
+/**
+ * A tab of the game list. Memoized (with a stable setSelected): the analysis
+ * page re-renders this list on every engine update, and each render of the
+ * underline (a framer-motion layoutId) made framer-motion measure the page.
+ */
+const Header = memo(function Header({
   name,
   label,
   selected,
@@ -1113,4 +1113,4 @@ function Header({
       )}
     </button>
   )
-}
+})
