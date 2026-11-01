@@ -44,6 +44,7 @@ export const ConfigureAnalysis: React.FC<Props> = ({
         <p className="text-xs text-white/70">Analyze using:</p>
         <div className="relative inline-flex w-full items-center">
           <select
+            aria-label="Maia model"
             value={currentMaiaModel}
             className="edge-dark-select w-full cursor-pointer appearance-none rounded border border-glass-border bg-glass py-[5px] pl-2.5 pr-6 text-xs text-white/90 outline-none transition duration-200 hover:bg-glass-stronger"
             onChange={(e) => setCurrentMaiaModel(e.target.value)}

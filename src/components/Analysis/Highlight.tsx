@@ -447,6 +447,7 @@ export const Highlight: React.FC<Props> = ({
                   >
                     <select
                       ref={maiaHeaderSelectRef}
+                      aria-label="Maia model"
                       value={currentMaiaModel}
                       onChange={(e) => setCurrentMaiaModel(e.target.value)}
                       className="edge-dark-select pointer-events-none absolute inset-0 h-full w-full appearance-none opacity-0"
@@ -468,6 +469,7 @@ export const Highlight: React.FC<Props> = ({
                 ) : (
                   <select
                     ref={maiaHeaderSelectRef}
+                    aria-label="Maia model"
                     value={currentMaiaModel}
                     onChange={(e) => setCurrentMaiaModel(e.target.value)}
                     className={`edge-dark-select cursor-pointer appearance-none bg-transparent text-center ${splitTitleTextClass} text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80`}

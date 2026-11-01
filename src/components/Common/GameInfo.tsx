@@ -81,6 +81,7 @@ export const GameInfo: React.FC<Props> = ({
                 <div className="relative inline-flex items-center gap-0.5">
                   <select
                     ref={maiaSelectRef}
+                    aria-label="Maia model"
                     value={currentMaiaModel}
                     className="edge-dark-select cursor-pointer appearance-none bg-transparent leading-none focus:outline-none"
                     onChange={(e) => setCurrentMaiaModel(e.target.value)}
