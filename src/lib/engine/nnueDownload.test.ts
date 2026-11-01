@@ -142,9 +142,9 @@ const fakeFetch = (
   return { fetchImpl: fetchImpl as unknown as typeof fetch, calls }
 }
 
-const source = (name: string, urls?: string[]): NnueSource => ({
+const source = (name: string): NnueSource => ({
   name,
-  urls: (file) => urls ?? [`https://${name}/${file}`],
+  url: (file) => `https://${name}/${file}`,
 })
 
 const fast = { retryDelayMs: () => 1, stallTimeoutMs: 50 }
@@ -243,19 +243,14 @@ describe('downloadNnue', () => {
     expect(same(net, NET)).toBe(true)
   })
 
-  it('joins the parts of a split net', async () => {
-    const parts = ['https://p/0', 'https://p/1', 'https://p/2']
-    const { fetchImpl } = fakeFetch({
-      [parts[0]]: NET.subarray(0, 40000),
-      [parts[1]]: NET.subarray(40000, 80000),
-      [parts[2]]: NET.subarray(80000),
-    })
+  it('reports progress', async () => {
+    const { fetchImpl } = fakeFetch({ [A]: NET })
     const progress: number[] = []
-    const net = await downloadNnue(FILE, [source('p', parts)], {
+    await downloadNnue(FILE, [source('a')], {
       fetchImpl,
       onProgress: (loaded) => progress.push(loaded),
     })
-    expect(same(net, NET)).toBe(true)
+    expect(progress.length).toBeGreaterThan(10)
     expect(progress[progress.length - 1]).toBe(NET.byteLength)
   })
 
@@ -313,7 +308,7 @@ describe('downloadNnue', () => {
   })
 
   it('fetches a known net again when its compressed body ends early', async () => {
-    KNOWN_NETS[FILE] = { size: NET.byteLength, parts: 1 }
+    KNOWN_NETS[FILE] = NET.byteLength
     try {
       const { fetchImpl, calls } = fakeFetch(
         { [A]: NET, [B]: NET },
@@ -401,16 +396,13 @@ describe('fetchResumable into a buffer', () => {
 })
 
 describe('getNnueSources', () => {
-  it('tries jsDelivr in parts, then raw.githubusercontent.com', () => {
-    const [jsdelivr, github] = getNnueSources('', '')
-    expect(jsdelivr.urls('nn-1111cefa1111.nnue')).toHaveLength(5)
-    expect(jsdelivr.urls('nn-1111cefa1111.nnue')[4]).toMatch(
-      /^https:\/\/cdn\.jsdelivr\.net\/gh\/.*\/nn-1111cefa1111\.nnue\.part4$/,
+  it('tries jsDelivr and unpkg for the npm package, then GitHub', () => {
+    const urls = getNnueSources('', '').map((s) =>
+      s.url('nn-1111cefa1111.nnue'),
     )
-    expect(jsdelivr.urls('nn-37f18f62d772.nnue')).toEqual([
-      expect.stringMatching(/\/nn-37f18f62d772\.nnue$/),
-    ])
-    expect(github.urls('nn-1111cefa1111.nnue')).toEqual([
+    expect(urls).toEqual([
+      'https://cdn.jsdelivr.net/npm/maia-stockfish-nets@17.0.0/nn-1111cefa1111.nnue',
+      'https://unpkg.com/maia-stockfish-nets@17.0.0/nn-1111cefa1111.nnue',
       expect.stringMatching(
         /^https:\/\/raw\.githubusercontent\.com\/.*\/nn-1111cefa1111\.nnue$/,
       ),
@@ -418,9 +410,9 @@ describe('getNnueSources', () => {
   })
 
   it('reads a list of hosts from the environment', () => {
-    const sources = getNnueSources('parts:http://x/a, http://x/b', '')
-    expect(sources.map((s) => s.urls('nn-1111cefa1111.nnue')[0])).toEqual([
-      'http://x/a/nn-1111cefa1111.nnue.part0',
+    const sources = getNnueSources('http://x/a, http://x/b', '')
+    expect(sources.map((s) => s.url('nn-1111cefa1111.nnue'))).toEqual([
+      'http://x/a/nn-1111cefa1111.nnue',
       'http://x/b/nn-1111cefa1111.nnue',
     ])
   })

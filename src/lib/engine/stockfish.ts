@@ -151,7 +151,9 @@ class Engine {
         this.initErrorDetail =
           error instanceof Error ? error.message : String(error)
         this.initError =
-          error instanceof NnueDownloadError
+          error instanceof NnueDownloadError ||
+          // webpack's error when Stockfish's own script did not load
+          (error instanceof Error && error.name === 'ChunkLoadError')
             ? NNUE_DOWNLOAD_FAILED_MESSAGE
             : error instanceof Error
               ? error.message

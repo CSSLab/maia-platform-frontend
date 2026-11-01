@@ -5,16 +5,17 @@
  * complaint about the analysis page ("Failed to load Stockfish engine: Failed
  * to fetch"): nothing retried a dropped connection, a stalled download hung
  * forever, and raw.githubusercontent.com rate-limits anonymous traffic. So a
- * net is now fetched from a list of free hosts in turn; on each host a
- * dropped or stalled download is retried, resuming where it stopped (HTTP
- * Range) when the host sent the file uncompressed, and a finished net must
- * match the SHA-256 prefix in its name before it is used or cached.
+ * net is now fetched from a list of free hosts in turn: the npm package
+ * maia-stockfish-nets through jsDelivr and unpkg, then
+ * raw.githubusercontent.com. On each host a dropped or stalled download is
+ * retried, resuming where it stopped (HTTP Range) when the host sent the file
+ * uncompressed, and a finished net must match the SHA-256 prefix in its name
+ * before it is used or cached.
  */
 
 export type NnueSource = {
   name: string
-  /** The URLs whose bodies, concatenated, make up `file`. */
-  urls: (file: string) => string[]
+  url: (file: string) => string
 }
 
 export type NnueDownloadOptions = {
@@ -30,35 +31,28 @@ export type NnueDownloadOptions = {
   fetchImpl?: typeof fetch
 }
 
-/** Sizes of the nets sf17-79 asks for, and how many parts jsDelivr serves. */
-export const KNOWN_NETS: Record<string, { size: number; parts: number }> = {
-  'nn-1111cefa1111.nnue': { size: 74874478, parts: 5 },
-  'nn-37f18f62d772.nnue': { size: 3519630, parts: 1 },
+/** Sizes of the nets sf17-79 asks for. */
+export const KNOWN_NETS: Record<string, number> = {
+  'nn-1111cefa1111.nnue': 74874478,
+  'nn-37f18f62d772.nnue': 3519630,
 }
 
-// jsDelivr serves files of up to 20 MB from a GitHub repo, so the tag holds
-// the big net in 16 MiB parts (`split -b 16777216 -d -a 1`).
-const PART_SIZE = 16 * 1024 * 1024
-const JSDELIVR_BASE =
-  'https://cdn.jsdelivr.net/gh/CSSLab/maia-platform-frontend@stockfish-nets-1'
+// jsDelivr serves files of up to 20 MB from GitHub but much larger ones from
+// npm, so the nets are published unchanged as an npm package.
+const NPM_PACKAGE = 'maia-stockfish-nets@17.0.0'
 // The commit that last had the nets in public/stockfish.
 export const GITHUB_RAW_BASE =
   'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
 
-export const partUrls = (base: string, file: string): string[] => {
-  const parts = KNOWN_NETS[file]?.parts ?? 1
-  if (parts <= 1) return [`${base}/${file}`]
-  return Array.from({ length: parts }, (_, i) => `${base}/${file}.part${i}`)
-}
-
-const wholeFile =
-  (base: string): NnueSource['urls'] =>
-  (file) => [`${base}/${file}`]
+const atBase = (name: string, base: string): NnueSource => ({
+  name,
+  url: (file) => `${base}/${file}`,
+})
 
 /**
  * `NEXT_PUBLIC_STOCKFISH_NNUE_SOURCES` replaces the hosts with a comma-separated
- * list of base URLs (a `parts:` prefix for a host that serves the parts);
- * `NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL` alone means a single self-hosted copy.
+ * list of base URLs; `NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL` alone means a single
+ * self-hosted copy.
  */
 export const getNnueSources = (
   sourcesEnv = process.env.NEXT_PUBLIC_STOCKFISH_NNUE_SOURCES,
@@ -67,24 +61,15 @@ export const getNnueSources = (
   if (sourcesEnv) {
     return sourcesEnv
       .split(',')
-      .map((entry) => entry.trim())
+      .map((base) => base.trim())
       .filter(Boolean)
-      .map((entry) =>
-        entry.startsWith('parts:')
-          ? {
-              name: entry.slice('parts:'.length),
-              urls: (file: string) =>
-                partUrls(entry.slice('parts:'.length), file),
-            }
-          : { name: entry, urls: wholeFile(entry) },
-      )
+      .map((base) => atBase(base, base))
   }
-  if (baseUrlEnv) {
-    return [{ name: baseUrlEnv, urls: wholeFile(baseUrlEnv) }]
-  }
+  if (baseUrlEnv) return [atBase(baseUrlEnv, baseUrlEnv)]
   return [
-    { name: 'jsdelivr', urls: (file) => partUrls(JSDELIVR_BASE, file) },
-    { name: 'github', urls: wholeFile(GITHUB_RAW_BASE) },
+    atBase('jsdelivr', `https://cdn.jsdelivr.net/npm/${NPM_PACKAGE}`),
+    atBase('unpkg', `https://unpkg.com/${NPM_PACKAGE}`),
+    atBase('github', GITHUB_RAW_BASE),
   ]
 }
 
@@ -159,8 +144,9 @@ const concat = (chunks: Uint8Array[], length: number): Uint8Array => {
  * connection. Gives up after `attemptsPerUrl` tries in a row that brought no
  * new bytes, or at once on a status that a retry will not fix.
  *
- * Chrome sends a simple Range header without a CORS preflight; a browser that
- * does preflight it fails on raw.githubusercontent.com (403) and jsDelivr (no
+ * Chrome, Firefox and Safari send a simple Range header without a CORS
+ * preflight; a browser that did preflight it would fail on
+ * raw.githubusercontent.com (403) and jsDelivr (no
  * Access-Control-Allow-Headers). So after two resumes that got no response at
  * all, the next try starts the URL again without a Range header.
  *
@@ -325,10 +311,10 @@ const toHex = (buffer: ArrayBuffer) =>
 
 /** Stockfish names a net `nn-` + the first 12 hex digits of its SHA-256. */
 export const verifyNet = async (file: string, net: Uint8Array) => {
-  const known = KNOWN_NETS[file]
-  if (known && net.byteLength !== known.size) {
+  const size = KNOWN_NETS[file]
+  if (size && net.byteLength !== size) {
     throw new CorruptNetError(
-      `${file} is ${net.byteLength} bytes, expected ${known.size}`,
+      `${file} is ${net.byteLength} bytes, expected ${size}`,
     )
   }
   const hash = /^nn-([0-9a-f]{12})\.nnue$/.exec(file)?.[1]
@@ -347,31 +333,17 @@ export const downloadNnue = async (
   options: NnueDownloadOptions = {},
 ): Promise<ArrayBuffer> => {
   const failures: { source: string; error: string }[] = []
-  const total = KNOWN_NETS[file]?.size ?? null
+  const total = KNOWN_NETS[file] ?? null
 
   for (const source of sources) {
     throwIfAborted(options.signal)
-    // A net of known size is written into one buffer as it arrives.
-    const target = total === null ? null : new Uint8Array(total)
-    const parts: Uint8Array[] = []
-    const urls = source.urls(file)
-    let done = 0
     try {
-      for (let i = 0; i < urls.length; i++) {
-        // Each part of a known net is PART_SIZE bytes, except the last.
-        const length =
-          urls.length === 1 || total === null
-            ? total
-            : Math.min(PART_SIZE, total - i * PART_SIZE)
-        const part = await fetchResumable(urls[i], {
-          ...options,
-          into: target?.subarray(done, done + (length ?? 0)),
-          onBytes: (received) => options.onProgress?.(done + received, total),
-        })
-        if (!target) parts.push(part)
-        done += part.byteLength
-      }
-      const net = target ? target.subarray(0, done) : concat(parts, done)
+      const net = await fetchResumable(source.url(file), {
+        ...options,
+        // A net of known size is written into one buffer as it arrives.
+        into: total === null ? undefined : new Uint8Array(total),
+        onBytes: (received) => options.onProgress?.(received, total),
+      })
       await verifyNet(file, net)
       return net.byteOffset === 0 && net.byteLength === net.buffer.byteLength
         ? (net.buffer as ArrayBuffer)
