@@ -408,6 +408,24 @@ on the home page (returning visit, first 8 s at full speed) `querySelector`
 took 36–39 ms on `main` and 0–8 ms after, main-thread busy 416–448 ms and
 340–362 ms.
 
+**Stockfish's cached nets on a phone, again.** Finding a cached net and
+reading it (75 MB) shared bef0994's 1.5 s timeout, which guards against
+IndexedDB never answering. On the emulated phone the read alone took 3–7 s
+while the page loaded, so every returning visit also started downloading
+both nets again (78 MB of data until the cached copy won) and the download
+took CPU from the read. 7126951 keeps the 1.5 s timeout for finding the net
+and gives a found net 20 s to be read. Returning visit, 4G and a
+quarter-speed CPU, 6 runs each:
+
+| Emulated phone, returning visit        | 81b5f57 | 7126951 |
+| -------------------------------------- | ------- | ------- |
+| Runs that started downloading the nets | 6 of 6  | 2 of 6  |
+| Reading the big net (s)                | 3.2–6.8 | 1.2–4.8 |
+| Stockfish's first depth (s, median)    | 13.7    | 11.9    |
+| Stockfish's depth 12 (s, median)       | 25.5    | 23.9    |
+
+In the 2 runs, finding the net itself took over 1.5 s.
+
 Stockfish with the whole branch (`scripts/perf/chart-probe.mjs`, 2 runs per
 game, 8 steps each): on a desktop depth 12 came 0.35 s sooner after a step
 (± 0.09 s; sooner on 23 of 32 steps), and the depth reached before the next
@@ -469,6 +487,7 @@ unchanged (0.14 ± 0.36 s sooner), reaching depth 12 on all 32 steps against
 | 58b7747                   | The Maia/Stockfish panel checks for checkmate once per position                                                                                                                                                                                                                                                               | 34-42 ms of chess.ts per 8 desktop moves, now none                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 1c3af9a                   | The analysis sidebar renders only its shown layout (xl or smaller)                                                                                                                                                                                                                                                            | With 0232ac5 and 58b7747: main-thread busy while paging on a desktop 16% less; depth 12 0.35 s sooner                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | e6d0417                   | The tour provider watches the page for the download window only while a tour runs                                                                                                                                                                                                                                             | It searched the whole page on every DOM change on every page; home page querySelector 36-39 ms -> 0-8 ms in the first 8 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 7126951                   | Stockfish waits up to 20 s for a cached net it has found, instead of 1.5 s, before downloading it too                                                                                                                                                                                                                         | Phone, returning visit: nets downloaded again in 2 of 6 visits instead of 6 of 6; first depth 13.7 -> 11.9 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ## Things you will notice
 
