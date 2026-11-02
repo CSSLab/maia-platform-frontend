@@ -798,6 +798,35 @@ work on ada (depth 12 reached on 17 of 24 steps on both builds), so whether
 that is the order or the branch is not settled; nothing the branch changes
 runs while the page steps through a game.
 
+**/play, after choosing a side (5917c97).** The game page's code was fetched
+only after the click, on the emulated phone behind the prefetches of the
+header's links (/play/maia's chunk was requested 0.36 s after the click),
+then `play/start_game` took ~0.57 s on the backend, and the game faded in
+over 0.4 s. The setup dialog now prefetches the game page as it opens, and
+/play/maia shows the game as soon as it is ready. From the click until the
+game is fully visible (4 runs each, against the rest of round 5): phone
+1.98–2.35 → 1.42–1.57 s, desktop 1.32–1.70 → 0.99–1.14 s; the fade is ~0.4 s
+of it, the prefetch ~0.2 s on the phone. A whole first visit to /play on the
+phone, until the game is on screen: ~4.6 → ~3.9 s.
+
+**Where an analysis visit's time goes** (emulated phone with Chrome's own 4x
+CPU throttling, first visit, source-mapped profile): the game and the
+session are fetched by 0.65 s, but the main thread is busy until the game
+shows at ~2.8–3.4 s: ~1 s parsing and compiling ~1.5 MB of JavaScript (463
+KB compressed) and the page, ~0.5 s running modules' top-level code, ~0.35 s
+React building the page, then chess.ts (the game), chessground,
+framer-motion and Google Analytics. The largest parts of the page's
+JavaScript: recharts with its d3 helpers ~320 KB (the sidebar's charts),
+posthog-js 167 KB (on every page), react-dom 126 KB, framer-motion 118 KB.
+Measured with that throttling instead of pausing the browser process, the
+shells don't add main-thread work on analysis: over the first 10 s 6.6 → 6.4
+s (style and layout +0.12 s, scripts −0.23 s). `BoardController` reads the
+window's size as it mounts (`useWindowSize`), which forces a layout of the
+new page (~0.18 s in the profile); reading `WindowSizeContext` instead made
+no measurable difference (fully visible 2.84 → 2.77 s, 5 runs each), since
+the browser then does the same layout a moment later, so it was left as it
+is.
+
 **Not done.** /drills opens on the openings picker or on Maia's download
 window, depending on what the browser has cached, which the server can't
 know. The site's header chooses its phone or desktop menu in JavaScript too:
@@ -895,6 +924,7 @@ loads and swaps in the phone menu (on `main` too).
 | ed04fcc                   | The puzzles page renders its layout before the visitor's session and the puzzle load, and between puzzles                                                                                                                                                                                                                     | Phone: page on screen 4.9 → 0.77 s (first visit), 3.6 → 0.54 s (returning); puzzle fully visible 6.1 → 6.3 s, 5.1 → 4.5 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | 7505668                   | The analysis pages render their layout (panels, bars, empty board, blunder meter, controls) before the session and the game load; /analysis shows it while it finds a game to open                                                                                                                                            | Phone: page on screen 6.2 → 0.94 s (first visit), 2.2 → 0.72 s (returning); game fully visible 7.3 → 6.0 s, 3.7 → 3.1 s; desktop 1.02 → 0.65 s                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | d197796                   | A page's shell is built once, and not at all while the app hydrates (`PageShell` keeps the server's HTML); after a link within the app only the window's layout renders                                                                                                                                                       | Undid the first analysis shell's cost on the phone (game ~0.5 s later, ~0.7 s more main-thread work on first visits)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 5917c97                   | /play's setup dialog prefetches the game page; /play/maia shows the game without fading in                                                                                                                                                                                                                                    | From choosing a side to the game fully visible: phone 1.98–2.35 → 1.42–1.57 s, desktop 1.32–1.70 → 0.99–1.14 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ## Things you will notice
 
@@ -932,6 +962,8 @@ loads and swaps in the phone menu (on `main` too).
   empty board, instead of a blank page and then an animated loading board;
   the game or puzzle appears in place without fading in. Between puzzles and
   Bot or Not games the page keeps its frame while the next one loads.
+- **A game against Maia appears without fading in** after choosing a side on
+  /play.
 - **Bot or Not's White/Black switch** starts with its knob in the middle;
   it used to slide there each time a game appeared.
 
