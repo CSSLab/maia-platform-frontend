@@ -30,7 +30,8 @@ import {
   TreeControllerContext,
   useTour,
 } from 'src/contexts'
-import { Loading, UnderlineTabs } from 'src/components'
+import { UnderlineTabs } from 'src/components'
+import { AnalysisShell } from 'src/components/Analysis/AnalysisShell'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import {
   AnalysisSidebar,
@@ -70,6 +71,7 @@ import { Chess, PieceSymbol } from 'chess.ts'
 import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
 import { useAnalysisController } from 'src/hooks'
 import { tourConfigs } from 'src/constants/tours'
+import { ANALYSIS_LEFT_PANEL_TABS } from 'src/constants/analysis'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
@@ -461,9 +463,7 @@ const AnalysisPage: NextPage = () => {
           router={router}
         />
       ) : (
-        <Loading isLoading={true}>
-          <div></div>
-        </Loading>
+        <AnalysisShell />
       )}
     </>
   )
@@ -530,11 +530,6 @@ const AnalysisHead = React.memo(function AnalysisHead({
     </Head>
   )
 })
-
-const DESKTOP_LEFT_PANEL_TABS = [
-  { id: 'moves', name: 'Moves' },
-  { id: 'select-game', name: 'Select Game' },
-] as const
 
 const Analysis: React.FC<Props> = ({
   currentId,
@@ -1340,8 +1335,8 @@ const Analysis: React.FC<Props> = ({
     return `Maia %\n@ ${ratingLevel}`
   }, [controller.currentMaiaModel])
   const [desktopLeftPanelTab, setDesktopLeftPanelTab] = useState<
-    (typeof DESKTOP_LEFT_PANEL_TABS)[number]['id']
-  >(DESKTOP_LEFT_PANEL_TABS[0].id)
+    (typeof ANALYSIS_LEFT_PANEL_TABS)[number]['id']
+  >(ANALYSIS_LEFT_PANEL_TABS[0].id)
   const showDesktopMovesAfterNavigation = useCallback(() => {
     if (desktopLeftPanelTab !== 'select-game') return
 
@@ -1549,11 +1544,13 @@ const Analysis: React.FC<Props> = ({
     },
   }
 
+  // initial={false}: no fade-in when the game replaces the shell, which
+  // already shows the panels and board.
   const desktopLayout = (
     <motion.div
       className="flex h-full w-full flex-col items-center py-4 2xl:items-end"
       variants={containerVariants}
-      initial="hidden"
+      initial={false}
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
@@ -1578,7 +1575,7 @@ const Analysis: React.FC<Props> = ({
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             <UnderlineTabs
-              tabs={DESKTOP_LEFT_PANEL_TABS}
+              tabs={ANALYSIS_LEFT_PANEL_TABS}
               selected={desktopLeftPanelTab}
               onSelect={setDesktopLeftPanelTab}
               layoutId="analysisDesktopLeftPanelTab"
@@ -1881,7 +1878,7 @@ const Analysis: React.FC<Props> = ({
   const mobileLayout = (
     <motion.div
       variants={containerVariants}
-      initial="hidden"
+      initial={false}
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
@@ -2407,7 +2404,7 @@ export default function AuthenticatedAnalysisPage() {
   return (
     <>
       <AnalysisHead />
-      <AuthenticatedWrapper>
+      <AuthenticatedWrapper fallback={<AnalysisShell />}>
         <AnalysisPage />
       </AuthenticatedWrapper>
     </>
