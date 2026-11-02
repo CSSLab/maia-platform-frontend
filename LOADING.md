@@ -880,6 +880,29 @@ than before, and an event tracked before PostHog had loaded
 time. Visitors who leave within the first seconds may not be counted, and
 errors before PostHog loads aren't captured.
 
+Rebased on main after #330 and #332, PostHog starts with main's settings
+(`src/lib/posthog-browser-config.ts`): events through `/ingest`, a page view
+for each page within the app, exceptions and web vitals. Checked against
+main with a local stand-in for PostHog (an analysis game, a click, an
+uncaught error, a link to /play, a game against Maia, then leaving the
+page), the same events arrived: page views for the analysis page, /play and
+/play/maia, `analysis_game_loaded`, `play_game_started`, `$exception` and
+`$web_vitals`, the early ones with their own time. On the emulated phone
+PostHog starts at ~2.2 s on /play and 2.5–4.9 s on the analysis page,
+against ~1.5 s on main. A visitor who has moved to another page by then
+gets a page view only for the page PostHog starts on; choosing a side at
+once on /play, the /play page view still arrived in 3 of 3 runs.
+
+One web vital is lost that main keeps. PostHog's web-vitals script reports
+LCP at the visitor's first tap or key press, or when the page is hidden, and
+then holds it 5 s before sending. For a visitor who has already tapped by
+the time the script loads, LCP waits for the page to be hidden and is lost
+when the tab closes. On the phone, choosing a side on /play at once sent FCP
+but no LCP in 3 of 3 runs (main sent both); in a run with a 3 s pause before
+choosing, both arrived.
+CLS and INP, which are reported as the page is hidden, didn't arrive on
+either build.
+
 **Stockfish** (`scripts/perf/chart-probe.mjs`, the analysis page, round 5
 against rounds 6 and 7 together, 8 steps per run, each pair run in both
 orders: half the runs with round 5 first, half with the branch first): on a
