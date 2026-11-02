@@ -21,17 +21,25 @@ const dropAutocaptureEvents = (event: CaptureResult | null) => {
 
 export const browserPostHogConfig: Pick<
   PostHogConfig,
+  | 'api_host'
   | 'autocapture'
   | 'before_send'
+  | 'capture_exceptions'
   | 'capture_pageleave'
   | 'capture_pageview'
   | 'capture_performance'
   | 'defaults'
+  | 'ui_host'
 > = {
+  // Through the rewrites in next.config.js, so ad blockers don't drop events.
+  api_host: '/ingest',
+  ui_host: 'https://us.posthog.com',
   defaults: '2025-05-24',
   autocapture: false,
-  capture_pageview: true,
+  // Also records navigation within the app, not just full page loads.
+  capture_pageview: 'history_change',
   capture_pageleave: false,
+  capture_exceptions: true,
   capture_performance: { web_vitals: true, network_timing: false },
   before_send: dropAutocaptureEvents,
 }

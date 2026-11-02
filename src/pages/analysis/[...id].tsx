@@ -60,7 +60,10 @@ import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import Head from 'next/head'
 import toast from 'react-hot-toast'
 import type { NextPage } from 'next'
-import { trackAnalysisGameLoaded } from 'src/lib/analytics'
+import {
+  trackAnalysisGameLoaded,
+  trackCustomGameInputUsed,
+} from 'src/lib/analytics'
 import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import { Chess, PieceSymbol } from 'chess.ts'
@@ -336,7 +339,7 @@ const AnalysisPage: NextPage = () => {
       }
       if (setCurrentMove) setCurrentMove(0)
 
-      trackAnalysisGameLoaded('lichess')
+      trackAnalysisGameLoaded('tournament')
       setAnalyzedGame({ ...game, type: 'tournament' })
       setCurrentId(newId)
 
@@ -365,6 +368,7 @@ const AnalysisPage: NextPage = () => {
 
       if (setCurrentMove) setCurrentMove(0)
 
+      trackAnalysisGameLoaded('lichess')
       setAnalyzedGame({
         ...game,
         type: 'lichess',
@@ -397,6 +401,7 @@ const AnalysisPage: NextPage = () => {
 
       if (setCurrentMove) setCurrentMove(0)
 
+      trackAnalysisGameLoaded(type)
       setAnalyzedGame({ ...game, type })
       setCurrentId([id, type])
       await loadGameAnalysisCache({ ...game, type }, storedAnalysisRequest)
@@ -724,9 +729,11 @@ const Analysis: React.FC<Props> = ({
             setCustomPgnResultOverride(game_id, pgnResult)
           }
 
+          trackCustomGameInputUsed(type, data.length, true)
           setShowCustomModal(false)
           router.push(`/analysis/${game_id}/custom`)
         } catch (error) {
+          trackCustomGameInputUsed(type, data.length, false)
           // The error holds the HTTP status and the backend's raw reply.
           console.error('Custom analysis import failed:', error)
           toast.error(
