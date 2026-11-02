@@ -60,7 +60,6 @@ import { GameInfo } from 'src/components/Common/GameInfo'
 import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import Head from 'next/head'
 import toast from 'react-hot-toast'
-import type { NextPage } from 'next'
 import {
   trackAnalysisGameLoaded,
   trackCustomGameInputUsed,
@@ -282,7 +281,12 @@ const requestGameAnalysisCache = (gameId: string) => {
   return request
 }
 
-const AnalysisPage: NextPage = () => {
+interface AnalysisPageProps {
+  // Called with whether the game is on screen, before that frame is painted.
+  onGameShown: (shown: boolean) => void
+}
+
+const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
   const { startTour, tourState } = useTour()
 
   const router = useRouter()
@@ -450,6 +454,10 @@ const AnalysisPage: NextPage = () => {
     getAndSetUserGame,
   ])
 
+  useIsomorphicLayoutEffect(() => {
+    onGameShown(analyzedGame !== undefined)
+  }, [analyzedGame, onGameShown])
+
   return (
     <>
       {analyzedGame ? (
@@ -462,9 +470,7 @@ const AnalysisPage: NextPage = () => {
           storedAnalysisRevision={storedAnalysisRevision}
           router={router}
         />
-      ) : (
-        <AnalysisShell />
-      )}
+      ) : null}
     </>
   )
 }
@@ -2388,6 +2394,10 @@ const Analysis: React.FC<Props> = ({
   )
 }
 
+// Memoized so that removing the shell, beside it, doesn't render the page
+// again.
+const MemoizedAnalysisPage = React.memo(AnalysisPage)
+
 export default function AuthenticatedAnalysisPage() {
   const { query } = useRouter()
   const { user } = useContext(AuthContext)
@@ -2401,12 +2411,17 @@ export default function AuthenticatedAnalysisPage() {
     }
   }, [query.id, user])
 
+  // One shell from the first paint until the game is on screen, while the
+  // visitor's session and then the game load.
+  const [gameShown, setGameShown] = useState(false)
+
   return (
     <>
       <AnalysisHead />
-      <AuthenticatedWrapper fallback={<AnalysisShell />}>
-        <AnalysisPage />
+      <AuthenticatedWrapper>
+        <MemoizedAnalysisPage onGameShown={setGameShown} />
       </AuthenticatedWrapper>
+      {!gameShown && <AnalysisShell />}
     </>
   )
 }

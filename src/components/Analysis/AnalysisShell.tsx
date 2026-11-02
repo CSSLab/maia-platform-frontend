@@ -7,6 +7,7 @@ import { ANALYSIS_LEFT_PANEL_TABS } from 'src/constants/analysis'
 import { EmptyBoard } from 'src/components/Board/EmptyBoard'
 import { BoardController } from 'src/components/Board/BoardController'
 import { GameInfo } from 'src/components/Common/GameInfo'
+import { PageShell } from 'src/components/Common/PageShell'
 import { UnderlineTabs } from 'src/components/Common/UnderlineTabs'
 import {
   AnalysisArrowLegend,
@@ -351,12 +352,11 @@ const MobileShell = () => (
  * with CSS at the same width, so it is right before any script has run.
  */
 export const AnalysisShell: React.FC = () => (
-  <>
-    <div className="hidden min-[1121px]:block">
-      <DesktopShell />
-    </div>
-    <div className="min-[1121px]:hidden">
-      <MobileShell />
-    </div>
-  </>
+  <PageShell
+    desktopFrom={1121}
+    desktopClassName="hidden min-[1121px]:block"
+    mobileClassName="min-[1121px]:hidden"
+    desktop={<DesktopShell />}
+    mobile={<MobileShell />}
+  />
 )

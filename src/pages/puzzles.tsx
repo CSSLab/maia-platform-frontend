@@ -9,9 +9,10 @@ import {
   useCallback,
   SetStateAction,
   useRef,
+  useLayoutEffect,
+  memo,
 } from 'react'
 import Head from 'next/head'
-import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
@@ -79,7 +80,12 @@ const statsLoader = async () => {
   }
 }
 
-const TrainPage: NextPage = () => {
+interface TrainPageProps {
+  // Called with whether a puzzle is on screen, before that frame is painted.
+  onPuzzleShown: (shown: boolean) => void
+}
+
+const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
   const router = useRouter()
   const { startTour, tourState } = useTour()
 
@@ -262,8 +268,15 @@ const TrainPage: NextPage = () => {
     if (trainingGames.length === 0 && !loadingGame) getNewGame()
   }, [getNewGame, trainingGames.length, loadingGame])
 
+  const puzzleShown =
+    !loadingGame && trainingGames.length > 0 && !!trainingGames[currentIndex]
+  // TrainPage renders only in the browser (it waits for the session).
+  useLayoutEffect(() => {
+    onPuzzleShown(puzzleShown)
+  }, [puzzleShown, onPuzzleShown])
+
   if (loadingGame || trainingGames.length === 0) {
-    return <PuzzlesShell />
+    return null
   }
 
   if (trainingGames.length && trainingGames[currentIndex])
@@ -299,7 +312,7 @@ const TrainPage: NextPage = () => {
       />
     )
 
-  return <PuzzlesShell />
+  return null
 }
 
 interface Props {
@@ -1771,7 +1784,15 @@ const Train: React.FC<Props> = ({
   )
 }
 
+// Memoized so that removing the shell, beside it, doesn't render the page
+// again.
+const MemoizedTrainPage = memo(TrainPage)
+
 export default function AuthenticatedTrainPage() {
+  // One shell from the first paint until a puzzle is on screen, while the
+  // visitor's session and then the puzzle load (and between puzzles).
+  const [puzzleShown, setPuzzleShown] = useState(false)
+
   return (
     <>
       <Head>
@@ -1781,9 +1802,10 @@ export default function AuthenticatedTrainPage() {
           content="Train with Maia as your coach using human-centered puzzles. Curated based on how millions of players improve, with data showing how different ratings approach each position."
         />
       </Head>
-      <AuthenticatedWrapper fallback={<PuzzlesShell />}>
-        <TrainPage />
+      <AuthenticatedWrapper>
+        <MemoizedTrainPage onPuzzleShown={setPuzzleShown} />
       </AuthenticatedWrapper>
+      {!puzzleShown && <PuzzlesShell />}
     </>
   )
 }
