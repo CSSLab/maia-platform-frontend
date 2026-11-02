@@ -937,6 +937,58 @@ too. Nothing round 6 changes runs while the page steps through a game (the
 analytics have loaded by then), and the Stockfish provider's deferred start
 uses the same `whenPageIsIdle`, moved to `src/lib`.
 
+### Round 7: /play
+
+Measured against round 6 at d672c08, as there (test PostHog key; the phone
+is Chrome's own 4x CPU throttling with 4G), 5 runs each, the builds
+alternating, ada at load ~50. The probe (`play_flow.mjs`) opens /play,
+chooses "Play as white" as soon as the dialog takes taps, and waits for the
+game.
+
+**The setup dialog in the server's HTML (654b0b7).** /play drew nothing
+until the app had loaded, the router was ready and the dialog's code (a
+dynamic import in `ModalContext`) had arrived. /play now renders the dialog
+itself, on the server too, without the fade and slide it has when a button
+opens it (`ModalContainer`'s `animateIn`). Until the app has started the
+dialog ignores taps (`pointer-events`): a choice made before then would show
+but not be used. A URL with settings (a challenge, a position to continue
+from) hides the server's default dialog until the app has read it, as
+before.
+
+**The game at once (4bbe76c).** After choosing a side, /play/maia showed
+nothing while `play/start_game` created the game (~0.6 s on the backend). It
+now shows the game straight away, its board at the starting position, with
+the visitor's moves and their logging waiting for the game's id (Maia's
+moves already did); clocks start with the first move, as before. A new game
+(Play again) gets a new `PlayMaia`.
+
+**`start_game` as the visitor chooses (36c1349).** With the game drawn at
+once, the request went out only after /play/maia had rendered, and on the
+phone the board took moves ~0.35 s later than before. The dialog now sends
+`start_game` as the visitor chooses, and /play/maia takes that request if
+its settings match, or starts its own. Two games still make two `start_game`
+calls.
+
+| /play, round 6 → round 7                  | phone         | desktop       |
+| ----------------------------------------- | ------------- | ------------- |
+| setup dialog on screen                    | 1.64 → 0.58 s | 0.45 → 0.30 s |
+| dialog takes taps                         | 1.66 → 1.41 s | 0.46 → 0.42 s |
+| after choosing: the board with its pieces | 1.99 → 1.29 s | 1.02 → 0.46 s |
+| after choosing: the board takes moves     | 1.60 → 1.29 s | 0.90 → 0.83 s |
+| main-thread work after choosing           | 1.50 → 1.36 s | 0.51 → 0.58 s |
+
+Checked in local production builds: the dialog is at the same place in the
+server's HTML and once loaded (a Pixel 7 and 1440 × 900), with no React
+errors; a URL with `modalTitle` and `forcedColor` shows nothing until the
+app has read it and then its own title; a game takes e4 once it has its id,
+Maia answers ("1. e4 e5"), and both moves are logged under that id;
+resigning and Play again as black give a new id, black at the bottom and the
+starting position.
+
+Not done: Hand and Brain (/play/hb) still waits for its game as before, and
+the dialog that buttons elsewhere open still loads its code on the first
+click.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -1029,6 +1081,9 @@ uses the same `whenPageIsIdle`, moved to `src/lib`.
 | d197796                   | A page's shell is built once, and not at all while the app hydrates (`PageShell` keeps the server's HTML); after a link within the app only the window's layout renders                                                                                                                                                       | Undid the first analysis shell's cost on the phone (game ~0.5 s later, ~0.7 s more main-thread work on first visits)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 5917c97                   | /play's setup dialog prefetches the game page; /play/maia shows the game without fading in                                                                                                                                                                                                                                    | From choosing a side to the game fully visible: phone 1.98–2.35 → 1.42–1.57 s, desktop 1.32–1.70 → 0.99–1.14 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 0af9267                   | PostHog (out of Next's start-up chunk) and Google Analytics load once the page has loaded and the browser is idle; events tracked before then are queued                                                                                                                                                                      | Shared JavaScript 237 → 181 kB; phone: analysis game 3.58 → 3.13 s, /play dialog 2.51 → 2.29 s; choosing on /play the instant the dialog appears 0.1–0.4 s slower                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 654b0b7                   | /play's setup dialog is in the server's HTML, without its entrance animation; it ignores taps until the app has started                                                                                                                                                                                                       | Phone: dialog on screen 1.64 → 0.58 s; desktop 0.45 → 0.30 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 4bbe76c                   | /play/maia shows the game, its board at the starting position, while `start_game` answers; moves and their logging wait for the game's id                                                                                                                                                                                     | After choosing, the board with its pieces: phone 1.99 → 1.29 s, desktop 1.02 → 0.46 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 36c1349                   | The setup dialog sends `start_game` as the visitor chooses; /play/maia takes that request                                                                                                                                                                                                                                     | After choosing, the board takes moves: phone 1.60 → 1.29 s, desktop 0.90 → 0.83 s (with 4bbe76c)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ## Things you will notice
 
@@ -1068,6 +1123,9 @@ uses the same `whenPageIsIdle`, moved to `src/lib`.
   Bot or Not games the page keeps its frame while the next one loads.
 - **A game against Maia appears without fading in** after choosing a side on
   /play.
+- **/play shows its setup dialog at once**, without its slide-in; it takes
+  taps once the app has started. After choosing a side, the game appears at
+  once and takes moves once the backend has created it.
 - **PostHog and Google Analytics start a second or more later**: PostHog's
   page view is stamped when it starts, and visitors who leave within the
   first seconds may not be counted.
