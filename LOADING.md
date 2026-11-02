@@ -889,11 +889,11 @@ the emulated phone depth 12 came 0.19 s later (± 0.21 s; sooner on 28 of 63
 steps), 63 of 64 steps reached it against 64, and the depth before the next
 step went from 14.73 to 14.61; but with round 5 run first the branch was
 0.07 s sooner (± 0.31 s), and with the branch run first 0.44 s later (± 0.29
-s), so whichever build runs first in a pair tends to come out slower, and
-earlier rounds, which always ran the base first, read the same small phone
-delays. Nothing round 6 changes runs while the page steps through a game
-(the analytics have loaded by then), and the Stockfish provider's deferred
-start uses the same `whenPageIsIdle`, moved to `src/lib`.
+s), so the phone's spread is larger than any difference; the small phone
+delays read in round 5's checks (all with the base run first) were within it
+too. Nothing round 6 changes runs while the page steps through a game (the
+analytics have loaded by then), and the Stockfish provider's deferred start
+uses the same `whenPageIsIdle`, moved to `src/lib`.
 
 ## What changed
 
