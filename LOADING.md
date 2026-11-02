@@ -880,10 +880,20 @@ than before, and an event tracked before PostHog had loaded
 time. Visitors who leave within the first seconds may not be counted, and
 errors before PostHog loads aren't captured.
 
-Stockfish was not re-checked: ada was saturated by that batch. Nothing round
-6 changes runs while the analysis page steps through a game (the analytics
-have loaded by then), and the Stockfish provider's deferred start uses the
-same `whenPageIsIdle`, moved to `src/lib`.
+**Stockfish** (`scripts/perf/chart-probe.mjs`, the analysis page, round 5
+against rounds 6 and 7 together, 8 steps per run, each pair run in both
+orders: half the runs with round 5 first, half with the branch first): on a
+desktop depth 12 came 0.01 s later after a step (± 0.01 s; sooner on 16 of
+32 steps) and the depth reached before the next step was 16.97 on both. On
+the emulated phone depth 12 came 0.19 s later (± 0.21 s; sooner on 28 of 63
+steps), 63 of 64 steps reached it against 64, and the depth before the next
+step went from 14.73 to 14.61; but with round 5 run first the branch was
+0.07 s sooner (± 0.31 s), and with the branch run first 0.44 s later (± 0.29
+s), so whichever build runs first in a pair tends to come out slower, and
+earlier rounds, which always ran the base first, read the same small phone
+delays. Nothing round 6 changes runs while the page steps through a game
+(the analytics have loaded by then), and the Stockfish provider's deferred
+start uses the same `whenPageIsIdle`, moved to `src/lib`.
 
 ## What changed
 
