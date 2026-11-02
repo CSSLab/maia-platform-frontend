@@ -21,6 +21,18 @@ jest.mock('recharts', () => {
   }
 })
 
+// MovesByRating loads the chart (MovesByRatingArea) with next/dynamic; here
+// it renders at once.
+jest.mock(
+  'next/dynamic',
+  () => () =>
+    function MovesByRatingArea(props: Record<string, unknown>) {
+      const { createElement } = jest.requireActual('react')
+      const chart = jest.requireActual('./MovesByRatingArea')
+      return createElement(chart.MovesByRatingArea, props)
+    },
+)
+
 const moves = (e2e4: number) => [
   { rating: 600, e2e4, d2d4: 20 },
   { rating: 700, e2e4: e2e4 + 1, d2d4: 19 },
