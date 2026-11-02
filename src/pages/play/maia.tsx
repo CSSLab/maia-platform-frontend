@@ -266,37 +266,38 @@ const PlayMaiaPage: NextPage = () => {
           content="Challenge the most human-like chess AI. Unlike traditional engines that play robotically, Maia naturally plays moves a person would make, trained on millions of human games with real chess intuition."
         />
       </Head>
-      <Loading isLoading={!router.isReady || !id}>
-        {router.isReady && id && (
-          <PlayMaia
-            id={id as string}
-            playGameConfig={playGameConfig}
-            playAgain={() =>
-              setPlaySetupModalProps({
-                ...playGameConfig,
-                returnTo: typeof returnTo === 'string' ? returnTo : undefined,
-                challengeId:
-                  typeof challengeId === 'string' ? challengeId : undefined,
-                forcedPlayerColor:
-                  forcedColor === 'white' || forcedColor === 'black'
-                    ? forcedColor
-                    : undefined,
-                modalTitle:
-                  typeof modalTitle === 'string' ? modalTitle : undefined,
-                modalSubtitle:
-                  typeof modalSubtitle === 'string' ? modalSubtitle : undefined,
-              })
-            }
-            returnToPath={typeof returnTo === 'string' ? returnTo : undefined}
-            returnToLabel={returnToLabel}
-            challengeId={
-              typeof challengeId === 'string' ? challengeId : undefined
-            }
-            simulateMaiaTime={simulateMaiaTime}
-            setSimulateMaiaTime={setSimulateMaiaTime}
-          />
-        )}
-      </Loading>
+      {/* The game appears as soon as it is ready, without Loading's fade-in. */}
+      {router.isReady && id ? (
+        <PlayMaia
+          id={id as string}
+          playGameConfig={playGameConfig}
+          playAgain={() =>
+            setPlaySetupModalProps({
+              ...playGameConfig,
+              returnTo: typeof returnTo === 'string' ? returnTo : undefined,
+              challengeId:
+                typeof challengeId === 'string' ? challengeId : undefined,
+              forcedPlayerColor:
+                forcedColor === 'white' || forcedColor === 'black'
+                  ? forcedColor
+                  : undefined,
+              modalTitle:
+                typeof modalTitle === 'string' ? modalTitle : undefined,
+              modalSubtitle:
+                typeof modalSubtitle === 'string' ? modalSubtitle : undefined,
+            })
+          }
+          returnToPath={typeof returnTo === 'string' ? returnTo : undefined}
+          returnToLabel={returnToLabel}
+          challengeId={
+            typeof challengeId === 'string' ? challengeId : undefined
+          }
+          simulateMaiaTime={simulateMaiaTime}
+          setSimulateMaiaTime={setSimulateMaiaTime}
+        />
+      ) : (
+        <Loading isLoading />
+      )}
     </>
   )
 }
