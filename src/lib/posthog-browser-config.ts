@@ -32,6 +32,6 @@ export const browserPostHogConfig: Pick<
   autocapture: false,
   capture_pageview: true,
   capture_pageleave: false,
-  capture_performance: false,
+  capture_performance: { web_vitals: true, network_timing: false },
   before_send: dropAutocaptureEvents,
 }
