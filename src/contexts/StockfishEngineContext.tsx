@@ -22,6 +22,7 @@ import {
   trackStockfishEngineFailed,
   trackStockfishEngineReady,
 } from 'src/lib/analytics'
+import { whenPageIsIdle } from 'src/lib/whenPageIsIdle'
 
 const STOCKFISH_LOADING_TOAST_DELAY_MS = 800
 const STOCKFISH_DEBUG_LOADING_KEY = 'maia.stockfishDebugLoading'
@@ -965,29 +966,6 @@ export const StockfishEngineContext = React.createContext<StockfishEngine>({
   status: 'loading',
   error: null,
 })
-
-// Runs `start` once the page has loaded and the browser is idle.
-const whenPageIsIdle = (start: () => void) => {
-  let idleId: number | undefined
-  let timeoutId: number | undefined
-  const schedule = () => {
-    if (typeof window.requestIdleCallback === 'function') {
-      idleId = window.requestIdleCallback(start, { timeout: 2000 })
-    } else {
-      timeoutId = window.setTimeout(start, 200)
-    }
-  }
-  if (document.readyState === 'complete') {
-    schedule()
-  } else {
-    window.addEventListener('load', schedule, { once: true })
-  }
-  return () => {
-    window.removeEventListener('load', schedule)
-    if (idleId !== undefined) window.cancelIdleCallback(idleId)
-    if (timeoutId !== undefined) window.clearTimeout(timeoutId)
-  }
-}
 
 export const StockfishEngineContextProvider: React.FC<{
   children: ReactNode

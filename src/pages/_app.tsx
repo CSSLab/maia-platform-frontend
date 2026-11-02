@@ -3,9 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import Script from 'next/script'
 import { useEffect } from 'react'
 import type { AppProps } from 'next/app'
-import posthog from 'posthog-js'
 import { Analytics } from '@vercel/analytics/react'
-import { PostHogProvider } from 'posthog-js/react'
 import { SoundProvider } from 'src/contexts/SoundContext'
 
 import { AuthContextProvider } from 'src/contexts/AuthContext'
@@ -25,7 +23,8 @@ import { ErrorBoundary } from 'src/components/Common/ErrorBoundary'
 import { FeedbackButton } from 'src/components/Common/FeedbackButton'
 import { Footer } from 'src/components/Common/Footer'
 import { Header } from 'src/components/Common/Header'
-import { browserPostHogConfig } from 'src/lib/posthog-browser-config'
+import { loadPostHog } from 'src/lib/posthogClient'
+import { whenPageIsIdle } from 'src/lib/whenPageIsIdle'
 import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
 import { markAppHydrated } from 'src/components/Common/PageShell'
 
@@ -43,12 +42,10 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
   // Page shells rendered from now on are rendered normally (PageShell).
   useEffect(markAppHydrated, [])
 
-  useEffect(() => {
-    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
-      ...browserPostHogConfig,
-      debug: false,
-    })
-  }, [])
+  // PostHog loads once the page has drawn and the browser is idle (or 5 s
+  // after the load event), not before the page can draw; events tracked
+  // before then wait for it (src/lib/posthogClient).
+  useEffect(() => whenPageIsIdle(loadPostHog, 5000), [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -73,7 +70,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
   }, [])
 
   return (
-    <PostHogProvider client={posthog}>
+    <>
       <TourContextProvider>
         <Compose
           components={[
@@ -162,8 +159,14 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
           </div>
           <Toaster position="bottom-right" />
           <Analytics />
-          <Script async src="/analytics.js?id=G-SNP84LXLKY" />
-          <Script id="analytics">
+          {/* Google Analytics loads once the page has loaded and the browser
+              is idle, so it doesn't run while the page is being drawn. */}
+          <Script
+            async
+            src="/analytics.js?id=G-SNP84LXLKY"
+            strategy="lazyOnload"
+          />
+          <Script id="analytics" strategy="lazyOnload">
             {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
@@ -174,7 +177,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
           </Script>
         </Compose>
       </TourContextProvider>
-    </PostHogProvider>
+    </>
   )
 }
 
