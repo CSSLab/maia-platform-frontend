@@ -893,15 +893,34 @@ against ~1.5 s on main. A visitor who has moved to another page by then
 gets a page view only for the page PostHog starts on; choosing a side at
 once on /play, the /play page view still arrived in 3 of 3 runs.
 
-One web vital is lost that main keeps. PostHog's web-vitals script reports
+One web vital was lost that main keeps. PostHog's web-vitals script reports
 LCP at the visitor's first tap or key press, or when the page is hidden, and
 then holds it 5 s before sending. For a visitor who has already tapped by
 the time the script loads, LCP waits for the page to be hidden and is lost
 when the tab closes. On the phone, choosing a side on /play at once sent FCP
-but no LCP in 3 of 3 runs (main sent both); in a run with a 3 s pause before
-choosing, both arrived.
+but no LCP in 3 of 3 runs (main sent both). That was with round 7 on top,
+whose dialog takes taps at ~1.3 s, before PostHog starts; on round 6 alone
+the dialog takes taps at ~1.4 s, as PostHog starts, and LCP arrived in all
+3 runs. With a 3 s pause before choosing, both arrived.
 CLS and INP, which are reported as the page is hidden, didn't arrive on
 either build.
+
+LCP is now sent by `src/lib/largestContentfulPaint`, which
+`instrumentation-client.ts` starts before the app, with none of PostHog's
+code (JavaScript shared by all pages 181 → 182 kB; 0.6 kB gzip). As in
+web-vitals, it takes the last paint before the first click or key press, or
+before the page is hidden, and sends it as PostHog's `$web_vitals` event
+(`$web_vitals_LCP_value`) through the queue in `src/lib/posthogClient`;
+PostHog itself sends FCP, CLS and INP. On the emulated phone, choosing a
+side at once on round 8's tip now sends LCP in 3 of 3 runs (0 of 3 without
+it), and after a 3 s pause exactly one LCP in each of 3; round 6 alone, 3
+of 3 both ways. Each value matched the browser's own LCP to the millisecond
+(0.49–0.56 s on /play, 0.49–0.55 s on main), and it is sent at once rather
+than 5 s later. On the analysis-to-/play visit the same events arrived as on
+main, with the analysis page's LCP 1.28–1.30 s on a desktop against main's
+1.25–1.29 s. The event carries the URL of the page that loaded; main's,
+sent 5 s after the tap, carried the page the visitor was on by then:
+/play/maia, for /play's LCP and for the analysis page's alike.
 
 **Stockfish** (`scripts/perf/chart-probe.mjs`, the analysis page, round 5
 against rounds 6 and 7 together, 8 steps per run, each pair run in both
