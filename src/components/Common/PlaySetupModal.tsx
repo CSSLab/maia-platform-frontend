@@ -13,6 +13,7 @@ import {
   TimeControlOptions,
 } from 'src/types'
 import { ModalContext } from 'src/contexts/ModalContext'
+import { startGameEarly } from 'src/api/play'
 import { ModalContainer } from './ModalContainer'
 
 const maiaOptions = [
@@ -236,6 +237,12 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       onClose?.()
 
       if (props.playType == 'againstMaia') {
+        startGameEarly(
+          resolvedPlayer as Color,
+          maiaVersion,
+          sampleMoves,
+          timeControl,
+        )
         push({
           pathname: '/play/maia',
           query: {

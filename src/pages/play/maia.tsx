@@ -1,5 +1,6 @@
 import Head from 'next/head'
 import { startGame } from 'src/api'
+import { takeEarlyGame } from 'src/api/play'
 import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { tourConfigs } from 'src/constants/tours'
@@ -204,14 +205,24 @@ const PlayMaiaPage: NextPage = () => {
     async function fetchGameId() {
       let response
       try {
-        response = await startGame(
+        const start = () =>
+          startGame(
+            playGameConfig.player,
+            playGameConfig.maiaVersion,
+            'play',
+            playGameConfig.sampleMoves,
+            playGameConfig.timeControl,
+            undefined,
+          )
+        // The game the setup dialog started as the visitor chose, if it was
+        // this one (src/api/play.ts); if that failed, one more try here.
+        const early = takeEarlyGame(
           playGameConfig.player,
           playGameConfig.maiaVersion,
-          'play',
           playGameConfig.sampleMoves,
           playGameConfig.timeControl,
-          undefined,
         )
+        response = await (early ? early.catch(start) : start())
       } catch (e) {
         router.push('/401')
         return
