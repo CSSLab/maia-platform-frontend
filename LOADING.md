@@ -1032,6 +1032,57 @@ build run first in a pair came out slower on the phone (with round 7 first
 the branch was 0.93 s sooner, with the branch first 0.48 s later), which is
 why the orders are balanced.
 
+### Rounds 4–8 together
+
+Main where the rounds start (ef23af3, after #324) against round 8's tip
+before the rebase on #330 and #332 (56a1767): local production builds
+behind `scripts/perf/stub-proxy.mjs`, a test PostHog key, 5 loads each, the
+builds alternating, ada at load 50–75. The phone is Chrome's own 4x CPU
+throttling with 4G; returning visits reuse each build's own warmed profile.
+/play opens the page, chooses "Play as white" as soon as the dialog takes
+taps, and waits for the game.
+
+| main → round 8                                 | phone (first visit) | desktop       | phone (returning) |
+| ---------------------------------------------- | ------------------- | ------------- | ----------------- |
+| /play: setup dialog on screen                  | 1.94 → 0.49 s       | 0.37 → 0.16 s | 0.98 → 0.38 s     |
+| /play: board with its pieces after choosing    | 1.89 → 0.59 s       | 1.23 → 0.30 s | 1.54 → 0.94 s     |
+| /play: game takes moves, from the request      | 3.29 → 2.44 s       | 1.26 → 1.11 s | 2.01 → 2.07 s     |
+| analysis game fully visible                    | 3.29 → 2.27 s       | 0.93 → 0.54 s | 2.01 → 1.52 s     |
+| /analysis: board fully visible                 | 5.90 → 5.24 s       | 1.38 → 1.14 s |                   |
+| /puzzles: puzzle fully visible                 | 3.99 → 3.39 s       | 2.42 → 2.04 s |                   |
+| Bot or Not: game fully visible                 | 3.13 → 2.59 s       | 1.78 → 1.44 s |                   |
+| home: main-thread work in the first 10 s (5 s) | 7.20 → 4.95 s       | 1.99 → 1.41 s | 5.85 → 3.87 s     |
+| home: JavaScript transferred                   | 535 → 384 KB        | 535 → 489 KB  |                   |
+
+Each "fully visible" and /play row except returning /play's last came out
+sooner in 5 of 5 pairs. JavaScript at start-up (build output, gzip): shared
+by all pages 308 → 181 kB, analysis game 468 → 311 kB, /play 283 → 169 kB,
+home 295 → 183 kB, /puzzles 453 → 293 kB, Bot or Not 323 → 208 kB.
+
+What is later:
+
+- Returning /play, choosing at once: the game takes moves 0.06 s later (4
+  of 5 pairs), while the analytics start up (round 6).
+- First paint on the desktop app pages, 0.03–0.06 s later (e.g. analysis
+  game 0.22 → 0.27 s), and on the phone for /puzzles and Bot or Not (0.51 →
+  0.56 s, 0.50 → 0.56 s). It now draws the page's layout.
+- Largest contentful paint where the layout now comes first and the largest
+  element later: Bot or Not on a desktop 0.20 → 1.49 s, /puzzles 1.72 →
+  2.17 s (desktop) and 3.29 → 3.46 s (phone), the analysis game on the phone
+  0.53 → 0.63 s (returning 0.52 → 0.68 s). The game or puzzle is on screen
+  sooner in each, but PostHog's web vitals, on since #330, report LCP.
+
+**Stockfish** (`scripts/perf/chart-probe.mjs`, the analysis page, 8 steps
+per run, each pair run in both orders): every step reached depth 12 on both
+builds. With the tip run first, after the page-load runs above had finished,
+depth 12 came at the same time on a desktop (0.01 s later, ± 0.01 s) and
+0.14 s sooner on the phone (± 0.08 s; sooner on 21 of 32 steps). With main
+run first, during those runs, main was 1–2 s slower on several desktop steps
+and the tip came out 0.85 s sooner (± 0.20 s); that half isn't counted. Depth 18,
+reached on fewer than half the steps, is too noisy to separate (phone 0.00 s
+± 0.05 s; desktop, tip first, 0.73 s later ± 0.62 s). Depth reached before
+the next step: desktop 16.97 → 16.91, phone 16.48 → 16.50.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
