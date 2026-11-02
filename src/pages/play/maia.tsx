@@ -6,7 +6,7 @@ import { tourConfigs } from 'src/constants/tours'
 import { ModalContext, useTour } from 'src/contexts'
 import { Loading, PlayControls } from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
-import { useContext, useEffect, useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
@@ -88,7 +88,7 @@ const PlayMaia: React.FC<Props> = ({
   }, [controller.playerActive, controller.game.termination])
 
   return (
-    <PlayControllerContext.Provider key={id} value={controller}>
+    <PlayControllerContext.Provider value={controller}>
       <GameplayInterface>
         <div id="play-controls">
           <PlayControls
@@ -182,11 +182,22 @@ const PlayMaiaPage: NextPage = () => {
     }
   }, [initialTourCheck, startTour])
 
+  // The game is shown from the moment it is asked for, its board at the
+  // starting position, and takes moves once start_game has answered with its
+  // id. A new game (Play again) starts with a new PlayMaia.
+  const [gameKey, setGameKey] = useState(0)
+  const hadGame = useRef(false)
+
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
     // after the first render. Starting before then also started a game, with
     // the default settings, that was then abandoned.
     if (!router.isReady) return
+    if (id) {
+      hadGame.current = true
+      return
+    }
+    if (hadGame.current) setGameKey((key) => key + 1)
 
     let canceled = false
 
@@ -266,10 +277,11 @@ const PlayMaiaPage: NextPage = () => {
           content="Challenge the most human-like chess AI. Unlike traditional engines that play robotically, Maia naturally plays moves a person would make, trained on millions of human games with real chess intuition."
         />
       </Head>
-      {/* The game appears as soon as it is ready, without Loading's fade-in. */}
-      {router.isReady && id ? (
+      {/* The game appears at once, without Loading's fade-in. */}
+      {router.isReady ? (
         <PlayMaia
-          id={id as string}
+          key={gameKey}
+          id={typeof id === 'string' ? id : ''}
           playGameConfig={playGameConfig}
           playAgain={() =>
             setPlaySetupModalProps({
