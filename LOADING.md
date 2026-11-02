@@ -989,6 +989,49 @@ Not done: Hand and Brain (/play/hb) still waits for its game as before, and
 the dialog that buttons elsewhere open still loads its code on the first
 click.
 
+### Round 8: the analysis chart after the page
+
+Measured against round 7 at 9781b24: local production builds, the test
+PostHog key, the phone being Chrome's own 4x CPU throttling with 4G, 5 runs
+each, the builds alternating, ada at load ~40–50.
+
+recharts and its d3 helpers (~320 KB of JavaScript, uncompressed) were the
+largest part of the analysis page's start-up code, for one chart: Moves by
+Rating, in the sidebar on desktops and below the board on phones. The chart
+(`MovesByRatingArea`) now loads with `next/dynamic` once `MovesByRating`
+renders; the panel and its heading draw at once, and a placeholder of the
+chart's height holds its place. Puzzles, drills, broadcasts and the home
+page's sections use the same component.
+
+| analysis, round 7 → round 8          | phone (first visit) | desktop       |
+| ------------------------------------ | ------------------- | ------------- |
+| JavaScript at start-up (build, gzip) | 417 → 311 kB        | 417 → 311 kB  |
+| game fully visible                   | 2.65 → 2.56 s       | 0.65 → 0.59 s |
+| Moves by Rating chart drawn          | 2.98 → 3.13 s       | 0.77 → 0.79 s |
+| main-thread work, first 10 s         | 6.51 → 6.66 s       |               |
+
+The game was fully visible sooner in 4 of 5 phone pairs and 5 of 5 desktop
+ones. The saving is mostly the download: recharts' code ran only when the
+chart was drawn, so its script time doesn't change, and on this 4G (9 Mbps)
+the 106 kB take ~0.1 s; on slower connections they take longer. The chart's
+panel and chart are at the same place and size as before (a Pixel 7 and 1440
+× 900).
+
+Lighthouse (phone settings, local builds, 3 runs each): analysis 57–66 →
+59–67 (medians 66 → 64), blocking time 2.72 → 2.31 s, speed index 3.02 →
+3.07 s, main content (the board, in both) 2.45–3.91 → 2.60–3.44 s; /puzzles
+42 → 42.
+
+**Stockfish** (`scripts/perf/chart-probe.mjs`, the analysis page, 8 steps
+per run, each pair run in both orders): on a desktop depth 12 came 0.03 s
+sooner after a step (± 0.02 s; sooner on 19 of 32 steps) and the depth
+reached before the next step went from 17.03 to 16.94; on the emulated phone
+0.23 s sooner (± 0.24 s; sooner on 38 of 63 steps), 63 of 64 steps reached
+it against 64, depth before the next step 14.69 → 14.61. As in round 6, the
+build run first in a pair came out slower on the phone (with round 7 first
+the branch was 0.93 s sooner, with the branch first 0.48 s later), which is
+why the orders are balanced.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -1084,6 +1127,7 @@ click.
 | 654b0b7                   | /play's setup dialog is in the server's HTML, without its entrance animation; it ignores taps until the app has started                                                                                                                                                                                                       | Phone: dialog on screen 1.64 → 0.58 s; desktop 0.45 → 0.30 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 4bbe76c                   | /play/maia shows the game, its board at the starting position, while `start_game` answers; moves and their logging wait for the game's id                                                                                                                                                                                     | After choosing, the board with its pieces: phone 1.99 → 1.29 s, desktop 1.02 → 0.46 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 36c1349                   | The setup dialog sends `start_game` as the visitor chooses; /play/maia takes that request                                                                                                                                                                                                                                     | After choosing, the board takes moves: phone 1.60 → 1.29 s, desktop 0.90 → 0.83 s (with 4bbe76c)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 28e45cf                   | The Moves by Rating chart (recharts, ~320 KB) loads with `next/dynamic` once its panel renders                                                                                                                                                                                                                                | Analysis start-up JavaScript 417 → 311 kB; game fully visible: phone 2.65 → 2.56 s, desktop 0.65 → 0.59 s; chart 0.02–0.15 s later                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ## Things you will notice
 
@@ -1126,6 +1170,8 @@ click.
 - **/play shows its setup dialog at once**, without its slide-in; it takes
   taps once the app has started. After choosing a side, the game appears at
   once and takes moves once the backend has created it.
+- **The Moves by Rating chart fills in a moment after its panel** (0.02–0.15
+  s later than before).
 - **PostHog and Google Analytics start a second or more later**: PostHog's
   page view is stamped when it starts, and visitors who leave within the
   first seconds may not be counted.
