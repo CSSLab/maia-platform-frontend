@@ -208,20 +208,22 @@ export const trackDrillMoveMade = (
 }
 
 export const trackDrillCompleted = (
-  drillIndex: number,
   openingName: string,
+  maiaVersion: string,
+  playerColor: 'white' | 'black',
   playerMovesMade: number,
-  targetMoves: number,
-  completionPercentage: number,
-  timeTakenSeconds: number,
+  targetMoves: number | null,
+  endReason: string | null,
+  accuracy: number,
 ) => {
   safeTrack('drill_completed', {
-    drill_index: drillIndex,
     opening_name: openingName,
+    maia_version: maiaVersion,
+    player_color: playerColor,
     player_moves_made: playerMovesMade,
     target_moves: targetMoves,
-    completion_percentage: completionPercentage,
-    time_taken_seconds: timeTakenSeconds,
+    end_reason: endReason,
+    accuracy,
   })
 }
 
@@ -239,7 +241,7 @@ export const trackDrillSessionCompleted = (
 
 // Analysis Page Events
 export const trackAnalysisGameLoaded = (
-  gameSource: 'lichess' | 'custom_pgn' | 'custom_fen' | 'url_import',
+  gameSource: 'tournament' | 'lichess' | 'play' | 'hand' | 'brain' | 'custom',
 ) => {
   safeTrack('analysis_game_loaded', {
     game_source: gameSource,
@@ -374,32 +376,55 @@ export const trackTuringMoveNavigated = (
 
 export const trackTuringSubmissionMade = (
   gameId: string,
-  whiteGuess: 'human' | 'bot',
-  blackGuess: 'human' | 'bot',
-  timeSpentSeconds: number,
-  confidenceLevel?: number,
+  guessedBot: 'white' | 'black',
+  correct: boolean,
+  newRating: number,
+  hasComment: boolean,
 ) => {
   safeTrack('turing_submission_made', {
     game_id: gameId,
-    white_guess: whiteGuess,
-    black_guess: blackGuess,
-    confidence_level: confidenceLevel,
-    time_spent_seconds: timeSpentSeconds,
+    guessed_bot: guessedBot,
+    correct,
+    new_rating: newRating,
+    has_comment: hasComment,
   })
 }
 
 // Play vs Maia Events
+export type PlayGameType = 'vs_maia' | 'hand_and_brain'
+
 export const trackPlayGameStarted = (
-  gameType: 'vs_maia' | 'hand_and_brain',
+  gameId: string,
+  gameType: PlayGameType,
   maiaVersion: string,
   playerColor: 'white' | 'black',
-  timeControl?: string,
+  timeControl: string,
+  customPosition: boolean,
+  isBrain: boolean,
+  loggedIn: boolean,
 ) => {
   safeTrack('play_game_started', {
+    game_id: gameId,
     game_type: gameType,
     maia_version: maiaVersion,
     player_color: playerColor,
     time_control: timeControl,
+    custom_position: customPosition,
+    is_brain: isBrain,
+    logged_in: loggedIn,
+  })
+}
+
+// Both sides have moved, as opposed to a game opened and left untouched.
+export const trackPlayGameFirstMoves = (
+  gameId: string,
+  gameType: PlayGameType,
+  maiaVersion: string,
+) => {
+  safeTrack('play_game_first_moves', {
+    game_id: gameId,
+    game_type: gameType,
+    maia_version: maiaVersion,
   })
 }
 
@@ -419,6 +444,8 @@ export const trackPlayMoveMade = (
 
 export const trackPlayGameEnded = (
   gameId: string,
+  gameType: PlayGameType,
+  maiaVersion: string,
   result: 'win' | 'loss' | 'draw',
   terminationReason: string,
   totalMoves: number,
@@ -426,6 +453,8 @@ export const trackPlayGameEnded = (
 ) => {
   safeTrack('play_game_ended', {
     game_id: gameId,
+    game_type: gameType,
+    maia_version: maiaVersion,
     result,
     termination_reason: terminationReason,
     total_moves: totalMoves,

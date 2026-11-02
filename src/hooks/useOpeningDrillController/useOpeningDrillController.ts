@@ -25,6 +25,10 @@ import {
   Opening,
 } from 'src/types/openings'
 import { useSound } from 'src/hooks/useSound'
+import {
+  trackDrillCompleted,
+  trackDrillSessionStarted,
+} from 'src/lib/analytics'
 import { MAIA_MODELS } from 'src/constants/common'
 import { DeepAnalysisProgress, MaiaEvaluation } from 'src/types/analysis'
 import { StockfishEngineContext, MaiaEngineContext } from 'src/contexts'
@@ -419,6 +423,15 @@ export const useOpeningDrillController = (
       setCurrentMaiaModel(MAIA_MODELS[0])
     }
   }, [currentMaiaModel, setCurrentMaiaModel])
+
+  useEffect(() => {
+    if (!expandedSelections.length) return
+
+    trackDrillSessionStarted(
+      expandedSelections.length,
+      Array.from(new Set(expandedSelections.map((s) => s.opening.name))),
+    )
+  }, [expandedSelections])
 
   useEffect(() => {
     baseSelectionsRef.current = expandedSelections
@@ -1388,6 +1401,15 @@ export const useOpeningDrillController = (
         if (!enrichedPerformanceData) {
           return
         }
+        trackDrillCompleted(
+          drillGame.selection.opening.name,
+          drillGame.selection.maiaVersion,
+          drillGame.selection.playerColor,
+          drillGame.playerMoveCount,
+          drillGame.selection.targetMoveNumber,
+          resolvedReason,
+          enrichedPerformanceData.accuracy,
+        )
         setCurrentPerformanceData(enrichedPerformanceData)
         setShowPerformanceModal(true)
       } catch (error) {

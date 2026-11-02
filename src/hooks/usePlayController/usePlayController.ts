@@ -3,6 +3,7 @@ import { AllStats } from '../useStats'
 import { PlayedGame, QueuedPremove } from 'src/types/play'
 import { Chess, Piece, SQUARES } from 'chess.ts'
 import { useTreeController } from '../useTreeController'
+import { usePlayGameTracking } from './usePlayGameTracking'
 import { useMemo, useState, useCallback, useEffect } from 'react'
 
 const nullFen = new Chess().fen()
@@ -133,6 +134,8 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
       turn: turn == 'b' ? 'black' : 'white',
     }
   }, [gameTree, treeVersion, resigned, timeExpired, whiteClock, blackClock, id])
+
+  usePlayGameTracking(id, config, moveList.length, game.termination)
 
   const toPlay: Color | null = game.termination ? null : game.turn
   const playerActive = toPlay == config.player
