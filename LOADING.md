@@ -691,6 +691,92 @@ download has started, so Lighthouse's simulated slow connection counts the
 76 MB against it. On the emulated phone the puzzle shows at the same time
 as on `main`.
 
+### Round 5: shells for Bot or Not and the puzzles page
+
+Measured against the round-4 branch at a366681, as in round 4: local
+production builds behind `scripts/perf/stub-proxy.mjs`, the emulated phone
+of "On a phone", medians of 5 loads.
+
+Bot or Not and /puzzles sent only the header and footer. They drew nothing
+until the page's JavaScript had run, /puzzles also waited for the visitor's
+session (`AuthenticatedWrapper`), and both waited for their game or puzzle;
+then `Loading` showed nothing for 1 s, an animated loading board, and faded
+the page in. They choose the phone or desktop layout in JavaScript from the
+window's width (`isMobile`), which the server doesn't know.
+
+Each now renders a shell, on the server too: the panels and title, an empty
+board, and on Bot or Not the guess form and board controls, each where the
+loaded page draws it. The shell chooses its phone or desktop layout with a
+CSS media query at the width `isMobile` uses (desktop from 1025 px). The
+game or puzzle then fills it in, without fading in. The empty board
+(`EmptyBoard`) is chessground's own elements and coordinates, drawn with its
+styles alone, and `_document` gives the body the visitor's saved board theme
+before the first paint (`SettingsContext` did it once the app had loaded),
+so the empty board is in their colours. The puzzles page's desktop board
+size, which the page computes in JavaScript, is the same formula in CSS.
+
+The board is at the same position and size in the server's HTML, while the
+game or puzzle is held back, and once loaded (a 1440 × 900 desktop and a
+Pixel 7); so is Bot or Not's guess form. Layout shift over the load: 0 on
+Bot or Not; 0.001–0.002 on /puzzles, from the "Loaded Stockfish" notice, as
+before.
+
+| page, visit           | page drawn    | game or puzzle shown | first paint   | main-thread work | blocking time |
+| --------------------- | ------------- | -------------------- | ------------- | ---------------- | ------------- |
+| Bot or Not, first     | 3.7 → 0.76 s  | 4.0 → 3.8 s          | 0.60 → 0.76 s | 3.4 → 3.2 s      | 1.7 → 1.7 s   |
+| Bot or Not, returning | 2.7 → 0.69 s  | 2.9 → 2.7 s          | 0.58 → 0.69 s | 2.6 → 2.5 s      | 1.0 → 1.0 s   |
+| Bot or Not, desktop   | 1.45 → 0.27 s | 1.48 → 1.47 s        | 0.21 → 0.27 s | 0.52 → 0.48 s    | 0.03 → 0.02 s |
+| /puzzles, first       | 5.6 → 0.80 s  | 6.3 → 6.0 s          | 0.60 → 0.80 s | 7.6 → 7.0 s      | 4.4 → 3.6 s   |
+| /puzzles, returning   | 3.5 → 0.54 s  | 3.9 → 3.9 s          | 0.56 → 0.54 s | 5.8 → 4.9 s      | 2.2 → 1.5 s   |
+| /puzzles, desktop     | 1.97 → 0.22 s | 2.00 → 2.04 s        | 0.20 → 0.22 s | 1.29 → 1.22 s    | 0.02 → 0.00 s |
+
+"Page drawn" is when the page's own layout is first on screen: before, when
+the loaded page went in (the animated loading board showed 0.1–1.4 s before
+it); now, the first paint, which has the shell. "Game or puzzle shown" is
+when the board on the page first has pieces. The game or puzzle comes no
+sooner, since it waits for the same requests (on /puzzles mostly
+`new_puzzle`, ~1.6 s on the backend), but the page is there from the first
+paint. Main-thread work on /puzzles is lower because the loading board,
+which chessground redrew every 0.5 s while the puzzle loaded, is gone.
+
+The first paint is up to 0.2 s later on the phone (Bot or Not 0.1–0.16 s,
+/puzzles' first visit 0.2 s; 0.02–0.06 s on a desktop): it now draws the
+whole shell. The same HTML with the empty board hidden painted first at 0.63
+s instead of 0.74 s (base 0.58 s; 6 loads each), so most of it is the board,
+which the loaded page draws anyway.
+
+Chrome's largest-contentful-paint time ("main content") moved both ways:
+
+- Bot or Not, phone: 4.1 → 0.83 s (first visit) and 3.1 → 0.77 s
+  (returning), since the shell has the guess form's heading.
+- /puzzles, phone: 0.60 → 5.8 s (first visit) and 0.56 → 3.8 s (returning);
+  desktops: Bot or Not 0.21 → 1.6 s, /puzzles 1.7 → 2.2 s. That content came
+  in at the same time before, but faded in from transparent, and Chrome
+  doesn't count an element first painted transparent, so it reported an
+  earlier, smaller one. Now it reports the puzzle's prompt ("Find the best
+  move for black.") or the game's move list.
+
+Lighthouse (phone settings, local builds): /puzzles 41–43 → 41, main content
+24 s on both (Stockfish's download, as in round 4). Bot or Not, 6 runs each:
+50–74 (median 62) → 61–74 (median 71.5), main content 4.2 → 2.8 s, speed
+index 4.4 → 3.5 s, blocking time 0.90 → 0.87 s.
+
+**Stockfish** (`scripts/perf/chart-probe.mjs`, 8 steps per run, the analysis
+page, 2 runs per game; the only change that reaches the analysis page is
+`_document`'s board theme line): on a desktop depth 12 came 0.03 s later
+after a step (± 0.02 s; sooner on 14 of 32 steps) and the depth reached
+before the next step went from 16.81 to 16.94; on the emulated phone depth
+12 came 0.12 s later (± 0.22 s; sooner on 16 of 32 steps) and the depth
+before the next step went from 14.69 to 14.81. Every step reached depth 12
+on both.
+
+**Not done: analysis and /drills.** Analysis has three layouts (phone up to
+670 px, a phone-style one up to 1120 px, desktop) and sizes its board and
+the gutters around it from the window and measured heights in JavaScript,
+so its shell is a bigger piece of work. /drills opens on the openings picker
+or on Maia's download window, depending on what the browser has cached,
+which the server can't know.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -776,6 +862,9 @@ as on `main`.
 | d2849bc                   | The broadcast list doesn't wait for the visitor's session (it asks only Lichess)                                                                                                                                                                                                                                              | Its heading is in the server HTML                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | a0b4279                   | The home page's stats counters count up in 1.5 s instead of springing for ~3 s                                                                                                                                                                                                                                                | Desktop, home: main-thread work 2.65 → 2.04 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | a366681                   | The home page's stats counters count up in 0.5 s                                                                                                                                                                                                                                                                              | Not measured separately                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| a1f11ee                   | An empty board drawn with CSS alone, for page shells (`EmptyBoard`); the visitor's saved board theme is applied before the first paint                                                                                                                                                                                        | Used by the two shells below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| c493917                   | Bot or Not renders its layout (panels, empty board, guess form) before its game loads, on the server too, with the phone or desktop layout chosen by CSS                                                                                                                                                                      | Phone: page drawn 3.7 → 0.76 s (first visit), 2.7 → 0.69 s (returning); the game at the same time; layout shift 0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ed04fcc                   | The puzzles page renders its layout before the visitor's session and the puzzle load, and between puzzles                                                                                                                                                                                                                     | Phone: page drawn 5.6 → 0.80 s (first visit), 3.5 → 0.54 s (returning); main-thread work 7.6 → 7.0 s, 5.8 → 4.9 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Things you will notice
 
@@ -809,6 +898,12 @@ as on `main`.
 - **The leaderboard shows its columns with grey placeholder rows** until the
   rankings arrive, and no longer fades in.
 - **The home page's counters** count up in 0.5 s.
+- **Bot or Not and /puzzles show their layout at once**, with an empty
+  board, instead of a blank page and then an animated loading board; the
+  game or puzzle appears in place without fading in. Between puzzles the
+  page keeps its frame while the next puzzle loads.
+- **Bot or Not's White/Black switch** starts with its knob in the middle;
+  it used to slide there each time a game appeared.
 
 ## Looked at, not changed
 
@@ -914,7 +1009,8 @@ as on `main`.
   visit and 5.1 → 4.3 s on a returning one, desktop 1.29 → 0.94 s; without
   the game carousel (the strip of game names under the hero), no measurable
   change (phone 7.4 and 5.8 s, desktop 1.24 s).
-- **Shells for the app pages** (round 4): see "Not done: the app pages".
+- **Shells for the app pages** (round 4): Bot or Not and /puzzles have them
+  since round 5; for analysis and /drills see "Round 5".
 
 ## Rebasing `human-bar`
 
