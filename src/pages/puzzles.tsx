@@ -9,9 +9,10 @@ import {
   useCallback,
   SetStateAction,
   useRef,
+  useLayoutEffect,
+  memo,
 } from 'react'
 import Head from 'next/head'
-import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
@@ -28,7 +29,7 @@ import {
   trackPuzzleCompleted,
 } from 'src/lib/analytics'
 import {
-  Loading,
+  PuzzlesShell,
   GameInfo,
   Feedback,
   PuzzleLog,
@@ -79,7 +80,12 @@ const statsLoader = async () => {
   }
 }
 
-const TrainPage: NextPage = () => {
+interface TrainPageProps {
+  // Called with whether a puzzle is on screen, before that frame is painted.
+  onPuzzleShown: (shown: boolean) => void
+}
+
+const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
   const router = useRouter()
   const { startTour, tourState } = useTour()
 
@@ -262,12 +268,15 @@ const TrainPage: NextPage = () => {
     if (trainingGames.length === 0 && !loadingGame) getNewGame()
   }, [getNewGame, trainingGames.length, loadingGame])
 
+  const puzzleShown =
+    !loadingGame && trainingGames.length > 0 && !!trainingGames[currentIndex]
+  // TrainPage renders only in the browser (it waits for the session).
+  useLayoutEffect(() => {
+    onPuzzleShown(puzzleShown)
+  }, [puzzleShown, onPuzzleShown])
+
   if (loadingGame || trainingGames.length === 0) {
-    return (
-      <Loading isLoading={true}>
-        <div></div>
-      </Loading>
-    )
+    return null
   }
 
   if (trainingGames.length && trainingGames[currentIndex])
@@ -303,11 +312,7 @@ const TrainPage: NextPage = () => {
       />
     )
 
-  return (
-    <Loading isLoading={true}>
-      <div></div>
-    </Loading>
-  )
+  return null
 }
 
 interface Props {
@@ -1765,7 +1770,9 @@ const Train: React.FC<Props> = ({
         ) : null}
       </AnimatePresence>
       <TrainingControllerContext.Provider value={controller}>
-        <AnimatePresence mode="wait">
+        {/* No fade-in when the puzzle replaces the shell, which already shows
+            the panels and board. */}
+        <AnimatePresence mode="wait" initial={false}>
           {trainingGame && (
             <motion.div key={trainingGame.id}>
               {isMobile ? mobileLayout : desktopLayout}
@@ -1777,7 +1784,15 @@ const Train: React.FC<Props> = ({
   )
 }
 
+// Memoized so that removing the shell, beside it, doesn't render the page
+// again.
+const MemoizedTrainPage = memo(TrainPage)
+
 export default function AuthenticatedTrainPage() {
+  // One shell from the first paint until a puzzle is on screen, while the
+  // visitor's session and then the puzzle load (and between puzzles).
+  const [puzzleShown, setPuzzleShown] = useState(false)
+
   return (
     <>
       <Head>
@@ -1788,8 +1803,9 @@ export default function AuthenticatedTrainPage() {
         />
       </Head>
       <AuthenticatedWrapper>
-        <TrainPage />
+        <MemoizedTrainPage onPuzzleShown={setPuzzleShown} />
       </AuthenticatedWrapper>
+      {!puzzleShown && <PuzzlesShell />}
     </>
   )
 }

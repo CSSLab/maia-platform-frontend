@@ -27,6 +27,7 @@ import { Footer } from 'src/components/Common/Footer'
 import { Header } from 'src/components/Common/Header'
 import { browserPostHogConfig } from 'src/lib/posthog-browser-config'
 import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
+import { markAppHydrated } from 'src/components/Common/PageShell'
 
 const openSansClassName = 'font-sans'
 const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
@@ -38,6 +39,9 @@ type PageWithProviders = AppProps['Component'] & { providers?: PageProvider[] }
 
 function MaiaPlatform({ Component, pageProps }: AppProps) {
   const pageProviders = (Component as PageWithProviders).providers ?? []
+
+  // Page shells rendered from now on are rendered normally (PageShell).
+  useEffect(markAppHydrated, [])
 
   useEffect(() => {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {

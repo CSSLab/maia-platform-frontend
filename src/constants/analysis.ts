@@ -30,3 +30,9 @@ export const COLORS = {
   ok: ['#ec7014', '#feb24c', '#fed976', '#ffeda0', '#ffffcc'].reverse(),
   blunder: ['#cb181d', '#ef3b2c', '#fb6a4a', '#fc9272', '#fcbba1'].reverse(),
 }
+
+// The tabs of the analysis page's left panel on desktops.
+export const ANALYSIS_LEFT_PANEL_TABS = [
+  { id: 'moves', name: 'Moves' },
+  { id: 'select-game', name: 'Select Game' },
+] as const

@@ -26,6 +26,17 @@ const EARLY_REQUESTS = `(function () {
   window.__lichessPgn = { id: id, request: request }
 })()`
 
+/**
+ * Gives the body the visitor's board theme class before the first paint, as
+ * SettingsContext does once the app has loaded, so that boards drawn in the
+ * server's HTML (page shells) don't change colour then.
+ */
+const BOARD_THEME = `try {
+  var theme = JSON.parse(localStorage.getItem('maia-user-settings') || '{}')
+    .chessboardTheme
+  if (/^[a-z0-9-]+$/.test(theme)) document.body.classList.add('theme-' + theme)
+} catch (e) {}`
+
 export default function Document() {
   return (
     <Html lang="en">
@@ -33,6 +44,7 @@ export default function Document() {
         <script dangerouslySetInnerHTML={{ __html: EARLY_REQUESTS }} />
       </Head>
       <body>
+        <script dangerouslySetInnerHTML={{ __html: BOARD_THEME }} />
         <Main />
         <NextScript />
       </body>

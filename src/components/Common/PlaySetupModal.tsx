@@ -3,7 +3,7 @@ import { Chess } from 'chess.ts'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/router'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCallback, useContext, useState } from 'react'
+import { useCallback, useContext, useEffect, useState } from 'react'
 
 import {
   Color,
@@ -95,6 +95,14 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   const { setPlaySetupModalProps } = useContext(ModalContext)
   const router = useRouter()
   const { push } = router
+
+  // Fetch the game page's code while the visitor chooses, so that it is
+  // ready when they start (it otherwise waited behind the prefetches of the
+  // header's links).
+  const gamePath = props.playType === 'againstMaia' ? '/play/maia' : '/play/hb'
+  useEffect(() => {
+    router.prefetch(gamePath).catch(() => undefined)
+  }, [router, gamePath])
 
   const dismissModal = useCallback(() => {
     setPlaySetupModalProps(undefined)
