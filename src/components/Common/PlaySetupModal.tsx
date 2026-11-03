@@ -13,6 +13,7 @@ import {
   TimeControlOptions,
 } from 'src/types'
 import { ModalContext } from 'src/contexts/ModalContext'
+import { startGameEarly } from 'src/api/play'
 import { ModalContainer } from './ModalContainer'
 
 const maiaOptions = [
@@ -87,6 +88,11 @@ export interface PlaySetupModalProps {
   forcedPlayerColor?: Color
   modalTitle?: string
   modalSubtitle?: string
+  // Called when the dialog closes (dismissed, or a game started), besides
+  // clearing ModalContext's dialog: for a page that renders it itself.
+  onClose?: () => void
+  // false: shown without fading and sliding in (see /play).
+  animateIn?: boolean
 }
 
 export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
@@ -104,8 +110,15 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     router.prefetch(gamePath).catch(() => undefined)
   }, [router, gamePath])
 
+  // Until the app has started, the dialog (in /play's server HTML) ignores
+  // taps: a choice made before then would show but not be used.
+  const [interactive, setInteractive] = useState(false)
+  useEffect(() => setInteractive(true), [])
+
+  const { onClose } = props
   const dismissModal = useCallback(() => {
     setPlaySetupModalProps(undefined)
+    onClose?.()
 
     if (
       props.returnTo &&
@@ -120,6 +133,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     router.asPath,
     router.pathname,
     setPlaySetupModalProps,
+    onClose,
   ])
 
   const [timeControl, setTimeControl] = useState<TimeControl>(
@@ -220,8 +234,15 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       }
 
       setPlaySetupModalProps(undefined)
+      onClose?.()
 
       if (props.playType == 'againstMaia') {
+        startGameEarly(
+          resolvedPlayer as Color,
+          maiaVersion,
+          sampleMoves,
+          timeControl,
+        )
         push({
           pathname: '/play/maia',
           query: {
@@ -271,19 +292,22 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       props.modalSubtitle,
       props.modalTitle,
       props.returnTo,
+      onClose,
     ],
   )
 
   return (
     <AnimatePresence>
-      <ModalContainer dismiss={dismissModal}>
+      <ModalContainer dismiss={dismissModal} animateIn={props.animateIn}>
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={props.animateIn === false ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className={`relative flex ${
             compactHandBrainLayout ? 'h-[640px]' : 'h-[600px]'
-          } w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md`}
+          } w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md ${
+            interactive ? '' : 'pointer-events-none'
+          }`}
         >
           <div
             className="pointer-events-none absolute inset-0"

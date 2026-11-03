@@ -146,7 +146,9 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     const chess = new Chess(controller.currentNode.fen)
     const verboseMoves = chess.moves({ verbose: true })
 
-    const cantMove = !playerActive || game.termination
+    // No moves until the game has its id (/play/maia shows the game while
+    // start_game answers): a move needs it to be logged.
+    const cantMove = !playerActive || game.termination || !id
 
     const availableMoves = cantMove
       ? []
@@ -166,7 +168,7 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     }
 
     return { availableMoves, pieces }
-  }, [controller.currentNode, playerActive, game.termination, treeVersion])
+  }, [controller.currentNode, playerActive, game.termination, treeVersion, id])
 
   const updateClockForColor = useCallback(
     (

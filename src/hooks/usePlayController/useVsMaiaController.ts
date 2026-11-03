@@ -215,6 +215,9 @@ export const useVsMaiaPlayController = (
     if (controller.moveList.length == 0 && gameOverState == 'not_over') {
       return
     }
+    // Until start_game has answered (a resignation in that moment); this
+    // runs again once the game has its id.
+    if (!controller.game.id) return
 
     const winner = controller.game.termination?.winner
 

@@ -56,6 +56,52 @@ export const startGame = async (
   }
 }
 
+// A game against Maia started by the setup dialog as the visitor chose a
+// side, so that start_game runs while /play/maia loads and renders rather
+// than after. /play/maia takes it if its settings match, or starts its own.
+let earlyStart: {
+  key: string
+  response: ReturnType<typeof startGame>
+} | null = null
+
+export const startGameEarly = (
+  playerColor: Color,
+  maiaVersion: string,
+  sampleMoves: boolean,
+  timeControl: TimeControl,
+) => {
+  const response = startGame(
+    playerColor,
+    maiaVersion,
+    'play',
+    sampleMoves,
+    timeControl,
+  )
+  response.catch(() => undefined)
+  earlyStart = {
+    key: JSON.stringify([playerColor, maiaVersion, sampleMoves, timeControl]),
+    response,
+  }
+}
+
+export const takeEarlyGame = (
+  playerColor: Color,
+  maiaVersion: string,
+  sampleMoves: boolean,
+  timeControl: TimeControl,
+) => {
+  const key = JSON.stringify([
+    playerColor,
+    maiaVersion,
+    sampleMoves,
+    timeControl,
+  ])
+  if (!earlyStart || earlyStart.key !== key) return null
+  const { response } = earlyStart
+  earlyStart = null
+  return response
+}
+
 export const fetchGameMove = async (
   moves: string[],
   maiaVersion = 'maia_kdd_1900',
