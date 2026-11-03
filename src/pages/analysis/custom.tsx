@@ -7,6 +7,7 @@ import { storeCustomGame } from 'src/api'
 import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
+import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const CustomAnalysisLinkPage: NextPage = () => {
   const router = useRouter()
@@ -107,3 +108,5 @@ export default function AuthenticatedCustomAnalysisLinkPage() {
     </>
   )
 }
+
+AuthenticatedCustomAnalysisLinkPage.providers = ANALYSIS_PROVIDERS

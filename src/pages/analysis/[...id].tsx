@@ -75,6 +75,7 @@ import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
+import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
@@ -2412,3 +2413,5 @@ export default function AuthenticatedAnalysisPage() {
     </>
   )
 }
+
+AuthenticatedAnalysisPage.providers = ANALYSIS_PROVIDERS

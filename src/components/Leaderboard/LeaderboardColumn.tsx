@@ -4,11 +4,14 @@ import { LeaderboardEntry } from 'src/components'
 interface Props {
   id: 'regular' | 'puzzles' | 'turing' | 'hand' | 'brain'
   name: 'Regular' | 'Puzzles' | 'Bot/Not' | 'Hand' | 'Brain'
-  ranking: {
+  // Undefined while the rankings load: placeholder rows are shown.
+  ranking?: {
     display_name: string
     elo: number
   }[]
 }
+
+const ROWS = 10
 
 const getIconForType = (id: Props['id']): string => {
   switch (id) {
@@ -41,15 +44,26 @@ export const LeaderboardColumn: React.FC<Props> = ({
         <h2 className="text-base font-bold uppercase text-white/95">{name}</h2>
       </div>
       <div className="flex w-full flex-col">
-        {ranking.map((player, index) => (
-          <LeaderboardEntry
-            key={index}
-            typeId={id}
-            type={name}
-            index={index}
-            {...player}
-          />
-        ))}
+        {ranking
+          ? ranking.map((player, index) => (
+              <LeaderboardEntry
+                key={index}
+                typeId={id}
+                type={name}
+                index={index}
+                {...player}
+              />
+            ))
+          : Array.from({ length: ROWS }, (_, index) => (
+              <div
+                key={index}
+                aria-hidden
+                className="flex h-7 items-center justify-between px-3"
+              >
+                <div className="h-3 w-28 rounded bg-white/10" />
+                <div className="h-3 w-9 rounded bg-white/10" />
+              </div>
+            ))}
       </div>
     </div>
   )

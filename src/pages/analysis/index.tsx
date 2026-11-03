@@ -5,6 +5,7 @@ import { Loading } from 'src/components'
 import { fetchMaiaGameList } from 'src/api'
 import { AnalysisListContext } from 'src/contexts'
 import { useContext, useEffect, useRef, useState } from 'react'
+import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const AnalysisPage: NextPage = () => {
   const { push } = useRouter()
@@ -73,4 +74,4 @@ const AnalysisPage: NextPage = () => {
   )
 }
 
-export default AnalysisPage
+export default Object.assign(AnalysisPage, { providers: ANALYSIS_PROVIDERS })

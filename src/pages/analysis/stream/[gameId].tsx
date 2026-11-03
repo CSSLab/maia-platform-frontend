@@ -13,6 +13,7 @@ import { TreeControllerContext } from 'src/contexts'
 import { StreamAnalysis } from 'src/components/Analysis/StreamAnalysis'
 import { AnalyzedGame } from 'src/types'
 import { GameTree } from 'src/types/tree'
+import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const StreamAnalysisPage: NextPage = () => {
   const router = useRouter()
@@ -241,3 +242,5 @@ export default function AuthenticatedStreamAnalysisPage() {
     </>
   )
 }
+
+AuthenticatedStreamAnalysisPage.providers = ANALYSIS_PROVIDERS

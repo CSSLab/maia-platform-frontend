@@ -17,6 +17,7 @@ import {
   LiveGame,
   GameTree,
 } from 'src/types'
+import { ENGINE_PROVIDERS } from 'src/contexts/pageProviders'
 
 const BroadcastAnalysisPage: NextPage = () => {
   const router = useRouter()
@@ -309,3 +310,5 @@ export default function AuthenticatedBroadcastAnalysisPage() {
     </>
   )
 }
+
+AuthenticatedBroadcastAnalysisPage.providers = ENGINE_PROVIDERS
