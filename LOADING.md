@@ -1084,6 +1084,116 @@ reached on fewer than half the steps, is too noisy to separate (phone 0.00 s
 ± 0.05 s; desktop, tip first, 0.73 s later ± 0.62 s). Depth reached before
 the next step: desktop 16.97 → 16.91, phone 16.48 → 16.50.
 
+### Round 9: the engines on the analysis page (nothing changed)
+
+Measured on 2026-11-03 against main at 3e5ef6d (after #331): local
+production builds behind `scripts/perf/stub-proxy.mjs`, the test PostHog
+key, warm visits (each build's own primed profile), 8 cores reported. The
+phone is the one in "On a phone": every thread of the page, workers
+included, at a quarter of its speed (`cpu-slowdown.py`). The builds
+alternated, and a pair is the same game and repetition on both. ada was busy
+(load 65–137 of 160), so single pairs differ by several seconds.
+
+**Where the time goes.** Main at load ~115, 4 warm visits each (seconds,
+medians):
+
+|                         | phone | desktop |
+| ----------------------- | ----- | ------- |
+| board on screen         | 2.86  | 0.43    |
+| Maia's moves            | 9.50  | 2.01    |
+| Stockfish's first depth | 12.16 | 1.83    |
+| Stockfish depth 12      | 23.48 | 3.30    |
+| Stockfish depth 18      | 37.88 | 5.76    |
+
+On the phone, from performance marks in a diagnostic build:
+
+- **Maia:** ONNX Runtime compiles (~1.5 s) while the model is read from
+  IndexedDB (~1.6 s); creating the session takes 3.2–4 s, the first rating
+  0.4–1.5 s more, and the chart's batch of 10 ratings 2.7–4.7 s on 4
+  threads.
+- **Stockfish:** the module and its 4 threads ~2.7 s; finding and reading
+  the cached nets 2–7 s (main thread); copying them into the engine
+  0.5–0.9 s (a main-thread long task); decoding the big net at the first
+  `isready` ~2.9 s (0.8 s on a desktop). The first depth comes ~0.4 s
+  later.
+- **The main thread** is ~97% busy from 8 to 25 s: React renders ~5 s (96
+  renders of ~52 ms), recharts 2.25 s (0.65 s of it the legend measuring its
+  text), Google Analytics 1.17 s, the nets' copy 0.54 s, layout and paint
+  ~2.7 s.
+
+The phone is short of CPU, not waiting: each change below that made one
+engine sooner made the other later, or was lost in the noise.
+
+**Tried and reverted** (phone; paired medians, − is sooner; pairs sooner in
+brackets):
+
+| change                                                                                                               | pairs | Maia's moves | Stockfish first | depth 12    | depth 18    |
+| -------------------------------------------------------------------------------------------------------------------- | ----- | ------------ | --------------- | ----------- | ----------- |
+| Read Stockfish's nets in a worker, while the module starts                                                           | 6     | −0.77 s (5)  | −0.25 s (3)     | +0.48 s (2) | +0.38 s (2) |
+| Send Maia's requests before the page hears it is ready                                                               | 6     | −1.56 s (5)  | +0.59 s (2)     | +0.83 s (1) | +3.27 s (1) |
+| The chart's legend as HTML instead of recharts' `<Legend>` (pixel-identical)                                         | 6     | −0.54 s (3)  | +0.30 s (2)     | −0.87 s (3) | −1.99 s (3) |
+| A half-size Maia model (8-bit weights, below)                                                                        | 14    | −0.87 s (12) | +1.52 s (5)     | +1.77 s (4) | +2.31 s (6) |
+| Stockfish's display updated at most once a second during the page's first search, on phones (every 0.15 s otherwise) | 8     | +0.43 s (3)  | −0.24 s (4)     | −0.11 s (4) | −2.28 s (4) |
+
+- Reading the nets in a worker also put the board 0.50 s later (sooner in 1
+  of 6).
+- The half-size model was faster everywhere on a desktop (6 pairs): Maia's
+  moves 0.45 s sooner (5), Stockfish's first depth 0.47 s (5), depth 12
+  0.94 s (5), depth 18 0.51 s (4). On the phone Maia's 10-rating batch then
+  runs during Stockfish's start-up.
+- As a bound, rendering Stockfish's updates at most every 2 s everywhere
+  gave depth 12 2.60 s and depth 18 3.44 s sooner (3 of 4 pairs each). Once
+  a second during the first search was within the noise: single pairs went
+  from 9 s sooner to 7 s later.
+
+**Smaller Maia models.** 300 game positions at the chart's 11 ratings, each
+copy against today's model (fp16, 45.7 MB, 41.7 MB with Brotli), in Node
+with onnxruntime-web 1.23 (WASM, 4 threads; the 8-bit-weights copy with the
+worker's settings, the others with the runtime's defaults). For scale, the
+first row is today's model against itself 200 rating points apart:
+
+| model                                              | size (Brotli)  | same top move | chart probabilities moved (points) | win % moved (points) | batch of 10 |
+| -------------------------------------------------- | -------------- | ------------- | ---------------------------------- | -------------------- | ----------- |
+| today's, 200 rating points apart                   |                | 90.4%         | 2.71 on average, 26.9 at most      | 1.52, 13.0 at most   | 0.63 s      |
+| 8-bit weights, 32-bit arithmetic                   | 24.2 (21.5) MB | 99.3%         | 0.24, 2.8 at most                  | 0.25, 2.7 at most    | 0.59 s      |
+| 8-bit arithmetic, first and last layers at 32 bits | 27.3 MB        | 97.0%         | 0.76, 10.6 at most                 | 0.94, 9.3 at most    | 0.36 s      |
+| 4-bit weights (`MatMulNBits`)                      | 31.6 MB        | 90.9%         | 2.66, 24.3 at most                 | 2.93, 32.1 at most   | 0.58 s      |
+
+"Chart probabilities" are the moves of 5% or more. The 8-bit-weights copy
+stores each weight matrix as int8 with a scale per output channel and a
+`DequantizeLinear`; with `session.disable_quant_qdq` the runtime unpacks them
+once, creating the session in 0.47 s instead of 0.70 s (without it, each run
+unpacks them: 0.91 s a batch). onnxruntime-web 1.23 cannot load 8-bit
+`MatMulNBits` or a 4-bit `Gather`, and the 4-bit copy keeps its `Gemm`
+layers at 32 bits.
+
+**Smaller Stockfish builds.** `lila-stockfish-web` also ships `sf16-7`
+(Stockfish 16 with a single 6.5 MB net) and `sfhce` (no net). 200 game
+positions, one search thread and 16 MB of hash as on the site, a desktop in
+headless Chromium, 8 engines at once; each answer scored against Stockfish
+17 at depth 22 (win % by Lichess's formula):
+
+| engine                   | nets   | ready  | depth 12: time, same move, win % off | depth 18: time, same move, win % off |
+| ------------------------ | ------ | ------ | ------------------------------------ | ------------------------------------ |
+| Stockfish 17 (`sf17-79`) | 78 MB  | 3.0 s  | 0.07 s, 71.5%, 2.2                   | 0.86 s, 86.5%, 1.0                   |
+| `sf16-7`                 | 6.5 MB | 0.54 s | 0.04 s, 63.5%, 3.2                   | 0.48 s, 70.5%, 2.2                   |
+| `sfhce`                  | none   | 0.21 s | 0.08 s, 57.5%, 4.0                   | 0.90 s, 64.0%, 3.3                   |
+
+`sf16-7` searches 3.4 times as many positions a second, but its depth 18 is
+about as good as Stockfish 17's depth 12, and at depth 22 (1.79 s) it agrees
+on 74.5% with win % 1.9 off. Scoring against Stockfish 17 favours it
+somewhat, but not by that much. It only wins on start-up: by the phone's
+times above, ~5–6 s on a warm visit (not measured), and the 78 MB download
+on a first one.
+
+**First visits.** On 4G (9 Mbit/s) on the phone (2 runs, main): the board
+at 6.1–7.2 s, Maia's moves at 110.8–112.6 s (Download tapped at 8.6–9.4 s),
+Stockfish's first depth at 132–135 s, depth 18 at 163–176 s. Maia's 42 MB
+and Stockfish's 78 MB download together and share the link; at 50–100
+Mbit/s they would take 10–20 s. Not built: downloading them one after the
+other, and `sf16-7` as a stand-in while the nets download (its results kept
+out of the shared analysis cache, and its depths labelled differently).
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
