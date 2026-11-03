@@ -1,7 +1,5 @@
-import posthog from 'posthog-js'
-import { browserPostHogConfig } from 'src/lib/posthog-browser-config'
+import { reportLargestContentfulPaint } from 'src/lib/largestContentfulPaint'
 
-posthog.init(
-  process.env.NEXT_PUBLIC_POSTHOG_KEY as string,
-  browserPostHogConfig,
-)
+// Next runs this before the app starts; PostHog loads once the page has drawn
+// (src/lib/posthogClient).
+reportLargestContentfulPaint()

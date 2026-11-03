@@ -835,6 +835,109 @@ its server HTML has the desktop menu, which wraps to two lines at tablet
 widths (671–1024 px), so every page there moves down 28 px when the app
 loads and swaps in the phone menu (on `main` too).
 
+### Round 6: PostHog and Google Analytics after the page has drawn
+
+Measured against round 5 at 694083b (before the rebase on #330 and #332): local
+production builds behind `scripts/perf/stub-proxy.mjs`, both built with a test
+PostHog key and `/ingest` as its host (the proxy swallows it), 5 runs each, the
+builds alternating. The phone is Chrome's own 4x CPU throttling with 4G. Another
+project's Stockfish batch kept ada at load 95–100 of 160 during these runs, so
+times vary.
+
+PostHog's browser code (~170 KB uncompressed) was in Next's start-up chunk:
+`instrumentation-client.ts` initialised it before the app ran, and `_app`
+initialised it again, which PostHog ignored as a second init. Google
+Analytics (`next/script`'s default, afterInteractive) downloaded and ran
+right after hydration, on the analysis page while it was building the game.
+
+PostHog now loads with a dynamic import and initialises once the page has
+loaded and the browser is idle (or 5 s after the load event), with the
+settings `instrumentation-client.ts` used. Events tracked before then wait
+in `src/lib/posthogClient` and are sent once it has loaded, with the time
+they happened; its page view is captured when it starts. Google Analytics
+uses `lazyOnload`. `PostHogProvider` is gone (nothing used its hooks).
+
+| measure                                                       | round 5 → round 6                          |
+| ------------------------------------------------------------- | ------------------------------------------ |
+| JavaScript shared by all pages (build output, gzip)           | 237 → 181 kB                               |
+| analysis game fully visible, phone, first visit               | 3.58 → 3.13 s                              |
+| /play's setup dialog on screen, phone, first visit            | 2.51 → 2.29 s                              |
+| home page's JavaScript, phone, first visit                    | 653 → 554 KB                               |
+| /play: choosing a side 1.5 s after the dialog, until the game | phone 1.57 → 1.56 s, desktop 0.88 → 0.91 s |
+| /play: choosing as the dialog appears, until the game         | phone 1.64 → 2.06 s, desktop 1.03 → 1.17 s |
+
+The last row is the cost: the analytics now start up as the page first goes
+idle, which on /play is just after the dialog appears, so a visitor who
+chooses at once waits for them. Waiting longer (idle, 1 s, idle again) was
+tried and dropped: it moved the start-up onto the clicks of visitors who
+choose a second or so after the dialog appears (1.5 s: phone 2.34 → 3.24 s,
+desktop 1.09 → 1.29 s, at load ~143).
+
+The analytics still arrive (PostHog's debug log, an ordinary Chrome user
+agent): on a desktop PostHog starts at ~1.2–1.7 s instead of ~0.3 s and
+stamps its page view then, Google Analytics sends its page view ~0.3 s later
+than before, and an event tracked before PostHog had loaded
+(`download_model_modal_shown`, at 0.66 s) was sent at 1.3 s with its own
+time. Visitors who leave within the first seconds may not be counted, and
+errors before PostHog loads aren't captured.
+
+Rebased on main after #330 and #332, PostHog starts with main's settings
+(`src/lib/posthog-browser-config.ts`): events through `/ingest`, a page view
+for each page within the app, exceptions and web vitals. Checked against
+main with a local stand-in for PostHog (an analysis game, a click, an
+uncaught error, a link to /play, a game against Maia, then leaving the
+page), the same events arrived: page views for the analysis page, /play and
+/play/maia, `analysis_game_loaded`, `play_game_started`, `$exception` and
+`$web_vitals`, the early ones with their own time. On the emulated phone
+PostHog starts at ~2.2 s on /play and 2.5–4.9 s on the analysis page,
+against ~1.5 s on main. A visitor who has moved to another page by then
+gets a page view only for the page PostHog starts on; choosing a side at
+once on /play, the /play page view still arrived in 3 of 3 runs.
+
+One web vital was lost that main keeps. PostHog's web-vitals script reports
+LCP at the visitor's first tap or key press, or when the page is hidden, and
+then holds it 5 s before sending. For a visitor who has already tapped by
+the time the script loads, LCP waits for the page to be hidden and is lost
+when the tab closes. On the phone, choosing a side on /play at once sent FCP
+but no LCP in 3 of 3 runs (main sent both). That was with round 7 on top,
+whose dialog takes taps at ~1.3 s, before PostHog starts; on round 6 alone
+the dialog takes taps at ~1.4 s, as PostHog starts, and LCP arrived in all
+3 runs. With a 3 s pause before choosing, both arrived.
+CLS and INP, which are reported as the page is hidden, didn't arrive on
+either build.
+
+LCP is now sent by `src/lib/largestContentfulPaint`, which
+`instrumentation-client.ts` starts before the app, with none of PostHog's
+code (JavaScript shared by all pages 181 → 182 kB; 0.6 kB gzip). As in
+web-vitals, it takes the last paint before the first click or key press, or
+before the page is hidden, and sends it as PostHog's `$web_vitals` event
+(`$web_vitals_LCP_value`) through the queue in `src/lib/posthogClient`;
+PostHog itself sends FCP, CLS and INP. On the emulated phone, choosing a
+side at once on round 8's tip now sends LCP in 3 of 3 runs (0 of 3 without
+it), and after a 3 s pause exactly one LCP in each of 3; round 6 alone, 3
+of 3 both ways. Each value matched the browser's own LCP to the millisecond
+(0.49–0.56 s on /play, 0.49–0.55 s on main), and it is sent at once rather
+than 5 s later. On the analysis-to-/play visit the same events arrived as on
+main, with the analysis page's LCP 1.28–1.30 s on a desktop against main's
+1.25–1.29 s. The event carries the URL of the page that loaded; main's,
+sent 5 s after the tap, carried the page the visitor was on by then:
+/play/maia, for /play's LCP and for the analysis page's alike.
+
+**Stockfish** (`scripts/perf/chart-probe.mjs`, the analysis page, round 5
+against rounds 6 and 7 together, 8 steps per run, each pair run in both
+orders: half the runs with round 5 first, half with the branch first): on a
+desktop depth 12 came 0.01 s later after a step (± 0.01 s; sooner on 16 of
+32 steps) and the depth reached before the next step was 16.97 on both. On
+the emulated phone depth 12 came 0.19 s later (± 0.21 s; sooner on 28 of 63
+steps), 63 of 64 steps reached it against 64, and the depth before the next
+step went from 14.73 to 14.61; but with round 5 run first the branch was
+0.07 s sooner (± 0.31 s), and with the branch run first 0.44 s later (± 0.29
+s), so the phone's spread is larger than any difference; the small phone
+delays read in round 5's checks (all with the base run first) were within it
+too. Nothing round 6 changes runs while the page steps through a game (the
+analytics have loaded by then), and the Stockfish provider's deferred start
+uses the same `whenPageIsIdle`, moved to `src/lib`.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -926,6 +1029,8 @@ loads and swaps in the phone menu (on `main` too).
 | 4e46a23                   | The analysis pages render their layout (panels, bars, empty board, blunder meter, controls) before the session and the game load; /analysis shows it while it finds a game to open                                                                                                                                            | Phone: page on screen 6.2 → 0.94 s (first visit), 2.2 → 0.72 s (returning); game fully visible 7.3 → 6.0 s, 3.7 → 3.1 s; desktop 1.02 → 0.65 s                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | e92f4a5                   | A page's shell is built once, and not at all while the app hydrates (`PageShell` keeps the server's HTML); after a link within the app only the window's layout renders                                                                                                                                                       | Undid the first analysis shell's cost on the phone (game ~0.5 s later, ~0.7 s more main-thread work on first visits)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 3c00156                   | /play's setup dialog prefetches the game page; /play/maia shows the game without fading in                                                                                                                                                                                                                                    | From choosing a side to the game fully visible: phone 1.98–2.35 → 1.42–1.57 s, desktop 1.32–1.70 → 0.99–1.14 s                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 387921b                   | PostHog (out of Next's start-up chunk) and Google Analytics load once the page has loaded and the browser is idle; events tracked before then are queued                                                                                                                                                                      | Shared JavaScript 237 → 181 kB; phone: analysis game 3.58 → 3.13 s, /play dialog 2.51 → 2.29 s; choosing on /play the instant the dialog appears 0.1–0.4 s slower                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 02afe94                   | LCP is sent by an observer that starts before the app, so visitors who tap before PostHog has loaded send it too                                                                                                                                                                                                              |
 
 ## Things you will notice
 
@@ -965,6 +1070,9 @@ loads and swaps in the phone menu (on `main` too).
   Bot or Not games the page keeps its frame while the next one loads.
 - **A game against Maia appears without fading in** after choosing a side on
   /play.
+- **PostHog and Google Analytics start a second or more later**: PostHog's
+  page view is stamped when it starts, and visitors who leave within the
+  first seconds may not be counted.
 - **Bot or Not's White/Black switch** starts with its knob in the middle;
   it used to slide there each time a game appeared.
 

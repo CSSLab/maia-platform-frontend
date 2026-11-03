@@ -40,6 +40,12 @@ export const browserPostHogConfig: Pick<
   capture_pageview: 'history_change',
   capture_pageleave: false,
   capture_exceptions: true,
-  capture_performance: { web_vitals: true, network_timing: false },
+  capture_performance: {
+    web_vitals: true,
+    // LCP is sent by src/lib/largestContentfulPaint, which starts before
+    // PostHog has loaded.
+    web_vitals_allowed_metrics: ['FCP', 'CLS', 'INP'],
+    network_timing: false,
+  },
   before_send: dropAutocaptureEvents,
 }
