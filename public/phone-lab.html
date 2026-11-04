@@ -125,13 +125,14 @@ const clickDownload = () => {
 const lagOf = (l) => ({ busy50: l.over50, busy100: l.over100, max: Math.round(l.max) })
 const untilSettled = async (limit, needDepth = 18, quiet = 2500) => {
   const start = performance.now()
-  let lastClick = 0
+  let lastClick = 0, clicks = 0
   while (performance.now() - start < limit) {
     await sleep(100)
     const P = probe()
     if (!P) continue
-    // The button ignores taps until the page has started: keep trying until it goes.
-    if (performance.now() - lastClick > 1000 && fw().document && clickDownload()) { lastClick = performance.now(); if (P.clicked == null) P.clicked = fw().performance.now() }
+    // The button ignores taps until the page has started, so try again if nothing
+    // seems to have happened, but slowly: a second tap during a download restarts it.
+    if (clicks < 2 && P.tl.maia == null && performance.now() - lastClick > (lastClick ? 20000 : 500) && P.tl.board != null && fw().document && !/Downloading|\d+%/.test((fw().document.body.textContent.match(/Download Our New Model.{0,600}/) || [''])[0]) && clickDownload()) { clicks++; lastClick = performance.now(); if (P.clicked == null) P.clicked = fw().performance.now() }
     if (P.tl.d18 != null && P.tl.maia != null && P.tl.chart != null && fw().performance.now() - Math.max(P.linesAt, P.chartAt || 0) > quiet) return true
   }
   return false
