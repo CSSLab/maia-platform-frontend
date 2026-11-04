@@ -768,6 +768,7 @@ class Engine {
             rootScores,
             runContext.fen,
           )
+          screeningEval.partial = true
           this.attachDiagnostics(screeningEval, {
             runContext,
             strategy: 'staged-root-probe',
@@ -820,6 +821,9 @@ class Engine {
       // its hash. Until they report, the screening score of a move it
       // has passed over must not outrank it: Stockfish found no better move at
       // this depth.
+      // Scores for mate are +-10000, the limit of the range.
+      const justWorseThan = (cp: number) =>
+        Math.max(-10000, Math.min(10000, cp + (isBlackTurn ? 1 : -1)))
       let bestLine: RootSearchResult | null = null
       const capAtBestLine = (move: string) => {
         const score = rootScores[move]
@@ -827,7 +831,24 @@ class Engine {
         if (isBetter(score.cp, bestLine.cp)) {
           rootScores[move] = {
             depth: score.depth,
-            cp: bestLine.cp + (isBlackTurn ? 1 : -1),
+            cp: justWorseThan(bestLine.cp),
+          }
+        }
+      }
+      // Once lines have reached the target depth, a move still at a shallower
+      // depth must not outrank the best of them, here or in the final answer.
+      const capShallowMoves = () => {
+        const deepest = Object.values(rootScores).filter(
+          (score) => score.depth >= targetDepth,
+        )
+        if (deepest.length === 0) return
+        const best = deepest.reduce((a, b) => (isBetter(b.cp, a.cp) ? b : a))
+        for (const [move, score] of Object.entries(rootScores)) {
+          if (score.depth < targetDepth && isBetter(score.cp, best.cp)) {
+            rootScores[move] = {
+              depth: score.depth,
+              cp: justWorseThan(best.cp),
+            }
           }
         }
       }
@@ -1055,6 +1076,7 @@ class Engine {
           markSelectionSource(score.move, 'sf-top')
         }
 
+        capShallowMoves()
         shownDepth = Math.max(shownDepth, multipvSnapshot.depth)
         const streamingEval = this.buildEvaluationFromRootScores(
           shownDepth,
@@ -1160,6 +1182,7 @@ class Engine {
         return
       }
 
+      capShallowMoves()
       const finalEval = this.buildEvaluationFromRootScores(
         targetDepth,
         rootScores,
@@ -2101,17 +2124,17 @@ const setupStockfish = async (
 
   onPhaseChange?.('loading-nnue')
   const net = instance.getRecommendedNnue(0)
-  const response = await withTimeout(
-    fetch(`${STOCKFISH_BASE}/${net}`),
+  const buffer = await withTimeout(
+    fetch(`${STOCKFISH_BASE}/${net}`).then((response) => {
+      if (!response.ok) throw new Error(`${net}: HTTP ${response.status}`)
+      return response.arrayBuffer()
+    }),
     timeoutMs,
     `Timed out fetching Stockfish's net ${net}`,
   ).catch((error) => {
     throw new StockfishFileError(String(error))
   })
-  if (!response.ok) {
-    throw new StockfishFileError(`${net}: HTTP ${response.status}`)
-  }
-  setNnueBuffer(instance, await response.arrayBuffer(), 0)
+  setNnueBuffer(instance, buffer, 0)
 
   removeOldNets()
   return instance

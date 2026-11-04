@@ -981,7 +981,8 @@ export const useOpeningDrillController = (
       const existingStockfish = node.analysis.stockfish
       if (
         (existingStockfish &&
-          existingStockfish.depth >= DRILL_STOCKFISH_TARGET_DEPTH) ||
+          existingStockfish.depth >= DRILL_STOCKFISH_TARGET_DEPTH &&
+          !existingStockfish.partial) ||
         analysisCancellationRef.current
       ) {
         return
@@ -1175,7 +1176,9 @@ export const useOpeningDrillController = (
           !maiaData || MAIA_MODELS.some((model) => !maiaData[model])
         const stockfishData = node.analysis.stockfish
         const needsStockfish =
-          !stockfishData || stockfishData.depth < DRILL_STOCKFISH_TARGET_DEPTH
+          !stockfishData ||
+          stockfishData.depth < DRILL_STOCKFISH_TARGET_DEPTH ||
+          !!stockfishData.partial
         return needsMaia || needsStockfish
       })
 

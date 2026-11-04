@@ -61,7 +61,8 @@ export const useLearnFromMistakes = ({
         if (chess.gameOver()) return true
 
         return (
-          (node.analysis.stockfish?.depth ?? 0) >= LEARN_FROM_MISTAKES_DEPTH
+          (node.analysis.stockfish?.depth ?? 0) >= LEARN_FROM_MISTAKES_DEPTH &&
+          !node.analysis.stockfish?.partial
         )
       })
 

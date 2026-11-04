@@ -22,6 +22,8 @@ class FakeStockfish {
   private legalMoves: string[] = []
   /** The score of a search with one line, when it differs from the others'. */
   singleLineCp: number | null = null
+  /** The best score of a search with several lines, but not every move. */
+  fewLinesCp: number | null = null
 
   uci(command: string) {
     this.log.push(command)
@@ -72,6 +74,16 @@ class FakeStockfish {
     this.busy = false
   }
 
+  private scoreOf(line: number, lines: number, searchMove: boolean) {
+    if (!searchMove && lines === 1 && this.singleLineCp !== null) {
+      return this.singleLineCp
+    }
+    if (lines > 1 && lines < this.legalMoves.length) {
+      if (this.fewLinesCp !== null) return this.fewLinesCp - line * 10
+    }
+    return 50 - line * 10
+  }
+
   private async search(command: string) {
     this.searching = true
     this.stopRequested = false
@@ -84,7 +96,7 @@ class FakeStockfish {
       await new Promise((r) => setTimeout(r, 2))
       moves.forEach((move, i) =>
         this.emit(
-          `info depth ${d} seldepth ${d} multipv ${i + 1} score cp ${!searchMove && moves.length === 1 && this.singleLineCp !== null ? this.singleLineCp : 50 - i * 10} nodes 100 nps 1000 time 1 pv ${move}`,
+          `info depth ${d} seldepth ${d} multipv ${i + 1} score cp ${this.scoreOf(i, moves.length, !!searchMove)} nodes 100 nps 1000 time 1 pv ${move}`,
         ),
       )
     }
@@ -318,6 +330,20 @@ describe('Stockfish Engine run hand-over', () => {
     }
     const atTarget = seen[seen.length - 1]
     expect(atTarget.model_optimal_cp).toBe(20)
+  })
+
+  it('keeps a shallower score out of the final answer', async () => {
+    const { engine, fake } = makeEngine()
+    // Screening scores the moves 50, 40, ...; the four lines at full depth
+    // score the first four -100 at best, so the fifth (10) must not win.
+    fake.fewLinesCp = -100
+    fake.singleLineCp = -100
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8)
+    let last: { model_optimal_cp: number; partial?: boolean } | undefined
+    for await (const evaluation of run) last = evaluation
+
+    expect(last?.partial).toBeUndefined()
+    expect(last?.model_optimal_cp).toBe(-100)
   })
 
   it('reaches the target depth after a restart for the same position', async () => {

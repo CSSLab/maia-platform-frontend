@@ -337,7 +337,12 @@ export class GameNode {
   ): void {
     const existingStockfish = this._analysis.stockfish
     if (existingStockfish) {
-      if (existingStockfish.depth > stockfishEval.depth) {
+      // A finished search replaces an unfinished one, which may be deeper when
+      // the finished one had a lower target (full-game analysis, for one).
+      if (
+        existingStockfish.depth > stockfishEval.depth &&
+        (!existingStockfish.partial || stockfishEval.partial)
+      ) {
         return
       }
 

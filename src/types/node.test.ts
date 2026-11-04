@@ -44,6 +44,27 @@ describe('GameNode move colours', () => {
     expect(finished.child.color).not.toBeNull()
   })
 
+  it('takes a finished search over a deeper unfinished one', () => {
+    const { root, child } = played()
+    root.addStockfishAnalysis(evaluation(18, 6, true))
+    root.addStockfishAnalysis(evaluation(12, 12))
+    expect(root.analysis.stockfish?.depth).toBe(12)
+    expect(root.analysis.stockfish?.partial).toBeUndefined()
+    expect(child.color).not.toBeNull()
+  })
+
+  it('keeps a deeper finished search, and a deeper unfinished one over a shallower', () => {
+    const finished = played()
+    finished.root.addStockfishAnalysis(evaluation(18, 18))
+    finished.root.addStockfishAnalysis(evaluation(12, 12))
+    expect(finished.root.analysis.stockfish?.depth).toBe(18)
+
+    const unfinished = played()
+    unfinished.root.addStockfishAnalysis(evaluation(18, 6, true))
+    unfinished.root.addStockfishAnalysis(evaluation(12, 6, true))
+    expect(unfinished.root.analysis.stockfish?.depth).toBe(18)
+  })
+
   it('still judges analysis saved without per-move depths', () => {
     const { root, child } = played()
     const saved = evaluation(18, 0)
