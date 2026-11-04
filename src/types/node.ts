@@ -8,6 +8,13 @@ interface NodeAnalysis {
   stockfish?: StockfishEvaluation
 }
 
+// A move is judged once the position has reached depth 12. During a search,
+// the first pass over the moves is too shallow to call one a blunder: the move
+// waits for a score of depth 10.
+const canColourMove = (stockfish: StockfishEvaluation, move: string) =>
+  stockfish.depth >= 12 &&
+  (!stockfish.partial || (stockfish.root_move_depth_vec?.[move] ?? 10) >= 10)
+
 export class GameNode {
   private _fen: string
   private _move: string | null
@@ -289,8 +296,8 @@ export class GameNode {
 
     if (
       this._analysis.stockfish &&
-      this._analysis.stockfish.depth >= 12 &&
-      move
+      move &&
+      canColourMove(this._analysis.stockfish, move)
     ) {
       this.classifyMoveByWinrate(
         child,
@@ -310,9 +317,9 @@ export class GameNode {
   ): void {
     this._analysis.maia = maiaEval
 
-    if (this._analysis.stockfish && this._analysis.stockfish.depth >= 12) {
+    if (this._analysis.stockfish) {
       for (const child of this._children) {
-        if (child.move) {
+        if (child.move && canColourMove(this._analysis.stockfish, child.move)) {
           this.classifyMoveByWinrate(
             child,
             child.move,
@@ -373,17 +380,15 @@ export class GameNode {
 
     this._analysis.stockfish = stockfishEval
 
-    if (stockfishEval.depth >= 12) {
-      for (const child of this._children) {
-        if (child.move) {
-          this.classifyMoveByWinrate(
-            child,
-            child.move,
-            stockfishEval,
-            activeModel,
-          )
-          child._color = calculateMoveColor(stockfishEval, child.move)
-        }
+    for (const child of this._children) {
+      if (child.move && canColourMove(stockfishEval, child.move)) {
+        this.classifyMoveByWinrate(
+          child,
+          child.move,
+          stockfishEval,
+          activeModel,
+        )
+        child._color = calculateMoveColor(stockfishEval, child.move)
       }
     }
   }

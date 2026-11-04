@@ -269,6 +269,20 @@ describe('Stockfish Engine run hand-over', () => {
     )
   })
 
+  it('searches every move again, deeper, after the best line', async () => {
+    const { engine, fake } = makeEngine()
+    await drain(engine.streamEvaluations(START, legalMoveCount(START), 18))
+
+    const searches = fake.log.filter((c) => c.startsWith('go '))
+    expect(searches.slice(0, 3)).toEqual([
+      'go depth 6',
+      'go depth 18',
+      'go depth 10',
+    ])
+    const all = `setoption name MultiPV value ${legalMoveCount(START)}`
+    expect(fake.log.filter((c) => c === all)).toHaveLength(2)
+  })
+
   it('is partial until the last update, and its depth never falls', async () => {
     const { engine } = makeEngine()
     const run = engine.streamEvaluations(START, legalMoveCount(START), 8, {

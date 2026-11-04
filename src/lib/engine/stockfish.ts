@@ -34,12 +34,16 @@ type RootSearchResult = {
 }
 
 type RootProbePlan = {
+  // Every move is searched this deep first, so that the page has them all.
   screeningDepth: number
+  // ...and this deep once the best line has reached the target depth.
+  restDepth: number
 }
 
 type RootMovePhase = 'multipv' | 'screen' | 'deep' | 'ground-truth'
 type CandidateSelectionSource = 'sf-top' | 'maia-95' | 'both'
 const MAX_MAIA_DEEPEN_MOVES = 4
+const SCREENING_DEPTH = 6
 const MAIA_MID_DEPTH = 14
 
 type AnalysisRunContext = {
@@ -407,13 +411,12 @@ class Engine {
     targetDepth: number,
     _legalMoveCount: number,
   ): RootProbePlan {
-    let screeningDepth = Math.max(4, Math.min(10, targetDepth - 6))
-    if (screeningDepth >= targetDepth) {
-      screeningDepth = Math.max(1, targetDepth - 2)
-    }
+    const restDepth = Math.max(4, Math.min(10, targetDepth - 6))
 
     return {
-      screeningDepth,
+      screeningDepth: Math.min(restDepth, SCREENING_DEPTH),
+      restDepth:
+        restDepth >= targetDepth ? Math.max(1, targetDepth - 2) : restDepth,
     }
   }
 
@@ -812,9 +815,9 @@ class Engine {
       // The depth on show only rises: the later stages restart from depth 1.
       let shownDepth = plan.screeningDepth
 
-      // The best line alone reaches the target depth first (~1.3 s on a
-      // desktop, where the four lines below take ~4.8 s), and leaves the other
-      // stages its hash. Until they report, the screening score of a move it
+      // The best line alone reaches the target depth first (~1 s on a desktop,
+      // where the four lines below take ~4.8 s), and leaves the other stages
+      // its hash. Until they report, the screening score of a move it
       // has passed over must not outrank it: Stockfish found no better move at
       // this depth.
       let bestLine: RootSearchResult | null = null
@@ -888,6 +891,63 @@ class Engine {
         }
       }
 
+      // Every move again, deeper, now that the hash knows the best line.
+      if (plan.restDepth > plan.screeningDepth) {
+        for await (const snapshot of this.streamMultiPvSnapshots(
+          runContext,
+          plan.restDepth,
+          runContext.legalMoveCount,
+        )) {
+          if (!this.isActiveRun(runContext.positionId)) {
+            return
+          }
+
+          phaseTimesMs.screening += snapshot.elapsedMs
+          for (const score of snapshot.moves) {
+            const existing = rootScores[score.move]
+            if (existing && score.depth < existing.depth) continue
+            rootScores[score.move] = {
+              cp: score.cp,
+              depth: score.depth,
+              mateIn: score.mateIn,
+            }
+            movePhases[score.move] = 'screen'
+            capAtBestLine(score.move)
+          }
+
+          if (snapshot.depth <= plan.screeningDepth) continue
+          const restEval = this.buildEvaluationFromRootScores(
+            shownDepth,
+            rootScores,
+            runContext.fen,
+          )
+          restEval.partial = true
+          this.attachDiagnostics(restEval, {
+            runContext,
+            strategy: 'staged-root-probe',
+            targetDepth,
+            legalMoveCount: runContext.legalMoveCount,
+            phaseTimesMs,
+            rootScores,
+            movePhases,
+            moveSelectionSources,
+            moveCounts: {
+              screened: runContext.legalMoveCount,
+              deepened: deepenedMoves.size,
+              finalAtTargetDepth: Object.values(rootScores).filter(
+                (score) => score.depth >= targetDepth,
+              ).length,
+            },
+          })
+          this.maybePublishDiagnostics(
+            restEval,
+            false,
+            runContext.diagnosticsToConsole,
+          )
+          yield restEval
+        }
+      }
+
       // Maia's policy often arrives during the screening search (the page
       // asks for it at the same time); it is used from here on.
       this.refreshMaiaCandidates(runContext)
@@ -901,7 +961,7 @@ class Engine {
       let targetDeepeningMoves = getTargetDeepeningMoves()
       const maiaMidDepth = Math.min(MAIA_MID_DEPTH, targetDepth)
 
-      if (maiaMidDepth > plan.screeningDepth) {
+      if (maiaMidDepth > plan.restDepth) {
         for (const move of targetDeepeningMoves) {
           if (!this.isActiveRun(runContext.positionId)) {
             return
