@@ -116,7 +116,8 @@ document.getElementById('run').onclick = async () => {
   logEl.textContent = ''
   log(navigator.userAgent)
   log('cores reported ' + navigator.hardwareConcurrency + ', isolated ' + self.crossOriginIsolated)
-  for (const part of [together, sf17]) {
+  // ?sf17: Stockfish 17 alone, in a fresh tab, as on the live site.
+  for (const part of location.search.includes('sf17') ? [sf17] : [together, sf17]) {
     try { await part() } catch (e) { log(part.name + ' FAILED: ' + (e && e.message || e)) }
   }
   log('done')
