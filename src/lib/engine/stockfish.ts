@@ -1,6 +1,6 @@
 import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
-import StockfishWeb from 'lila-stockfish-web'
+import StockfishWeb from '@lichess-org/stockfish-web'
 import {
   StockfishDiagnostics,
   StockfishEvaluation,
@@ -8,31 +8,14 @@ import {
   StockfishMoveMapStrategy,
   StockfishStreamOptions,
 } from 'src/types'
-import { StockfishModelStorage } from './stockfishStorage'
-import {
-  downloadNnue,
-  getNnueSources,
-  GITHUB_RAW_BASE,
-  NnueDownloadError,
-} from './nnueDownload'
-
 export const NNUE_DOWNLOAD_FAILED_MESSAGE =
   'the download failed. Check your connection.'
 
 const DEFAULT_NNUE_FETCH_TIMEOUT_MS = 30000
 const DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS = 15000
-const STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS = 1500
-// How long to wait for a found cached net to be read before also
-// downloading it (reading 75 MB took 1.4-11 s on an emulated phone).
-const STOCKFISH_CACHE_READ_TIMEOUT_MS = 20000
-const STOCKFISH_CACHE_WRITE_TIMEOUT_MS = 5000
-// How long to wait for a slow cached net once every download has failed.
-const STOCKFISH_CACHE_FALLBACK_TIMEOUT_MS = 30000
 type StockfishInitPhase =
   | 'idle'
   | 'loading-module'
-  | 'checking-cache'
-  | 'downloading-nnue'
   | 'loading-nnue'
   | 'ready'
   | 'error'
@@ -95,7 +78,6 @@ class Engine {
   private initErrorDetail: string | null = null
   private initInFlight: boolean
   private initPhase: StockfishInitPhase
-  private downloadProgress: { loaded: number; total: number } | null = null
   private currentTargetDepth: number
   private currentMoveMapStrategy: StockfishMoveMapStrategy
   private currentAnalysisStartedAtMs: number
@@ -129,14 +111,9 @@ class Engine {
 
     this.initInFlight = true
     this.initPhase = 'loading-module'
-    setupStockfish(
-      (phase) => {
-        this.initPhase = phase
-      },
-      (progress) => {
-        this.downloadProgress = progress
-      },
-    )
+    setupStockfish((phase) => {
+      this.initPhase = phase
+    })
       .then((stockfish: StockfishWeb) => {
         this.stockfish = stockfish
         stockfish.uci('uci')
@@ -154,9 +131,7 @@ class Engine {
         this.initErrorDetail =
           error instanceof Error ? error.message : String(error)
         this.initError =
-          error instanceof NnueDownloadError ||
-          // webpack's error when Stockfish's own script did not load
-          (error instanceof Error && error.name === 'ChunkLoadError')
+          error instanceof StockfishFileError
             ? NNUE_DOWNLOAD_FAILED_MESSAGE
             : error instanceof Error
               ? error.message
@@ -186,14 +161,9 @@ class Engine {
     return this.initPhase
   }
 
-  /** The underlying error, with each host's failure, for logs and analytics. */
+  /** The underlying error, for logs and analytics. */
   get initializationErrorDetail(): string | null {
     return this.initErrorDetail
-  }
-
-  /** Bytes of the nets downloaded so far, while any are downloading. */
-  get initializationProgress(): { loaded: number; total: number } | null {
-    return this.initPhase === 'downloading-nnue' ? this.downloadProgress : null
   }
 
   async *streamEvaluations(
@@ -1932,14 +1902,14 @@ const legalMaiaCandidates = (
 })
 
 /**
- * Stockfish's memory may grow to 1 GB (in 64 KiB pages). A shared memory's
+ * Stockfish's memory may grow to 256 MB (in 64 KiB pages). A shared memory's
  * maximum is reserved when it is created, and iOS limits how much a tab can
- * reserve: with the old 2 GB, Maia then ran out after a reload on an iPhone,
- * since the previous page's memory is held for a while. Stockfish grows to
- * about 400 MB here (the nets are copied in and unpacked; the hash stays at
- * its 16 MB default).
+ * reserve: with 2 GB, Maia ran out after a reload on an iPhone, since the
+ * previous page's memory is held for a while. Stockfish uses about 81 MB here
+ * (the hash stays at its 16 MB default).
  */
-export const STOCKFISH_MAX_MEMORY_PAGES = 16384
+export const STOCKFISH_MAX_MEMORY_PAGES = 4096
+const STOCKFISH_INITIAL_MEMORY_PAGES = 1024
 
 export const sharedWasmMemory = (
   lo: number,
@@ -1990,40 +1960,6 @@ const withTimeout = async <T>(
   }
 }
 
-// The cache lookup's timeout is counted in timer ticks, not clock time: a
-// tick held up by a long task still counts as one, so a phone busy loading
-// the page does not give up on an answer that is waiting behind that work.
-const CACHE_LOOKUP_TICK_MS = 100
-
-const withTickedTimeout = <T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  message: string,
-): Promise<T> =>
-  new Promise<T>((resolve, reject) => {
-    let ticksLeft = Math.ceil(timeoutMs / CACHE_LOOKUP_TICK_MS)
-    let timeoutId: ReturnType<typeof setTimeout>
-    const tick = () => {
-      ticksLeft -= 1
-      if (ticksLeft > 0) {
-        timeoutId = setTimeout(tick, CACHE_LOOKUP_TICK_MS)
-      } else {
-        reject(new Error(message))
-      }
-    }
-    timeoutId = setTimeout(tick, CACHE_LOOKUP_TICK_MS)
-    promise.then(
-      (value) => {
-        clearTimeout(timeoutId)
-        resolve(value)
-      },
-      (error) => {
-        clearTimeout(timeoutId)
-        reject(error)
-      },
-    )
-  })
-
 const getStockfishModuleInitTimeoutMs = (): number => {
   const raw = process.env.NEXT_PUBLIC_STOCKFISH_MODULE_INIT_TIMEOUT_MS
   const parsed = raw ? parseInt(raw, 10) : NaN
@@ -2032,112 +1968,11 @@ const getStockfishModuleInitTimeoutMs = (): number => {
     : DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS
 }
 
-const CACHE_LOOKUP_TIMED_OUT = Symbol('cache lookup timed out')
-
 /**
- * Nets are cached under their file name, so a change of host never costs a
- * download. They used to be cached under their raw.githubusercontent.com URL;
- * a browser that has one there keeps using it.
- */
-export const legacyNetCacheKey = (file: string) => `${GITHUB_RAW_BASE}/${file}`
-
-const findCachedNet = async (
-  storage: StockfishModelStorage,
-  file: string,
-): Promise<Blob | null> =>
-  (await storage.findModel(file)) ??
-  (await storage.findModel(legacyNetCacheKey(file)))
-
-const readNet = (data: Blob | null): Promise<ArrayBuffer | null> =>
-  data ? data.arrayBuffer().catch(() => null) : Promise.resolve(null)
-
-export const loadNnueModel = async (
-  file: string,
-  storage: StockfishModelStorage,
-  download: (signal?: AbortSignal) => Promise<ArrayBuffer>,
-  forceRefresh = false,
-): Promise<ArrayBuffer> => {
-  const downloadAndCache = async (signal?: AbortSignal) => {
-    const buffer = await download(signal)
-    void withTimeout(
-      storage.storeModel(file, buffer),
-      STOCKFISH_CACHE_WRITE_TIMEOUT_MS,
-      `Timed out while caching Stockfish model: ${file}`,
-    ).catch((error) => {
-      console.warn(error)
-    })
-    return buffer
-  }
-
-  if (forceRefresh) {
-    return downloadAndCache()
-  }
-
-  // IndexedDB may never answer (Firefox after a Lichess login), so finding
-  // the cached net has a short timeout. Once it is found, reading it (75 MB)
-  // gets much longer: on a phone it can take seconds while the page loads,
-  // and downloading it again in parallel cost 78 MB and CPU on every visit.
-  const lookup = findCachedNet(storage, file)
-  const found = await withTickedTimeout(
-    lookup,
-    STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
-    `Timed out while checking cached Stockfish model: ${file}`,
-  ).catch((error): typeof CACHE_LOOKUP_TIMED_OUT => {
-    console.warn(error)
-    return CACHE_LOOKUP_TIMED_OUT
-  })
-  if (found === null) return downloadAndCache()
-  const cached =
-    found === CACHE_LOOKUP_TIMED_OUT ? lookup.then(readNet) : readNet(found)
-  if (found !== CACHE_LOOKUP_TIMED_OUT) {
-    const cachedModel = await withTimeout(
-      cached,
-      STOCKFISH_CACHE_READ_TIMEOUT_MS,
-      `Timed out while reading cached Stockfish model: ${file}`,
-    ).catch((error): typeof CACHE_LOOKUP_TIMED_OUT => {
-      console.warn(error)
-      return CACHE_LOOKUP_TIMED_OUT
-    })
-    if (cachedModel !== CACHE_LOOKUP_TIMED_OUT) {
-      return cachedModel ?? downloadAndCache()
-    }
-  }
-
-  // The cache did not answer in time: download the net, but keep waiting for
-  // the cached copy and use whichever arrives first, so a slow device does
-  // not download 75 MB again on every visit.
-  const controller =
-    typeof AbortController === 'undefined' ? null : new AbortController()
-  const downloading = downloadAndCache(controller?.signal)
-  return new Promise<ArrayBuffer>((resolve, reject) => {
-    cached.then((buffer) => {
-      if (buffer) {
-        controller?.abort()
-        resolve(buffer)
-      }
-    })
-    downloading.then(resolve, (error) =>
-      withTimeout(
-        cached,
-        STOCKFISH_CACHE_FALLBACK_TIMEOUT_MS,
-        'Stockfish cache read timed out',
-      ).then(
-        (buffer) => (buffer ? resolve(buffer) : reject(error)),
-        () => reject(error),
-      ),
-    )
-  })
-}
-
-/**
- * lila-stockfish-web copies a net into the engine through `Module.HEAPU8`, a
- * view of the shared WASM memory that it renews only when the main thread
- * grows the memory. The engine's own threads grow it while starting (from 160
- * to 284 MB on every load in a headless test), so the view is out of date,
- * and when the net lands past its end the copy fails with "offset is out of
- * bounds" (1 load in 9 in that test). Setup then cleared the cached nets,
- * downloaded them again (78 MB) and started a second engine. Renewing the
- * view before each copy avoids that.
+ * Stockfish copies its net into the engine through `Module.HEAPU8`, a view of
+ * the shared WASM memory that may be out of date if the engine's own threads
+ * have grown the memory while starting: the copy then fails with "offset is
+ * out of bounds". Renewing the view before the copy avoids that.
  */
 const setNnueBuffer = (
   instance: StockfishWeb,
@@ -2156,161 +1991,78 @@ const setNnueBuffer = (
   instance.setNnueBuffer(new Uint8Array(buffer), index)
 }
 
-const shouldRetryNnueLoad = (error: unknown): boolean => {
-  if (error instanceof RangeError) {
-    return true
-  }
+/** Stockfish's script or its net could not be fetched. */
+class StockfishFileError extends Error {}
 
-  if (!(error instanceof Error)) {
-    return false
-  }
-
-  return (
-    /offset is out of bounds/i.test(error.message) ||
-    /could not allocate/i.test(error.message) ||
-    /bytes\?/i.test(error.message)
+// i8x16.relaxed_swizzle, the probe from wasm-feature-detect. The relaxed-SIMD
+// build searches ~30% more positions a second; Chrome and Firefox have it.
+const hasRelaxedSimd = () =>
+  WebAssembly.validate(
+    new Uint8Array([
+      0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 15,
+      1, 13, 0, 65, 1, 253, 15, 65, 2, 253, 15, 253, 128, 2, 11,
+    ]),
   )
-}
 
 /**
- * lila-stockfish-web starts one pthread worker per
- * `navigator.hardwareConcurrency` when a module is created and waits for all
- * of them to load. The site searches with Stockfish's default single thread,
- * which needs two (UCI loop and search), so a 16-32 core desktop started 16-32
- * workers per engine (160 on a large server). Creating the module while a
- * smaller count is reported keeps the pool small; any further threads are
- * still started on demand.
+ * Stockfish 19 with its single 1.2 MB net (@lichess-org/stockfish-web's
+ * smallnet build). Stockfish 17's nets were 78 MB, which took minutes to
+ * download on a phone, ~8 s to read and unpack at each visit, and 517 MB of
+ * memory; at the same depth this build picks moves about as well against a
+ * deep search (see LOADING.md). The files are in public/stockfish: webpack cannot bundle the
+ * package's scripts, which import Node's modules when run under Node.
  */
-const STOCKFISH_PTHREAD_POOL_SIZE = 4
-
-const withPthreadPoolCap = <T>(create: () => T): T => {
-  const cores = navigator.hardwareConcurrency
-  if (!(cores > STOCKFISH_PTHREAD_POOL_SIZE)) return create()
-  try {
-    Object.defineProperty(navigator, 'hardwareConcurrency', {
-      configurable: true,
-      get: () => STOCKFISH_PTHREAD_POOL_SIZE,
-    })
-  } catch {
-    return create()
-  }
-  try {
-    // The pool is created synchronously inside the module factory.
-    return create()
-  } finally {
-    Reflect.deleteProperty(navigator, 'hardwareConcurrency')
-  }
-}
+const STOCKFISH_BASE = '/stockfish'
 
 const setupStockfish = async (
   onPhaseChange?: (phase: StockfishInitPhase) => void,
-  onDownloadProgress?: (progress: { loaded: number; total: number }) => void,
 ): Promise<StockfishWeb> => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const makeModule: any = await import('lila-stockfish-web/sf17-79.js')
-
-  // Free hosts, tried in turn (see nnueDownload.ts). The Vercel deployment
-  // does not serve the nets: they cost too much bandwidth there.
-  const sources = getNnueSources()
-  const storage = new StockfishModelStorage()
   const timeoutMs = getNnueFetchTimeoutMs()
   const moduleInitTimeoutMs = getStockfishModuleInitTimeoutMs()
-  let nnueFiles: [string, string] | null = null
-  const progress = new Map<string, { loaded: number; total: number }>()
-  const reportProgress = (
-    file: string,
-    loaded: number,
-    total: number | null,
-  ) => {
-    progress.set(file, { loaded, total: total ?? loaded })
-    let sum = { loaded: 0, total: 0 }
-    progress.forEach((p) => {
-      sum = { loaded: sum.loaded + p.loaded, total: sum.total + p.total }
-    })
-    onDownloadProgress?.(sum)
-  }
+  const build = hasRelaxedSimd()
+    ? 'sf_19_smallnet_relaxed-simd'
+    : 'sf_19_smallnet'
 
-  void storage.requestPersistentStorage().catch((error) => {
-    console.warn('Failed to request persistent storage for Stockfish:', error)
+  onPhaseChange?.('loading-module')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const makeModule: any = await import(
+    /* webpackIgnore: true */ `${STOCKFISH_BASE}/${build}.js`
+  ).catch((error) => {
+    throw new StockfishFileError(String(error))
   })
+  const instance: StockfishWeb = await withTimeout(
+    makeModule.default({
+      wasmMemory: sharedWasmMemory(STOCKFISH_INITIAL_MEMORY_PAGES),
+      locateFile: (name: string) => `${STOCKFISH_BASE}/${name}`,
+    }),
+    moduleInitTimeoutMs,
+    `Stockfish module initialization timed out after ${moduleInitTimeoutMs}ms`,
+  )
 
-  const createInstance = async (): Promise<StockfishWeb> => {
-    onPhaseChange?.('loading-module')
-    return withTimeout(
-      makeModule.default({
-        wasmMemory: sharedWasmMemory(2560),
-        locateFile: (name: string) => `/stockfish/${name}`,
-      }),
-      moduleInitTimeoutMs,
-      `Stockfish module initialization timed out after ${moduleInitTimeoutMs}ms`,
-    )
+  onPhaseChange?.('loading-nnue')
+  const net = instance.getRecommendedNnue(0)
+  const response = await withTimeout(
+    fetch(`${STOCKFISH_BASE}/${net}`),
+    timeoutMs,
+    `Timed out fetching Stockfish's net ${net}`,
+  ).catch((error) => {
+    throw new StockfishFileError(String(error))
+  })
+  if (!response.ok) {
+    throw new StockfishFileError(`${net}: HTTP ${response.status}`)
   }
+  setNnueBuffer(instance, await response.arrayBuffer(), 0)
 
-  const loadWeightsIntoInstance = async (
-    instance: StockfishWeb,
-    forceRefresh = false,
-  ): Promise<void> => {
-    if (!nnueFiles) {
-      throw new Error('Stockfish recommended NNUE files were not initialized')
-    }
+  removeOldNets()
+  return instance
+}
 
-    let downloadStarted = false
-    const load = (file: string) =>
-      loadNnueModel(
-        file,
-        storage,
-        (signal) => {
-          if (!downloadStarted) {
-            downloadStarted = true
-            onPhaseChange?.('downloading-nnue')
-          }
-          return downloadNnue(file, sources, {
-            signal,
-            headerTimeoutMs: timeoutMs,
-            onProgress: (loaded, total) => reportProgress(file, loaded, total),
-          })
-        },
-        forceRefresh,
-      )
-
-    onPhaseChange?.('checking-cache')
-    const buffers = await Promise.all([load(nnueFiles[0]), load(nnueFiles[1])])
-
-    onPhaseChange?.('loading-nnue')
-    setNnueBuffer(instance, buffers[0], 0)
-    setNnueBuffer(instance, buffers[1], 1)
-  }
-
+// Stockfish 17's nets, 78 MB of a returning visitor's storage.
+const removeOldNets = () => {
   try {
-    let instance = await withPthreadPoolCap(createInstance)
-    nnueFiles = [instance.getRecommendedNnue(0), instance.getRecommendedNnue(1)]
-
-    try {
-      await loadWeightsIntoInstance(instance)
-    } catch (error) {
-      if (!shouldRetryNnueLoad(error)) {
-        throw error
-      }
-
-      console.warn(
-        'Stockfish NNUE load failed; clearing cached weights and retrying once.',
-        error,
-      )
-      await Promise.all(
-        nnueFiles.flatMap((file) => [
-          storage.deleteModel(file),
-          storage.deleteModel(legacyNetCacheKey(file)),
-        ]),
-      )
-
-      instance = await withPthreadPoolCap(createInstance)
-      await loadWeightsIntoInstance(instance, true)
-    }
-
-    return instance
-  } catch (error) {
-    console.error('Failed to load NNUE models:', error)
-    throw error
+    indexedDB.deleteDatabase('StockfishModels')
+  } catch {
+    // Without IndexedDB there is nothing to remove.
   }
 }
 

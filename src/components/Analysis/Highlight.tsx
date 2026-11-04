@@ -379,7 +379,7 @@ export const Highlight: React.FC<Props> = ({
   const useCompactMobileColumnTitles = isMobile || simplified
   const maiaRating = currentMaiaModel.replace('maia_kdd_', '')
   const mobileMaiaColumnTitle = `Maia-3 ${maiaRating}: Human Moves`
-  const mobileStockfishColumnTitle = 'SF 17: Engine Moves'
+  const mobileStockfishColumnTitle = 'SF 19: Engine Moves'
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
   const compactTitleTextClass = 'text-sm font-semibold leading-none'
@@ -601,7 +601,7 @@ export const Highlight: React.FC<Props> = ({
               <span className="leading-none">
                 {useCompactMobileColumnTitles
                   ? mobileStockfishColumnTitle
-                  : 'Stockfish 17'}
+                  : 'Stockfish 19'}
               </span>
               {stockfishDepthLabel && (
                 <span className="text-[10px] font-normal leading-none text-engine-2/75 md:text-[9px] lg:text-[10px]">

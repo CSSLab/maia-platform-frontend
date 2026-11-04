@@ -1,14 +1,11 @@
 import { Chess } from 'chess.ts'
 import Engine, {
-  legacyNetCacheKey,
-  loadNnueModel,
   sharedWasmMemory,
   STOCKFISH_MAX_MEMORY_PAGES,
 } from './stockfish'
-import { StockfishModelStorage } from './stockfishStorage'
 
 /**
- * A small stand-in for lila-stockfish-web: UCI commands run in order on a
+ * A small stand-in for @lichess-org/stockfish-web: UCI commands run in order on a
  * "UCI thread"; `go` searches one depth per timer tick; like Stockfish,
  * `ucinewgame`, `setoption` and `position` wait for a running search to end,
  * while `isready` and `stop` do not.
@@ -326,140 +323,6 @@ describe('Stockfish Engine run hand-over', () => {
   })
 })
 
-describe('loadNnueModel', () => {
-  const FILE = 'nn-test.nnue'
-  const cachedNet = new ArrayBuffer(8)
-  const downloadedNet = new ArrayBuffer(16)
-  let signal: AbortSignal | undefined
-
-  const later = <T>(ms: number, value: T) =>
-    new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
-  // A cached net found by the storage: reading it takes `readMs`.
-  const found = (net: ArrayBuffer, readMs = 0) =>
-    ({ arrayBuffer: () => later(readMs, net) }) as unknown as Blob
-  const storage = (findModel: (key: string) => Promise<Blob | null>) => {
-    const storeModel = jest.fn(async () => undefined)
-    return {
-      storage: { findModel, storeModel } as unknown as StockfishModelStorage,
-      storeModel,
-    }
-  }
-  // A download that finishes after `ms`, or fails if aborted first.
-  const mockDownload = (ms: number, fail = false) =>
-    jest.fn((s?: AbortSignal) => {
-      signal = s
-      return new Promise<ArrayBuffer>((resolve, reject) => {
-        s?.addEventListener('abort', () =>
-          reject(new DOMException('aborted', 'AbortError')),
-        )
-        setTimeout(
-          () =>
-            fail
-              ? reject(new TypeError('network error'))
-              : resolve(downloadedNet),
-          ms,
-        )
-      })
-    })
-
-  beforeEach(() => {
-    jest.useFakeTimers()
-    signal = undefined
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
-  })
-  afterEach(() => {
-    jest.useRealTimers()
-    jest.restoreAllMocks()
-  })
-
-  it('keeps a cached net that is read after the lookup timeout, and stops the download', async () => {
-    const download = mockDownload(60000)
-    const { storage: s, storeModel } = storage(() =>
-      later(4000, found(cachedNet)),
-    )
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(1600)
-    expect(download).toHaveBeenCalledTimes(1)
-    await jest.advanceTimersByTimeAsync(2500)
-    await expect(net).resolves.toBe(cachedNet)
-    expect(signal?.aborted).toBe(true)
-    expect(storeModel).not.toHaveBeenCalled()
-  })
-
-  it('does not count time the page is too busy to take the answer', async () => {
-    jest.useRealTimers()
-    const download = mockDownload(500)
-    const { storage: s } = storage(() => later(1550, found(cachedNet)))
-    const net = loadNnueModel(FILE, s, download)
-    // A long task that outlasts the lookup timeout, with the answer behind it.
-    const busyUntil = Date.now() + 1700
-    while (Date.now() < busyUntil) {
-      // busy
-    }
-    await expect(net).resolves.toBe(cachedNet)
-    expect(download).not.toHaveBeenCalled()
-  })
-
-  it('downloads the net when the cache never answers', async () => {
-    const download = mockDownload(500)
-    const { storage: s, storeModel } = storage(() => new Promise(() => null))
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(2100)
-    await expect(net).resolves.toBe(downloadedNet)
-    expect(storeModel).toHaveBeenCalledWith(FILE, downloadedNet)
-  })
-
-  it('downloads at once when the net is not cached', async () => {
-    const download = mockDownload(500)
-    const { storage: s } = storage(() => later(10, null))
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(25)
-    expect(download).toHaveBeenCalledTimes(1)
-    await jest.advanceTimersByTimeAsync(500)
-    await expect(net).resolves.toBe(downloadedNet)
-  })
-
-  it('uses the cached net when the download fails while the cache is slow', async () => {
-    const { storage: s } = storage(() => later(3000, found(cachedNet)))
-    const net = loadNnueModel(FILE, s, mockDownload(100, true))
-    await jest.advanceTimersByTimeAsync(3100)
-    await expect(net).resolves.toBe(cachedNet)
-  })
-
-  it('waits for a found net that is slow to read, without downloading', async () => {
-    const download = mockDownload(500)
-    const { storage: s } = storage(() => later(10, found(cachedNet, 8000)))
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(8100)
-    await expect(net).resolves.toBe(cachedNet)
-    expect(download).not.toHaveBeenCalled()
-  })
-
-  it('downloads a found net that cannot be read within 20 s', async () => {
-    const download = mockDownload(500)
-    const neverRead = {
-      arrayBuffer: () => new Promise(() => undefined),
-    } as unknown as Blob
-    const { storage: s } = storage(() => later(10, neverRead))
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(19000)
-    expect(download).not.toHaveBeenCalled()
-    await jest.advanceTimersByTimeAsync(1600)
-    await expect(net).resolves.toBe(downloadedNet)
-  })
-
-  it('uses a net cached under its old raw.githubusercontent.com URL', async () => {
-    const download = mockDownload(500)
-    const { storage: s } = storage((key) =>
-      later(10, key === legacyNetCacheKey(FILE) ? found(cachedNet) : null),
-    )
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(25)
-    await expect(net).resolves.toBe(cachedNet)
-    expect(download).not.toHaveBeenCalled()
-  })
-})
-
 describe('sharedWasmMemory', () => {
   const NativeMemory = WebAssembly.Memory
   afterEach(() => {
@@ -481,18 +344,18 @@ describe('sharedWasmMemory', () => {
     return asked
   }
 
-  it('reserves at most 1 GB', () => {
+  it('reserves at most 256 MB', () => {
     const asked = fakeMemory(Infinity)
     sharedWasmMemory(2560)
-    expect(STOCKFISH_MAX_MEMORY_PAGES * 64 * 1024).toBe(2 ** 30)
+    expect(STOCKFISH_MAX_MEMORY_PAGES * 64 * 1024).toBe(2 ** 28)
     expect(asked).toEqual([
       { shared: true, initial: 2560, maximum: STOCKFISH_MAX_MEMORY_PAGES },
     ])
   })
 
   it('asks for less when the browser cannot reserve the maximum', () => {
-    const asked = fakeMemory(8192)
-    sharedWasmMemory(2560)
-    expect(asked.map((d) => d.maximum)).toEqual([16384, 12288, 8192])
+    const asked = fakeMemory(2048)
+    sharedWasmMemory(1024)
+    expect(asked.map((d) => d.maximum)).toEqual([4096, 3072, 2048])
   })
 })

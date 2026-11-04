@@ -60,13 +60,6 @@ const getStockfishLoadingLabel = (
   engine: Engine | null,
   debugLoadingEnabled: boolean,
 ): string => {
-  const progress = engine?.initializationProgress
-  if (progress && progress.total > 0) {
-    const percent = Math.floor((100 * progress.loaded) / progress.total)
-    const megabytes = Math.round(progress.total / 1e6)
-    return `Downloading Stockfish... ${percent}% of ${megabytes} MB`
-  }
-
   if (!debugLoadingEnabled) {
     return 'Loading Stockfish...'
   }
@@ -74,12 +67,8 @@ const getStockfishLoadingLabel = (
   if (!engine) return 'Loading Stockfish...'
 
   switch (engine.initializationPhase) {
-    case 'checking-cache':
-      return 'Checking local Stockfish cache...'
-    case 'downloading-nnue':
-      return 'Downloading Stockfish model weights...'
     case 'loading-nnue':
-      return 'Loading Stockfish from local cache...'
+      return 'Loading Stockfish model weights...'
     case 'loading-module':
       return 'Starting Stockfish engine...'
     default:
@@ -969,9 +958,9 @@ export const StockfishEngineContext = React.createContext<StockfishEngine>({
 
 export const StockfishEngineContextProvider: React.FC<{
   children: ReactNode
-  // Start the engine once the page has loaded instead of as it renders, so
-  // its 76 MB first download (or its cache read) doesn't compete with the
-  // page, on pages that need Stockfish only after a while.
+  // Start the engine once the page has loaded instead of as it renders, so it
+  // doesn't compete with the page, on pages that need Stockfish only after a
+  // while.
   deferStart?: boolean
 }> = ({ children, deferStart = false }) => {
   const engineRef = useRef<Engine | null>(null)
