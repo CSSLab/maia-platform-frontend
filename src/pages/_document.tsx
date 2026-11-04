@@ -41,6 +41,13 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        {/* For public/phone-lab.html: not for merging. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(window.parent!==window&&window.parent.__phoneLab)window.parent.__phoneLab(window)}catch(e){}',
+          }}
+        />
         <script dangerouslySetInnerHTML={{ __html: EARLY_REQUESTS }} />
       </Head>
       <body>

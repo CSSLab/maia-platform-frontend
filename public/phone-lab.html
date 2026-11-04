@@ -1,0 +1,384 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone lab</title>
+<style>
+  :root { --bg: #fff; --fg: #111; --soft: #f1f1f1; --line: #ccc; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; --soft: #222; --line: #444; } }
+  html, body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 -apple-system, system-ui, sans-serif; }
+  #top { padding: 12px 16px; }
+  h3 { margin: 0 0 4px; }
+  p { margin: 4px 0 8px; }
+  label { display: block; padding: 3px 0; }
+  button { font: inherit; padding: 10px 14px; margin: 4px 8px 4px 0; }
+  #status { font-weight: 600; margin: 6px 0; }
+  pre { white-space: pre-wrap; word-break: break-word; background: var(--soft); padding: 10px; margin: 8px 16px; border-radius: 6px; font-size: 12px; }
+  iframe { width: 100%; height: 72vh; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: block; }
+</style>
+</head>
+<body>
+<div id="top">
+  <h3>Phone lab: <span id="which"></span></h3>
+  <p>Use Wi-Fi and close other tabs. Keep this tab in front and don't touch the page while it runs. Plug in if you can. It's fine if the page reloads: tap Run again to carry on.</p>
+  <div id="tests"></div>
+  <button id="run">Run</button><button id="copy">Copy results</button><button id="clear">Clear results</button>
+  <div id="status"></div>
+</div>
+<div id="frame"></div>
+<pre id="log"></pre>
+<script>
+const $ = (id) => document.getElementById(id)
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const med = (a) => { const b = a.filter((x) => x != null).sort((x, y) => x - y); return b.length ? b[Math.floor((b.length - 1) / 2)] : null }
+const sec = (x) => (x == null ? '-' : (x / 1000).toFixed(2))
+const STORE = 'phone-lab-v1'
+const GAMES = ['G3MXUHW9', 'YQC4zrpR']
+const FENS = ['r1bqkb1r/pp2pppp/2n2n2/2p5/2Pp4/4PNP1/PP1P1PBP/RNBQK2R w KQkq - 0 6', '2rq1rk1/1b1n1pp1/1p2pn1p/p7/2PQ4/P4NP1/1B2PPBP/R2R2K1 w - - 1 16', '8/4n1pp/3bkp2/1pn1p3/4P3/1P1NNP2/1B2K1PP/8 w - - 2 30']
+let state = { results: {}, running: null, order: [], hidden: 0 }
+try { state = { ...state, ...JSON.parse(localStorage.getItem(STORE) || '{}') } } catch (e) {}
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)) } catch (e) {} }
+let isNew = false
+
+// ── Runs inside each framed page, before its own scripts (see _document.tsx) ──
+window.__phoneLab = (w) => {
+  const P = (w.__probe = { tl: {}, lag: { n: 0, over50: 0, over100: 0, max: 0 }, frames: { n: 0, over50: 0, over100: 0, max: 0 }, errors: [], memories: [], lines: '', linesAt: 0, chartAt: null, chartN: 0, depth: null, maia: '', board: null, posKey: '', mark(k) { if (P.tl[k] == null) P.tl[k] = w.performance.now() } })
+  const NativeFetch = w.fetch.bind(w)
+  w.fetch = async (input, init) => {
+    const url = typeof input === 'string' ? input : (input && input.url) || String(input)
+    // Keep the shared analysis out: the engines must run, and test results must not be stored.
+    if (url.includes('/analysis/store_engine_analysis/')) return new w.Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })
+    if (url.includes('/ingest/')) return new w.Response(null, { status: 204 })
+    if (url.includes('/analysis/get_engine_analysis/')) {
+      const real = await NativeFetch(input, init).catch(() => null)
+      if (real) await real.text().catch(() => '')
+      return new w.Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })
+    }
+    return NativeFetch(input, init)
+  }
+  const NativeMemory = w.WebAssembly.Memory
+  w.WebAssembly.Memory = function Memory(d) { const m = new NativeMemory(d); if (d && d.shared) P.memories.push(m); return m }
+  w.WebAssembly.Memory.prototype = NativeMemory.prototype
+  const nativeError = w.console.error.bind(w.console)
+  w.console.error = (...a) => { const t = a.map(String).join(' '); if (/memory|Failed to|abort|RangeError/i.test(t) && P.errors.length < 6) P.errors.push(t.slice(0, 160)); nativeError(...a) }
+  w.addEventListener('error', (e) => { if (P.errors.length < 6) P.errors.push(String(e.message).slice(0, 160)) })
+  const snap = () => {
+    const d = w.document
+    if (P.board == null && d.querySelector('cg-board piece')) P.mark('board')
+    const hl = d.querySelector('#analysis-highlight')
+    if (hl) {
+      let depth = null
+      for (const s of hl.querySelectorAll('span')) { const m = /^d(\d+)$/.exec(s.textContent.trim()); if (m) depth = +m[1] }
+      if (depth !== P.depth) { P.depth = depth; P.depthAt = w.performance.now() }
+      if (depth != null) { P.mark('sfFirst'); if (depth >= 12) P.mark('d12'); if (depth >= 18) P.mark('d18') }
+      const maia = [...hl.querySelectorAll('button.text-human-1')].map((b) => b.textContent.trim()).join(' ')
+      if (maia && maia !== P.maia) { P.maiaAt = w.performance.now(); P.mark('maia') }
+      P.maia = maia
+      const lines = (hl.textContent.match(/[+-]\d+\.\d+|[+-]?M\d+/g) || []).join(' ')
+      if (lines !== P.lines) { P.lines = lines; P.linesAt = w.performance.now() }
+    }
+    const chart = [...d.querySelectorAll('#analysis-moves-by-rating')].find((c) => c.offsetParent !== null)
+    if (chart) {
+      const curves = [...chart.querySelectorAll('path.recharts-area-curve')].map((p) => p.getAttribute('d')).join('|')
+      if (curves && curves !== P.curves) { P.curves = curves; P.chartAt = w.performance.now(); P.chartN++; P.mark('chart') }
+    }
+    const pieces = [...d.querySelectorAll('cg-board piece')].filter((p) => !p.classList.contains('fading') && !p.classList.contains('ghost')).map((p) => p.cgKey + p.className).sort().join()
+    if (pieces !== P.posKey) { P.posKey = pieces; P.posAt = w.performance.now() }
+  }
+  let last = w.performance.now()
+  w.setInterval(() => {
+    const now = w.performance.now(), over = now - last - 50
+    last = now; P.lag.n++
+    if (over > 50) P.lag.over50++
+    if (over > 100) P.lag.over100++
+    if (over > P.lag.max) P.lag.max = over
+    snap()
+  }, 50)
+  let lastF = 0
+  const frame = (t) => {
+    if (lastF) { const g = t - lastF; P.frames.n++; if (g > 50) P.frames.over50++; if (g > 100) P.frames.over100++; if (g > P.frames.max) P.frames.max = g }
+    lastF = t
+    w.requestAnimationFrame(frame)
+  }
+  w.requestAnimationFrame(frame)
+}
+
+// ── Frames ──
+let frame = null
+const openFrame = (path) => new Promise((resolve) => {
+  $('frame').innerHTML = ''
+  frame = document.createElement('iframe')
+  frame.onload = () => resolve(frame)
+  frame.src = path
+  $('frame').appendChild(frame)
+  setTimeout(() => resolve(frame), 15000)
+})
+const closeFrame = () => { $('frame').innerHTML = ''; frame = null }
+const probe = () => (frame && frame.contentWindow && frame.contentWindow.__probe) || null
+const fw = () => frame.contentWindow
+const clickDownload = () => {
+  const b = [...fw().document.querySelectorAll('button, [role="button"]')].find((x) => /Download Maia/.test(x.textContent))
+  if (b) { b.click(); return true }
+  return false
+}
+const lagOf = (l) => ({ busy50: l.over50, busy100: l.over100, max: Math.round(l.max) })
+const untilSettled = async (limit, needDepth = 18, quiet = 2500) => {
+  const start = performance.now()
+  let lastClick = 0
+  while (performance.now() - start < limit) {
+    await sleep(100)
+    const P = probe()
+    if (!P) continue
+    // The button ignores taps until the page has started: keep trying until it goes.
+    if (performance.now() - lastClick > 1000 && fw().document && clickDownload()) { lastClick = performance.now(); if (P.clicked == null) P.clicked = fw().performance.now() }
+    if (P.tl.d18 != null && P.tl.maia != null && P.tl.chart != null && fw().performance.now() - Math.max(P.linesAt, P.chartAt || 0) > quiet) return true
+  }
+  return false
+}
+const analysisUrl = (g) => '/analysis/' + g + '/lichess'
+const loadRow = (P, extra) => ({ board: P.tl.board, maia: P.tl.maia, sf: P.tl.sfFirst, d12: P.tl.d12, d18: P.tl.d18, chart: P.tl.chart, settled: Math.max(P.linesAt || 0, P.chartAt || 0), lag: lagOf(P.lag), frames: lagOf(P.frames), mem: Math.round(Math.max(0, ...P.memories.map((m) => m.buffer.byteLength)) / 1e6), errors: P.errors.slice(0, 3), ...extra })
+
+// ── Tests ──
+const TESTS = {
+  first: { label: 'First visit to this preview (one load, downloads the engines)', run: async () => {
+    await openFrame(analysisUrl(GAMES[0]))
+    const ok = await untilSettled(240000)
+    const P = probe()
+    const row = loadRow(P, { ok, downloadClicked: P.clicked != null })
+    closeFrame()
+    return `first visit (Maia download tapped automatically: ${row.downloadClicked}), ok ${ok}\n  board ${sec(row.board)} Maia ${sec(row.maia)} SF ${sec(row.sf)} d12 ${sec(row.d12)} d18 ${sec(row.d18)} chart ${sec(row.chart)} settled ${sec(row.settled)}\n  ${row.errors.join(' ; ')}`
+  } },
+  load: { label: 'Analysis page, return visits (2 games, 3 each)', run: async () => {
+    const rows = []
+    for (let r = 0; r < 3; r++) for (const g of GAMES) {
+      status('return visit ' + (rows.length + 1) + ' of 6')
+      await openFrame(analysisUrl(g))
+      const ok = await untilSettled(90000)
+      rows.push(loadRow(probe(), { ok }))
+      closeFrame()
+      await sleep(1500)
+    }
+    const col = (k) => `${k} ${sec(med(rows.map((x) => x[k])))} [${rows.map((x) => sec(x[k])).join(' ')}]`
+    return ['return visits, seconds, median [all]', ...['board', 'maia', 'sf', 'd12', 'd18', 'chart', 'settled'].map(col), `finished ${rows.filter((x) => x.ok).length}/6, Stockfish memory ${med(rows.map((x) => x.mem))} MB`, `main thread stalls over 100 ms per load: ${rows.map((x) => x.lag.busy100).join(' ')}; longest ${Math.max(...rows.map((x) => x.lag.max))} ms; frames over 100 ms: ${rows.map((x) => x.frames.busy100).join(' ')}`, ...rows.flatMap((x) => x.errors).slice(0, 3)].join('\n')
+  } },
+  steps: { label: 'Stepping through a game (2 games, 8 moves each)', run: async () => {
+    const rows = []; const out = []
+    for (const g of GAMES) {
+      await openFrame(analysisUrl(g))
+      await untilSettled(90000)
+      const next = () => [...fw().document.querySelectorAll('button[aria-label="Next move"]')].find((b) => b.offsetParent !== null)
+      for (let i = 0; i < 8; i++) {
+        status(g + ': move ' + (i + 1) + ' of 8')
+        const P = probe(); const w = fw()
+        const posBefore = P.posKey, chartN = P.chartN, l0 = { ...P.lag }, f0 = { ...P.frames }
+        delete P.tl.d12; delete P.tl.d18; delete P.tl.sfFirst; delete P.tl.maia
+        const t0 = w.performance.now()
+        const b = next(); if (!b) break
+        b.click()
+        let shown = null, chart = null, clean = false
+        while (w.performance.now() - t0 < 7000) {
+          await sleep(25)
+          if (shown == null && P.posKey !== posBefore) { shown = P.posAt - t0; delete P.tl.d12; delete P.tl.d18; delete P.tl.sfFirst; delete P.tl.maia; clean = true }
+          if (chart == null && P.chartN > chartN) chart = P.chartAt - t0
+          if (clean && P.tl.d18 != null && w.performance.now() - Math.max(P.linesAt, P.chartAt || 0) > 1000) break
+        }
+        const rel = (x) => (x == null ? null : Math.max(0, x - t0))
+        rows.push({ shown, sf: rel(P.tl.sfFirst), maia: rel(P.tl.maia), d12: rel(P.tl.d12), d18: rel(P.tl.d18), chart, settled: rel(Math.max(P.linesAt, P.chartAt || 0)), over100: P.lag.over100 - l0.over100, fr100: P.frames.over100 - f0.over100, maxLag: Math.round(P.lag.max) })
+      }
+      closeFrame()
+      await sleep(1000)
+    }
+    const col = (k) => `${k} ${sec(med(rows.map((x) => x[k])))}`
+    out.push(`stepping, ${rows.length} moves, median seconds after tapping Next: ` + ['shown', 'maia', 'sf', 'd12', 'd18', 'chart', 'settled'].map(col).join(', '))
+    out.push(`reached d12 ${rows.filter((x) => x.d12 != null).length}, d18 ${rows.filter((x) => x.d18 != null).length} of ${rows.length} within 7 s`)
+    out.push(`d18 by move: ${rows.map((x) => sec(x.d18)).join(' ')}`)
+    out.push(`main thread stalls over 100 ms per move: ${rows.map((x) => x.over100).join(' ')}; frames over 100 ms: ${rows.map((x) => x.fr100).join(' ')}`)
+    return out.join('\n')
+  } },
+  burst: { label: 'Tapping Next quickly (10 taps, 3 times)', run: async () => {
+    const rows = []
+    await openFrame(analysisUrl(GAMES[1]))
+    await untilSettled(90000)
+    for (let r = 0; r < 3; r++) {
+      status('burst ' + (r + 1) + ' of 3')
+      const P = probe(), w = fw()
+      const l0 = { ...P.lag }, f0 = { ...P.frames }
+      const next = () => [...w.document.querySelectorAll('button[aria-label="Next move"]')].find((b) => b.offsetParent !== null)
+      for (let i = 0; i < 10; i++) { const b = next(); if (b) b.click(); await sleep(150) }
+      const t0 = w.performance.now()
+      // Past the last tap's own position change, so that nothing older counts.
+      await sleep(100)
+      delete P.tl.d12; delete P.tl.maia; P.maia = ''
+      const s = w.performance.now()
+      while (w.performance.now() - s < 8000 && !(P.tl.d12 != null && P.tl.maia != null)) await sleep(50)
+      rows.push({ d12: P.tl.d12 == null ? null : P.tl.d12 - t0, maia: P.tl.maia == null ? null : P.tl.maia - t0, stalls: P.lag.over100 - l0.over100, frames: P.frames.over100 - f0.over100, max: Math.round(P.lag.max) })
+      await sleep(1500)
+    }
+    closeFrame()
+    return `after 10 quick taps, seconds from the last tap: Maia ${rows.map((x) => sec(x.maia)).join(' ')} | d12 ${rows.map((x) => sec(x.d12)).join(' ')}\n  main thread stalls over 100 ms: ${rows.map((x) => x.stalls).join(' ')}; frames over 100 ms: ${rows.map((x) => x.frames).join(' ')}; longest stall ${Math.max(...rows.map((x) => x.max))} ms`
+  } },
+  reload: { label: 'Reloading the page (10 times, checks the engines come back)', run: async () => {
+    await openFrame(analysisUrl(GAMES[0]))
+    await untilSettled(90000)
+    const rows = []
+    for (let r = 0; r < 10; r++) {
+      status('reload ' + (r + 1) + ' of 10')
+      await new Promise((res) => { frame.onload = res; setTimeout(res, 15000); fw().location.reload() })
+      const s = performance.now()
+      let P
+      while (performance.now() - s < 30000) { await sleep(100); P = probe(); if (P && P.tl.sfFirst != null && P.tl.maia != null) break }
+      P = probe()
+      rows.push({ sf: P && P.tl.sfFirst, maia: P && P.tl.maia, errors: P ? P.errors.slice(0, 2) : ['no page'] })
+      await sleep(1000)
+    }
+    closeFrame()
+    const bad = rows.filter((x) => x.sf == null || x.maia == null)
+    return `reloads: both engines back ${rows.length - bad.length}/10\n  SF first ${rows.map((x) => sec(x.sf)).join(' ')}\n  Maia ${rows.map((x) => sec(x.maia)).join(' ')}\n  ${[...new Set(rows.flatMap((x) => x.errors))].slice(0, 3).join(' ; ')}`
+  } },
+  pages: { label: 'Other pages: home, /play, /puzzles (3 loads each)', run: async () => {
+    const out = []
+    for (const [path, ready] of [['/', null], ['/play', 'button[title="Play as white"]'], ['/puzzles', 'cg-board piece']]) {
+      const rows = []
+      for (let r = 0; r < 3; r++) {
+        status(path + ' load ' + (r + 1) + ' of 3')
+        await openFrame(path)
+        const s = performance.now(); let at = null
+        while (performance.now() - s < 8000) {
+          await sleep(50)
+          try { if (at == null && ready && fw().document.querySelector(ready)) at = fw().performance.now() } catch (e) {}
+        }
+        const w = fw(), P = probe()
+        const fcp = w.performance.getEntriesByType('paint').find((e) => e.name === 'first-contentful-paint')
+        rows.push({ fcp: fcp ? fcp.startTime : null, ready: at, stalls: P ? P.lag.over100 : null, frames: P ? P.frames.over100 : null })
+        closeFrame()
+        await sleep(800)
+      }
+      out.push(`${path}: first paint ${sec(med(rows.map((x) => x.fcp)))}${ready ? ', ready ' + sec(med(rows.map((x) => x.ready))) : ''}, stalls over 100 ms in 8 s ${rows.map((x) => x.stalls).join(' ')}, frames over 100 ms ${rows.map((x) => x.frames).join(' ')}`)
+    }
+    return out.join('\n')
+  } },
+  heat: { label: 'Stockfish flat out for 2 minutes (does the phone slow down?)', run: async () => {
+    const { sf } = await makeEngine()
+    const buckets = {}; const t0 = performance.now(); let i = 0
+    while (performance.now() - t0 < 120000) {
+      status('heat test: ' + Math.round((performance.now() - t0) / 1000) + ' s of 120')
+      const r = await search(sf, FENS[i++ % FENS.length], 16)
+      const b = Math.floor((performance.now() - t0) / 20000)
+      ;(buckets[b] ||= []).push(r.nps)
+    }
+    sf.uci('quit')
+    return 'Stockfish speed every 20 s, thousand positions a second: ' + Object.keys(buckets).map((k) => Math.round(med(buckets[k]) / 1000)).join(' ')
+  } },
+  gpu: { label: 'Maia on WebGPU vs WebAssembly, fair test (new code only)', newOnly: true, run: async () => {
+    const a = navigator.gpu ? await navigator.gpu.requestAdapter() : null
+    if (!a || !a.features.has('shader-f16')) return 'WebGPU with 16-bit floats: not available here'
+    const { sf } = await makeEngine()
+    const workers = {}
+    for (const ep of ['webgpu', 'wasm']) {
+      status('starting Maia on ' + ep)
+      const w = new Worker('/phone-lab-worker.js')
+      const s = await new Promise((res, rej) => { w.onerror = (e) => rej(new Error(e.message)); w.onmessage = ({ data }) => (data.type === 'started' ? res(data) : data.type === 'error' && rej(new Error(data.message))); w.postMessage({ type: 'start', ep }) })
+      workers[ep] = { w, s }
+    }
+    const task = (ep) => new Promise((res, rej) => { const w = workers[ep].w; w.onmessage = ({ data }) => (data.type === 'done' ? res(data) : data.type === 'error' && rej(new Error(data.message))); w.postMessage({ type: 'task' }) })
+    const R = { none: [], wasm: [], webgpu: [] }, M = { wasm: [], webgpu: [] }
+    // Mirrored order, so that a warming phone counts against each the same.
+    const order = ['none', 'wasm', 'webgpu', 'none', 'webgpu', 'wasm', 'none', 'wasm', 'webgpu', 'none', 'webgpu', 'wasm', 'none']
+    let n = 0
+    for (const c of order) for (const fen of FENS) {
+      status('fair test ' + ++n + ' of ' + order.length * 3 + ' (' + c + ')')
+      const job = c === 'none' ? null : task(c)
+      const r = await search(sf, fen, 18)
+      if (job) M[c].push(await job)
+      R[c].push(r.d18)
+      await sleep(300)
+    }
+    Object.values(workers).forEach(({ w }) => w.terminate())
+    sf.uci('quit')
+    const line = (c) => `${c}: Stockfish d18 median ${Math.round(med(R[c]))} ms, sum ${Math.round(R[c].reduce((p, x) => p + x, 0))} ms` + (M[c] ? `; Maia one rating ${Math.round(med(M[c].map((x) => x.one)))} ms, both done ${Math.round(med(M[c].map((x) => x.all)))} ms` : '')
+    return ['Stockfish with Maia doing one move\'s work beside it:', line('none'), line('wasm'), line('webgpu'), `start: webgpu create ${Math.round(workers.webgpu.s.create)} first ${Math.round(workers.webgpu.s.first)}; wasm create ${Math.round(workers.wasm.s.create)} first ${Math.round(workers.wasm.s.first)} ms`].join('\n')
+  } },
+}
+
+// ── An engine in this page, for the tests without the site ──
+const NET_HOSTS = ['https://unpkg.com/maia-stockfish-nets@17.0.0/', 'https://cdn.jsdelivr.net/npm/maia-stockfish-nets@17.0.0/']
+const until = (sf, cmd, pred, each) => new Promise((res) => { sf.onLine = (l) => { if (each) each(l); if (pred(l)) res() }; sf.uci(cmd) })
+async function makeEngine() {
+  const relaxed = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,15,1,13,0,65,1,253,15,65,2,253,15,253,128,2,11]))
+  const dir = '/stockfish/'
+  const build = isNew ? (relaxed ? 'sf_19_smallnet_relaxed-simd' : 'sf_19_smallnet') : 'sf17-79'
+  const mod = await import(dir + build + '.js')
+  const memory = new WebAssembly.Memory(isNew ? { shared: true, initial: 1024, maximum: 4096 } : { shared: true, initial: 2560, maximum: 16384 })
+  const sf = await mod.default({ wasmMemory: memory, locateFile: (n) => dir + n })
+  const names = isNew ? [sf.getRecommendedNnue(0)] : [sf.getRecommendedNnue(0), sf.getRecommendedNnue(1)]
+  const load = async (n) => {
+    if (isNew) return new Uint8Array(await (await fetch('/stockfish/' + n)).arrayBuffer())
+    for (const h of NET_HOSTS) { try { const r = await fetch(h + n); if (r.ok) return new Uint8Array(await r.arrayBuffer()) } catch (e) {} }
+    throw new Error('could not download ' + n)
+  }
+  const nets = await Promise.all(names.map(load))
+  nets.forEach((b, i) => { sf.HEAPU8 = new Uint8Array(memory.buffer); sf.setNnueBuffer(b, i) })
+  sf.onLine = () => {}
+  sf.listen = (l) => sf.onLine(l.trim())
+  await until(sf, 'uci', (l) => l === 'uciok')
+  await until(sf, 'isready', (l) => l === 'readyok')
+  return { sf, memory }
+}
+async function search(sf, fen, depth) {
+  sf.uci('ucinewgame'); await until(sf, 'isready', (l) => l === 'readyok')
+  sf.uci('position fen ' + fen)
+  const s = performance.now(); let d18 = null, nps = 0
+  await until(sf, 'go depth ' + depth, (l) => l.startsWith('bestmove'), (l) => { const m = /^info depth (\d+) /.exec(l); if (m && !/bound/.test(l)) { if (+m[1] >= depth) d18 = performance.now() - s; const n = / nps (\d+)/.exec(l); if (n) nps = +n[1] } })
+  return { d18, nps }
+}
+
+// ── The page ──
+const status = (s) => { $('status').textContent = s }
+const render = () => {
+  const head = [`${isNew ? 'NEW CODE (Stockfish 19)' : "TODAY'S CODE (Stockfish 17)"}`, navigator.userAgent, `cores ${navigator.hardwareConcurrency}, isolated ${self.crossOriginIsolated}, hidden during tests: ${state.hidden}`]
+  $('log').textContent = [...head, '', ...state.order.flatMap((k) => ['== ' + k, state.results[k], ''])].join('\n')
+}
+const boot = async () => {
+  isNew = (await fetch('/stockfish/sf_19_smallnet.js', { method: 'HEAD' })).ok
+  $('which').textContent = isNew ? 'new code' : "today's code"
+  $('tests').innerHTML = Object.entries(TESTS).filter(([, t]) => !t.newOnly || isNew).map(([k, t]) => `<label><input type="checkbox" data-k="${k}" ${state.results[k] ? '' : 'checked'}> ${t.label}</label>`).join('')
+  if (state.running) {
+    state.results[state.running] = (state.results[state.running] || '') + 'THE PAGE RELOADED during this test (probably out of memory)'
+    if (!state.order.includes(state.running)) state.order.push(state.running)
+    state.running = null; save()
+    const box = document.querySelector(`input[data-k="${Object.keys(TESTS).find((k) => state.results[k] && state.results[k].includes('RELOADED'))}"]`)
+    if (box) box.checked = false
+    status('The page reloaded during a test. Tap Run to carry on with the others.')
+  }
+  render()
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden && state.running) { state.hidden++; save() } })
+$('run').onclick = async () => {
+  $('run').disabled = true
+  let lock = null
+  try { lock = await navigator.wakeLock.request('screen') } catch (e) {}
+  const keys = [...document.querySelectorAll('#tests input:checked')].map((x) => x.dataset.k)
+  for (const k of keys) {
+    state.running = k; save()
+    status(TESTS[k].label)
+    const t0 = performance.now()
+    let out
+    try { out = await TESTS[k].run() } catch (e) { out = 'FAILED: ' + String((e && e.message) || e).slice(0, 300) }
+    closeFrame()
+    state.results[k] = out + `\n  (took ${Math.round((performance.now() - t0) / 1000)} s)`
+    if (!state.order.includes(k)) state.order.push(k)
+    state.running = null; save(); render()
+    document.querySelector(`input[data-k="${k}"]`).checked = false
+    await sleep(2000)
+  }
+  if (lock) lock.release().catch(() => {})
+  $('run').disabled = false
+  status('Done. Tap Copy results and paste them to Claude.')
+}
+$('copy').onclick = () => navigator.clipboard.writeText($('log').textContent)
+$('clear').onclick = () => { state = { results: {}, running: null, order: [], hidden: 0 }; save(); boot() }
+boot()
+</script>
+</body>
+</html>
