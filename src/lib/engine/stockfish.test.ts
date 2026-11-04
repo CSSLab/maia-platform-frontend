@@ -23,6 +23,8 @@ class FakeStockfish {
   private stopRequested = false
   private multiPv = 1
   private legalMoves: string[] = []
+  /** The score of a search with one line, when it differs from the others'. */
+  singleLineCp: number | null = null
 
   uci(command: string) {
     this.log.push(command)
@@ -85,7 +87,7 @@ class FakeStockfish {
       await new Promise((r) => setTimeout(r, 2))
       moves.forEach((move, i) =>
         this.emit(
-          `info depth ${d} seldepth ${d} multipv ${i + 1} score cp ${50 - i * 10} nodes 100 nps 1000 time 1 pv ${move}`,
+          `info depth ${d} seldepth ${d} multipv ${i + 1} score cp ${!searchMove && moves.length === 1 && this.singleLineCp !== null ? this.singleLineCp : 50 - i * 10} nodes 100 nps 1000 time 1 pv ${move}`,
         ),
       )
     }
@@ -246,6 +248,65 @@ describe('Stockfish Engine run hand-over', () => {
     expect(maxDepth).toBe(8)
     expect(fake.log.filter((c) => c === 'ucinewgame')).toHaveLength(1)
     expect(fake.log).toContain('go depth 8 searchmoves g1f3')
+  })
+
+  it('takes the best line alone to the target depth before the other lines', async () => {
+    const { engine, fake } = makeEngine()
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8, {
+      maiaCandidateMoves: ['g1f3'],
+      kSf: 4,
+    })
+    await drain(run)
+
+    const searches = fake.log.filter(
+      (c) => c.startsWith('go ') || c.startsWith('setoption name MultiPV'),
+    )
+    const bestLine = searches.indexOf('setoption name MultiPV value 1')
+    expect(searches[bestLine + 1]).toBe('go depth 8')
+    expect(searches.indexOf('go depth 4')).toBeLessThan(bestLine)
+    expect(searches.indexOf('go depth 8 searchmoves g1f3')).toBeGreaterThan(
+      bestLine,
+    )
+    expect(searches.indexOf('setoption name MultiPV value 4')).toBeGreaterThan(
+      bestLine,
+    )
+  })
+
+  it('is partial until the last update, and its depth never falls', async () => {
+    const { engine } = makeEngine()
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8, {
+      maiaCandidateMoves: ['g1f3'],
+    })
+    const seen: { depth: number; partial?: boolean }[] = []
+    for await (const evaluation of run) seen.push(evaluation)
+
+    const depths = seen.map((e) => e.depth)
+    expect(depths).toEqual([...depths].sort((a, b) => a - b))
+    const beforeLast = seen.slice(0, -1)
+    const firstAtTarget = seen.findIndex((e) => e.depth === 8)
+    expect(firstAtTarget).toBeLessThan(seen.length - 1)
+    expect(
+      beforeLast.slice(firstAtTarget).every((e) => e.partial === true),
+    ).toBe(true)
+    expect(seen[seen.length - 1].partial).toBeUndefined()
+  })
+
+  it('keeps a shallower score from outranking the best line', async () => {
+    const { engine, fake } = makeEngine()
+    // Screening scores the first move 50; alone, at full depth, it is 20.
+    fake.singleLineCp = 20
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8)
+    const seen: {
+      model_move: string
+      model_optimal_cp: number
+      depth: number
+    }[] = []
+    for await (const evaluation of run) {
+      seen.push(evaluation)
+      if (evaluation.depth === 8) break
+    }
+    const atTarget = seen[seen.length - 1]
+    expect(atTarget.model_optimal_cp).toBe(20)
   })
 
   it('reaches the target depth after a restart for the same position', async () => {

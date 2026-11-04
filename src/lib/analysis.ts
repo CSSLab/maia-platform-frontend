@@ -146,6 +146,10 @@ export function insertBackendStockfishEvalToGameTree(
   }
 }
 
+// The most an unfinished search is saved as: enough for the move colours,
+// below any target depth, so that the page finishes it when it is next opened.
+const PARTIAL_SAVE_MAX_DEPTH = 12
+
 export const collectEngineAnalysisData = (
   gameTree: GameTree,
 ): CachedEngineAnalysisEntry[] => {
@@ -172,7 +176,11 @@ export const collectEngineAnalysisData = (
 
     if (node.analysis.stockfish) {
       position.stockfish = {
-        depth: node.analysis.stockfish.depth,
+        // An unfinished search is saved, but not as done: the page searches a
+        // position again only below the target depth.
+        depth: node.analysis.stockfish.partial
+          ? Math.min(node.analysis.stockfish.depth, PARTIAL_SAVE_MAX_DEPTH)
+          : node.analysis.stockfish.depth,
         cp_vec: node.analysis.stockfish.cp_vec,
         mate_vec: node.analysis.stockfish.mate_vec,
       }

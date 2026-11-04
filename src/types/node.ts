@@ -362,7 +362,8 @@ export class GameNode {
             existingPositionId &&
             incomingPositionId !== existingPositionId) ||
           (!!stockfishEval.diagnostics && !existingStockfish.diagnostics) ||
-          incomingIsLaterSameRunSnapshot
+          incomingIsLaterSameRunSnapshot ||
+          !!existingStockfish.partial
 
         if (!shouldReplaceSameDepth) {
           return

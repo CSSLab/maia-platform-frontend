@@ -837,6 +837,87 @@ class Engine {
           runContext.kSf > 0 ? runContext.kSf : 4,
         ),
       )
+      const isBlackTurn = new Chess(runContext.fen).turn() === 'b'
+      const isBetter = (a: number, b: number) => (isBlackTurn ? a < b : a > b)
+      // The depth on show only rises: the later stages restart from depth 1.
+      let shownDepth = plan.screeningDepth
+
+      // The best line alone reaches the target depth first (~1.3 s on a
+      // desktop, where the four lines below take ~4.8 s), and leaves the other
+      // stages its hash. Until they report, the screening score of a move it
+      // has passed over must not outrank it: Stockfish found no better move at
+      // this depth.
+      let bestLine: RootSearchResult | null = null
+      const capAtBestLine = (move: string) => {
+        const score = rootScores[move]
+        if (!bestLine || move === bestLine.move || !score) return
+        if (isBetter(score.cp, bestLine.cp)) {
+          rootScores[move] = {
+            depth: score.depth,
+            cp: bestLine.cp + (isBlackTurn ? 1 : -1),
+          }
+        }
+      }
+
+      if (targetDepth > plan.screeningDepth) {
+        for await (const snapshot of this.streamMultiPvSnapshots(
+          runContext,
+          targetDepth,
+          1,
+        )) {
+          if (!this.isActiveRun(runContext.positionId)) {
+            return
+          }
+
+          const line = snapshot.moves[0]
+          phaseTimesMs.multipv = snapshot.elapsedMs
+          // Below the screening depth a line knows less than the screening.
+          if (!line || snapshot.depth <= plan.screeningDepth) continue
+
+          bestLine = line
+          rootScores[line.move] = {
+            cp: line.cp,
+            depth: Math.max(rootScores[line.move]?.depth || 0, line.depth),
+            mateIn: line.mateIn,
+          }
+          movePhases[line.move] = 'multipv'
+          deepenedMoves.add(line.move)
+          markSelectionSource(line.move, 'sf-top')
+          Object.keys(rootScores).forEach(capAtBestLine)
+
+          shownDepth = Math.max(shownDepth, snapshot.depth)
+          const bestLineEval = this.buildEvaluationFromRootScores(
+            shownDepth,
+            rootScores,
+            runContext.fen,
+          )
+          bestLineEval.partial = true
+          this.attachDiagnostics(bestLineEval, {
+            runContext,
+            strategy: 'staged-root-probe',
+            targetDepth,
+            legalMoveCount: runContext.legalMoveCount,
+            phaseTimesMs,
+            rootScores,
+            movePhases,
+            moveSelectionSources,
+            moveCounts: {
+              screened: runContext.legalMoveCount,
+              deepened: deepenedMoves.size,
+              finalAtTargetDepth: Object.values(rootScores).filter(
+                (score) => score.depth >= targetDepth,
+              ).length,
+            },
+          })
+          this.maybePublishDiagnostics(
+            bestLineEval,
+            false,
+            runContext.diagnosticsToConsole,
+          )
+          yield bestLineEval
+        }
+      }
+
       // Maia's policy often arrives during the screening search (the page
       // asks for it at the same time); it is used from here on.
       this.refreshMaiaCandidates(runContext)
@@ -884,12 +965,15 @@ class Engine {
           }
           movePhases[move] = 'deep'
           deepenedMoves.add(move)
+          capAtBestLine(move)
 
+          shownDepth = Math.max(shownDepth, maiaMidDepth)
           const maiaMidEval = this.buildEvaluationFromRootScores(
-            maiaMidDepth,
+            shownDepth,
             rootScores,
             runContext.fen,
           )
+          maiaMidEval.partial = true
           this.attachDiagnostics(maiaMidEval, {
             runContext,
             strategy: 'staged-root-probe',
@@ -928,6 +1012,9 @@ class Engine {
         phaseTimesMs.multipv = multipvSnapshot.elapsedMs
         for (const score of multipvSnapshot.moves) {
           const existing = rootScores[score.move]
+          // This search restarts at depth 1; until it catches up, what the
+          // earlier stages found for this move stands.
+          if (existing && score.depth < existing.depth) continue
           rootScores[score.move] = {
             cp: score.cp,
             depth: Math.max(existing?.depth || 0, score.depth),
@@ -938,11 +1025,13 @@ class Engine {
           markSelectionSource(score.move, 'sf-top')
         }
 
+        shownDepth = Math.max(shownDepth, multipvSnapshot.depth)
         const streamingEval = this.buildEvaluationFromRootScores(
-          Math.max(plan.screeningDepth, multipvSnapshot.depth),
+          shownDepth,
           rootScores,
           runContext.fen,
         )
+        streamingEval.partial = true
         this.attachDiagnostics(streamingEval, {
           runContext,
           strategy: 'staged-root-probe',
@@ -1011,6 +1100,7 @@ class Engine {
           rootScores,
           runContext.fen,
         )
+        maiaDeepenedEval.partial = true
         this.attachDiagnostics(maiaDeepenedEval, {
           runContext,
           strategy: 'staged-root-probe',

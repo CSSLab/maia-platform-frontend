@@ -284,6 +284,7 @@ export const useEngineAnalysis = (
     if (
       currentNode.analysis.stockfish &&
       currentNode.analysis.stockfish?.depth >= targetDepth &&
+      !currentNode.analysis.stockfish.partial &&
       !shouldForceStockfishRerun
     )
       return
