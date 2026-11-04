@@ -1308,13 +1308,46 @@ a search only from a score of depth 10 or more.
 - **`/play`:** on the phone taps respond in 130–160 ms and Maia's reply is back
   in ~100 ms from ada. Nothing stands out.
 
-**Not known yet:**
+**On a real iPhone 12** (Safari 26, on 2026-11-04, with
+`public/engine-bench.html` on the `claude/engine-bench` branch; one run on each
+of three positions, the engine alone in the page):
 
-- **Safari.** WebKit doesn't run on ada, so Stockfish 19 has not been run on an
-  iPhone. `public/engine-bench.html` on the `claude/engine-bench` branch checks
-  it, and also times Maia on WebGPU against WASM, which could take Maia's batches
-  off the CPU. ada's software GPU can't run the model (no `shader-f16`).
-- **Real visitors.** These are emulated devices; no field data was used.
+| Stockfish, on three positions | 17 (main)             | 19 small (new)   |
+| ----------------------------- | --------------------- | ---------------- |
+| depth 12                      | 102, 113, 35 ms       | 50, 45, 14 ms    |
+| depth 18                      | 590, 1253, 378 ms     | 569, 633, 197 ms |
+| positions a second            | 629k                  | 916k             |
+| memory                        | 423 MB                | 81 MB            |
+| fetching the nets             | 16.4 s (78 MB, Wi-Fi) | 0.39 s (1.2 MB)  |
+| loading and unpacking them    | 220 ms                | 23 ms            |
+
+So this phone is much faster than the emulated one: on the first position,
+depth 18 took 0.57 s, against ~10 s for the emulated phone in an empty page. The
+emulated phone's seconds are not what an iPhone 12 user sees, and it is unmeasured
+how close they are to a slower Android phone. The engine alone gains hundreds of
+milliseconds here, plus the download on a first visit and 5 times less memory.
+The best line first and the whole page have not been timed on the phone. Safari
+gets the plain build, without relaxed SIMD.
+
+**Maia on WebGPU: not pursued.** On the same phone, in a worker as on the site:
+
+| Maia-3                                      | WebAssembly | WebGPU |
+| ------------------------------------------- | ----------- | ------ |
+| create the session, and the first rating    | 4.17 s      | 2.01 s |
+| one rating                                  | 185 ms      | 188 ms |
+| 10 ratings                                  | 1112 ms     | 470 ms |
+| Stockfish's speed while batches run nonstop | 460k        | 304k   |
+| batches meanwhile                           | 4           | 9      |
+
+Stockfish alone ran at 916k positions a second, so WebGPU did not take Maia off
+its back: per batch it loses about the same (~0.3 s) on both. WebGPU always ran
+second, so a warmer phone may have counted against it. It would bring the chart
+~0.6 s sooner on this phone, at the cost of probabilities that move (0.36 points
+on average, 1.29 at most, the same top move in 30 of 30 cases), ~2.5 MB more to
+download and a fallback for browsers without `shader-f16`.
+
+**Not known yet:** how this behaves on real Android phones, and for real
+visitors. No field data was used.
 
 ## What changed
 
