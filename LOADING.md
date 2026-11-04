@@ -1194,6 +1194,128 @@ Mbit/s they would take 10–20 s. Not built: downloading them one after the
 other, and `sf16-7` as a stand-in while the nets download (its results kept
 out of the shared analysis cache, and its depths labelled differently).
 
+### Round 10: Stockfish 19's small net, and the best line first
+
+Measured on 2026-11-04 against main at 3e5ef6d, as in round 9 (local production
+builds behind `scripts/perf/stub-proxy.mjs`, warm visits with each build's own
+primed profile, the phone at a quarter of full speed in every thread, 8 cores
+reported), with ada nearly idle (load 15–40 of 160). Six paired loads per
+device, the builds alternating, on the two test games:
+
+| warm visit, seconds     | phone: main → new | desktop: main → new |
+| ----------------------- | ----------------- | ------------------- |
+| board on screen         | 2.04 → 1.96       | 0.31 → 0.30         |
+| Maia's moves            | 6.84 → 7.09       | 1.54 → 1.61         |
+| Stockfish's first depth | 8.00 → 4.16       | 1.51 → 0.60         |
+| Stockfish depth 12      | 16.76 → 6.86      | 2.69 → 0.75         |
+| Stockfish depth 18      | 26.16 → 8.68      | 4.67 → 1.05         |
+
+Every Stockfish row came out sooner in 6 of 6 pairs. The board and Maia's moves
+are within the noise: paired, Maia's moves were 0.39 s sooner on the phone (3 of 6) and 0.03 s later on a desktop (sooner in 1 of 6).
+
+Moving through a game (`chart-probe.mjs`, 8 steps per run, 32 steps per build,
+each pair in both orders, 14 s per step on the phone and 5 s on a desktop):
+
+| after each step, seconds    | phone: main → new | desktop: main → new |
+| --------------------------- | ----------------- | ------------------- |
+| depth 12                    | 6.37 → 2.77       | 1.24 → 0.39         |
+| depth 18                    | 12.30 → 5.93      | 4.20 → 1.01         |
+| steps that reached depth 18 | 3 → 32 of 32      | 14 → 32 of 32       |
+| moves-by-rating chart drawn | 3.50 → 4.06       | 0.46 → 0.50         |
+
+The chart is the cost: on the phone it comes ~0.5 s later after a step.
+
+Memory: the page's renderer peaks at 1040–1050 MB on main and 550–557 MB now
+(a desktop, three runs each), and Stockfish's own memory goes from 517 to 81 MB.
+
+First visit on 4G (9 Mbit/s) on the phone, 2 runs each: Stockfish's first depth
+at 125–127 s on main and 5.2–6.1 s now, depth 18 at 143–147 s and 8.5–9.1 s, the
+board at 3.7–4.0 s and 2.4–2.5 s. Maia's 42 MB no longer shares the link with
+78 MB of nets, so its moves come at 53–54 s instead of 103–104 s.
+
+**Stockfish 19's small net (commit "Stockfish 19 with its single 1.2 MB net").**
+`@lichess-org/stockfish-web` 0.5.0 ships Stockfish 19 with one net of 1.2 MB,
+instead of Stockfish 17's two of 78 MB in all. In an empty page on the phone
+(one run each), the engine alone is ready at 1.5 s instead of 9.7 s. The net now
+comes from the site itself, so the download code with its three hosts and the
+IndexedDB cache are gone, and the old nets are removed from a returning
+visitor's storage. Browsers with relaxed SIMD (Chrome) get a build that searches
+~30% more positions a second; others (Firefox 131, tested) the plain one. Its
+scripts load from `public/stockfish`, since webpack cannot bundle them.
+
+How good are its answers? 200 game positions, one thread, 16 MB of hash, each
+answer scored against a native search of about 12 s on 4 threads. Each reference
+favours its own engine's scale, so both are shown (Stockfish 19 / Stockfish 17);
+"lost" is how many win-percentage points the chosen move gives up by the
+reference:
+
+| build, at depth 18       | net    | same top move | lost        | eval off    | time   |
+| ------------------------ | ------ | ------------- | ----------- | ----------- | ------ |
+| Stockfish 17 (main)      | 78 MB  | 69.5 / 69.0%  | 0.39 / 0.36 | 3.61 / 1.30 | 0.71 s |
+| Stockfish 19 small (new) | 1.2 MB | 72.5 / 72.0%  | 0.40 / 0.33 | 2.50 / 1.59 | 0.76 s |
+| Stockfish 18 small       | 15 MB  | 70.5 / 74.0%  | 0.39 / 0.25 | 4.28 / 2.00 | 0.74 s |
+| Stockfish 17.1 small     | 6.6 MB | 67.0 / 67.0%  | 0.53 / 0.46 | 4.97 / 2.64 | 0.32 s |
+| Stockfish 19 full        | 98 MB  | 77.5 / 75.5%  | 0.27 / 0.23 | 1.38 / 2.14 | 1.79 s |
+
+The full-size Stockfish 19 row comes from an earlier run, on a busier machine.
+At the site's whole search on 222 positions of four games the small net is a
+little behind at the end: the final best move loses 0.42 / 0.49 points against
+Stockfish 17's 0.30 / 0.27. Played moves get the same colour from both engines
+in 188 of 214 cases (87.9%), and agree with a deep search as often or more
+(96.2 / 94.1% against 91.8 / 94.6%).
+
+No published Stockfish 19 net lies between 1.2 and 98.5 MB. The small one drops
+the full net's threat, pawn-pair and king-position inputs for 768 piece-square
+inputs, so a middle size would need new training and a new build. Its author's
+test has it 9.75 ± 2.7 Elo ahead of the 15 MB Stockfish 18 net over 20,000 games
+(from the patch's notes, not repeated here). The 15 MB net takes twice as long
+to be ready on the phone (3.0 s) with no clear gain, and the 6.6 MB one mostly
+reaches a depth that is worth less.
+
+**The best line first (commit "the best line reaches the target depth first").**
+Depth 18 on main came after about 3.6 s of a four-line search. On 222 positions
+of four games, replayed in an empty page on a desktop with Stockfish 17, the
+first time depth 18 shows goes from 4.97 to 1.66 s, and is as good: the same top
+move as a deep search 67.1% of the time against 62.2%, and 0.31 points lost
+against 0.31. Stockfish 19 does a little worse on the same test (64.4% and 0.35).
+
+**The first pass to depth 6 (commit "the first pass over the moves goes to depth
+6").** On the same replay with the small net, depth 12 goes from 0.62 to 0.12 s
+and depth 18 from 1.51 to 0.98 s, with the same accuracy.
+
+The whole search takes longer: all lines done at ~7.3 s against ~6.0 s for main
+in that replay. On the real page, on a desktop, main's visible lines stopped
+changing with depth 18 at 4.6–4.9 s, and the new build's at 2.7–3.4 s (six loads
+each; only the four lines on show are counted).
+
+**From a code review of the above (commit "an unfinished search is never taken
+for a finished one").** An update is `partial` until the search ends, because
+depth 18 now says only that the best line got there. A position left early is
+searched again when revisited, full-game analysis and Learn From Mistakes wait
+for the finish, unfinished results are not saved, and a move is coloured during
+a search only from a score of depth 10 or more.
+
+**Not changed:**
+
+- **Keeping the hash between positions** (no `ucinewgame`): 8% fewer nodes with
+  Stockfish 17, none with the small net.
+- **ONNX Runtime 1.31:** creating Maia's session takes ~50% longer (1.8 s against
+  1.2 s), batches ~5% less, and probabilities move by up to 0.64 points.
+- **Removing the moves-by-rating chart**, as a bound: recharts dominates React's
+  time on the phone (the 63 renders over 20 ms took 5.5 of 5.7 s in a load), but
+  without it depth 12 and 18 came only ~2 s sooner on main (4 of 6 pairs) and
+  ~0.1 s sooner on a desktop, so rewriting it isn't worth it yet.
+- **`/play`:** on the phone taps respond in 130–160 ms and Maia's reply is back
+  in ~100 ms from ada. Nothing stands out.
+
+**Not known yet:**
+
+- **Safari.** WebKit doesn't run on ada, so Stockfish 19 has not been run on an
+  iPhone. `public/engine-bench.html` on the `claude/engine-bench` branch checks
+  it, and also times Maia on WebGPU against WASM, which could take Maia's batches
+  off the CPU. ada's software GPU can't run the model (no `shader-f16`).
+- **Real visitors.** These are emulated devices; no field data was used.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -1450,6 +1572,9 @@ out of the shared analysis cache, and its depths labelled differently).
 
 ## Rebasing `human-bar`
 
+- Round 10 removes `loadNnueModel`, the net download and the IndexedDB cache from
+  `stockfish.ts`, so `human-bar`'s `loadNnueModelShared` and its second engine
+  need rewriting for one 1.2 MB net fetched from `public/stockfish`.
 - d371e75 makes the same change to `useEngineAnalysis.ts` as 6ba0cf2, and its
   `maia.ts` part is 6ba0cf2 without the priority levels. When rebasing 6ba0cf2,
   keep its priorities in `maia.ts` and take this branch's `useEngineAnalysis.ts`
