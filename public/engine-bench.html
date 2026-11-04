@@ -13,90 +13,102 @@
 </head>
 <body>
 <h3>Engine benchmark</h3>
-<p>Keep this tab in front. It takes a minute or two on a phone. Close other tabs first if you can. When it's done, copy the results.</p>
+<p>Keep this tab in front. It takes a few minutes on a phone and downloads 78 MB of Stockfish 17's nets, so use Wi-Fi. Close other tabs first if you can. When it's done, copy the results.</p>
 <button id="run">Run</button><button id="copy">Copy results</button>
 <pre id="log"></pre>
 <script>
 const logEl = document.getElementById('log')
-const log = (s) => { logEl.textContent += s + '\n' }
+const log = (s) => { logEl.textContent += s + '\n'; try { localStorage.setItem('engine-bench-log', logEl.textContent) } catch (e) {} }
+// A phone may reload the tab when it runs out of memory: keep what got done.
+try { const saved = localStorage.getItem('engine-bench-log'); if (saved && !saved.trim().endsWith('done')) logEl.textContent = 'From the last run, which did not finish:\n' + saved } catch (e) {}
 const ms = (x) => Math.round(x) + ' ms'
 const med = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)]
 const ORT = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.23.0/dist/'
 const RATINGS = [600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400]
 const loadScript = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.crossOrigin = 'anonymous'; s.onload = res; s.onerror = () => rej(new Error('could not load ' + src)); document.head.appendChild(s) })
 
-async function stockfish() {
-  log('--- Stockfish 19 small net')
+const FENS = ['r1bqkb1r/pp2pppp/2n2n2/2p5/2Pp4/4PNP1/PP1P1PBP/RNBQK2R w KQkq - 0 6', '2rq1rk1/1b1n1pp1/1p2pn1p/p7/2PQ4/P4NP1/1B2PPBP/R2R2K1 w - - 1 16', '8/4n1pp/3bkp2/1pn1p3/4P3/1P1NNP2/1B2K1PP/8 w - - 2 30']
+const NET_HOSTS = ['https://unpkg.com/maia-stockfish-nets@17.0.0/', 'https://cdn.jsdelivr.net/npm/maia-stockfish-nets@17.0.0/']
+const until = (sf, cmd, pred, each) => new Promise((res) => { sf.onLine = (l) => { if (each) each(l); if (pred(l)) res() }; sf.uci(cmd) })
+const fetchNet = async (name) => {
+  for (const host of NET_HOSTS) { try { const r = await fetch(host + name); if (r.ok) return new Uint8Array(await r.arrayBuffer()) } catch (e) {} }
+  throw new Error('could not download ' + name)
+}
+async function makeEngine(kind) {
   const relaxed = WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,15,1,13,0,65,1,253,15,65,2,253,15,253,128,2,11]))
-  const build = relaxed ? 'sf_19_smallnet_relaxed-simd' : 'sf_19_smallnet'
-  log('build ' + build)
+  const dir = kind === 'sf17' ? '/stockfish/sf17/' : '/stockfish/'
+  const build = kind === 'sf17' ? 'sf17-79' : relaxed ? 'sf_19_smallnet_relaxed-simd' : 'sf_19_smallnet'
+  // Nets first: the time to download them is not what a returning visitor waits for.
+  let nets = null
+  const mod = await import(dir + build + '.js')
+  const memory = new WebAssembly.Memory(kind === 'sf17' ? { shared: true, initial: 2560, maximum: 16384 } : { shared: true, initial: 1024, maximum: 4096 })
   const t0 = performance.now()
-  const mod = await import('/stockfish/' + build + '.js')
-  const memory = new WebAssembly.Memory({ shared: true, initial: 1024, maximum: 4096 })
-  const sf = await mod.default({ wasmMemory: memory, locateFile: (n) => '/stockfish/' + n })
-  const net = sf.getRecommendedNnue(0)
-  const buf = new Uint8Array(await (await fetch('/stockfish/' + net)).arrayBuffer())
-  sf.setNnueBuffer(buf, 0)
-  let onLine = () => {}
-  sf.listen = (l) => onLine(l.trim())
-  const until = (cmd, pred, each) => new Promise((res) => { onLine = (l) => { if (each) each(l); if (pred(l)) res() }; sf.uci(cmd) })
-  await until('uci', (l) => l === 'uciok')
-  await until('isready', (l) => l === 'readyok')
-  log('ready ' + ms(performance.now() - t0))
-  const fens = ['r1bqkb1r/pp2pppp/2n2n2/2p5/2Pp4/4PNP1/PP1P1PBP/RNBQK2R w KQkq - 0 6', '2rq1rk1/1b1n1pp1/1p2pn1p/p7/2PQ4/P4NP1/1B2PPBP/R2R2K1 w - - 1 16', '8/4n1pp/3bkp2/1pn1p3/4P3/1P1NNP2/1B2K1PP/8 w - - 2 30']
-  for (const fen of fens) {
-    sf.uci('ucinewgame'); await until('isready', (l) => l === 'readyok')
-    sf.uci('position fen ' + fen)
-    const s = performance.now(); const at = {}; let nps = 0
-    await until('go depth 18', (l) => l.startsWith('bestmove'), (l) => { const m = /^info depth (\d+) /.exec(l); if (m && !/bound/.test(l)) { at[m[1]] = performance.now() - s; const n = / nps (\d+)/.exec(l); if (n) nps = +n[1] } })
-    log('d12 ' + ms(at[12]) + ', d18 ' + ms(at[18]) + ', ' + Math.round(nps / 1000) + 'k nps')
-  }
+  const sf = await mod.default({ wasmMemory: memory, locateFile: (n) => dir + n })
+  const moduleMs = performance.now() - t0
+  const names = kind === 'sf17' ? [sf.getRecommendedNnue(0), sf.getRecommendedNnue(1)] : [sf.getRecommendedNnue(0)]
+  const d0 = performance.now()
+  nets = await Promise.all(names.map((n) => (kind === 'sf17' ? fetchNet(n) : fetch('/stockfish/' + n).then((r) => r.arrayBuffer()).then((b) => new Uint8Array(b)))))
+  const fetchMs = performance.now() - d0
+  const c0 = performance.now()
+  nets.forEach((b, i) => { sf.HEAPU8 = new Uint8Array(memory.buffer); sf.setNnueBuffer(b, i) })
+  sf.onLine = () => {}
+  sf.listen = (l) => sf.onLine(l.trim())
+  await until(sf, 'uci', (l) => l === 'uciok')
+  await until(sf, 'isready', (l) => l === 'readyok')
+  const unpackMs = performance.now() - c0
+  log(build + ': start ' + ms(moduleMs) + ', nets fetched ' + ms(fetchMs) + ' (' + Math.round(nets.reduce((a, b) => a + b.length, 0) / 1e6) + ' MB), loaded and unpacked ' + ms(unpackMs))
+  return { sf, memory }
+}
+async function search(sf, fen) {
+  sf.uci('ucinewgame'); await until(sf, 'isready', (l) => l === 'readyok')
+  sf.uci('position fen ' + fen)
+  const s = performance.now(); const at = {}; let nps = 0
+  await until(sf, 'go depth 18', (l) => l.startsWith('bestmove'), (l) => { const m = /^info depth (\d+) /.exec(l); if (m && !/bound/.test(l)) { at[m[1]] = performance.now() - s; const n = / nps (\d+)/.exec(l); if (n) nps = +n[1] } })
+  return { d12: at[12], d18: at[18], nps }
+}
+async function searches(sf, label) {
+  const r = []
+  for (const fen of FENS) r.push(await search(sf, fen))
+  log(label + ': d12 ' + r.map((x) => ms(x.d12)).join(', ') + ' | d18 ' + r.map((x) => ms(x.d18)).join(', ') + ' | ' + Math.round(med(r.map((x) => x.nps)) / 1000) + 'k nps')
+  return r
+}
+const startMaia = (ep) => new Promise((res, rej) => {
+  const w = new Worker('/engine-bench-worker.js')
+  w.onerror = (e) => rej(new Error(e.message || 'worker failed'))
+  w.onmessage = ({ data }) => { if (data.type === 'started') { w.onmessage = null; res({ w, ...data }) } else if (data.type === 'error') rej(new Error(data.message)) }
+  w.postMessage({ type: 'start', ep })
+})
+const untilMsg = (w, type) => new Promise((res, rej) => { w.onmessage = ({ data }) => { if (data.type === type) res(data); else if (data.type === 'error') rej(new Error(data.message)) } })
+
+async function sf17() {
+  log('--- Stockfish 17 (today), 78 MB of nets on the first run')
+  const { sf, memory } = await makeEngine('sf17')
+  await searches(sf, 'alone')
   log('memory ' + Math.round(memory.buffer.byteLength / 1e6) + ' MB')
+  sf.uci('quit')
 }
 
-async function maia() {
-  log('--- Maia-3')
-  await loadScript(ORT + 'ort.webgpu.min.js')
-  ort.env.wasm.wasmPaths = ORT
+async function together() {
+  log('--- Stockfish 19 small net, alone and beside Maia')
+  const { sf, memory } = await makeEngine('sf19')
+  await searches(sf, 'alone')
+  log('memory ' + Math.round(memory.buffer.byteLength / 1e6) + ' MB')
   const a = navigator.gpu ? await navigator.gpu.requestAdapter() : null
-  log('WebGPU: ' + (navigator.gpu ? 'yes' : 'no') + ', adapter: ' + (a ? 'yes' : 'no') + ', shader-f16: ' + (a ? a.features.has('shader-f16') : '-') + (a?.info ? ', ' + (a.info.vendor || '') + ' ' + (a.info.architecture || '') : ''))
-  const t0 = performance.now()
-  const model = new Uint8Array(await (await fetch('/maia3/maia3_simplified.onnx')).arrayBuffer())
-  log('model fetched ' + ms(performance.now() - t0))
-  const vec = await (await fetch('/engine-bench-vec.json')).json()
-  const results = {}
+  log('WebGPU: ' + (navigator.gpu ? 'yes' : 'no') + ', adapter: ' + (a ? 'yes' : 'no') + ', shader-f16: ' + (a ? a.features.has('shader-f16') : '-'))
   for (const ep of a && a.features.has('shader-f16') ? ['wasm', 'webgpu'] : ['wasm']) {
+    log('--- Maia-3 on ' + ep + ', in a worker')
     try {
-      const c0 = performance.now()
-      const s = await ort.InferenceSession.create(model, { executionProviders: [ep], graphOptimizationLevel: 'basic' })
-      const create = performance.now() - c0
-      const single = [], batch = [], out = []
-      for (const v of vec) {
-        const one = new Float32Array(v.tokens)
-        const t1 = performance.now()
-        await s.run({ tokens: new ort.Tensor('float32', one, [1, 64, 12]), elo_self: new ort.Tensor('float32', Float32Array.from([1500]), [1]), elo_oppo: new ort.Tensor('float32', Float32Array.from([1500]), [1]) })
-        single.push(performance.now() - t1)
-        const k = RATINGS.length, tok = new Float32Array(k * 768)
-        for (let j = 0; j < k; j++) tok.set(v.tokens, j * 768)
-        const elo = Float32Array.from(RATINGS)
-        const t2 = performance.now()
-        const o = await s.run({ tokens: new ort.Tensor('float32', tok, [k, 64, 12]), elo_self: new ort.Tensor('float32', elo, [k]), elo_oppo: new ort.Tensor('float32', elo, [k]) })
-        batch.push(performance.now() - t2)
-        out.push(await o.logits_move.getData ? await o.logits_move.getData() : o.logits_move.data)
-      }
-      results[ep] = out
-      log(ep + ': create ' + ms(create) + ', one rating ' + ms(med(single)) + ' (first ' + ms(single[0]) + '), 10 ratings ' + ms(med(batch)) + ' (first ' + ms(batch[0]) + ')')
-      await s.release()
-    } catch (e) { log(ep + ' FAILED: ' + String(e).slice(0, 300)) }
-  }
-  if (results.wasm && results.webgpu) {
-    let maxd = 0, sum = 0, n = 0, top = 0, tot = 0
-    vec.forEach((v, i) => { const M = results.wasm[i].length / RATINGS.length; for (let j = 0; j < RATINGS.length; j++) {
-      const P = (d) => { const l = v.legal.map((x) => d[j * M + x]); const mx = Math.max(...l); const e = l.map((a) => Math.exp(a - mx)); const t = e.reduce((a, b) => a + b, 0); return e.map((a) => a / t) }
-      const A = P(results.wasm[i]), B = P(results.webgpu[i])
-      A.forEach((p, k) => { if (p >= 0.05 || B[k] >= 0.05) { const d = Math.abs(p - B[k]) * 100; maxd = Math.max(maxd, d); sum += d; n++ } })
-      tot++; if (A.indexOf(Math.max(...A)) === B.indexOf(Math.max(...B))) top++ } })
-    log('WebGPU vs WASM: same top move ' + top + '/' + tot + ', probabilities off by ' + (sum / n).toFixed(3) + ' points on average, ' + maxd.toFixed(3) + ' at most')
+      const m = await startMaia(ep)
+      log('create ' + ms(m.create) + ', first rating ' + ms(m.first) + ', one rating ' + ms(m.one) + ', 10 ratings ' + ms(m.ten) + (ep === 'wasm' ? ', threads ' + (m.threads || 'default') : ''))
+      const started = untilMsg(m.w, 'looping')
+      m.w.postMessage({ type: 'loop' })
+      await started
+      await searches(sf, 'Stockfish while Maia runs 10-rating batches')
+      const stopped = untilMsg(m.w, 'stopped')
+      m.w.postMessage({ type: 'stop' })
+      log('batches meanwhile: ' + (await stopped).batches)
+      m.w.terminate()
+    } catch (e) { log(ep + ' FAILED: ' + String(e && e.message || e).slice(0, 300)) }
   }
 }
 
@@ -104,7 +116,7 @@ document.getElementById('run').onclick = async () => {
   logEl.textContent = ''
   log(navigator.userAgent)
   log('cores reported ' + navigator.hardwareConcurrency + ', isolated ' + self.crossOriginIsolated)
-  for (const part of [stockfish, maia]) {
+  for (const part of [together, sf17]) {
     try { await part() } catch (e) { log(part.name + ' FAILED: ' + (e && e.message || e)) }
   }
   log('done')
