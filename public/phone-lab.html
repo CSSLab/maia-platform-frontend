@@ -443,7 +443,8 @@ const nextInChain = async (lock) => {
   const [host, ...hosts] = seq.hosts
   for (let left = seq.rest; left > 0; left--) { status(`Run ${seq.i} of ${seq.n} done. Letting the phone cool: ${left} s`); await sleep(1000) }
   try { localStorage.removeItem(STORE) } catch (e) {}
-  location.href = host + '/phone-lab.html' + seqLink({ ...seq, hosts, i: seq.i + 1, out: [out], started: true })
+  // The query differs for each run: a change of the # alone would not load the page again.
+  location.href = host + '/phone-lab.html?run=' + (seq.i + 1) + seqLink({ ...seq, hosts, i: seq.i + 1, out: [out], started: true })
 }
 $('copy').onclick = () => navigator.clipboard.writeText($('log').textContent)
 $('clear').onclick = () => { state = { results: {}, running: null, order: [], hidden: 0 }; save(); location.href = '/phone-lab.html' }
