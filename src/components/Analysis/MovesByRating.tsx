@@ -1,5 +1,6 @@
 import dynamic from 'next/dynamic'
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
+import { analysisChartDrawn } from 'src/lib/analysisTiming'
 import { ColorSanMapping } from 'src/types'
 import { useContentStable } from 'src/hooks/useContentStable'
 
@@ -34,6 +35,10 @@ const MovesByRatingChart: React.FC<Props> = ({
     // Set while rendering: React renders again before rendering the chart.
     setShown({ moves, colorSanMapping, positionKey })
   }
+
+  useEffect(() => {
+    if (shown.moves?.length) analysisChartDrawn(shown.positionKey)
+  }, [shown])
 
   const moveKeys = useMemo(() => {
     if (!shown.moves?.length) return []

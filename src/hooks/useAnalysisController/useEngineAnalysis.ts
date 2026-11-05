@@ -1,6 +1,12 @@
 import { Chess } from 'chess.ts'
 import { fetchOpeningBookMoves } from 'src/api'
 import { startTransition, useEffect, useContext, useRef, useState } from 'react'
+import {
+  analysisMaiaStage,
+  analysisPositionShown,
+  analysisStockfishUpdate,
+  startAnalysisTiming,
+} from 'src/lib/analysisTiming'
 import { MAIA_MODELS, MAIA_RATINGS } from 'src/constants/common'
 import {
   STOCKFISH_DEBUG_RERUN_EVENT,
@@ -86,6 +92,18 @@ export const useEngineAnalysis = (
       window.clearInterval(intervalId)
     }
   }, [])
+
+  useEffect(() => {
+    if (!enabled || !window.location.pathname.startsWith('/analysis')) return
+    return startAnalysisTiming({ isPhone: isPhone() })
+  }, [enabled])
+
+  // Timed before the engine effects below, for the position they start on.
+  useEffect(() => {
+    // Full-game analysis moves through the game by itself, at other depths.
+    if (!currentNode || !enabled || targetDepth !== 18) return
+    analysisPositionShown(currentNode.fen)
+  }, [currentNode, enabled, targetDepth])
 
   async function inferenceMaiaModel(
     board: Chess,
@@ -239,6 +257,7 @@ export const useEngineAnalysis = (
             { ...currentNode.analysis.maia, ...maiaEvaluations },
             currentMaiaModel,
           )
+          analysisMaiaStage(nodeFen, stages.indexOf(stage))
           if (stage === stages[0]) {
             setAnalysisState((state) => state + 1)
           } else {
@@ -380,6 +399,7 @@ export const useEngineAnalysis = (
               break
             }
             nodeForAnalysis.addStockfishAnalysis(evaluation, currentMaiaModel)
+            analysisStockfishUpdate(nodeForAnalysis.fen, evaluation)
             // The first update renders at once, later ones at most every
             // STOCKFISH_RENDER_INTERVAL_MS (the last one always renders).
             const wait =

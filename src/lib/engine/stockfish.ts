@@ -1,5 +1,6 @@
 import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
+import { hasRelaxedSimd } from './relaxedSimd'
 import StockfishWeb from '@lichess-org/stockfish-web'
 import {
   StockfishDiagnostics,
@@ -1105,6 +1106,7 @@ class Engine {
             runContext.fen,
           )
           restEval.partial = true
+          restEval.lines_done = true
           this.attachDiagnostics(restEval, {
             runContext,
             strategy: 'staged-root-probe',
@@ -1175,6 +1177,7 @@ class Engine {
           runContext.fen,
         )
         maiaDeepenedEval.partial = true
+        maiaDeepenedEval.lines_done = true
         this.attachDiagnostics(maiaDeepenedEval, {
           runContext,
           strategy: 'staged-root-probe',
@@ -1210,6 +1213,7 @@ class Engine {
         rootScores,
         runContext.fen,
       )
+      finalEval.lines_done = true
       this.attachDiagnostics(finalEval, {
         runContext,
         strategy: 'staged-root-probe',
@@ -2035,6 +2039,10 @@ export const sharedWasmMemory = (
   }
 }
 
+let memoryRetries = 0
+/** How many times this page has waited for memory to start Stockfish. */
+export const stockfishMemoryRetries = () => memoryRetries
+
 export const reserveWasmMemory = async (
   lo: number,
   delaysMs = STOCKFISH_MEMORY_RETRY_DELAYS_MS,
@@ -2044,6 +2052,7 @@ export const reserveWasmMemory = async (
       return sharedWasmMemory(lo)
     } catch (e) {
       if (!(e instanceof RangeError) || attempt >= delaysMs.length) throw e
+      memoryRetries += 1
       await new Promise((resolve) => setTimeout(resolve, delaysMs[attempt]))
     }
   }
@@ -2115,16 +2124,6 @@ const setNnueBuffer = (
 
 /** Stockfish's script or its net could not be fetched. */
 class StockfishFileError extends Error {}
-
-// i8x16.relaxed_swizzle, the probe from wasm-feature-detect. The relaxed-SIMD
-// build searches ~30% more positions a second; Chrome and Firefox have it.
-const hasRelaxedSimd = () =>
-  WebAssembly.validate(
-    new Uint8Array([
-      0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 15,
-      1, 13, 0, 65, 1, 253, 15, 65, 2, 253, 15, 253, 128, 2, 11,
-    ]),
-  )
 
 /**
  * Stockfish 19 with its single 1.2 MB net (@lichess-org/stockfish-web's
