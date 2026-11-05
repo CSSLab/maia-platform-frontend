@@ -722,7 +722,18 @@ const Analysis: React.FC<Props> = ({
     showHumanBars,
     analysisEnabled && !controller.learnFromMistakes.state.isActive,
   )
-  const showHumanBarPanel = humanBars.available && showHumanBars
+  // Design step 1: the human chance goes in the left bar; the panel stays out
+  // so that nothing else on today's page changes.
+  const showHumanBarPanel = false
+  const humanBarOnScreen =
+    humanBars.available && showHumanBars && humanBars.ply !== null
+      ? humanBars.bars[humanBars.ply]
+      : undefined
+  const humanBarExpected =
+    humanBars.available &&
+    showHumanBars &&
+    humanBars.ply !== null &&
+    (humanBars.status === 'running' || humanBars.status === 'waiting-maia')
   const humanBarLockedMessage = controller.learnFromMistakes.state.isActive
     ? 'Hidden during Learn from Mistakes'
     : !analysisEnabled
@@ -1349,6 +1360,19 @@ const Analysis: React.FC<Props> = ({
       return { hasValue: true, percent, label: `${percent.toFixed(1)}%` }
     }
 
+    // Maia's chance that White wins, for these two players, their clocks and
+    // this position. While it is on its way the bar keeps its last reading
+    // rather than jumping to a number from another model.
+    if (humanBarOnScreen) {
+      const percent = Math.max(0, Math.min(100, humanBarOnScreen.W * 100))
+      return {
+        hasValue: true,
+        percent,
+        label: `${(Math.round(percent * 10) / 10).toFixed(1)}%`,
+      }
+    }
+    if (humanBarExpected) return { hasValue: false, percent: 50, label: '--' }
+
     if (
       stockfishEval?.model_move &&
       stockfishEval.mate_vec &&
@@ -1397,6 +1421,8 @@ const Analysis: React.FC<Props> = ({
     controller.moveEvaluation?.maia,
     controller.moveEvaluation?.stockfish,
     currentTurnForBars,
+    humanBarExpected,
+    humanBarOnScreen,
     isCurrentPositionCheckmateForBars,
     isInFirst10PlyForBars,
   ])
