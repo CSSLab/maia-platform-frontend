@@ -1,6 +1,9 @@
 import { Chess, Color } from 'chess.ts'
 import { StockfishEvaluation, MaiaEvaluation } from '.'
-import { MOVE_CLASSIFICATION_THRESHOLDS } from 'src/constants/analysis'
+import {
+  MOVE_CLASSIFICATION_THRESHOLDS,
+  STOCKFISH_FULL_DEPTH,
+} from 'src/constants/analysis'
 import { calculateMoveColor } from 'src/hooks/useAnalysisController/utils'
 
 interface NodeAnalysis {
@@ -337,11 +340,31 @@ export class GameNode {
   ): void {
     const existingStockfish = this._analysis.stockfish
     if (existingStockfish) {
+      // An older engine's evaluation stays on show until a search of this one
+      // has finished: until then most of its moves are shallower.
+      const existingFinished = !existingStockfish.partial
+      if (
+        existingFinished &&
+        stockfishEval.partial &&
+        existingStockfish.depth >= stockfishEval.depth
+      ) {
+        return
+      }
+
       // A finished search replaces an unfinished one, which may be deeper when
-      // the finished one had a lower target (full-game analysis, for one).
+      // the finished one had a lower target (full-game analysis, for one), and
+      // an older engine's evaluation, unless it searched less deep than the
+      // page normally does.
+      const replacesOlderEngine =
+        existingStockfish.older_engine &&
+        !stockfishEval.older_engine &&
+        !stockfishEval.partial &&
+        stockfishEval.depth >=
+          Math.min(existingStockfish.depth, STOCKFISH_FULL_DEPTH)
       if (
         existingStockfish.depth > stockfishEval.depth &&
-        (!existingStockfish.partial || stockfishEval.partial)
+        (existingFinished || stockfishEval.partial) &&
+        !replacesOlderEngine
       ) {
         return
       }
@@ -375,7 +398,8 @@ export class GameNode {
             incomingPositionId !== existingPositionId) ||
           (!!stockfishEval.diagnostics && !existingStockfish.diagnostics) ||
           incomingIsLaterSameRunSnapshot ||
-          !!existingStockfish.partial
+          !!existingStockfish.partial ||
+          replacesOlderEngine
 
         if (!shouldReplaceSameDepth) {
           return

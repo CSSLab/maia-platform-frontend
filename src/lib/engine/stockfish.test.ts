@@ -313,6 +313,14 @@ describe('Stockfish Engine run hand-over', () => {
     expect(rest).toBeGreaterThan(lastLine)
   })
 
+  it('says which engine made every update', async () => {
+    const { engine } = makeEngine()
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8)
+    for await (const evaluation of run) {
+      expect(evaluation.engine).toBe('stockfish-19-smallnet')
+    }
+  })
+
   it('is partial until the last update, and its depth never falls', async () => {
     const { engine } = makeEngine()
     const run = engine.streamEvaluations(START, legalMoveCount(START), 8, {
