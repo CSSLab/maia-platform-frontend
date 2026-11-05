@@ -2204,7 +2204,7 @@ export const withStartupLog = (error: unknown, log: string[]): StartupError => {
  */
 const STOCKFISH_BASE = `${ENGINE_FILES_BASE}/stockfish`
 
-const setupStockfish = async (
+export const setupStockfish = async (
   onPhaseChange?: (phase: StockfishInitPhase) => void,
 ): Promise<StockfishWeb> => {
   const timeoutMs = getNnueFetchTimeoutMs()

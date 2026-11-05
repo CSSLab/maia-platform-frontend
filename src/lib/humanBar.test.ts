@@ -1,0 +1,113 @@
+import fs from 'node:fs'
+import {
+  buildHumanBarSetup,
+  evaluationOrder,
+  float32ToBase64LE,
+  parsePgnHeaders,
+  parsePgnMainline,
+} from './humanBar'
+import {
+  encodeSideToMoveScore,
+  HUMAN_BAR_ENGINE,
+} from './engine/stockfishBatch'
+
+const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+const PGN = `[Event "rated blitz game"]
+[Site "https://lichess.org/game/W2114ZgI"]
+[White "maximayoz"]
+[Black "alex_ast"]
+[Result "0-1"]
+[UTCDate "2025.12.02"]
+[UTCTime "10:55:10"]
+[WhiteElo "1857"]
+[BlackElo "1874"]
+[Variant "Standard"]
+[TimeControl "180+2"]
+
+1. b3 { [%clk 0:03:00] } 1... e5 { [%clk 0:03:00] } 2. Bb2 { [%eval 0.1] [%clk 0:03:02] } (2. e4 { [%clk 0:09:09] } e6) 2... d5 $2 { [%clk 0:00:05.3] } 0-1
+`
+
+describe('human bar PGN parsing', () => {
+  it('reads headers', () => {
+    const headers = parsePgnHeaders(PGN)
+    expect(headers.White).toBe('maximayoz')
+    expect(headers.TimeControl).toBe('180+2')
+  })
+
+  it('reads main-line moves and clocks, skipping variations', () => {
+    expect(parsePgnMainline(PGN)).toEqual([
+      { san: 'b3', clock: 180 },
+      { san: 'e5', clock: 180 },
+      { san: 'Bb2', clock: 182 },
+      { san: 'd5', clock: 5.3 },
+    ])
+  })
+
+  it('builds the game header and clocks', () => {
+    const setup = buildHumanBarSetup(PGN, 'W2114ZgI', 4, START)
+    expect(setup).toEqual({
+      ok: true,
+      clocks: [180, 180, 182, 5.3],
+      game: {
+        white: 'maximayoz',
+        black: 'alex_ast',
+        white_elo: 1857,
+        black_elo: 1874,
+        time_control: '180+2',
+        event: 'rated blitz game',
+        start_ms: Date.UTC(2025, 11, 2, 10, 55, 10),
+        site: 'https://lichess.org/game/W2114ZgI',
+      },
+    })
+  })
+
+  it('refuses games without clocks, ratings or matching moves', () => {
+    const noClocks = PGN.replace(/\[%clk [^\]]*\]/g, '')
+    expect(buildHumanBarSetup(noClocks, 'x', 4, START).ok).toBe(false)
+    const noElo = PGN.replace('[WhiteElo "1857"]', '[WhiteElo "?"]')
+    expect(buildHumanBarSetup(noElo, 'x', 4, START).ok).toBe(false)
+    expect(buildHumanBarSetup(PGN, 'x', 5, START).ok).toBe(false)
+    expect(buildHumanBarSetup(undefined, 'x', 4, START).ok).toBe(false)
+  })
+})
+
+describe('human bar encodings', () => {
+  it('encodes float32 little-endian base64', () => {
+    const encoded = float32ToBase64LE(Float32Array.from([1, -2.5]))
+    const bytes = Buffer.from(encoded, 'base64')
+    expect(bytes.length).toBe(8)
+    expect(bytes.readFloatLE(0)).toBe(1)
+    expect(bytes.readFloatLE(4)).toBe(-2.5)
+  })
+
+  it('encodes mates as sign * (10000 - |N|) for the side to move', () => {
+    const base = { depth: 1, nodes: 1, bestmove: null }
+    expect(encodeSideToMoveScore({ ...base, cp: 23, mate: null })).toBe(23)
+    expect(encodeSideToMoveScore({ ...base, cp: null, mate: 3 })).toBe(9997)
+    expect(encodeSideToMoveScore({ ...base, cp: null, mate: -2 })).toBe(-9998)
+    expect(encodeSideToMoveScore({ ...base, cp: null, mate: 0 })).toBe(-10000)
+  })
+})
+
+describe('human bar evaluation order', () => {
+  it('starts at the current position, then looks ahead, then fills outward', () => {
+    expect(evaluationOrder(3, 8, 2)).toEqual([3, 4, 5, 2, 1, 6, 0, 7])
+    expect(evaluationOrder(0, 4, 2)).toEqual([0, 1, 2, 3])
+    expect(evaluationOrder(5, 6, 2)).toEqual([5, 4, 3, 2, 1, 0])
+  })
+
+  it('covers every position exactly once', () => {
+    const order = evaluationOrder(17, 40, 2)
+    expect([...order].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 40 }, (_, i) => i),
+    )
+  })
+})
+
+describe('human bar engine label', () => {
+  it('names the net the site ships, which the server has a map for', () => {
+    const net = HUMAN_BAR_ENGINE.split('-')[1]
+    expect(fs.existsSync(`public/stockfish/nn-${net}.nnue`)).toBe(true)
+  })
+})

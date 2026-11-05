@@ -1,0 +1,243 @@
+import { HumanBarGameInfo } from 'src/types/humanBar'
+
+const STANDARD_START_FEN =
+  'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+/** PGN tag pairs, e.g. { White: 'name', WhiteElo: '1850', ... }. */
+export const parsePgnHeaders = (pgn: string): Record<string, string> => {
+  const headers: Record<string, string> = {}
+  const re = /^\s*\[\s*([A-Za-z0-9_]+)\s+"((?:[^"\\]|\\.)*)"\s*\]\s*$/gm
+  let match: RegExpExecArray | null
+  while ((match = re.exec(pgn)) !== null) {
+    headers[match[1]] = match[2].replace(/\\(.)/g, '$1')
+  }
+  return headers
+}
+
+const CLOCK_RE = /\[%clk\s+(\d+):(\d{1,2}):(\d{1,2}(?:\.\d+)?)\]/
+
+const parseClock = (comment: string): number | null => {
+  const match = comment.match(CLOCK_RE)
+  if (!match) return null
+  return (
+    Number.parseInt(match[1], 10) * 3600 +
+    Number.parseInt(match[2], 10) * 60 +
+    Number.parseFloat(match[3])
+  )
+}
+
+/**
+ * The main line of a single-game PGN: each move's SAN with the clock from
+ * its [%clk h:mm:ss] comment (seconds left for the mover after the move), or
+ * null where a move has no clock. Variations are skipped.
+ */
+export const parsePgnMainline = (
+  pgn: string,
+): { san: string; clock: number | null }[] => {
+  const movetext = pgn
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .filter((line) => !/^\s*\[/.test(line))
+    .join('\n')
+
+  const moves: { san: string; clock: number | null }[] = []
+  let depth = 0
+  let i = 0
+  while (i < movetext.length) {
+    const ch = movetext[i]
+    if (ch === '{') {
+      const end = movetext.indexOf('}', i + 1)
+      const comment = movetext.slice(i + 1, end === -1 ? undefined : end)
+      if (depth === 0 && moves.length > 0) {
+        const clock = parseClock(comment)
+        if (clock !== null && moves[moves.length - 1].clock === null) {
+          moves[moves.length - 1].clock = clock
+        }
+      }
+      i = end === -1 ? movetext.length : end + 1
+    } else if (ch === ';') {
+      const end = movetext.indexOf('\n', i + 1)
+      i = end === -1 ? movetext.length : end + 1
+    } else if (ch === '(') {
+      depth++
+      i++
+    } else if (ch === ')') {
+      depth = Math.max(0, depth - 1)
+      i++
+    } else if (/\s/.test(ch)) {
+      i++
+    } else {
+      let j = i
+      while (j < movetext.length && !/[\s{}();]/.test(movetext[j])) j++
+      const token = movetext.slice(i, j).replace(/^\d+\.+/, '')
+      i = j
+      if (
+        depth > 0 ||
+        !token ||
+        /^\$\d+$/.test(token) ||
+        /^(1-0|0-1|1\/2-1\/2|\*)$/.test(token)
+      ) {
+        continue
+      }
+      moves.push({ san: token, clock: null })
+    }
+  }
+  return moves
+}
+
+const parseRating = (value: string | undefined): number | null => {
+  if (!value) return null
+  const rating = Number.parseInt(value, 10)
+  return Number.isFinite(rating) && rating > 0 ? rating : null
+}
+
+const parseStartMs = (
+  date: string | undefined,
+  time: string | undefined,
+): number | null => {
+  const d = date?.match(/^(\d{4})\.(\d{2})\.(\d{2})$/)
+  const t = time?.match(/^(\d{2}):(\d{2}):(\d{2})$/)
+  if (!d || !t) return null
+  return Date.UTC(
+    Number(d[1]),
+    Number(d[2]) - 1,
+    Number(d[3]),
+    Number(t[1]),
+    Number(t[2]),
+    Number(t[3]),
+  )
+}
+
+export type HumanBarSetup =
+  | { ok: true; game: HumanBarGameInfo; clocks: number[] }
+  | { ok: false; reason: string }
+
+/**
+ * Checks that a Lichess game can get human bars and collects what the
+ * server needs from its PGN: both ratings, the time control, the start time
+ * and every move's clock. `moveCount` is the number of main-line moves in
+ * the game tree, which must match the PGN.
+ */
+export const buildHumanBarSetup = (
+  pgn: string | undefined,
+  gameId: string,
+  moveCount: number,
+  rootFen: string,
+  fallbackRatings: { white?: number; black?: number } = {},
+): HumanBarSetup => {
+  if (!pgn) {
+    return { ok: false, reason: 'The game record (PGN) is not available.' }
+  }
+  const headers = parsePgnHeaders(pgn)
+
+  const variant = headers.Variant
+  if (
+    (variant && variant.toLowerCase() !== 'standard') ||
+    rootFen !== STANDARD_START_FEN
+  ) {
+    return {
+      ok: false,
+      reason: 'Human bars are only available for standard chess games.',
+    }
+  }
+
+  const whiteElo = parseRating(headers.WhiteElo) ?? fallbackRatings.white
+  const blackElo = parseRating(headers.BlackElo) ?? fallbackRatings.black
+  if (!whiteElo || !blackElo) {
+    return {
+      ok: false,
+      reason: 'This game has no ratings for both players.',
+    }
+  }
+
+  const timeControl = headers.TimeControl
+  if (!timeControl || !/^\d+\+\d+$/.test(timeControl)) {
+    return {
+      ok: false,
+      reason: 'This game has no clock (no time control).',
+    }
+  }
+
+  const mainline = parsePgnMainline(pgn)
+  if (moveCount === 0 || mainline.length === 0) {
+    return { ok: false, reason: 'This game has no moves yet.' }
+  }
+  if (mainline.length !== moveCount) {
+    return {
+      ok: false,
+      reason: `The game record has ${mainline.length} moves but the board has ${moveCount}.`,
+    }
+  }
+  const clocks = mainline.map((move) => move.clock)
+  if (clocks.some((clock) => clock === null)) {
+    return {
+      ok: false,
+      reason: 'This game has no clock times for its moves.',
+    }
+  }
+
+  return {
+    ok: true,
+    clocks: clocks as number[],
+    game: {
+      white: headers.White ?? 'White',
+      black: headers.Black ?? 'Black',
+      white_elo: whiteElo,
+      black_elo: blackElo,
+      time_control: timeControl,
+      event: headers.Event ?? '',
+      start_ms: parseStartMs(headers.UTCDate, headers.UTCTime),
+      site: headers.Site ?? `https://lichess.org/${gameId}`,
+    },
+  }
+}
+
+/** Base64 of a float32 array, little-endian regardless of the platform. */
+export const float32ToBase64LE = (values: Float32Array): string => {
+  const bytes = new Uint8Array(values.length * 4)
+  const view = new DataView(bytes.buffer)
+  for (let i = 0; i < values.length; i++) {
+    view.setFloat32(i * 4, values[i], true)
+  }
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  }
+  return btoa(binary)
+}
+
+/** Lichess's winning-chances curve: expected score in [0, 1] for `cp`. */
+export const lichessExpectedScore = (cp: number): number => {
+  const clamped = Math.max(-1000, Math.min(1000, cp))
+  return 1 / (1 + Math.exp(-0.00368208 * clamped))
+}
+
+/**
+ * The order in which the browser evaluates a game's positions while the
+ * user sits on `current`: that position, the next `lookahead` (so stepping
+ * forward finds them ready), the one before, then the rest of the game
+ * outward from `current` (for the game chart).
+ */
+export const evaluationOrder = (
+  current: number,
+  total: number,
+  lookahead: number,
+): number[] => {
+  const order: number[] = []
+  const seen = new Set<number>()
+  const push = (p: number) => {
+    if (p >= 0 && p < total && !seen.has(p)) {
+      seen.add(p)
+      order.push(p)
+    }
+  }
+  push(current)
+  for (let k = 1; k <= lookahead; k++) push(current + k)
+  push(current - 1)
+  for (let d = 1; d < total; d++) {
+    push(current + d)
+    push(current - d)
+  }
+  return order
+}

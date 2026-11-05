@@ -46,6 +46,8 @@ interface Props {
   onStopLearnFromMistakes?: () => void
   onSelectPlayer?: (color: 'white' | 'black') => void
   lastMoveResult?: 'correct' | 'incorrect' | 'not-learning'
+  showHumanBars?: boolean
+  setShowHumanBars?: (show: boolean) => void
 }
 
 const SCREENS = [
@@ -79,6 +81,8 @@ export const ConfigurableScreens: React.FC<Props> = ({
   onStopLearnFromMistakes,
   onSelectPlayer,
   lastMoveResult,
+  showHumanBars,
+  setShowHumanBars,
 }) => {
   const [screenId, setScreenId] = useState<(typeof SCREENS)[number]['id']>(
     SCREENS[0].id,
@@ -159,6 +163,8 @@ export const ConfigurableScreens: React.FC<Props> = ({
             isAnalysisInProgress={isAnalysisInProgress}
             isLearnFromMistakesActive={isLearnFromMistakesActive}
             autoSave={autoSave}
+            showHumanBars={showHumanBars}
+            setShowHumanBars={setShowHumanBars}
           />
         ) : screenId === 'export' ? (
           <div className="flex w-full flex-col p-3">

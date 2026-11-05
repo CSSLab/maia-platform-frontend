@@ -1,0 +1,748 @@
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import {
+  fetchHumanBars,
+  getHumanBarBaseUrl,
+  HumanBarServerError,
+  prepareHumanBars,
+  waitForHumanBarForm,
+} from 'src/api/humanBar'
+import {
+  MAIA_MODEL_VERSION,
+  MaiaEngineContext,
+} from 'src/contexts/MaiaEngineContext'
+import { MAIA_PRIORITY } from 'src/lib/engine/maia'
+import {
+  encodeSideToMoveScore,
+  getBatchStockfish,
+  HUMAN_BAR_ENGINE,
+} from 'src/lib/engine/stockfishBatch'
+import {
+  buildHumanBarSetup,
+  evaluationOrder,
+  float32ToBase64LE,
+} from 'src/lib/humanBar'
+import type {
+  AnalyzedGame,
+  GameNode,
+  HumanBarGameInfo,
+  HumanBarPly,
+  HumanBarRequest,
+} from 'src/types'
+
+/** Positions after the current one evaluated next (stepping forward). */
+const LOOKAHEAD = 2
+/**
+ * After the positions around the current one, evaluate the rest of the game
+ * in the background (fills the game chart). The position on screen always
+ * comes first.
+ */
+const BACKGROUND_FILL = true
+/**
+ * Maia positions per call: small, so the site's own Maia requests and the
+ * position on screen never wait long behind a batch.
+ */
+const MAIA_BATCH_SIZE = 4
+const RETRY_DELAY_MS = 5000
+const MAX_FAILURES = 3
+/**
+ * The bars take the site's own analysis eval of a position (the engine the
+ * page already runs): a first answer from depth 10 (the result bar loses
+ * nothing there, the danger meter a little), asked for again when the
+ * site's eval reaches its final depth. Each eval goes with its depth, since
+ * the server's map onto the bars' scale depends on it (practical LOG §86,
+ * P87, P89).
+ */
+const SITE_EVAL_MIN_DEPTH = 10
+const SITE_EVAL_FINAL_DEPTH = 18
+/** How long the position on screen waits for the site's eval before searching itself. */
+const SITE_EVAL_WAIT_MS = 1500
+/**
+ * Positions the site has not analysed (the rest of the game, for the chart)
+ * get a small search of their own: about what depth 12 costs (median 14k
+ * nodes), and the server maps its eval as depth 12.
+ */
+const FALLBACK_NODES = 14000
+const FALLBACK_DEPTH = 12
+
+export type HumanBarStatus =
+  | 'off'
+  | 'unavailable'
+  | 'waiting-maia'
+  | 'running'
+  | 'done'
+  | 'error'
+
+/** Everything computed for one game; kept for the session in `runCache`. */
+interface GameRun {
+  key: string
+  fens: string[]
+  game: HumanBarGameInfo
+  clocks: number[]
+  cp: (number | null)[]
+  /** The depth of the site eval behind cp[p]; 0 for the bars' own fallback search. */
+  cpDepth: number[]
+  value: ([number, number, number] | null)[]
+  repr: (string | null)[]
+  bars: (HumanBarPly | undefined)[]
+  /** The players' form each ply's bars were computed with ("prof", "g50"). */
+  barsForm: (string | undefined)[]
+  /**
+   * The form the server settled on for this game; bars computed with any
+   * other form are asked for again. Null until it is known.
+   */
+  form: string | null
+  /** The server is still fetching the players' recent games. */
+  upgradePending: boolean
+  /** A POST /v1/form wait is in flight. */
+  formWait: boolean
+  /** Bumped whenever `bars` changes (it is updated in place). */
+  barsRevision: number
+  /** Plies sent to the server and not answered yet. */
+  inFlight: Set<number>
+  /** Plies whose eval deepened after their bars came back: asked for again, shown until then. */
+  stale: Set<number>
+  model: string | null
+  maiaDone: number
+  stockfishDone: number
+  barsDone: number
+  /** Last failed request to the server (cleared by a later success). */
+  error: string | null
+  /** Consecutive failed requests. */
+  failures: number
+  /** The browser-side computation failed; needs a retry. */
+  fatal: string | null
+  /** Increments for each pipeline launch; older launches stop writing. */
+  token: number
+  sending: boolean
+  /** POST /v1/prepare was sent for this game. */
+  prepared: boolean
+  /** The ply on screen, and when it was opened without bars. */
+  target: number
+  targetSince: number | null
+  /** The Stockfish search running now (stopped on a jump elsewhere). */
+  sfJob: { ply: number; controller: AbortController } | null
+  /** Loops sleeping in `pause`, woken early by `wake`. */
+  waiters: Set<() => void>
+  /** When each startup step first happened (ms since the page started). */
+  marks: Record<string, number>
+}
+
+const runCache = new Map<string, GameRun>()
+
+/** Resolves after `ms`, or earlier on `wake(run)`. */
+const pause = (run: GameRun, ms: number) =>
+  new Promise<void>((resolve) => {
+    const done = () => {
+      clearTimeout(timer)
+      run.waiters.delete(done)
+      resolve()
+    }
+    const timer = setTimeout(done, ms)
+    run.waiters.add(done)
+  })
+
+const wake = (run: GameRun) => {
+  for (const done of Array.from(run.waiters)) done()
+}
+
+/** Records the first time a startup step happens (logged with the first bars). */
+const mark = (run: GameRun, step: string) => {
+  if (run.marks[step] === undefined) run.marks[step] = performance.now()
+}
+
+const isAbort = (error: unknown) =>
+  error instanceof DOMException && error.name === 'AbortError'
+
+/**
+ * Waits (up to a few minutes) for the server to finish fetching the players'
+ * recent games; the form its bars use from then on, or null if still waiting.
+ */
+const settleForm = async (game: HumanBarGameInfo): Promise<string | null> => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const answer = await waitForHumanBarForm(game)
+    if (!answer.pending) return answer.form
+  }
+  return null
+}
+
+/**
+ * The site analysis engine's eval of a position for the side to move, once
+ * it is at least SITE_EVAL_MIN_DEPTH deep (model_optimal_cp is from White's
+ * side); mates as sign * (10000 - N), like encodeSideToMoveScore.
+ */
+const siteEvalOf = (node: GameNode | undefined) => {
+  const sf = node?.analysis?.stockfish
+  // The shared cache does not say which engine made its evals (Stockfish 17's
+  // are on another scale), so the bars take only this page's own.
+  if (!node || !sf || sf.from_cache || !(sf.depth >= SITE_EVAL_MIN_DEPTH)) {
+    return null
+  }
+  const white = sf.model_optimal_cp
+  if (!Number.isFinite(white)) return null
+  const sideToMove = node.fen.split(' ')[1] === 'b' ? -white : white
+  if (Math.abs(white) >= 10000) {
+    const n = Math.abs(sf.mate_vec?.[sf.model_move] ?? 1)
+    return { cp: Math.sign(sideToMove) * (10000 - n), depth: sf.depth }
+  }
+  return { cp: Math.round(sideToMove), depth: sf.depth }
+}
+
+const hasInputs = (run: GameRun, p: number) =>
+  run.cp[p] !== null && run.value[p] !== null && run.repr[p] !== null
+
+/**
+ * No bars yet, or bars computed before the server had the players' recent
+ * games (their profiles only).
+ */
+const needsBars = (run: GameRun, p: number) =>
+  run.bars[p] === undefined ||
+  run.stale.has(p) ||
+  (run.form !== null && run.barsForm[p] !== run.form)
+
+/** The request for the given plies (each with its index p). */
+export const buildHumanBarRequest = (
+  run: Pick<
+    GameRun,
+    'game' | 'fens' | 'cp' | 'cpDepth' | 'value' | 'repr' | 'clocks'
+  >,
+  plies: number[],
+): HumanBarRequest => ({
+  game: run.game,
+  // The site's own engine: its analysis evals, or the bars' small fallback
+  // search with the same engine.
+  engine: HUMAN_BAR_ENGINE,
+  maia_model: MAIA_MODEL_VERSION,
+  positions: plies.map((p) => ({
+    p,
+    fen: run.fens[p],
+    cp: run.cp[p] as number,
+    depth: run.cpDepth[p] || FALLBACK_DEPTH,
+    value: run.value[p] as [number, number, number],
+    repr: run.repr[p] as string,
+  })),
+  clocks: run.clocks,
+})
+
+/**
+ * Human bars for a Lichess game, one position at a time: the browser runs
+ * Maia3 (value + repr at the players' ratings) and takes Stockfish's eval
+ * from the site's own analysis (from depth 12, refreshed at its final depth;
+ * a small search of its own only for positions the site has not analysed)
+ * on the position on screen first, then the next ones, then the rest of the
+ * game, and sends the raw outputs to the human-bar server, which answers
+ * with the bars for those plies.
+ */
+export const useHumanBars = (
+  analyzedGame: AnalyzedGame,
+  currentNode: GameNode | null | undefined,
+  enabled: boolean,
+  /** The site's analysis is running on the position on screen (not hidden). */
+  siteAnalysing = true,
+) => {
+  const maia = useContext(MaiaEngineContext)
+  const maiaRef = useRef(maia)
+  maiaRef.current = maia
+
+  const [, setVersion] = useState(0)
+  const bump = useCallback(() => setVersion((v) => v + 1), [])
+  const [launch, setLaunch] = useState(0)
+
+  const serverConfigured = getHumanBarBaseUrl() !== null
+  const isLichess = analyzedGame.type === 'lichess'
+
+  const mainline = useMemo(
+    () => analyzedGame.tree.getMainLine(),
+    [analyzedGame.tree],
+  )
+  // The site's analysis writes its evals into these nodes as it goes.
+  const mainlineRef = useRef(mainline)
+  mainlineRef.current = mainline
+  const siteAnalysingRef = useRef(siteAnalysing)
+  siteAnalysingRef.current = siteAnalysing
+
+  const setup = useMemo(() => {
+    if (!isLichess) return null
+    return buildHumanBarSetup(
+      analyzedGame.pgn,
+      analyzedGame.id,
+      mainline.length - 1,
+      mainline[0]?.fen ?? '',
+      {
+        white: analyzedGame.whitePlayer.rating,
+        black: analyzedGame.blackPlayer.rating,
+      },
+    )
+  }, [analyzedGame, mainline, isLichess])
+
+  const run = useMemo(() => {
+    if (!setup?.ok) return null
+    const fens = mainline.map((node) => node.fen)
+    const key = `${analyzedGame.id}:${fens.length}:${fens[fens.length - 1]}`
+    const cached = runCache.get(key)
+    if (cached) return cached
+    const fresh: GameRun = {
+      key,
+      fens,
+      game: setup.game,
+      clocks: setup.clocks,
+      cp: fens.map(() => null),
+      cpDepth: fens.map(() => 0),
+      value: fens.map(() => null),
+      repr: fens.map(() => null),
+      bars: fens.map(() => undefined),
+      barsForm: fens.map(() => undefined),
+      form: null,
+      upgradePending: false,
+      formWait: false,
+      barsRevision: 0,
+      inFlight: new Set(),
+      stale: new Set(),
+      model: null,
+      maiaDone: 0,
+      stockfishDone: 0,
+      barsDone: 0,
+      error: null,
+      failures: 0,
+      fatal: null,
+      token: 0,
+      sending: false,
+      prepared: false,
+      target: 0,
+      targetSince: null,
+      sfJob: null,
+      waiters: new Set(),
+      marks: {},
+    }
+    runCache.set(key, fresh)
+    return fresh
+  }, [setup, mainline, analyzedGame.id])
+
+  // The ply to show: the current node if it is on the main line, else its
+  // closest main-line ancestor (variations have no bars of their own).
+  const { ply, inVariation } = useMemo(() => {
+    let node: GameNode | null | undefined = currentNode
+    let variation = false
+    while (node && !node.isMainline) {
+      node = node.parent
+      variation = true
+    }
+    const index = node ? mainline.indexOf(node) : -1
+    return { ply: index >= 0 ? index : null, inVariation: variation }
+  }, [currentNode, mainline])
+
+  const send = useCallback(
+    (target: GameRun, token: number) => {
+      if (target.sending || target.token !== token || target.fatal) return
+      const total = target.fens.length
+      // Everything evaluated and not answered yet, in one request.
+      const ready = evaluationOrder(target.target, total, LOOKAHEAD).filter(
+        (p) =>
+          needsBars(target, p) &&
+          !target.inFlight.has(p) &&
+          hasInputs(target, p),
+      )
+      if (ready.length === 0) return
+
+      target.sending = true
+      ready.forEach((p) => target.inFlight.add(p))
+      mark(target, 'request sent')
+      bump()
+      fetchHumanBars(buildHumanBarRequest(target, ready))
+        .then((response) => {
+          if (target.marks['first bars'] === undefined) {
+            mark(target, 'first bars')
+            const { started, ready } = getBatchStockfish().setupTimes
+            if (started !== undefined)
+              target.marks['bar Stockfish setup started'] = started
+            if (ready !== undefined)
+              target.marks['bar Stockfish set up'] = ready
+            console.info(
+              `[human bars] startup (ms since the page started): ${Object.entries(
+                target.marks,
+              )
+                .sort((a, b) => a[1] - b[1])
+                .map(([step, t]) => `${step} ${Math.round(t)}`)
+                .join(
+                  ', ',
+                )}; engine ${HUMAN_BAR_ENGINE}, Maia ${MAIA_MODEL_VERSION}`,
+            )
+          }
+          for (const bar of response.plies) {
+            if (bar && bar.p >= 0 && bar.p < total) {
+              target.bars[bar.p] = bar
+              target.barsForm[bar.p] = response.form
+              target.stale.delete(bar.p)
+            }
+          }
+          if (response.upgrade_pending) {
+            target.upgradePending = true
+            if (!target.formWait) {
+              // These bars use the players' profiles; the server is still
+              // fetching their recent games. Redo the bars once it has them.
+              target.formWait = true
+              settleForm(target.game)
+                .then((form) => {
+                  if (form) target.form = form
+                  console.info(
+                    `[human bars] players' recent games in at ${Math.round(
+                      performance.now(),
+                    )} ms: bars redone with form "${form}"`,
+                  )
+                })
+                .catch((error) =>
+                  console.warn('[human bars] form lookup failed:', error),
+                )
+                .finally(() => {
+                  target.formWait = false
+                  target.upgradePending = false
+                  bump()
+                  send(target, target.token)
+                })
+            }
+          } else if (response.form) {
+            target.form = response.form
+          }
+          target.barsRevision++
+          target.barsDone = target.bars.filter(Boolean).length
+          target.model = response.model ?? null
+          target.error = null
+          target.failures = 0
+          const t = target.target
+          if (target.targetSince !== null && target.bars[t]) {
+            console.info(
+              `[human bars] ply ${t}: bars ${Math.round(
+                performance.now() - target.targetSince,
+              )} ms after it was opened`,
+            )
+            target.targetSince = null
+          }
+        })
+        .catch((error) => {
+          console.warn('[human bars] request failed:', error)
+          if (error instanceof HumanBarServerError && error.refused) {
+            // The server refuses these inputs: asking again will not help.
+            target.fatal = error.message
+            return
+          }
+          target.error =
+            error instanceof Error ? error.message : 'Request failed'
+          target.failures++
+          if (target.failures < MAX_FAILURES) {
+            setTimeout(() => send(target, token), RETRY_DELAY_MS)
+          }
+        })
+        .finally(() => {
+          ready.forEach((p) => target.inFlight.delete(p))
+          target.sending = false
+          bump()
+          // Evals that finished while this request was in flight.
+          if (target.failures === 0) send(target, token)
+        })
+    },
+    [bump],
+  )
+
+  // Follow the position on screen: if it still needs Stockfish, stop the
+  // search running elsewhere; wake the loops either way.
+  useEffect(() => {
+    if (!run || ply === null) return
+    run.target = ply
+    if (run.bars[ply] === undefined) {
+      run.targetSince = performance.now()
+      const job = run.sfJob
+      if (job && job.ply !== ply && run.cp[ply] === null) {
+        job.controller.abort()
+      }
+    } else {
+      run.targetSince = null
+    }
+    wake(run)
+  }, [run, ply])
+
+  // The site's eval of the position on screen deepens while its search runs:
+  // take it at its final depth (or as soon as it replaces a fallback search)
+  // and ask for that ply's bars again if the eval moved.
+  const siteDepth = currentNode?.analysis?.stockfish?.depth ?? 0
+  useEffect(() => {
+    if (!enabled || !run || ply === null || run.cp[ply] === null) return
+    const site = siteEvalOf(mainline[ply])
+    if (!site || site.depth <= run.cpDepth[ply]) return
+    if (run.cpDepth[ply] > 0 && site.depth < SITE_EVAL_FINAL_DEPTH) return
+    const moved = run.cp[ply] !== site.cp
+    run.cp[ply] = site.cp
+    run.cpDepth[ply] = site.depth
+    if (moved && run.bars[ply] !== undefined) {
+      run.stale.add(ply)
+      send(run, run.token)
+    }
+  }, [enabled, run, ply, siteDepth, mainline, send])
+
+  useEffect(() => {
+    if (!enabled || !run || !serverConfigured) return
+    const total = run.fens.length
+    if (run.barsDone === total) return
+
+    const token = ++run.token
+    const live = () => run.token === token
+    run.failures = 0
+    mark(run, 'panel started')
+    if (!run.prepared) {
+      // Lets the server start its slow lookups (the players' recent games)
+      // while the browser computes the first evals.
+      run.prepared = true
+      prepareHumanBars(run.game)
+    }
+    const order = () => {
+      const all = evaluationOrder(run.target, total, LOOKAHEAD)
+      return BACKGROUND_FILL ? all : all.slice(0, LOOKAHEAD + 2)
+    }
+
+    const runStockfish = async () => {
+      // The bars' own engine is only for positions the site has not
+      // analysed: set up on first need, so it never delays the site's eval
+      // of the position on screen (or competes with it on a phone).
+      let engine: ReturnType<typeof getBatchStockfish> | null = null
+      const fallbackEngine = async () => {
+        if (!engine) {
+          engine = getBatchStockfish()
+          await engine.newGame()
+          mark(run, 'bar Stockfish ready')
+        }
+        return engine
+      }
+      while (live()) {
+        const p = order().find((i) => run.cp[i] === null)
+        if (p === undefined) {
+          if (BACKGROUND_FILL) return
+          await pause(run, 60000)
+          continue
+        }
+        // The site's own eval when it has one. The position on screen waits
+        // for it while the site is analysing it (its engine may still be
+        // starting on a phone); it searches itself only if the site is not
+        // analysing it at all (analysis hidden).
+        let site = siteEvalOf(mainlineRef.current[p])
+        if (!site && p === run.target) {
+          const since = performance.now()
+          const siteBusy = () =>
+            siteAnalysingRef.current ||
+            (mainlineRef.current[p]?.analysis?.stockfish !== undefined &&
+              !mainlineRef.current[p]?.analysis?.stockfish?.from_cache) ||
+            performance.now() - since < SITE_EVAL_WAIT_MS
+          while (!site && live() && p === run.target && siteBusy()) {
+            await pause(run, 100)
+            site = siteEvalOf(mainlineRef.current[p])
+          }
+          if (!live()) return
+          if (!site && p !== run.target) continue
+        }
+        if (!site && p !== run.target) {
+          // Another position (the rest of the game, for the chart): search it
+          // only while the site's engine is idle, i.e. once the position on
+          // screen has its final eval, so the two never share the CPU.
+          const t = run.target
+          let lastDepth = -1
+          let lastChange = performance.now()
+          const idle = () => {
+            const d = mainlineRef.current[t]?.analysis?.stockfish?.depth ?? -1
+            if (d !== lastDepth) {
+              lastDepth = d
+              lastChange = performance.now()
+            }
+            // Final depth reached, or the site is not analysing / has stopped.
+            return (
+              run.cpDepth[t] >= SITE_EVAL_FINAL_DEPTH ||
+              (run.cp[t] !== null &&
+                (d === -1 || performance.now() - lastChange > 3000))
+            )
+          }
+          while (live() && !idle() && run.target === t) await pause(run, 500)
+          if (!live()) return
+          if (run.target !== t) continue
+          site = siteEvalOf(mainlineRef.current[p])
+        }
+        if (site) {
+          run.cp[p] = site.cp
+          run.cpDepth[p] = site.depth
+          mark(run, 'first Stockfish eval')
+          run.stockfishDone = run.cp.filter((v) => v !== null).length
+          bump()
+          send(run, token)
+          wake(run)
+          continue
+        }
+        const sf = await fallbackEngine()
+        if (!live()) return
+        const job = { ply: p, controller: new AbortController() }
+        run.sfJob = job
+        wake(run) // Maia can start on this position
+        try {
+          const evaluation = await sf.evaluate(
+            run.fens[p],
+            FALLBACK_NODES,
+            job.controller.signal,
+          )
+          if (!live()) return
+          run.cp[p] = encodeSideToMoveScore(evaluation)
+          run.cpDepth[p] = 0
+          mark(run, 'first Stockfish eval')
+        } catch (error) {
+          if (isAbort(error)) continue
+          throw error
+        } finally {
+          if (run.sfJob === job) run.sfJob = null
+        }
+        run.stockfishDone = run.cp.filter((v) => v !== null).length
+        bump()
+        send(run, token)
+        wake(run)
+      }
+    }
+
+    const runMaia = async () => {
+      while (live()) {
+        const engine =
+          maiaRef.current.status === 'ready' ? maiaRef.current.maia : null
+        if (!engine) {
+          await pause(run, 250)
+          continue
+        }
+        mark(run, 'Maia ready')
+        // Maia is about ten times faster than Stockfish: keep it on the
+        // positions Stockfish has done or is doing, plus the one on screen.
+        const todo = order()
+          .filter(
+            (i) =>
+              run.value[i] === null &&
+              (i === run.target || run.cp[i] !== null || i === run.sfJob?.ply),
+          )
+          .slice(0, MAIA_BATCH_SIZE)
+        if (todo.length === 0) {
+          if (run.value.every((v) => v !== null)) return
+          await pause(run, 1000)
+          continue
+        }
+        // The position on screen alone, for the quickest answer, at the
+        // priority of the site's own analysis; the rest behind it.
+        const onScreen = todo[0] === run.target
+        const idx = onScreen ? [todo[0]] : todo
+        const whiteToMove = idx.map((i) => run.fens[i].split(' ')[1] !== 'b')
+        const outputs = await engine.batchEvaluateMaia3Raw(
+          idx.map((i) => run.fens[i]),
+          whiteToMove.map((w) => (w ? run.game.white_elo : run.game.black_elo)),
+          whiteToMove.map((w) => (w ? run.game.black_elo : run.game.white_elo)),
+          {
+            priority: onScreen
+              ? MAIA_PRIORITY.normal
+              : MAIA_PRIORITY.background,
+          },
+        )
+        if (!live()) return
+        mark(run, 'first Maia eval')
+        outputs.forEach((out, j) => {
+          const i = idx[j]
+          if (!out.repr) {
+            throw new Error(
+              'The cached Maia model has no repr output; reload the page to refresh it.',
+            )
+          }
+          run.value[i] = out.value
+          run.repr[i] = float32ToBase64LE(out.repr)
+        })
+        run.maiaDone = run.value.filter((v) => v !== null).length
+        bump()
+        send(run, token)
+      }
+    }
+
+    Promise.all([runMaia(), runStockfish()])
+      .then(() => {
+        if (live()) send(run, token)
+      })
+      .catch((error) => {
+        console.error('[human bars] pipeline failed:', error)
+        if (live()) {
+          run.fatal =
+            error instanceof Error ? error.message : 'Human bars failed'
+          bump()
+        }
+      })
+
+    return () => {
+      // Stop this launch; whatever it computed stays in the cache.
+      if (run.token === token) run.token++
+      run.sfJob?.controller.abort()
+      wake(run)
+    }
+  }, [enabled, run, serverConfigured, send, bump, launch])
+
+  const retry = useCallback(() => {
+    if (!run) return
+    run.error = null
+    run.fatal = null
+    run.failures = 0
+    setLaunch((n) => n + 1)
+  }, [run])
+
+  // A new array whenever the bars change, so consumers can memoize on it.
+  const barsRevision = run?.barsRevision ?? 0
+  const bars = useMemo(() => (run ? [...run.bars] : []), [run, barsRevision])
+
+  let status: HumanBarStatus
+  if (!enabled || !isLichess || !serverConfigured) status = 'off'
+  else if (!setup || !setup.ok || !run) status = 'unavailable'
+  else if (run.barsDone === run.fens.length) status = 'done'
+  else if (run.fatal || (run.failures >= MAX_FAILURES && !run.sending))
+    status = 'error'
+  else if (maia.status !== 'ready' && (ply === null || !run.value[ply]))
+    status = 'waiting-maia'
+  else status = 'running'
+
+  return {
+    status,
+    available: isLichess && serverConfigured,
+    reason: setup && !setup.ok ? setup.reason : null,
+    error: run?.fatal ?? run?.error ?? null,
+    model: run?.model ?? null,
+    bars,
+    total: run?.fens.length ?? 0,
+    progress: {
+      maia: run?.maiaDone ?? 0,
+      stockfish: run?.stockfishDone ?? 0,
+      bars: run?.barsDone ?? 0,
+    },
+    /** A /v1/bars request is in flight. */
+    waitingForServer: run?.sending ?? false,
+    /**
+     * No bars have come back for this game yet: the server's first answer
+     * waits for the players' Lichess profiles.
+     */
+    firstAnswerPending: (run?.barsDone ?? 0) === 0,
+    /**
+     * The bars shown use the players' profiles; they are redone once the
+     * server has fetched the players' recent games.
+     */
+    upgradePending: run?.upgradePending ?? false,
+    /**
+     * The players' form behind the bars on screen: "none" when the server
+     * could not get their Lichess profiles in time (it keeps trying while
+     * upgradePending), "prof", "g50".
+     */
+    shownForm: (ply !== null && run?.barsForm[ply]) || null,
+    ply,
+    inVariation,
+    mainline,
+    whiteName: setup?.ok ? setup.game.white : analyzedGame.whitePlayer.name,
+    blackName: setup?.ok ? setup.game.black : analyzedGame.blackPlayer.name,
+    retry,
+  }
+}
+
+export type HumanBarsState = ReturnType<typeof useHumanBars>

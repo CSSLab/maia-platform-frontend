@@ -45,6 +45,7 @@ import {
   AnalysisStockfishEvalBar,
 } from 'src/components/Analysis/BoardChrome'
 import { MovesByRating } from 'src/components/Analysis/MovesByRating'
+import { HumanBarPanel } from 'src/components/Analysis/HumanBarPanel'
 import { AnalysisGameList } from 'src/components/Analysis/AnalysisGameList'
 import { GameLoadFailure } from 'src/components/Analysis/GameLoadFailure'
 import { MaiaDownloadPrompt } from 'src/components/Common/MaiaDownloadPrompt'
@@ -74,6 +75,8 @@ import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
 import {
   useAnalysisController,
   useBoardWheelNavigation,
+  useHumanBars,
+  useLocalStorage,
   useTablebase,
 } from 'src/hooks'
 import { tourConfigs } from 'src/constants/tours'
@@ -403,6 +406,7 @@ const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
       setAnalyzedGame({
         ...game,
         type: 'lichess',
+        pgn,
       })
       setCurrentId([id, 'lichess'])
 
@@ -705,6 +709,31 @@ const Analysis: React.FC<Props> = ({
     // the engine effects see that the position is already analysed.
     if (storedAnalysisRevision > 0) refreshAnalysis()
   }, [storedAnalysisRevision, refreshAnalysis])
+  const [showHumanBars, setShowHumanBars] = useLocalStorage<boolean>(
+    'analysis-show-human-bars',
+    true,
+  )
+  const humanBars = useHumanBars(
+    analyzedGame,
+    controller.currentNode,
+    showHumanBars,
+    analysisEnabled && !controller.learnFromMistakes.state.isActive,
+  )
+  const showHumanBarPanel = humanBars.available && showHumanBars
+  const humanBarLockedMessage = controller.learnFromMistakes.state.isActive
+    ? 'Hidden during Learn from Mistakes'
+    : !analysisEnabled
+      ? 'Analysis hidden'
+      : null
+  const selectHumanBarPly = useCallback(
+    (ply: number) => {
+      const node = humanBars.mainline[ply]
+      if (node && !controller.learnFromMistakes.state.isActive) {
+        controller.goToNode(node)
+      }
+    },
+    [humanBars.mainline, controller],
+  )
   const userGamePovOrientation = useMemo(() => {
     if (!['play', 'hand', 'brain'].includes(analyzedGame.type)) {
       return null
@@ -1809,6 +1838,16 @@ const Analysis: React.FC<Props> = ({
               <NestedGameInfo />
             </GameInfo>
           </div>
+          {showHumanBarPanel ? (
+            <div className="w-full shrink-0 overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+              <HumanBarPanel
+                state={humanBars}
+                onSelectPly={selectHumanBarPly}
+                onHide={() => setShowHumanBars(false)}
+                lockedMessage={humanBarLockedMessage}
+              />
+            </div>
+          ) : null}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             <UnderlineTabs
               tabs={ANALYSIS_LEFT_PANEL_TABS}
@@ -2111,6 +2150,10 @@ const Analysis: React.FC<Props> = ({
                 onStopLearnFromMistakes={handleStopLearnFromMistakes}
                 onSelectPlayer={handleSelectPlayer}
                 lastMoveResult={lastMoveResult}
+                showHumanBars={humanBars.available ? showHumanBars : undefined}
+                setShowHumanBars={
+                  humanBars.available ? setShowHumanBars : undefined
+                }
               />
             </div>
           }
@@ -2392,6 +2435,17 @@ const Analysis: React.FC<Props> = ({
                 />
               </div>
             </div>
+            {showHumanBarPanel ? (
+              <div className="w-full border-t border-glass-border bg-glass backdrop-blur-md">
+                <HumanBarPanel
+                  state={humanBars}
+                  onSelectPly={selectHumanBarPly}
+                  onHide={() => setShowHumanBars(false)}
+                  lockedMessage={humanBarLockedMessage}
+                  variant="mobile"
+                />
+              </div>
+            ) : null}
             <div className="flex w-full flex-col overflow-hidden">
               <div className="relative border-t border-glass-border bg-glass backdrop-blur-md">
                 <SimplifiedAnalysisOverview
@@ -2575,6 +2629,10 @@ const Analysis: React.FC<Props> = ({
               onStopLearnFromMistakes={handleStopLearnFromMistakes}
               onSelectPlayer={handleSelectPlayer}
               lastMoveResult={lastMoveResult}
+              showHumanBars={humanBars.available ? showHumanBars : undefined}
+              setShowHumanBars={
+                humanBars.available ? setShowHumanBars : undefined
+              }
             />
           </motion.div>
         )}

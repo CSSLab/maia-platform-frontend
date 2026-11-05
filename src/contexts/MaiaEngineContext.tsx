@@ -24,6 +24,15 @@ import toast from 'react-hot-toast'
 
 const MAIA_LOADING_TOAST_DELAY_MS = 800
 
+/**
+ * The Maia file's version. '3.1': same weights as '3', plus the pooled
+ * `repr` output used by the human bars; bumped so cached copies of the old
+ * file are refreshed. Human-bar requests carry it, and the server refuses
+ * inputs from a Maia file its bars were not trained on.
+ */
+export const MAIA_MODEL_VERSION =
+  process.env.NEXT_PUBLIC_MAIA_MODEL_VERSION ?? '3.1'
+
 export const MaiaEngineContext = React.createContext<MaiaEngine>({
   maia: undefined,
   status: 'loading',
@@ -51,7 +60,7 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
       model:
         process.env.NEXT_PUBLIC_MAIA_MODEL_URL ??
         '/maia3/maia3_simplified.onnx',
-      modelVersion: process.env.NEXT_PUBLIC_MAIA_MODEL_VERSION ?? '3',
+      modelVersion: MAIA_MODEL_VERSION,
       setStatus: setStatus,
       setProgress: setProgress,
       setError: setError,

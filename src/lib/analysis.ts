@@ -311,7 +311,7 @@ export const applyEngineAnalysisData = (
             !node.analysis.stockfish ||
             node.analysis.stockfish.depth < stockfish.depth
           ) {
-            node.addStockfishAnalysis(stockfishEval)
+            node.addStockfishAnalysis({ ...stockfishEval, from_cache: true })
           }
         }
       }
