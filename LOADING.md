@@ -1375,8 +1375,7 @@ Stockfish's search. On ada the chart is unchanged within the noise.
 spare").** Before it, the new code's frame reloads brought both engines back on only
 3 of 10 (`RangeError: Out of memory`), and later reservations failed even with no
 page open. Reservations are now 134 MB for Stockfish and 268 MB for Maia (402 MB
-together; main reserves about 1.5 GB), and both retry after 1, 3, 8 and 15 s. With
-it, 10 of 10 in both reload tests. Maia's moves come at about 2.9 s on most of those
+together; main reserves about 1.5 GB), and both retry after 1, 3, 8 and 15 s. With it, 10 of 10 in both reload tests, before and after the last search change. Maia's moves come at about 2.9 s on most of those
 reloads instead of about 1.6 s, which is what one 1 s retry would give, so the phone
 is still short of memory there; that isn't confirmed. Stockfish now uses 84 MB.
 
