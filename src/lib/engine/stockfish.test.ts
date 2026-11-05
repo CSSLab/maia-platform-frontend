@@ -1,5 +1,6 @@
 import { Chess } from 'chess.ts'
 import Engine, {
+  reserveWasmMemory,
   sharedWasmMemory,
   STOCKFISH_MAX_MEMORY_PAGES,
 } from './stockfish'
@@ -384,18 +385,36 @@ describe('sharedWasmMemory', () => {
     return asked
   }
 
-  it('reserves at most 256 MB', () => {
+  it('reserves at most 134 MB', () => {
     const asked = fakeMemory(Infinity)
     sharedWasmMemory(2560)
-    expect(STOCKFISH_MAX_MEMORY_PAGES * 64 * 1024).toBe(2 ** 28)
+    expect(STOCKFISH_MAX_MEMORY_PAGES * 64 * 1024).toBe(2 ** 27)
     expect(asked).toEqual([
       { shared: true, initial: 2560, maximum: STOCKFISH_MAX_MEMORY_PAGES },
     ])
   })
 
+  it('tries again later when even the initial size cannot be reserved', async () => {
+    let free = false
+    fakeMemory(0)
+    const refusing = WebAssembly.Memory
+    WebAssembly.Memory = function Memory(d: WebAssembly.MemoryDescriptor) {
+      return free ? ({} as WebAssembly.Memory) : new refusing(d)
+    } as unknown as typeof WebAssembly.Memory
+    const reserving = reserveWasmMemory(1280, [1, 1])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    free = true
+    await expect(reserving).resolves.toBeDefined()
+  })
+
+  it('gives up when the memory is never released', async () => {
+    fakeMemory(0)
+    await expect(reserveWasmMemory(1280, [1, 1])).rejects.toThrow(RangeError)
+  })
+
   it('asks for less when the browser cannot reserve the maximum', () => {
-    const asked = fakeMemory(2048)
-    sharedWasmMemory(1024)
-    expect(asked.map((d) => d.maximum)).toEqual([4096, 3072, 2048])
+    const asked = fakeMemory(1536)
+    sharedWasmMemory(1280)
+    expect(asked.map((d) => d.maximum)).toEqual([2048, 1536])
   })
 })
