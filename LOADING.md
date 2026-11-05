@@ -1203,6 +1203,16 @@ reported), with ada at load 25–45 of 160. Six paired loads per device, the bui
 alternating, on the two test games. The emulated phone is far slower than an iPhone
 12 (see below), so use it to compare builds, not as what a phone user sees.
 
+**The depth labels below are not like for like.** On main, "d18" appears when four
+lines have reached depth 18. Here it appears when the best line alone has, with the
+other lines as shallow as depth 6, and the same goes for "d12". So the fair comparison
+of the whole display is when the lines stop changing: about 3.4 → 2.7 s after a step
+on an iPhone 12, and 5.36 → 3.38 s on a desktop, not the threefold gain the labels
+suggest. What the earlier label does give is a best move and eval about as reliable
+as main's d18, sooner. The whole search, which ends with the deep search on Maia's
+moves, takes longer: about 7.3 s against 6.0 s in a desktop replay, on engines not run
+under identical load.
+
 | warm visit, seconds     | phone: main → new | desktop: main → new |
 | ----------------------- | ----------------- | ------------------- |
 | board on screen         | 2.38 → 2.48       | 0.33 → 0.33         |
@@ -1503,6 +1513,8 @@ visitors. No field data was used. The iPhone numbers are one phone and few runs.
 
 ## Things you will notice
 
+- **Stockfish 19.** The analysis page now names Stockfish 19, and "d18" means the best
+  line has reached depth 18, with the other lines filling in afterwards (round 10).
 - **First visits to /turing, /play/maia and /play/hb** now show the page. On
   `main` a new visitor's page requests (`turing/new_game`, …) went out before
   the account request had created their guest session, got a 401, and sent
