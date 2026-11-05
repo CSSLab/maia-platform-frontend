@@ -11,7 +11,11 @@ import {
   GameNode,
 } from 'src/types'
 import { MAIA_MODELS } from 'src/constants/common'
-import { WindowSizeContext } from 'src/contexts'
+import { MaiaEngineContext, WindowSizeContext } from 'src/contexts'
+import {
+  MAIA_DOWNLOAD_MB,
+  startMaiaDownload,
+} from 'src/lib/engine/maiaDownloadPrompt'
 
 type DescriptionSegment =
   | { type: 'text'; content: string }
@@ -60,6 +64,7 @@ export const Highlight: React.FC<Props> = ({
   hideStockfishEvalSummary = false,
   hideWhiteWinRateSummary = false,
 }: Props) => {
+  const maiaEngine = useContext(MaiaEngineContext)
   const { isMobile } = useContext(WindowSizeContext)
 
   // Check if current position is checkmate (independent of Stockfish
@@ -576,7 +581,20 @@ export const Highlight: React.FC<Props> = ({
                 </button>
               )
             })}
-            {emptyRows(recommendations.maia?.slice(0, 4).length ?? 0)}
+            <div className="relative w-full">
+              {emptyRows(recommendations.maia?.slice(0, 4).length ?? 0)}
+              {maiaEngine.status === 'no-cache' ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    startMaiaDownload(maiaEngine.downloadModel, 'panel')
+                  }
+                  className="absolute inset-0 m-auto h-fit rounded border border-glass-border bg-human-4 px-2 py-1 text-xs font-medium text-white"
+                >
+                  Download ({MAIA_DOWNLOAD_MB} MB)
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
         <div

@@ -27,6 +27,8 @@ interface MaiaOptions {
   setStatus: (status: MaiaStatus) => void
   setProgress: (progress: number) => void
   setError: (error: string) => void
+  /** Downloaded, but the browser wouldn't save it. */
+  onStoreFailed?: (message: string) => void
 }
 
 interface PendingInference {
@@ -51,6 +53,9 @@ interface QueuedInference extends PendingInference {
 
 const abortError = () => new DOMException('Inference aborted', 'AbortError')
 
+/** maia3_simplified.onnx, which is sent compressed and so without a length. */
+const MAIA_MODEL_BYTES = 45_683_686
+
 /**
  * Starting ONNX Runtime reserves a shared WebAssembly memory of up to 4 GB.
  * On an iPhone, reloading the analysis page can fail that reservation
@@ -70,6 +75,11 @@ interface PendingDownload {
 
 class Maia {
   private worker: Worker | null = null
+  private downloadListeners = new Set<() => void>()
+  private reportedTens = 0
+  /** How far the download is, for showing it. */
+  public downloadPercent = 0
+  public downloadStartedAt = 0
   private options: MaiaOptions
   private storage: MaiaModelStorage
   private pendingInferences: Map<number, PendingInference> = new Map()
@@ -111,8 +121,19 @@ class Maia {
           }
           break
 
-        case 'progress':
-          this.options.setProgress(msg.progress)
+        case 'progress': {
+          this.downloadPercent = msg.progress
+          this.downloadListeners.forEach((listener) => listener())
+          const tens = Math.floor(msg.progress / 10) * 10
+          if (tens !== this.reportedTens) {
+            this.reportedTens = tens
+            this.options.setProgress(tens)
+          }
+          break
+        }
+
+        case 'store-failed':
+          this.options.onStoreFailed?.(msg.message)
           break
 
         case 'error': {
@@ -190,17 +211,30 @@ class Maia {
     return this.restarts
   }
 
+  public onDownloadProgress = (listener: () => void) => {
+    this.downloadListeners.add(listener)
+    return () => {
+      this.downloadListeners.delete(listener)
+    }
+  }
+
   public async downloadModel() {
     if (!this.worker) throw new Error('Worker not initialized')
     if (this.downloadPromise) {
       return this.downloadPromise
     }
 
+    this.reportedTens = 0
+    this.downloadPercent = 0
+    this.downloadStartedAt = Date.now()
     this.options.setProgress(0)
 
     this.downloadPromise = new Promise<void>((resolve, reject) => {
       this.pendingDownload = { resolve, reject }
-      this.worker!.postMessage({ type: 'download' })
+      this.worker!.postMessage({
+        type: 'download',
+        expectedBytes: MAIA_MODEL_BYTES,
+      })
     })
 
     return this.downloadPromise

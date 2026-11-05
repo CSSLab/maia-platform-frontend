@@ -24,12 +24,36 @@ export const trackDownloadModelModalShown = (
   safeTrack('download_model_modal_shown', { trigger, page })
 }
 
-export const trackDownloadModelInitiated = (page: string) => {
+export const trackDownloadModelInitiated = (
+  page: string,
+  trigger: 'wall' | 'auto' | 'tap' | 'panel',
+) => {
   safeTrack('download_model_initiated', {
     model_type: 'maia2',
     model_size_mb: 90,
     page,
+    trigger,
   })
+}
+
+/** The model has been saved, and whether the browser promises to keep it. */
+export const trackMaiaModelProtected = (granted: boolean) => {
+  safeTrack('maia_model_protected', { granted })
+}
+
+/** Downloaded, but the browser wouldn't save it: it's needed again next time. */
+export const trackMaiaModelStoreFailed = (message: string) => {
+  safeTrack('maia_model_store_failed', { message })
+}
+
+/** The browser no longer has a model it had saved. */
+export const trackMaiaModelLost = (daysSinceSaved: number) => {
+  safeTrack('maia_model_lost', { days_since_saved: daysSinceSaved })
+}
+
+/** "Not now" on the download prompt. */
+export const trackDownloadModelDismissed = (page: string) => {
+  safeTrack('download_model_dismissed', { page })
 }
 
 export const trackDownloadModelCompleted = (

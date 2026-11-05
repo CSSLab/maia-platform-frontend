@@ -38,7 +38,7 @@ import {
   AuthenticatedWrapper,
   GameBoard,
   PromotionOverlay,
-  DownloadModelModal,
+  MaiaDownloadPrompt,
   AnalysisSidebar,
   AnalysisArrowLegend,
   AnalysisCompactBlunderMeter,
@@ -1760,15 +1760,10 @@ const Train: React.FC<Props> = ({
 
   return (
     <>
-      <AnimatePresence>
-        {analysisController.maia.status === 'no-cache' ||
-        analysisController.maia.status === 'downloading' ? (
-          <DownloadModelModal
-            progress={analysisController.maia.progress}
-            download={analysisController.maia.downloadModel}
-          />
-        ) : null}
-      </AnimatePresence>
+      <MaiaDownloadPrompt
+        engine={analysisController.maia}
+        wanted={analysisEnabled}
+      />
       <TrainingControllerContext.Provider value={controller}>
         {/* No fade-in when the puzzle replaces the shell, which already shows
             the panels and board. */}

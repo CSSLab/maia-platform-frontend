@@ -10,6 +10,14 @@ const pending: [string, Properties | undefined, Date][] = []
 let client: PostHog | null = null
 let loading: Promise<void> | null = null
 
+const registered: Properties = {}
+
+/** Sent with every event from now on, and on later visits. */
+export const registerProperties = (properties: Properties) => {
+  Object.assign(registered, properties)
+  client?.register(properties)
+}
+
 export const capture = (event: string, properties?: Properties) => {
   if (client) {
     client.capture(event, properties)
@@ -31,6 +39,7 @@ export const loadPostHog = () => {
         browserPostHogConfig,
       )
       client = posthog
+      posthog.register(registered)
       // Sent with the time they happened.
       for (const [event, properties, timestamp] of pending.splice(0)) {
         posthog.capture(event, properties, { timestamp })

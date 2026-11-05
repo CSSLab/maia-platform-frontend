@@ -37,6 +37,7 @@ import {
   GameBoard,
   PromotionOverlay,
   DownloadModelModal,
+  MaiaDownloadPrompt,
   AuthenticatedWrapper,
   AnalysisNotification,
   AnalysisOverlay,
@@ -66,6 +67,10 @@ import { cpToWinrate } from 'src/lib/analysis'
 import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
+import {
+  downloadsWithoutAsking,
+  maiaPromptVariant,
+} from 'src/lib/engine/maiaDownloadPrompt'
 import {
   getCurrentPlayer,
   getAvailableMovesArray,
@@ -1147,17 +1152,20 @@ const OpeningsPage: NextPage = () => {
   //   return null
   // }
 
-  // Show download modal if Maia model needs to be downloaded
-  if (maiaEngine.status === 'no-cache' || maiaEngine.status === 'downloading') {
+  // Maia is needed once a drill starts. In the group without the full-page
+  // prompt, not while choosing what to drill.
+  const maiaMissing =
+    maiaEngine.status === 'no-cache' || maiaEngine.status === 'downloading'
+  if (maiaMissing && (!showSelectionModal || maiaPromptVariant() === 'wall')) {
     return (
-      <>
-        <AnimatePresence>
-          <DownloadModelModal
-            progress={maiaEngine.progress}
-            download={maiaEngine.downloadModel}
-          />
-        </AnimatePresence>
-      </>
+      <AnimatePresence>
+        <DownloadModelModal
+          maia={maiaEngine.maia}
+          progress={maiaEngine.progress}
+          download={maiaEngine.downloadModel}
+          downloading={maiaEngine.status === 'downloading'}
+        />
+      </AnimatePresence>
     )
   }
 
@@ -1165,6 +1173,10 @@ const OpeningsPage: NextPage = () => {
   if (showSelectionModal) {
     return (
       <>
+        <MaiaDownloadPrompt
+          engine={maiaEngine}
+          wanted={maiaMissing && downloadsWithoutAsking()}
+        />
         <AnimatePresence>
           <OpeningSelectionModal
             openings={openings}

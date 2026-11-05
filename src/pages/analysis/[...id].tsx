@@ -45,7 +45,7 @@ import {
 } from 'src/components/Analysis/BoardChrome'
 import { MovesByRating } from 'src/components/Analysis/MovesByRating'
 import { AnalysisGameList } from 'src/components/Analysis/AnalysisGameList'
-import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
+import { MaiaDownloadPrompt } from 'src/components/Common/MaiaDownloadPrompt'
 import { CustomAnalysisModal } from 'src/components/Analysis/CustomAnalysisModal'
 import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens'
 import { AnalysisConfigModal } from 'src/components/Analysis/AnalysisConfigModal'
@@ -2343,15 +2343,7 @@ const Analysis: React.FC<Props> = ({
         whitePlayer={analyzedGame?.whitePlayer.name}
         blackPlayer={analyzedGame?.blackPlayer.name}
       />
-      <AnimatePresence>
-        {controller.maia.status === 'no-cache' ||
-        controller.maia.status === 'downloading' ? (
-          <DownloadModelModal
-            progress={controller.maia.progress}
-            download={controller.maia.downloadModel}
-          />
-        ) : null}
-      </AnimatePresence>
+      <MaiaDownloadPrompt engine={controller.maia} />
       <TreeControllerContext.Provider value={controller}>
         {analyzedGame && (
           <div>

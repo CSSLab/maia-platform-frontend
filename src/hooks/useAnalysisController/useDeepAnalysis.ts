@@ -68,7 +68,7 @@ export const useDeepAnalysis = ({
 
       while (
         retries < maxRetries &&
-        (!stockfish.isReady() || maia.status !== 'ready') &&
+        (!stockfish.isReady() || maia.status === 'loading') &&
         !deepAnalysisStatus.current.cancelled
       ) {
         await new Promise((resolve) => setTimeout(resolve, 100))

@@ -1,7 +1,8 @@
 import { useWindowSize } from 'src/hooks'
 import React, { ReactNode, useMemo } from 'react'
+import { PHONE_BREAKPOINT_PX } from 'src/constants/common'
 
-export const PHONE_BREAKPOINT_PX = 670
+export { PHONE_BREAKPOINT_PX }
 export const TABLET_BREAKPOINT_PX = 1024
 
 interface IWindowSizeContext {

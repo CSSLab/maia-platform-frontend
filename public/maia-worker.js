@@ -110,8 +110,13 @@ async function storeModel(modelUrl, modelVersion, buffer) {
   const tx = db.transaction([STORE_NAME], 'readwrite')
   const store = tx.objectStore(STORE_NAME)
 
+  // Saved only once the transaction completes: a full disk can still fail it
+  // after the request itself has succeeded.
   await new Promise((resolve, reject) => {
-    const req = store.put({
+    tx.oncomplete = () => resolve()
+    tx.onabort = () => reject(tx.error)
+    tx.onerror = () => reject(tx.error)
+    store.put({
       id: MODEL_KEY,
       url: modelUrl,
       version: modelVersion,
@@ -119,8 +124,6 @@ async function storeModel(modelUrl, modelVersion, buffer) {
       timestamp: Date.now(),
       size: buffer.byteLength,
     })
-    req.onsuccess = () => resolve()
-    req.onerror = () => reject(req.error)
   })
 }
 
@@ -175,10 +178,15 @@ self.onmessage = async (e) => {
 
         if (response.body && typeof response.body.getReader === 'function') {
           const reader = response.body.getReader()
-          const contentLength = +(response.headers.get('Content-Length') || 0)
+          // A compressed response has no usable length, and the bytes read here
+          // are decompressed: use the size the page knows.
+          const contentLength = response.headers.get('Content-Encoding')
+            ? msg.expectedBytes || 0
+            : +(response.headers.get('Content-Length') || 0)
           const chunks = []
           let receivedLength = 0
           let lastReportedProgress = 0
+          let lastReportedAt = 0
 
           while (true) {
             const { done, value } = await reader.read()
@@ -187,12 +195,18 @@ self.onmessage = async (e) => {
             receivedLength += value.length
 
             if (contentLength > 0) {
-              const currentProgress = Math.floor(
-                (receivedLength / contentLength) * 100,
+              const currentProgress = Math.min(
+                99,
+                Math.floor((receivedLength / contentLength) * 100),
               )
-              if (currentProgress >= lastReportedProgress + 10) {
+              const now = Date.now()
+              if (
+                currentProgress > lastReportedProgress &&
+                now - lastReportedAt >= 250
+              ) {
                 postMessage({ type: 'progress', progress: currentProgress })
                 lastReportedProgress = currentProgress
+                lastReportedAt = now
               }
             }
           }
@@ -207,7 +221,13 @@ self.onmessage = async (e) => {
           buffer = new Uint8Array(await response.arrayBuffer())
         }
 
-        await storeModel(modelUrl, modelVersion, buffer.buffer)
+        // Maia still works on this page if saving fails, but it will be
+        // needed again on the next.
+        try {
+          await storeModel(modelUrl, modelVersion, buffer.buffer)
+        } catch (err) {
+          postMessage({ type: 'store-failed', message: String(err) })
+        }
         await initSession(buffer.buffer)
         postMessage({ type: 'progress', progress: 100 })
         postMessage({ type: 'status', status: 'ready' })
