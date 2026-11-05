@@ -1,5 +1,6 @@
 import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
+import { STOCKFISH_ENGINE } from 'src/constants/analysis'
 import { hasRelaxedSimd } from './relaxedSimd'
 import StockfishWeb from '@lichess-org/stockfish-web'
 import {
@@ -1549,6 +1550,7 @@ class Engine {
   private finalizeEvaluation(
     evaluation: StockfishEvaluation,
   ): StockfishEvaluation {
+    evaluation.engine = STOCKFISH_ENGINE
     let bestWinrate = -Infinity
 
     const winrateVec = evaluation.winrate_vec

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useContext } from 'react'
 import { Chess } from 'chess.ts'
+import { stockfishSearchIsDone } from 'src/lib/analysis'
 
 import { GameTree } from 'src/types'
 import { DeepAnalysisConfig, DeepAnalysisProgress } from 'src/types/analysis'
@@ -110,8 +111,7 @@ export const useDeepAnalysis = ({
             analysisRetries < maxAnalysisRetries &&
             !deepAnalysisStatus.current.cancelled &&
             (!node.analysis.stockfish ||
-              ((node.analysis.stockfish.depth < targetDepth ||
-                node.analysis.stockfish.partial) &&
+              (!stockfishSearchIsDone(node.analysis.stockfish, targetDepth) &&
                 node.analysis.stockfish.model_optimal_cp !== 10000 &&
                 node.analysis.stockfish.model_optimal_cp !== -10000))
           ) {

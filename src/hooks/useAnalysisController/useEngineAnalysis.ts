@@ -1,6 +1,7 @@
 import { Chess } from 'chess.ts'
 import { fetchOpeningBookMoves } from 'src/api'
 import { startTransition, useEffect, useContext, useRef, useState } from 'react'
+import { stockfishSearchIsDone } from 'src/lib/analysis'
 import {
   analysisMaiaStage,
   analysisPositionShown,
@@ -301,9 +302,7 @@ export const useEngineAnalysis = (
     }
 
     if (
-      currentNode.analysis.stockfish &&
-      currentNode.analysis.stockfish?.depth >= targetDepth &&
-      !currentNode.analysis.stockfish.partial &&
+      stockfishSearchIsDone(currentNode.analysis.stockfish, targetDepth) &&
       !shouldForceStockfishRerun
     )
       return

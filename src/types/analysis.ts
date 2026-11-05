@@ -65,6 +65,13 @@ export interface StockfishEvaluation {
   partial?: boolean
   /** The lines on show have reached the target depth. */
   lines_done?: boolean
+  /** The engine that searched, when it was this site's own (src/constants). */
+  engine?: string
+  /**
+   * Restored from saved analysis made by another engine, or before saved
+   * analysis said which. It shows until a search of this engine replaces it.
+   */
+  older_engine?: boolean
 }
 
 export interface CachedEngineAnalysisEntry {
@@ -75,6 +82,7 @@ export interface CachedEngineAnalysisEntry {
     depth: number
     cp_vec: MoveValueMapping
     mate_vec?: MoveValueMapping
+    engine?: string | null
   }
 }
 

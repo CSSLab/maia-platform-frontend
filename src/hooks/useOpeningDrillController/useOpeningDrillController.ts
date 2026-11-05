@@ -1,4 +1,5 @@
 import { Chess } from 'chess.ts'
+import { stockfishSearchIsDone } from 'src/lib/analysis'
 import { fetchGameMove, fetchOpeningBookMoves } from 'src/api/play'
 import { logOpeningDrill } from 'src/api/openings'
 import { useLocalStorage } from '../useLocalStorage'
@@ -980,9 +981,10 @@ export const useOpeningDrillController = (
     async (node: GameNode) => {
       const existingStockfish = node.analysis.stockfish
       if (
-        (existingStockfish &&
-          existingStockfish.depth >= DRILL_STOCKFISH_TARGET_DEPTH &&
-          !existingStockfish.partial) ||
+        stockfishSearchIsDone(
+          existingStockfish,
+          DRILL_STOCKFISH_TARGET_DEPTH,
+        ) ||
         analysisCancellationRef.current
       ) {
         return
@@ -1175,10 +1177,10 @@ export const useOpeningDrillController = (
         const needsMaia =
           !maiaData || MAIA_MODELS.some((model) => !maiaData[model])
         const stockfishData = node.analysis.stockfish
-        const needsStockfish =
-          !stockfishData ||
-          stockfishData.depth < DRILL_STOCKFISH_TARGET_DEPTH ||
-          !!stockfishData.partial
+        const needsStockfish = !stockfishSearchIsDone(
+          stockfishData,
+          DRILL_STOCKFISH_TARGET_DEPTH,
+        )
         return needsMaia || needsStockfish
       })
 

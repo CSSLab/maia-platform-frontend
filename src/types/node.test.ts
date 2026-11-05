@@ -65,6 +65,42 @@ describe('GameNode move colours', () => {
     expect(unfinished.root.analysis.stockfish?.depth).toBe(18)
   })
 
+  describe("an older engine's saved evaluation", () => {
+    const older = (depth: number) => ({
+      ...evaluation(depth, depth),
+      older_engine: true,
+    })
+
+    it('stays on show during a search', () => {
+      const { root } = played()
+      root.addStockfishAnalysis(older(18))
+      root.addStockfishAnalysis(evaluation(18, 6, true))
+      expect(root.analysis.stockfish?.older_engine).toBe(true)
+    })
+
+    it('gives way when the search has finished', () => {
+      const { root } = played()
+      root.addStockfishAnalysis(older(18))
+      root.addStockfishAnalysis(evaluation(18, 18))
+      expect(root.analysis.stockfish?.older_engine).toBeUndefined()
+    })
+
+    it('gives way to the full depth even when it was deeper', () => {
+      const { root } = played()
+      root.addStockfishAnalysis(older(22))
+      root.addStockfishAnalysis(evaluation(18, 18))
+      expect(root.analysis.stockfish?.depth).toBe(18)
+    })
+
+    it('stays when the search was shallower than the full depth', () => {
+      const { root } = played()
+      root.addStockfishAnalysis(older(18))
+      root.addStockfishAnalysis(evaluation(12, 12))
+      expect(root.analysis.stockfish?.depth).toBe(18)
+      expect(root.analysis.stockfish?.older_engine).toBe(true)
+    })
+  })
+
   it('still judges analysis saved without per-move depths', () => {
     const { root, child } = played()
     const saved = evaluation(18, 0)

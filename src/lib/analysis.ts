@@ -9,6 +9,7 @@ import {
   CachedEngineAnalysisEntry,
 } from 'src/types'
 import { MAIA_MODELS } from 'src/constants/common'
+import { STOCKFISH_ENGINE, STOCKFISH_FULL_DEPTH } from 'src/constants/analysis'
 
 export function convertBackendEvalToStockfishEval(
   possibleMoves: MoveValueMapping,
@@ -146,6 +147,20 @@ export function insertBackendStockfishEvalToGameTree(
   }
 }
 
+/**
+ * Whether a position's Stockfish search has nothing left to do. A saved
+ * evaluation from another engine counts only below the page's full depth: a
+ * lower target (Learn From Mistakes) doesn't need the search redone.
+ */
+export const stockfishSearchIsDone = (
+  stockfish: StockfishEvaluation | undefined,
+  targetDepth: number,
+) =>
+  !!stockfish &&
+  stockfish.depth >= targetDepth &&
+  !stockfish.partial &&
+  !(stockfish.older_engine && targetDepth >= STOCKFISH_FULL_DEPTH)
+
 export const collectEngineAnalysisData = (
   gameTree: GameTree,
 ): CachedEngineAnalysisEntry[] => {
@@ -179,6 +194,7 @@ export const collectEngineAnalysisData = (
         depth: stockfish.depth,
         cp_vec: stockfish.cp_vec,
         mate_vec: stockfish.mate_vec,
+        ...(stockfish.engine ? { engine: stockfish.engine } : {}),
       }
     }
 
@@ -281,16 +297,27 @@ export const applyEngineAnalysisData = (
         }
 
         if (stockfish) {
-          const stockfishEval = reconstructCachedStockfishAnalysis(
-            stockfish.cp_vec,
-            stockfish.depth,
-            node.fen,
-            stockfish.mate_vec,
-          )
+          const stockfishEval: StockfishEvaluation =
+            reconstructCachedStockfishAnalysis(
+              stockfish.cp_vec,
+              stockfish.depth,
+              node.fen,
+              stockfish.mate_vec,
+            )
+          if (stockfish.engine) stockfishEval.engine = stockfish.engine
+          stockfishEval.older_engine = stockfish.engine !== STOCKFISH_ENGINE
 
+          const existing = node.analysis.stockfish
+          // Nor does an older engine's replace a finished search of this one,
+          // when the saved analysis arrives after it.
+          const keepsExisting =
+            existing &&
+            !existing.partial &&
+            !existing.older_engine &&
+            stockfishEval.older_engine
           if (
-            !node.analysis.stockfish ||
-            node.analysis.stockfish.depth < stockfish.depth
+            !keepsExisting &&
+            (!existing || existing.depth < stockfish.depth)
           ) {
             node.addStockfishAnalysis(stockfishEval)
           }
@@ -308,6 +335,7 @@ export const generateAnalysisCacheKey = (
     fen: pos.fen,
     hasStockfish: !!pos.stockfish,
     stockfishDepth: pos.stockfish?.depth || 0,
+    stockfishEngine: pos.stockfish?.engine ?? null,
     hasMaia: !!pos.maia,
     maiaModels: pos.maia ? Object.keys(pos.maia).sort() : [],
   }))
