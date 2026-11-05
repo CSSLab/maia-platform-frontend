@@ -17,6 +17,8 @@ export const MOVE_CLASSIFICATION_THRESHOLDS = {
   GOOD_THRESHOLD: -0.05,
 } as const
 
+// The build the analysis page runs, on PostHog's engine events.
+export const STOCKFISH_ENGINE = 'stockfish-19-smallnet' as const
 export const DEFAULT_MAIA_MODEL = 'maia_kdd_1500' as const
 export const MAIA_MIN_RATING = 600 as const
 export const MAIA_MAX_RATING = 2600 as const

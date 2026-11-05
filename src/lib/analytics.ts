@@ -1,6 +1,7 @@
 'use client'
 
 import { capture } from 'src/lib/posthogClient'
+import { STOCKFISH_ENGINE } from 'src/constants/analysis'
 
 type EventProperties = Record<string, unknown>
 
@@ -61,10 +62,13 @@ export const trackStockfishEngineLoading = (page: string) => {
 export const trackStockfishEngineReady = (
   loadTimeSeconds: number,
   page: string,
+  memoryRetries = 0,
 ) => {
   safeTrack('stockfish_engine_ready', {
     load_time_seconds: loadTimeSeconds,
     page,
+    engine: STOCKFISH_ENGINE,
+    memory_retries: memoryRetries,
   })
 }
 
@@ -72,11 +76,14 @@ export const trackStockfishEngineFailed = (
   error: string,
   loadTimeSeconds: number,
   page: string,
+  memoryRetries = 0,
 ) => {
   safeTrack('stockfish_engine_failed', {
     error: error.slice(0, 500),
     load_time_seconds: loadTimeSeconds,
     page,
+    engine: STOCKFISH_ENGINE,
+    memory_retries: memoryRetries,
   })
 }
 
@@ -84,11 +91,47 @@ export const trackMaiaEngineLoading = (page: string) => {
   safeTrack('maia_engine_loading', { page })
 }
 
-export const trackMaiaEngineReady = (loadTimeSeconds: number, page: string) => {
-  safeTrack('maia_engine_ready', { load_time_seconds: loadTimeSeconds, page })
+export const trackMaiaEngineReady = (
+  loadTimeSeconds: number,
+  page: string,
+  restarts = 0,
+) => {
+  safeTrack('maia_engine_ready', {
+    load_time_seconds: loadTimeSeconds,
+    page,
+    restarts,
+  })
 }
 
-// Opening Selection & Drill Events
+export const trackMaiaEngineFailed = (
+  error: string,
+  loadTimeSeconds: number,
+  page: string,
+  restarts = 0,
+) => {
+  safeTrack('maia_engine_failed', {
+    error: error.slice(0, 500),
+    load_time_seconds: loadTimeSeconds,
+    page,
+    restarts,
+  })
+}
+
+// The analysis page's timings: see src/lib/analysisTiming.ts
+export const trackAnalysisEngineLoad = (properties: EventProperties) => {
+  safeTrack('analysis_engine_load', properties)
+}
+
+export const trackAnalysisEngineSteps = (properties: EventProperties) => {
+  safeTrack('analysis_engine_steps', properties)
+}
+
+export const trackAnalysisPageEndedUnexpectedly = (
+  properties: EventProperties,
+) => {
+  safeTrack('analysis_page_ended_unexpectedly', properties)
+}
+
 export const trackOpeningSelectionModalOpened = (
   source: 'page_load' | 'change_selections_button',
   existingSelectionsCount: number,

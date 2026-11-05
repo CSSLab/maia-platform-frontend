@@ -63,6 +63,8 @@ export interface StockfishEvaluation {
    * and the position is not done even if it has reached the target depth.
    */
   partial?: boolean
+  /** The lines on show have reached the target depth. */
+  lines_done?: boolean
 }
 
 export interface CachedEngineAnalysisEntry {

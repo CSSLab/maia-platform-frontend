@@ -17,7 +17,7 @@ import {
   STOCKFISH_DEBUG_RERUN_EVENT,
   STOCKFISH_DEBUG_RERUN_KEY,
 } from 'src/constants/analysis'
-import Engine from 'src/lib/engine/stockfish'
+import Engine, { stockfishMemoryRetries } from 'src/lib/engine/stockfish'
 import {
   trackStockfishEngineFailed,
   trackStockfishEngineReady,
@@ -112,12 +112,13 @@ const reportEngineOutcome = (engine: Engine, status: StockfishStatus) => {
   const page = window.location.pathname.split('/')[1] || 'home'
   const seconds = (Date.now() - startedAt) / 1000
   if (status === 'ready') {
-    trackStockfishEngineReady(seconds, page)
+    trackStockfishEngineReady(seconds, page, stockfishMemoryRetries())
   } else {
     trackStockfishEngineFailed(
       engine.initializationErrorDetail ?? engine.initializationError ?? '',
       seconds,
       page,
+      stockfishMemoryRetries(),
     )
   }
 }

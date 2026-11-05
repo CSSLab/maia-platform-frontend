@@ -185,6 +185,11 @@ class Maia {
     setTimeout(() => this.initialize(modelUrl, modelVersion), delay)
   }
 
+  /** How many times Maia has started again for lack of memory. */
+  public get restartCount() {
+    return this.restarts
+  }
+
   public async downloadModel() {
     if (!this.worker) throw new Error('Worker not initialized')
     if (this.downloadPromise) {
