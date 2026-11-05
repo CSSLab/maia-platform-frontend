@@ -62,6 +62,13 @@ window.__phoneLab = (w) => {
     }
     return NativeFetch(input, init)
   }
+  const NativeWorker = w.Worker
+  w.Worker = class extends NativeWorker {
+    constructor(u, o) {
+      super(u, o)
+      if (String(u).includes('maia-worker')) this.addEventListener('message', (e) => { if (e.data && e.data.type === 'inference-result') P.maiaResultAt = w.performance.now() })
+    }
+  }
   const NativeMemory = w.WebAssembly.Memory
   w.WebAssembly.Memory = function Memory(d) { const m = new NativeMemory(d); if (d && d.shared) P.memories.push(m); return m }
   w.WebAssembly.Memory.prototype = NativeMemory.prototype
@@ -190,13 +197,14 @@ const TESTS = {
           if (clean && P.tl.d18 != null && w.performance.now() - Math.max(P.linesAt, P.chartAt || 0) > 1000) break
         }
         const rel = (x) => (x == null ? null : Math.max(0, x - t0))
-        rows.push({ shown, sf: rel(P.tl.sfFirst), maia: rel(P.tl.maia), d12: rel(P.tl.d12), d18: rel(P.tl.d18), chart, settled: rel(Math.max(P.linesAt, P.chartAt || 0)), over100: P.lag.over100 - l0.over100, fr100: P.frames.over100 - f0.over100, maxLag: Math.round(P.lag.max) })
+        rows.push({ shown, maiaDone: P.maiaResultAt > t0 ? P.maiaResultAt - t0 : null, sf: rel(P.tl.sfFirst), maia: rel(P.tl.maia), d12: rel(P.tl.d12), d18: rel(P.tl.d18), chart, settled: rel(Math.max(P.linesAt, P.chartAt || 0)), over100: P.lag.over100 - l0.over100, fr100: P.frames.over100 - f0.over100, maxLag: Math.round(P.lag.max) })
       }
       closeFrame()
       await sleep(1000)
     }
     const col = (k) => `${k} ${sec(med(rows.map((x) => x[k])))}`
-    out.push(`stepping, ${rows.length} moves, median seconds after tapping Next: ` + ['shown', 'maia', 'sf', 'd12', 'd18', 'chart', 'settled'].map(col).join(', '))
+    out.push(`stepping, ${rows.length} moves, median seconds after tapping Next: ` + ['shown', 'maia', 'maiaDone', 'chart', 'sf', 'd12', 'd18', 'settled'].map(col).join(', '))
+    out.push(`chart minus Maia's last answer, by move: ${rows.map((x) => (x.chart != null && x.maiaDone != null ? Math.round(x.chart - x.maiaDone) : '-')).join(' ')}`)
     out.push(`reached d12 ${rows.filter((x) => x.d12 != null).length}, d18 ${rows.filter((x) => x.d18 != null).length} of ${rows.length} within 7 s`)
     out.push(`d18 by move: ${rows.map((x) => sec(x.d18)).join(' ')}`)
     out.push(`main thread stalls over 100 ms per move: ${rows.map((x) => x.over100).join(' ')}; frames over 100 ms: ${rows.map((x) => x.fr100).join(' ')}`)
@@ -349,7 +357,7 @@ let screenLock = 'not tried'
 const status = (s) => { $('status').textContent = s }
 const ORDER = ['first', 'load', 'steps', 'burst', 'pages', 'heat', 'gpu', 'real', 'reload']
 const render = () => {
-  const head = [`${seq ? `RUN ${seq.i} OF ${seq.n}: ` : ''}${isNew ? 'NEW CODE (Stockfish 19)' : "TODAY'S CODE (Stockfish 17)"}`, ...(seq && seq.i > 1 ? [] : [navigator.userAgent]), `cores ${navigator.hardwareConcurrency}, isolated ${self.crossOriginIsolated}, hidden during tests: ${state.hidden}, screen kept on: ${screenLock}`]
+  const head = [`${seq ? `RUN ${seq.i} OF ${seq.n}: ` : ''}${seq && seq.labels ? seq.labels[seq.i - 1] : isNew ? 'NEW CODE (Stockfish 19)' : "TODAY'S CODE (Stockfish 17)"}`, ...(seq && seq.i > 1 ? [] : [navigator.userAgent]), `cores ${navigator.hardwareConcurrency}, isolated ${self.crossOriginIsolated}, hidden during tests: ${state.hidden}, screen kept on: ${screenLock}`]
   const mine = [...head, '', ...state.order.flatMap((k) => ['== ' + k, state.results[k], ''])].join('\n')
   $('log').textContent = seq && seq.out.length ? seq.out.join('\n') + '\n' + mine : mine
 }
