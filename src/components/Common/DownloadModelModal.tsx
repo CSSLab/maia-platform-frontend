@@ -22,7 +22,7 @@ export const MaiaDownloadProgress: React.FC<{ maia?: Maia }> = ({ maia }) => {
     <div className="relative flex h-8 w-full items-center overflow-hidden rounded-md border border-glass-border bg-glass px-3 md:h-10">
       <p className="z-10 text-xs text-white/90 md:text-sm">
         {percent > 0
-          ? `${Math.round((MAIA_DOWNLOAD_MB * percent) / 100)} of ${MAIA_DOWNLOAD_MB} MB${timeLeft ? `, ${timeLeft}` : ''}`
+          ? `${Math.round((MAIA_DOWNLOAD_MB * percent) / 100)} of ${MAIA_DOWNLOAD_MB}MB${timeLeft ? `, ${timeLeft}` : ''}`
           : 'Starting download...'}
       </p>
       <div
@@ -107,19 +107,14 @@ export const DownloadModelModal: React.FC<Props> = ({
       >
         <div className="group relative flex w-full flex-col gap-5 overflow-hidden rounded-lg border border-glass-border bg-glass p-5 text-left backdrop-blur-md transition-all duration-300 md:p-8">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined material-symbols-filled text-3xl text-primary">
+            <span className="material-symbols-outlined material-symbols-filled shrink-0 text-3xl text-primary">
               auto_awesome
             </span>
-            <h1 className="text-2xl font-bold text-primary md:text-3xl">
-              Download Maia-3
+            <h1 className="text-lg font-bold text-primary md:text-2xl">
+              Download the new <span className="whitespace-nowrap">Maia-3</span>{' '}
+              (one-time {MAIA_DOWNLOAD_MB}MB download)
             </h1>
           </div>
-
-          <p className="text-sm text-white/80 md:text-base">
-            See which moves people at each rating are likely to play. Maia-3
-            runs on your device, so it&apos;s a one-time {MAIA_DOWNLOAD_MB} MB
-            download.
-          </p>
 
           <div className="mt-4 flex w-full flex-col items-end justify-end gap-2 md:mt-6 md:flex-row">
             {isDownloading || progress > 0 ? (
@@ -128,12 +123,12 @@ export const DownloadModelModal: React.FC<Props> = ({
               </div>
             ) : null}
 
-            <div className="order-1 flex flex-row gap-2 md:order-2">
+            <div className="order-1 flex flex-row flex-wrap justify-end gap-2 md:order-2">
               {onNotNow ? (
                 <button
                   type="button"
                   onClick={onNotNow}
-                  className="flex h-8 cursor-pointer select-none items-center rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
+                  className="flex h-8 cursor-pointer select-none items-center whitespace-nowrap rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
                 >
                   Not now
                 </button>
@@ -152,7 +147,7 @@ export const DownloadModelModal: React.FC<Props> = ({
               <div
                 tabIndex={0}
                 role="button"
-                className={`flex h-8 select-none items-center gap-2 rounded px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
+                className={`flex h-8 select-none items-center gap-2 whitespace-nowrap rounded px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
                   isDownloading || progress >= 100
                     ? 'cursor-not-allowed border border-human-4/30 bg-human-4/50'
                     : 'cursor-pointer border border-glass-border bg-human-4 hover:bg-human-3'
@@ -169,15 +164,16 @@ export const DownloadModelModal: React.FC<Props> = ({
                     progress_activity
                   </span>
                 ) : (
-                  <span className="material-symbols-outlined text-lg md:text-xl">
-                    download
+                  <span className="hidden md:inline-flex">
+                    <span className="material-symbols-outlined text-xl">
+                      download
+                    </span>
                   </span>
                 )}
                 <p className="font-medium">
-                  {isDownloading ? 'Downloading...' : 'Download'}{' '}
-                  <span className="text-xs text-white/70">
-                    ({MAIA_DOWNLOAD_MB} MB)
-                  </span>
+                  {isDownloading
+                    ? 'Downloading...'
+                    : `Download Maia-3 (${MAIA_DOWNLOAD_MB}MB)`}
                 </p>
               </div>
             </div>

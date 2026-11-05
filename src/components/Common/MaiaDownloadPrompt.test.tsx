@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MaiaDownloadPrompt } from './MaiaDownloadPrompt'
 import { trackDownloadModelDismissed } from 'src/lib/analytics'
 import {
@@ -87,7 +87,10 @@ describe('MaiaDownloadPrompt', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
     })
     expect(trackDownloadModelDismissed).toHaveBeenCalledTimes(1)
-    expect(screen.queryByTestId('download-modal')).not.toBeInTheDocument()
+    // It fades out first.
+    await waitFor(() =>
+      expect(screen.queryByTestId('download-modal')).not.toBeInTheDocument(),
+    )
 
     const again = setup('no-cache', { withoutAsking: false })
     expect(

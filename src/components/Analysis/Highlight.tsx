@@ -583,7 +583,8 @@ export const Highlight: React.FC<Props> = ({
             })}
             <div className="relative w-full">
               {emptyRows(recommendations.maia?.slice(0, 4).length ?? 0)}
-              {maiaEngine.status === 'no-cache' ? (
+              {maiaEngine.status === 'no-cache' &&
+              !recommendations.maia?.length ? (
                 <button
                   type="button"
                   onClick={() =>
@@ -591,7 +592,7 @@ export const Highlight: React.FC<Props> = ({
                   }
                   className="absolute inset-0 m-auto h-fit rounded border border-glass-border bg-human-4 px-2 py-1 text-xs font-medium text-white"
                 >
-                  Download ({MAIA_DOWNLOAD_MB} MB)
+                  Download Maia-3 ({MAIA_DOWNLOAD_MB}MB)
                 </button>
               ) : null}
             </div>

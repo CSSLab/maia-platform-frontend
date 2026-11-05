@@ -1498,11 +1498,11 @@ Stockfish doesn't wait for Maia, so nothing about the page needs the prompt to b
 | what changed             | before                              | after                                                                       |
 | ------------------------ | ----------------------------------- | --------------------------------------------------------------------------- |
 | desktop                  | full-page prompt, needs a click     | page opens, Maia downloads by itself, small card shows progress             |
-| phone (or save-data, 2g) | full-page prompt, only exit is home | same size prompt, simpler words, "Not now" opens the page                   |
+| phone (or save-data, 2g) | full-page prompt, only exit is home | same size prompt, one line of text, "Not now" opens the page                |
 | after "Not now"          | -                                   | button in the empty Maia panel, and the prompt again in a new tab           |
 | puzzles                  | prompt on arrival                   | nothing until the puzzle is over                                            |
 | drills                   | prompt on arrival                   | choosing a drill isn't blocked; Maia is needed to start one                 |
-| progress                 | stuck on "Starting download..."     | size and time left: "12 of 42 MB, about 20 s left"                          |
+| progress                 | stuck on "Starting download..."     | size and time left: "12 of 42MB, about 20 s left"                           |
 | failed download          | logged as completed                 | logged as failed, with "Try again"                                          |
 | saved model              | browser free to delete it           | browser asked to keep it (not Firefox, which would show a popup)            |
 | saving it                | "saved" before the save was final   | waits for the save; a failure is reported, and Maia still runs on that page |
