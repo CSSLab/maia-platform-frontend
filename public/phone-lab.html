@@ -21,7 +21,7 @@
 <body>
 <div id="top">
   <h3>Phone lab: <span id="which"></span></h3>
-  <p>Use Wi-Fi and close other tabs. Keep this tab in front and don't touch the page while it runs. Plug in if you can. It's fine if the page reloads: tap Run again to carry on.</p>
+  <p>Use Wi-Fi and close other tabs. Keep this tab in front and don't touch the page while it runs, even when it goes away to the analysis page and reloads by itself. Plug in if you can. If the page reloads on its own, tap Run again to carry on.</p>
   <div id="tests"></div>
   <button id="run">Run</button><button id="copy">Copy results</button><button id="clear">Clear results</button>
   <div id="status"></div>
@@ -219,7 +219,12 @@ const TESTS = {
     closeFrame()
     return `after 10 quick taps, seconds from the last tap: Maia ${rows.map((x) => sec(x.maia)).join(' ')} | d12 ${rows.map((x) => sec(x.d12)).join(' ')}\n  main thread stalls over 100 ms: ${rows.map((x) => x.stalls).join(' ')}; frames over 100 ms: ${rows.map((x) => x.frames).join(' ')}; longest stall ${Math.max(...rows.map((x) => x.max))} ms`
   } },
-  reload: { label: 'Reloading the page (10 times, checks the engines come back)', run: async () => {
+  real: { label: 'Reloading the whole page (10 times; it goes away and comes back by itself)', run: () => {
+    localStorage.setItem('phone-lab-real', JSON.stringify({ total: 10, rows: [], loads: 0, started: Date.now() }))
+    location.href = analysisUrl(GAMES[0])
+    return new Promise(() => {})
+  } },
+  reload: { label: 'Reloading inside a frame (10 times; hardest on memory, so it goes last)', run: async () => {
     await openFrame(analysisUrl(GAMES[0]))
     await untilSettled(90000)
     const rows = []
@@ -310,7 +315,7 @@ async function makeEngine() {
   const dir = '/stockfish/'
   const build = isNew ? (relaxed ? 'sf_19_smallnet_relaxed-simd' : 'sf_19_smallnet') : 'sf17-79'
   const mod = await import(dir + build + '.js')
-  const memory = new WebAssembly.Memory(isNew ? { shared: true, initial: 1024, maximum: 4096 } : { shared: true, initial: 2560, maximum: 16384 })
+  const memory = new WebAssembly.Memory(isNew ? { shared: true, initial: 1280, maximum: 2048 } : { shared: true, initial: 2560, maximum: 16384 })
   const sf = await mod.default({ wasmMemory: memory, locateFile: (n) => dir + n })
   const names = isNew ? [sf.getRecommendedNnue(0)] : [sf.getRecommendedNnue(0), sf.getRecommendedNnue(1)]
   const load = async (n) => {
@@ -336,6 +341,7 @@ async function search(sf, fen, depth) {
 
 // ── The page ──
 const status = (s) => { $('status').textContent = s }
+const ORDER = ['first', 'load', 'steps', 'burst', 'pages', 'heat', 'gpu', 'real', 'reload']
 const render = () => {
   const head = [`${isNew ? 'NEW CODE (Stockfish 19)' : "TODAY'S CODE (Stockfish 17)"}`, navigator.userAgent, `cores ${navigator.hardwareConcurrency}, isolated ${self.crossOriginIsolated}, hidden during tests: ${state.hidden}`]
   $('log').textContent = [...head, '', ...state.order.flatMap((k) => ['== ' + k, state.results[k], ''])].join('\n')
@@ -343,7 +349,27 @@ const render = () => {
 const boot = async () => {
   isNew = (await fetch('/stockfish/sf_19_smallnet.js', { method: 'HEAD' })).ok
   $('which').textContent = isNew ? 'new code' : "today's code"
-  $('tests').innerHTML = Object.entries(TESTS).filter(([, t]) => !t.newOnly || isNew).map(([k, t]) => `<label><input type="checkbox" data-k="${k}" ${state.results[k] ? '' : 'checked'}> ${t.label}</label>`).join('')
+  $('tests').innerHTML = ORDER.map((k) => [k, TESTS[k]]).filter(([, t]) => !t.newOnly || isNew).map(([k, t]) => `<label><input type="checkbox" data-k="${k}" ${state.results[k] ? '' : 'checked'}> ${t.label}</label>`).join('')
+  const wanted = new URLSearchParams(location.search).get('tests')
+  if (wanted) document.querySelectorAll('#tests input').forEach((x) => { x.checked = wanted.split(',').includes(x.dataset.k) })
+  try {
+    const left = JSON.parse(localStorage.getItem('phone-lab-real'))
+    if (left) {
+      localStorage.removeItem('phone-lab-real')
+      const secs = (x) => (x == null ? '-' : (x / 1000).toFixed(2))
+      state.results.real = `real reloads STOPPED after ${left.rows.length} of ${left.total} (the phone gave up, or the test was left), page starts ${left.loads}\n  SF first ${left.rows.map((r) => secs(r.sf)).join(' ')}\n  Maia ${left.rows.map((r) => secs(r.maia)).join(' ')}\n  ${[...new Set(left.rows.flatMap((r) => r.errors))].slice(0, 3).join(' ; ')}`
+      if (!state.order.includes('real')) state.order.push('real')
+      state.running = null; save()
+    }
+  } catch (e) {}
+  if (state.resume) {
+    state.resume = false; save()
+    document.querySelectorAll('#tests input').forEach((x) => { x.checked = (state.pending || []).includes(x.dataset.k) })
+    render()
+    if (state.pending && state.pending.length) setTimeout(() => $('run').click(), 1500)
+    else status('Done. Tap Copy results and paste them to Claude.')
+    return
+  }
   if (state.running) {
     state.results[state.running] = (state.results[state.running] || '') + 'THE PAGE RELOADED during this test (probably out of memory)'
     if (!state.order.includes(state.running)) state.order.push(state.running)
@@ -361,7 +387,7 @@ $('run').onclick = async () => {
   try { lock = await navigator.wakeLock.request('screen') } catch (e) {}
   const keys = [...document.querySelectorAll('#tests input:checked')].map((x) => x.dataset.k)
   for (const k of keys) {
-    state.running = k; save()
+    state.running = k; state.pending = keys.slice(keys.indexOf(k) + 1); save()
     status(TESTS[k].label)
     const t0 = performance.now()
     let out
@@ -378,7 +404,7 @@ $('run').onclick = async () => {
   status('Done. Tap Copy results and paste them to Claude.')
 }
 $('copy').onclick = () => navigator.clipboard.writeText($('log').textContent)
-$('clear').onclick = () => { state = { results: {}, running: null, order: [], hidden: 0 }; save(); boot() }
+$('clear').onclick = () => { state = { results: {}, running: null, order: [], hidden: 0 }; save(); location.href = '/phone-lab.html' }
 boot()
 </script>
 </body>

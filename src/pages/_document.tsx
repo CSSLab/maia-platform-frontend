@@ -45,7 +45,7 @@ export default function Document() {
         <script
           dangerouslySetInnerHTML={{
             __html:
-              'try{if(window.parent!==window&&window.parent.__phoneLab)window.parent.__phoneLab(window)}catch(e){}',
+              'try{if(window.parent!==window&&window.parent.__phoneLab)window.parent.__phoneLab(window);else if(localStorage.getItem("phone-lab-real")&&location.pathname.indexOf("/analysis/")===0)document.write(\'<script src="/phone-lab-real.js"><\\/script>\')}catch(e){}',
           }}
         />
         <script dangerouslySetInnerHTML={{ __html: EARLY_REQUESTS }} />
