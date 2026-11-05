@@ -1985,14 +1985,17 @@ const legalMaiaCandidates = (
 })
 
 /**
- * Stockfish's memory may grow to 256 MB (in 64 KiB pages). A shared memory's
+ * Stockfish's memory may grow to 134 MB (in 64 KiB pages). A shared memory's
  * maximum is reserved when it is created, and iOS limits how much a tab can
- * reserve: with 2 GB, Maia ran out after a reload on an iPhone, since the
- * previous page's memory is held for a while. Stockfish uses about 81 MB here
- * (the hash stays at its 16 MB default).
+ * reserve, so after several reloads on an iPhone the engines ran out
+ * ("RangeError: Out of memory") while earlier pages' reservations were still
+ * held. Stockfish uses 81 MB here (the hash stays at its 16 MB default), which
+ * the initial size covers, so memory that is short cannot fail it later.
  */
-export const STOCKFISH_MAX_MEMORY_PAGES = 4096
-const STOCKFISH_INITIAL_MEMORY_PAGES = 1024
+export const STOCKFISH_MAX_MEMORY_PAGES = 2048
+const STOCKFISH_INITIAL_MEMORY_PAGES = 1280
+// Earlier pages' reservations are released some time after they have gone.
+export const STOCKFISH_MEMORY_RETRY_DELAYS_MS = [1000, 3000, 8000, 15000]
 
 export const sharedWasmMemory = (
   lo: number,
@@ -2006,6 +2009,20 @@ export const sharedWasmMemory = (
       if (hi <= lo || !(e instanceof RangeError)) throw e
       hi = Math.max(lo, Math.ceil(hi - hi / shrink))
       shrink = shrink === 4 ? 3 : 4
+    }
+  }
+}
+
+export const reserveWasmMemory = async (
+  lo: number,
+  delaysMs = STOCKFISH_MEMORY_RETRY_DELAYS_MS,
+): Promise<WebAssembly.Memory> => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return sharedWasmMemory(lo)
+    } catch (e) {
+      if (!(e instanceof RangeError) || attempt >= delaysMs.length) throw e
+      await new Promise((resolve) => setTimeout(resolve, delaysMs[attempt]))
     }
   }
 }
@@ -2113,9 +2130,10 @@ const setupStockfish = async (
   ).catch((error) => {
     throw new StockfishFileError(String(error))
   })
+  const wasmMemory = await reserveWasmMemory(STOCKFISH_INITIAL_MEMORY_PAGES)
   const instance: StockfishWeb = await withTimeout(
     makeModule.default({
-      wasmMemory: sharedWasmMemory(STOCKFISH_INITIAL_MEMORY_PAGES),
+      wasmMemory,
       locateFile: (name: string) => `${STOCKFISH_BASE}/${name}`,
     }),
     moduleInitTimeoutMs,
