@@ -1485,6 +1485,81 @@ WHERE event IN ('stockfish_engine_ready', 'stockfish_engine_failed') AND timesta
 GROUP BY after_round_10
 ```
 
+### Round 13: getting past the Maia download
+
+PostHog showed the biggest loss on the site isn't a slow page. Of the 7,631 people who
+saw the full-page Maia download prompt in 30 days, 37.6% never started the download
+(funnel to 2026-11-05), about 780 people in the last full week, or 11% of that week's
+visitors. Of those who didn't start, 65% did nothing else within a minute, against 25% of
+those who did. Both groups differ in other ways, so that doesn't prove the prompt caused it.
+
+Stockfish doesn't wait for Maia, so nothing about the page needs the prompt to block it.
+
+| what changed             | before                              | after                                                                       |
+| ------------------------ | ----------------------------------- | --------------------------------------------------------------------------- |
+| desktop                  | full-page prompt, needs a click     | page opens, Maia downloads by itself, small card shows progress             |
+| phone (or save-data, 2g) | full-page prompt, only exit is home | same size prompt, simpler words, "Not now" opens the page                   |
+| after "Not now"          | -                                   | button in the empty Maia panel, and the prompt again in a new tab           |
+| puzzles                  | prompt on arrival                   | nothing until the puzzle is over                                            |
+| drills                   | prompt on arrival                   | choosing a drill isn't blocked; Maia is needed to start one                 |
+| progress                 | stuck on "Starting download..."     | size and time left: "12 of 42 MB, about 20 s left"                          |
+| failed download          | logged as completed                 | logged as failed, with "Try again"                                          |
+| saved model              | browser free to delete it           | browser asked to keep it (not Firefox, which would show a popup)            |
+| saving it                | "saved" before the save was final   | waits for the save; a failure is reported, and Maia still runs on that page |
+
+The progress bar never moved because the model is sent with brotli, so the browser gets no
+`Content-Length`. The page now knows the size. Progress reaches the page's state in 10%
+steps as before, and the bar reads finer steps directly, so the page doesn't re-render more.
+
+"42 MB" is what the download uses: 41,688,610 bytes as sent, 45,683,686 once decompressed.
+
+**Half of new visitors keep the prompt.** `maia_prompt_variant` is `wall` or `no_wall`,
+chosen once per browser only when it has no model, and sent with every event, so the groups
+can be compared for two weeks. On phones the comparison is "Return Home" against "Not now".
+
+**Stockfish** (test browser, model at about the median 9 s, paired medians, later minus
+earlier; phone-sized is not slowed down):
+
+| comparison                                   | visits  | d12    | d18    |
+| -------------------------------------------- | ------- | ------ | ------ |
+| return visit, desktop: this against main     | 8 pairs | +46 ms | -5 ms  |
+| return visit, phone-sized: this against main | 8 pairs | -56 ms | -38 ms |
+| first visit, desktop: downloading or not     | 6 pairs | -3 ms  | +30 ms |
+
+All are within the spread between visits. In an earlier run of the first-visit comparison,
+2 of 6 visits reached d18 up to 0.5 s later while downloading. On a first desktop visit
+Maia's moves appeared about 11.8 s after the board, with no click.
+
+**Asked again after finishing the download** (60 days, per person, operating system and
+browser; clearing cookies looks like a new person, so these are low):
+
+| OS      | asked again at all | within an hour | of those back a day or more later |
+| ------- | ------------------ | -------------- | --------------------------------- |
+| iOS     | 7.9%               | 5.7%           | 4.7%                              |
+| Android | 7.0%               | 3.8%           | 12.0%                             |
+| Mac     | 4.5%               | 2.5%           | 6.7%                              |
+| Windows | 2.4%               | 1.3%           | 3.5%                              |
+
+New events say why from now on: `maia_model_lost` (with `days_since_saved`),
+`maia_model_store_failed`, `maia_model_protected` (with `granted`). Also new:
+`download_model_dismissed`, and `trigger` on `download_model_initiated` (`wall`, `auto`,
+`tap`, `panel`).
+
+```sql
+-- Round 13: who gets Maia, and who stays, by group and device
+SELECT properties.maia_prompt_variant AS grp, properties.$device_type AS device,
+  uniqIf(person_id, event IN ('download_model_modal_shown', 'download_model_initiated')) AS needed_maia,
+  uniqIf(person_id, event = 'download_model_completed') AS got_maia,
+  uniqIf(person_id, event = 'download_model_dismissed') AS said_not_now,
+  uniqIf(person_id, event = 'analysis_engine_steps') AS moved_through_a_game
+FROM events
+WHERE timestamp >= now() - INTERVAL 14 DAY AND properties.maia_prompt_variant IS NOT NULL
+GROUP BY grp, device ORDER BY device, grp
+```
+
+Not tested: a real phone, whether browsers grant the request to keep the model (the test
+browser refused it), and starting a drill on a phone.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
