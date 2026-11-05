@@ -20,6 +20,11 @@ export interface MovesByRatingAreaProps {
   displayedPositionKey?: string
 }
 
+/** A line's name shows at its end only if this share of some rating plays it. */
+const LABEL_MIN_PEAK = 8
+/** Two names at the lines' ends stay this far apart, as a share of the axis. */
+const LABEL_MIN_GAP = 0.07
+
 // The Moves by Rating chart itself: recharts and its d3 helpers (~320 KB of
 // JavaScript, uncompressed), which MovesByRating loads after the page.
 export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
@@ -50,8 +55,38 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
       )
     : 100
 
+  // On the analysis page's desktop layout the chart stays quiet: no dots, no
+  // legend, and names only on the lines that matter.
+  const calm = !isMobile && !isHomePage
+  const peakOf = (move: string) =>
+    Math.max(
+      0,
+      ...(displayedMoves ?? []).map(
+        (row) => Number(row[move as keyof typeof row]) || 0,
+      ),
+    )
   const domainMax = maxValue > 60 ? 100 : 60
   const domain = [0, domainMax]
+  // The most-played lines get a name at their end, as long as it clears the
+  // names already placed.
+  const calmLabels = new Set<string>()
+  if (calm) {
+    const endOf = (move: string) => {
+      const last = displayedMoves?.[displayedMoves.length - 1]
+      return Number(last?.[move as keyof typeof last]) || 0
+    }
+    const placed: number[] = []
+    for (const move of [...moveKeys].sort((a, b) => peakOf(b) - peakOf(a))) {
+      const end = endOf(move)
+      if (
+        peakOf(move) >= LABEL_MIN_PEAK &&
+        placed.every((y) => Math.abs(y - end) >= domainMax * LABEL_MIN_GAP)
+      ) {
+        placed.push(end)
+        calmLabels.add(move)
+      }
+    }
+  }
 
   return (
     <ResponsiveContainer width="100%" height="90%">
@@ -64,17 +99,21 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
           top: isMobile ? 5 : 0,
         }}
       >
-        <CartesianGrid strokeDasharray="3 3" stroke="#3C3C3C" />
+        <CartesianGrid
+          vertical={!calm}
+          strokeDasharray={calm ? undefined : '3 3'}
+          stroke={calm ? 'rgb(255 255 255 / 0.07)' : '#3C3C3C'}
+        />
         <XAxis
           dataKey="rating"
           axisLine={false}
           tick={{
-            fill: 'white',
+            fill: calm ? 'rgb(255 255 255 / 0.55)' : 'white',
             fontSize: 11,
           }}
           tickMargin={4}
           ticks={
-            isMobile
+            isMobile || calm
               ? [600, 1000, 1400, 1800, 2200, 2600]
               : [600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600]
           }
@@ -84,20 +123,25 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
           orientation="left"
           axisLine={false}
           domain={domain}
+          width={calm ? 44 : undefined}
           tick={{
-            fill: 'white',
+            fill: calm ? 'rgb(255 255 255 / 0.55)' : 'white',
             fontSize: 11,
           }}
-          label={{
-            value: 'Maia Probability',
-            angle: -90,
-            fill: '#FE7F6D',
-            position: 'insideLeft',
-            dy: 46,
-            offset: 15,
-            fontWeight: 600,
-            fontSize: isHomePage ? 12 : 14,
-          }}
+          label={
+            calm
+              ? undefined
+              : {
+                  value: 'Maia Probability',
+                  angle: -90,
+                  fill: '#FE7F6D',
+                  position: 'insideLeft',
+                  dy: 46,
+                  offset: 15,
+                  fontWeight: 600,
+                  fontSize: isHomePage ? 12 : 14,
+                }
+          }
           tickCount={isMobile ? 4 : 5}
           tickMargin={isMobile ? 1 : 2}
           tickLine={false}
@@ -118,7 +162,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                   <stop
                     offset="5%"
                     stopColor={displayedColorSanMapping[move]?.color ?? '#fff'}
-                    stopOpacity={0.5}
+                    stopOpacity={calm ? 0.16 : 0.5}
                   />
                   <stop
                     offset="95%"
@@ -166,14 +210,22 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                   key={index}
                   yAxisId="left"
                   dataKey={move}
-                  dot={{
-                    r: isMobile ? 2 : 3,
-                    stroke: displayedColorSanMapping[move]?.color ?? '#fff',
-                    strokeWidth: isMobile ? 2 : 3,
-                  }}
+                  dot={
+                    calm
+                      ? false
+                      : {
+                          r: isMobile ? 2 : 3,
+                          stroke:
+                            displayedColorSanMapping[move]?.color ?? '#fff',
+                          strokeWidth: isMobile ? 2 : 3,
+                        }
+                  }
                   stroke={displayedColorSanMapping[move]?.color ?? '#fff'}
                   fill={`url(#color${move})`}
-                  strokeWidth={isMobile ? 2 : 3}
+                  strokeWidth={calm ? 1.75 : isMobile ? 2 : 3}
+                  strokeOpacity={
+                    calm && peakOf(move) < LABEL_MIN_PEAK ? 0.55 : 1
+                  }
                   animationDuration={300}
                   isAnimationActive={shouldAnimateSeries}
                   name={san}
@@ -185,6 +237,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                     height: number
                   }) => {
                     if (props.index !== lastIndex) return null
+                    if (calm && !calmLabels.has(move)) return null
 
                     if (endPoint) {
                       endPoint.yPosition = props.y
@@ -286,19 +339,21 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
             )
           }}
         />
-        <Legend
-          align="right"
-          verticalAlign="top"
-          wrapperStyle={{
-            top: isMobile ? -10 : -14,
-            right: isMobile ? 10 : 20,
-            fontSize: 14,
-          }}
-          iconSize={0}
-          formatter={(value: string) => {
-            return displayedColorSanMapping[value as string]?.san ?? value
-          }}
-        />
+        {calm ? null : (
+          <Legend
+            align="right"
+            verticalAlign="top"
+            wrapperStyle={{
+              top: isMobile ? -10 : -14,
+              right: isMobile ? 10 : 20,
+              fontSize: 14,
+            }}
+            iconSize={0}
+            formatter={(value: string) => {
+              return displayedColorSanMapping[value as string]?.san ?? value
+            }}
+          />
+        )}
       </AreaChart>
     </ResponsiveContainer>
   )

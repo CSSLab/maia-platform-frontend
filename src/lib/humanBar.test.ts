@@ -5,6 +5,7 @@ import {
   evaluationOrder,
   float32ToBase64LE,
   parsePgnHeaders,
+  engineChance,
   parsePgnMainline,
   usualBlunderRiskIn5,
 } from './humanBar'
@@ -125,5 +126,22 @@ describe('usual blunder risk', () => {
     const blitz = TYPICAL_DANGER_BY_LEVEL.blitz
     expect(usualBlunderRiskIn5(800, '180+2')).toBe(blitz[0][2])
     expect(usualBlunderRiskIn5(3000, '180+2')).toBe(blitz[blitz.length - 1][2])
+  })
+})
+
+describe('engine chance', () => {
+  it('gives even players even chances at an even eval, and sums to 1', () => {
+    const [w, d, b] = engineChance(0, 1900, 1900, '180+2')
+    expect(w).toBeCloseTo(b, 5)
+    expect(w + d + b).toBeCloseTo(1, 5)
+    expect(d).toBeGreaterThan(0.03)
+    expect(d).toBeLessThan(0.1)
+  })
+  it('moves with the eval and the rating gap', () => {
+    const at = (pawns: number, gap = 0) =>
+      engineChance(pawns, 1900 + gap, 1900, '180+2')[0]
+    expect(at(-4)).toBeLessThan(at(0))
+    expect(at(0)).toBeLessThan(at(4))
+    expect(at(0, 200)).toBeGreaterThan(at(0))
   })
 })

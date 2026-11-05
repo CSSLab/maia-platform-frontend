@@ -268,3 +268,63 @@ export const usualBlunderRiskIn5 = (
   const f = Math.max(0, Math.min(1, (rating - a[0]) / (b[0] - a[0])))
   return a[2] + f * (b[2] - a[2])
 }
+
+/**
+ * How often players win, draw and lose from an eval (practical LOG §86,
+ * eval_curve.py: 1.2M positions of everyday Lichess games; White's share is
+ * typically 2 points off on held-out games). One eval always gives one answer,
+ * whatever the clocks or the side to move.
+ */
+const EVAL_CURVE = {
+  taus: [1.5, 4, 12],
+  classes: {
+    bullet: {
+      b0: [0, 0.00009, 1.42412],
+      b1: [0.04238, 0.0034, 0.22559],
+      c0: 0.06689,
+      c1: 0.02191,
+      g: 1.81757,
+    },
+    blitz: {
+      b0: [0, 0.00009, 2.50575],
+      b1: [0.00241, 0.04804, 0.31431],
+      c0: 0.11633,
+      c1: 0.01328,
+      g: 1.48005,
+    },
+    rapid: {
+      b0: [0, 0.00009, 3.16613],
+      b1: [0.00002, 0.08107, 0.55669],
+      c0: 0.1382,
+      c1: -0.00557,
+      g: 1.24131,
+    },
+  },
+}
+/** The small net's evals are about this much smaller than SF19's, which the curve was fit on (P89, depth 18). */
+const SMALL_NET_TO_SF19 = 1.12
+
+/** [White, draw, Black] from the site engine's eval, in pawns from White's side. */
+export const engineChance = (
+  pawns: number,
+  whiteElo: number,
+  blackElo: number,
+  timeControl: string | undefined,
+): [number, number, number] => {
+  const p = EVAL_CURVE.classes[timeClassOf(timeControl)]
+  const r = ((whiteElo + blackElo) / 2 - 1700) / 400
+  const gap = (whiteElo - blackElo) / 400
+  const x = Math.max(-100, Math.min(100, pawns * SMALL_NET_TO_SF19))
+  const eta =
+    EVAL_CURVE.taus.reduce(
+      (sum, tau, i) =>
+        sum + Math.max(0, p.b0[i] + p.b1[i] * r) * Math.tanh(x / tau),
+      0,
+    ) +
+    p.g * gap
+  const c = p.c0 + p.c1 * r
+  const sigmoid = (z: number) => 1 / (1 + Math.exp(-z))
+  const w = sigmoid(eta - c)
+  const b = sigmoid(-eta - c)
+  return [w, 1 - w - b, b]
+}

@@ -92,7 +92,8 @@ import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { isPhone } from 'src/lib/engine/maiaDownloadPrompt'
-import { usualBlunderRiskIn5 } from 'src/lib/humanBar'
+import { engineChance, usualBlunderRiskIn5 } from 'src/lib/humanBar'
+import { GameGraph } from 'src/components/Analysis/GameGraph'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { playerLabel } from 'src/lib/pgn'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
@@ -112,6 +113,12 @@ const EVAL_BAR_RANGE = 4
 // Whether the first game since the page loaded has been opened (see
 // analysisPlace).
 let placeChecked = false
+
+/**
+ * The room the board's size allows for under the board with the game graph:
+ * what the blunder meter's section takes, so the board stays the size it was.
+ */
+const GAME_GRAPH_SECTION_PX = 99
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
   'maia_custom_pgn_result_overrides'
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -726,34 +733,24 @@ const Analysis: React.FC<Props> = ({
   // Design step 1: the human chance goes in the left bar; the panel stays out
   // so that nothing else on today's page changes.
   const showHumanBarPanel = false
-  const currentTurnForHumanRisk = controller.currentNode?.turn ?? 'w'
   const humanBarOnScreen =
     humanBars.available && showHumanBars && humanBars.ply !== null
       ? humanBars.bars[humanBars.ply]
       : undefined
-  const humanRiskIn5 =
-    currentTurnForHumanRisk === 'w'
-      ? humanBarOnScreen?.dW_K5_T15
-      : humanBarOnScreen?.dB_K5_T15
-  const humanRiskRating =
-    currentTurnForHumanRisk === 'w'
-      ? analyzedGame.whitePlayer.rating
-      : analyzedGame.blackPlayer.rating
-  const humanRiskUsual =
-    humanRiskRating !== undefined
-      ? usualBlunderRiskIn5(humanRiskRating, humanBars.timeControl)
-      : undefined
-  const humanRiskLine =
-    humanRiskIn5 !== undefined &&
-    humanRiskUsual !== undefined &&
-    analysisEnabled
-      ? {
-          side: currentTurnForHumanRisk === 'w' ? 'White' : 'Black',
-          risk: `${Math.round(humanRiskIn5 * 100)}%`,
-          usual: `${Math.round(humanRiskUsual * 100)}%`,
-          high: humanRiskIn5 >= 2 * humanRiskUsual,
-        }
-      : null
+  const humanBarsOnPage =
+    humanBars.available &&
+    showHumanBars &&
+    humanBars.status !== 'unavailable' &&
+    humanBars.status !== 'off'
+  const { rating: whiteRating = 1500 } = analyzedGame.whitePlayer
+  const { rating: blackRating = 1500 } = analyzedGame.blackPlayer
+  const usualRiskIn5 = useMemo(
+    () => ({
+      white: usualBlunderRiskIn5(whiteRating, humanBars.timeControl),
+      black: usualBlunderRiskIn5(blackRating, humanBars.timeControl),
+    }),
+    [whiteRating, blackRating, humanBars.timeControl],
+  )
   const humanBarExpected =
     humanBars.available &&
     showHumanBars &&
@@ -1328,10 +1325,30 @@ const Analysis: React.FC<Props> = ({
   }, [rawStockfishEvalBar])
 
   const evalPositionPercent = useMemo(() => {
+    if (humanBarsOnPage) {
+      if (displayedStockfishEvalBar.label.startsWith('M')) {
+        return displayedStockfishEvalBar.pawns > 0 ? 100 : 0
+      }
+      const [w, d] = engineChance(
+        displayedStockfishEvalBar.displayPawns,
+        whiteRating,
+        blackRating,
+        humanBars.timeControl,
+      )
+      return (w + d / 2) * 100
+    }
     const normalized =
       (displayedStockfishEvalBar.pawns + EVAL_BAR_RANGE) / (EVAL_BAR_RANGE * 2)
     return Math.max(0, Math.min(1, normalized)) * 100
-  }, [displayedStockfishEvalBar.pawns])
+  }, [
+    blackRating,
+    displayedStockfishEvalBar.displayPawns,
+    displayedStockfishEvalBar.label,
+    displayedStockfishEvalBar.pawns,
+    humanBars.timeControl,
+    humanBarsOnPage,
+    whiteRating,
+  ])
 
   const displayedStockfishEvalText = useMemo(() => {
     if (!displayedStockfishEvalBar.hasEval) {
@@ -1524,14 +1541,16 @@ const Analysis: React.FC<Props> = ({
     const extraGapPx = 4 // gap-1 between the top text strip and the board row
     const measuredNonBoardHeightPx =
       desktopMiddleMeasuredHeights.boardHeaderStripPx +
-      desktopMiddleMeasuredHeights.blunderMeterSectionPx +
+      (humanBarsOnPage
+        ? GAME_GRAPH_SECTION_PX
+        : desktopMiddleMeasuredHeights.blunderMeterSectionPx) +
       extraGapPx
 
     return Math.max(
       320,
       Math.floor(targetColumnHeightPx - measuredNonBoardHeightPx),
     )
-  }, [desktopMiddleMeasuredHeights, height])
+  }, [desktopMiddleMeasuredHeights, height, humanBarsOnPage])
   const desktopBoardSizeCss = useMemo(() => {
     const heightCapCss =
       desktopBoardHeightCapPx !== null ? `${desktopBoardHeightCapPx}px` : '72vh'
@@ -2029,6 +2048,7 @@ const Analysis: React.FC<Props> = ({
                     <AnalysisArrowLegend
                       labelMode="short"
                       className="gap-x-3 text-[10px]"
+                      hidePlayed={humanBarsOnPage}
                     />
                     <div className="absolute right-[12%] top-1/2 -translate-y-1/2">
                       <MaterialBalance
@@ -2077,7 +2097,10 @@ const Analysis: React.FC<Props> = ({
                       }
                       setCurrentSquare={setCurrentSquare}
                       shapes={(() => {
-                        const baseShapes = [...playedMoveShapes]
+                        // Two arrows are enough next to the move list.
+                        const baseShapes = humanBarsOnPage
+                          ? []
+                          : [...playedMoveShapes]
 
                         // Add analysis arrows only when analysis is enabled
                         if (analysisEnabled) {
@@ -2129,6 +2152,7 @@ const Analysis: React.FC<Props> = ({
                   </div>
                   <div className="pointer-events-none flex justify-center py-1">
                     <AnalysisStockfishEvalBar
+                      percentScale={humanBarsOnPage}
                       hasEval={renderedStockfishEvalBar.hasEval}
                       displayText={renderedStockfishEvalText}
                       labelPositionTop={smoothedEvalVerticalPositionLabel}
@@ -2140,9 +2164,17 @@ const Analysis: React.FC<Props> = ({
                 </div>
               </div>
             </div>
-            <div ref={desktopBlunderMeterSectionRef} className="shrink-0 pt-3">
+            <div
+              ref={humanBarsOnPage ? undefined : desktopBlunderMeterSectionRef}
+              className={
+                humanBarsOnPage
+                  ? 'flex min-h-0 flex-1 flex-col gap-2 pt-3'
+                  : 'shrink-0 pt-3'
+              }
+            >
               <AnalysisCompactBlunderMeter
                 variant="desktop"
+                hideMoves={humanBarsOnPage}
                 data={compactBlunderMeterData}
                 colorSanMapping={controller.colorSanMapping}
                 playedMove={
@@ -2152,21 +2184,20 @@ const Analysis: React.FC<Props> = ({
                 hover={analysisEnabled ? hover : mockHover}
                 makeMove={analysisEnabled ? makeMove : mockMakeMove}
               />
-              {humanRiskLine ? (
-                <p
-                  className="mt-2 text-xs text-secondary"
-                  title={`How likely ${humanRiskLine.side} is to blunder within the next 5 moves, this one included, against how often a player of this rating and time control does.`}
-                >
-                  {humanRiskLine.side}&apos;s blunder risk, next 5 moves:{' '}
-                  <span
-                    className={`font-semibold ${
-                      humanRiskLine.high ? 'text-[#d73027]' : 'text-primary'
-                    }`}
-                  >
-                    {humanRiskLine.risk}
-                  </span>{' '}
-                  (usual {humanRiskLine.usual})
-                </p>
+              {humanBarsOnPage ? (
+                <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-glass-border bg-glass">
+                  {/* It would give the game away while analysis is hidden. */}
+                  {analysisEnabled &&
+                  !controller.learnFromMistakes.state.isActive ? (
+                    <GameGraph
+                      bars={humanBars.bars}
+                      mainline={humanBars.mainline}
+                      ply={humanBars.ply}
+                      usual={usualRiskIn5}
+                      onSelectPly={selectHumanBarPly}
+                    />
+                  ) : null}
+                </div>
               ) : null}
             </div>
           </div>
@@ -2181,6 +2212,7 @@ const Analysis: React.FC<Props> = ({
           hideDetailedBlunderMeter={true}
           desktopContentHeightCss={desktopSidebarContentHeightCss}
           tablebase={tablebase}
+          overviewShare={humanBarsOnPage ? 0.56 : undefined}
           containerStyle={{
             width: 'clamp(23rem, 27vw, 26rem)',
             minWidth: '23rem',
@@ -2442,6 +2474,7 @@ const Analysis: React.FC<Props> = ({
                 </div>
                 <div className="pointer-events-none flex min-h-0 min-w-0 justify-center self-stretch">
                   <AnalysisStockfishEvalBar
+                    percentScale={humanBarsOnPage}
                     hasEval={renderedStockfishEvalBar.hasEval}
                     displayText={renderedStockfishEvalText}
                     labelPositionTop={smoothedEvalVerticalPositionLabel}
