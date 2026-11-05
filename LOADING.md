@@ -1413,6 +1413,78 @@ loads both runtimes at once.
 **Not known yet:** how this behaves on real Android phones, and for real
 visitors. No field data was used. The iPhone numbers are one phone and few runs.
 
+### Round 11: what real visitors get, in PostHog
+
+Rounds 1–10 measured emulated devices and one iPhone. These events show real visitors,
+split by `engine`, `engine_build`, `is_phone`, `cores`, `release` and PostHog's own
+`$os` and `$browser`. Nothing reads the page: `src/lib/analysisTiming.ts` takes a few
+timestamps per engine update. Times are in milliseconds, and are left empty when the
+visitor moved on or hid the page first.
+
+| event                               | sent                                                | properties                                                                                                                                                                                        |
+| ----------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `analysis_engine_load`              | once a visit, for the first position                | `position_shown_ms`, `maia_first_ms`, `maia_chart_data_ms`, `chart_ms`, `stockfish_first_ms`, `d12_ms`, `d18_ms`, `lines_settled_ms`, `stockfish_done_ms`, `arrival`, `stockfish_ran`, `maia_ran` |
+| `analysis_engine_steps`             | when the page is hidden or left, and every 30 moves | `steps`, the `_median_ms` of `maia_first`, `chart`, `d12`, `d18`, `lines_settled`, `stockfish_done`, and how many positions `_reached` each Stockfish stage                                       |
+| `analysis_page_ended_unexpectedly`  | on the next analysis page in the tab                | `was_visible`, `seconds_since_it_started`                                                                                                                                                         |
+| `stockfish_engine_ready`, `_failed` | once an engine, as before                           | `load_time_seconds`, and now `engine` and `memory_retries`                                                                                                                                        |
+| `maia_engine_ready`, `_failed`      | once a page, when Maia starts from its saved model  | `load_time_seconds`, `restarts`                                                                                                                                                                   |
+
+Reading them:
+
+- **"d18" is not comparable across round 10:** use `lines_settled` for that. `d18_ms` says
+  when the best line got there.
+- **A crash:** `analysis_page_ended_unexpectedly` with `was_visible` true means the last
+  analysis page in this tab was on screen and never left. With it false, the browser may
+  just have dropped a page in the background. It undercounts: it can only report when the
+  visitor comes back to an analysis page in that tab, so one who leaves after a crash, or
+  sees Safari's "A problem repeatedly occurred", isn't counted until they return.
+- **Saved analysis:** `stockfish_ran` false means the search didn't run for that position,
+  so its times say nothing. Filter on it for engine times.
+- **Before and after round 10:** only `stockfish_engine_ready`, `stockfish_engine_failed`,
+  `$web_vitals` and `$exception` existed before it went live (2026-11-05 03:30 UTC). The
+  new events have no "before", so they compare later changes against round 10.
+
+Checked in a browser with PostHog's requests captured: the events and values above arrive;
+a normal reload reports no crash; and a page that loses its exit handlers, as a killed one
+would, is reported on the next load with `was_visible` true. PostHog ignores automated
+browsers, so this needed the test browser to hide that it is one.
+
+No slowdown within the noise, against the same code without these events: six paired
+loads per device (test browsers, whose events PostHog drops, so sending itself isn't
+counted). Desktop: first depth 0.00 s, depth 12 0.00 s, depth 18 0.00 s (paired medians).
+Phone: first depth 0.56 s, depth 12 0.61 s and depth 18 0.71 s sooner, which is noise in
+the build's favour (3–4 of 6 pairs).
+
+Queries for PostHog's SQL editor:
+
+```sql
+-- Crash rate: analysis pages lost on screen, per analysis page load, by day and phone
+SELECT toDate(timestamp) AS day, properties.is_phone AS phone,
+  countIf(event = 'analysis_page_ended_unexpectedly' AND properties.was_visible = true) AS lost_on_screen,
+  countIf(event = 'analysis_engine_load') AS loads
+FROM events
+WHERE event IN ('analysis_page_ended_unexpectedly', 'analysis_engine_load') AND timestamp > now() - INTERVAL 14 DAY
+GROUP BY day, phone ORDER BY day
+
+-- What a visitor waits for on a return visit, by phone and operating system
+SELECT properties.is_phone AS phone, properties.$os AS os, count() AS loads,
+  quantile(0.5)(toFloat(properties.stockfish_first_ms)) AS first_depth,
+  quantile(0.5)(toFloat(properties.lines_settled_ms)) AS lines_settled,
+  quantile(0.5)(toFloat(properties.chart_ms)) AS chart,
+  quantile(0.9)(toFloat(properties.lines_settled_ms)) AS lines_settled_p90
+FROM events
+WHERE event = 'analysis_engine_load' AND properties.stockfish_ran = true AND timestamp > now() - INTERVAL 14 DAY
+GROUP BY phone, os ORDER BY loads DESC
+
+-- Round 10, before and after: Stockfish's start, and how often it failed
+SELECT timestamp >= toDateTime('2026-11-05 03:30:00') AS after_round_10,
+  countIf(event = 'stockfish_engine_ready') AS ready, countIf(event = 'stockfish_engine_failed') AS failed,
+  quantileIf(0.5)(toFloat(properties.load_time_seconds), event = 'stockfish_engine_ready') AS median_ready_seconds
+FROM events
+WHERE event IN ('stockfish_engine_ready', 'stockfish_engine_failed') AND timestamp > now() - INTERVAL 30 DAY
+GROUP BY after_round_10
+```
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
