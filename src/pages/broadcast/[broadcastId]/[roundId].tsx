@@ -6,7 +6,7 @@ import { AnimatePresence } from 'framer-motion'
 
 import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
-import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
+import { MaiaDownloadPrompt } from 'src/components/Common/MaiaDownloadPrompt'
 import { useBroadcastController } from 'src/hooks/useBroadcastController'
 import { useAnalysisController } from 'src/hooks'
 import { TreeControllerContext } from 'src/contexts'
@@ -257,16 +257,9 @@ const BroadcastAnalysisPage: NextPage = () => {
         <meta name="description" content={pageDescription} />
       </Head>
 
-      <AnimatePresence>
-        {analysisController &&
-        (analysisController.maia.status === 'no-cache' ||
-          analysisController.maia.status === 'downloading') ? (
-          <DownloadModelModal
-            progress={analysisController.maia.progress}
-            download={analysisController.maia.downloadModel}
-          />
-        ) : null}
-      </AnimatePresence>
+      {analysisController ? (
+        <MaiaDownloadPrompt engine={analysisController.maia} />
+      ) : null}
 
       <TreeControllerContext.Provider value={analysisController}>
         {!(broadcastController as any).currentLiveGame?.loaded &&

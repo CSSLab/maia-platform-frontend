@@ -1,24 +1,59 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useSyncExternalStore } from 'react'
+import { trackDownloadModelModalShown } from 'src/lib/analytics'
 import {
-  trackDownloadModelModalShown,
-  trackDownloadModelInitiated,
-  trackDownloadModelCompleted,
-  trackDownloadModelFailed,
-} from 'src/lib/analytics'
+  MAIA_DOWNLOAD_MB,
+  downloadTimeLeft,
+  startMaiaDownload,
+} from 'src/lib/engine/maiaDownloadPrompt'
+import type Maia from 'src/lib/engine/maia'
+
+/** Bar with the size done and the time left, while the model downloads. */
+export const MaiaDownloadProgress: React.FC<{ maia?: Maia }> = ({ maia }) => {
+  const percent = useSyncExternalStore(
+    (listener) => maia?.onDownloadProgress(listener) ?? (() => undefined),
+    () => maia?.downloadPercent ?? 0,
+    () => 0,
+  )
+  const elapsed = maia ? (Date.now() - maia.downloadStartedAt) / 1000 : 0
+  const timeLeft = downloadTimeLeft(percent, elapsed)
+  return (
+    <div className="relative flex h-8 w-full items-center overflow-hidden rounded-md border border-glass-border bg-glass px-3 md:h-10">
+      <p className="z-10 text-xs text-white/90 md:text-sm">
+        {percent > 0
+          ? `${Math.round((MAIA_DOWNLOAD_MB * percent) / 100)} of ${MAIA_DOWNLOAD_MB}MB${timeLeft ? `, ${timeLeft}` : ''}`
+          : 'Starting download...'}
+      </p>
+      <div
+        className={`absolute left-0 top-0 z-0 h-full rounded-l-md bg-human-4 transition-all duration-500 ease-out ${
+          percent === 0 ? 'animate-pulse' : ''
+        }`}
+        style={{ width: `${percent > 0 ? percent : 12}%` }}
+      />
+    </div>
+  )
+}
 
 interface Props {
+  maia?: Maia
   progress: number
-  download: () => void
+  download: () => Promise<boolean>
+  /** A download that started before this prompt appeared. */
+  downloading?: boolean
+  /** Offers to carry on without Maia, rather than only to leave. */
+  onNotNow?: () => void
 }
 
 export const DownloadModelModal: React.FC<Props> = ({
+  maia,
   progress,
   download,
+  downloading = false,
+  onNotNow,
 }: Props) => {
-  const [isDownloading, setIsDownloading] = useState(false)
-  const downloadStartTime = useRef<number | null>(null)
+  const [startedDownload, setStartedDownload] = useState(false)
+  const isDownloading = startedDownload || downloading
   const hasTrackedModalShown = useRef(false)
 
   useEffect(() => {
@@ -40,30 +75,9 @@ export const DownloadModelModal: React.FC<Props> = ({
 
   const handleDownload = async () => {
     if (isDownloading || progress >= 100) return
-    setIsDownloading(true)
-    downloadStartTime.current = Date.now()
-
-    const currentPage =
-      typeof window !== 'undefined' ? window.location.pathname : 'unknown'
-    trackDownloadModelInitiated(currentPage)
-
-    try {
-      await download()
-
-      // Track successful download
-      if (downloadStartTime.current) {
-        const downloadTime = (Date.now() - downloadStartTime.current) / 1000
-        trackDownloadModelCompleted(downloadTime, currentPage)
-      }
-    } catch (error) {
-      // Track failed download
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error'
-      trackDownloadModelFailed('download_error', 0, currentPage)
-      console.error('Download failed:', errorMessage)
-    } finally {
-      setIsDownloading(false)
-    }
+    setStartedDownload(true)
+    await startMaiaDownload(download, onNotNow ? 'tap' : 'wall')
+    setStartedDownload(false)
   }
   return (
     <motion.div
@@ -93,70 +107,53 @@ export const DownloadModelModal: React.FC<Props> = ({
       >
         <div className="group relative flex w-full flex-col gap-5 overflow-hidden rounded-lg border border-glass-border bg-glass p-5 text-left backdrop-blur-md transition-all duration-300 md:p-8">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined material-symbols-filled text-3xl text-primary">
+            <span className="material-symbols-outlined material-symbols-filled shrink-0 text-3xl text-primary">
               auto_awesome
             </span>
-            <h1 className="text-2xl font-bold text-primary md:text-3xl">
-              Download Our New Model
+            <h1 className="text-lg font-bold text-primary md:text-2xl">
+              Download the new <span className="whitespace-nowrap">Maia-3</span>{' '}
+              (one-time {MAIA_DOWNLOAD_MB}MB download)
             </h1>
           </div>
 
-          <div className="flex flex-col gap-3 text-sm md:text-base">
-            <p className="text-primary/80">
-              Our newest model, Maia-3, provides richer and more in-depth
-              analysis, allowing for:
-            </p>
-            <ul className="flex list-inside flex-col gap-1.5 pl-2 text-white/80">
-              <li>
-                ✨ Detailed move evaluations tailored to different rating levels
-              </li>
-              <li>
-                🧠 Insights into how players of various strengths approach the
-                game
-              </li>
-              <li>
-                ⚡ Faster, local analysis without needing to send data to a
-                server
-              </li>
-            </ul>
-            <p className="text-white/80">
-              Maia-3 runs entirely on your device and requires a one-time 44 MB
-              download.
-            </p>
-          </div>
+          <p className="text-sm text-white/80 md:text-base">
+            Our best model yet: the most human-like chess AI, now running on
+            your device, with human moves at every rating in under half a
+            second.
+          </p>
 
           <div className="mt-4 flex w-full flex-col items-end justify-end gap-2 md:mt-6 md:flex-row">
             {isDownloading || progress > 0 ? (
-              <div className="relative order-2 flex h-8 w-full items-center overflow-hidden rounded-md border border-glass-border bg-glass px-3 md:order-1 md:h-10 md:flex-1">
-                <p className="z-10 text-xs text-white/90 md:text-sm">
-                  {progress > 0
-                    ? `${Math.round(progress)}%`
-                    : 'Starting download...'}
-                </p>
-                <div
-                  className={`absolute left-0 top-0 z-0 h-full rounded-l-md bg-human-4 transition-all duration-500 ease-out ${
-                    progress === 0 ? 'animate-pulse' : ''
-                  }`}
-                  style={{ width: `${progress > 0 ? progress : 12}%` }}
-                />
+              <div className="order-2 w-full md:order-1 md:flex-1">
+                <MaiaDownloadProgress maia={maia} />
               </div>
             ) : null}
 
-            <div className="order-1 flex flex-row gap-2 md:order-2">
-              <Link
-                href="/"
-                className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
-              >
-                <span className="material-symbols-outlined text-base text-secondary group-hover:text-primary md:text-lg">
-                  home
-                </span>
-                <p>Return Home</p>
-              </Link>
+            <div className="order-1 flex flex-row flex-wrap justify-end gap-2 md:order-2">
+              {onNotNow ? (
+                <button
+                  type="button"
+                  onClick={onNotNow}
+                  className="flex h-8 cursor-pointer select-none items-center whitespace-nowrap rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
+                >
+                  Not now
+                </button>
+              ) : (
+                <Link
+                  href="/"
+                  className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
+                >
+                  <span className="material-symbols-outlined text-base text-secondary group-hover:text-primary md:text-lg">
+                    home
+                  </span>
+                  <p>Return Home</p>
+                </Link>
+              )}
 
               <div
                 tabIndex={0}
                 role="button"
-                className={`flex h-8 select-none items-center gap-2 rounded px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
+                className={`flex h-8 select-none items-center gap-2 whitespace-nowrap rounded px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
                   isDownloading || progress >= 100
                     ? 'cursor-not-allowed border border-human-4/30 bg-human-4/50'
                     : 'cursor-pointer border border-glass-border bg-human-4 hover:bg-human-3'
@@ -173,13 +170,16 @@ export const DownloadModelModal: React.FC<Props> = ({
                     progress_activity
                   </span>
                 ) : (
-                  <span className="material-symbols-outlined text-lg md:text-xl">
-                    download
+                  <span className="hidden md:inline-flex">
+                    <span className="material-symbols-outlined text-xl">
+                      download
+                    </span>
                   </span>
                 )}
                 <p className="font-medium">
-                  {isDownloading ? 'Downloading...' : 'Download Maia-3'}{' '}
-                  <span className="text-xs text-white/70">(44 MB)</span>
+                  {isDownloading
+                    ? 'Downloading...'
+                    : `Download Maia-3 (${MAIA_DOWNLOAD_MB}MB)`}
                 </p>
               </div>
             </div>

@@ -1,3 +1,5 @@
+import { forgetMaiaModelSaved } from './maiaDownloadPrompt'
+
 interface ModelStorage {
   id: string
   url: string
@@ -230,6 +232,7 @@ export class MaiaModelStorage {
   }
 
   async clearAllStorage(): Promise<void> {
+    forgetMaiaModelSaved()
     try {
       await this.deleteModel()
       console.log('Maia storage cleared')

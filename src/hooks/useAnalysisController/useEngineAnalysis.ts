@@ -13,11 +13,8 @@ import {
   STOCKFISH_DEBUG_RERUN_KEY,
 } from 'src/constants/analysis'
 import { GameNode, MaiaEvaluation } from 'src/types'
-import {
-  MaiaEngineContext,
-  PHONE_BREAKPOINT_PX,
-  StockfishEngineContext,
-} from 'src/contexts'
+import { MaiaEngineContext, StockfishEngineContext } from 'src/contexts'
+import { isPhone } from 'src/lib/engine/maiaDownloadPrompt'
 
 /** Most ratings per Maia request (~0.55 s for 11 on a desktop). */
 const MAIA_BATCH_SIZE = 11
@@ -37,19 +34,6 @@ const STOCKFISH_RENDER_INTERVAL_MS = 150
  * inference, and the last position's moves came later.
  */
 const ANALYSIS_DELAY_MS = 50
-
-/**
- * A phone: a touch screen whose shorter side is a phone's. Each Maia rating
- * takes ~0.22 s there (~0.05 s on a desktop), so phones analyse every 200
- * points only, in one request, and the moves-by-rating chart interpolates the
- * ratings in between. Every 400 points first drew the chart ~0.9 s sooner on
- * an emulated phone, but Stockfish reached depth 12 ~0.5 s later: the chart
- * then redraws for Stockfish's changing top moves through more of its search.
- */
-const isPhone = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(pointer: coarse)').matches &&
-  Math.min(window.screen.width, window.screen.height) <= PHONE_BREAKPOINT_PX
 
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
@@ -155,7 +139,11 @@ export const useEngineAnalysis = (
     // moves show at once. Then, on a desktop, every 400 points from 600 to
     // 2600, from which the moves-by-rating chart is drawn (the ratings in
     // between interpolated), the rest of every 200 points, and those in
-    // between; on a phone every 200 points and no more. Each stage is one
+    // between; on a phone every 200 points and no more (each rating takes
+    // ~0.22 s there, ~0.05 s on a desktop; every 400 points first drew the
+    // chart ~0.9 s sooner on an emulated phone, but Stockfish reached depth 12
+    // ~0.5 s later, as the chart redraws for its changing top moves through
+    // more of its search). Each stage is one
     // request, so a newer position never waits long behind it, and is added
     // as it arrives, keeping what the node already has.
     const ratings = (keep: (index: number) => boolean) =>
@@ -182,6 +170,9 @@ export const useEngineAnalysis = (
         inProgressAnalyses.has(nodeFen)
       )
         return
+
+      // Runs again when the model arrives.
+      if (maia.status === 'no-cache' || maia.status === 'downloading') return
 
       // Add retry logic for Maia initialization
       let retries = 0
