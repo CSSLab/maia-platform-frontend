@@ -116,6 +116,12 @@ export const DownloadModelModal: React.FC<Props> = ({
             </h1>
           </div>
 
+          <p className="text-sm text-white/80 md:text-base">
+            Our best model yet: the most human-like chess AI, now running on
+            your device, with human moves at every rating in under half a
+            second.
+          </p>
+
           <div className="mt-4 flex w-full flex-col items-end justify-end gap-2 md:mt-6 md:flex-row">
             {isDownloading || progress > 0 ? (
               <div className="order-2 w-full md:order-1 md:flex-1">
