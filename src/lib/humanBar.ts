@@ -302,9 +302,9 @@ const EVAL_CURVE = {
   },
 }
 /** The small net's evals are about this much smaller than SF19's, which the curve was fit on (P89, depth 18). */
-const SMALL_NET_TO_SF19 = 1.12
+export const SMALL_NET_TO_SF19 = 1.12
 
-/** [White, draw, Black] from the site engine's eval, in pawns from White's side. */
+/** [White, draw, Black] from an eval on SF19's scale, in pawns from White's side. */
 export const engineChance = (
   pawns: number,
   whiteElo: number,
@@ -314,7 +314,7 @@ export const engineChance = (
   const p = EVAL_CURVE.classes[timeClassOf(timeControl)]
   const r = ((whiteElo + blackElo) / 2 - 1700) / 400
   const gap = (whiteElo - blackElo) / 400
-  const x = Math.max(-100, Math.min(100, pawns * SMALL_NET_TO_SF19))
+  const x = Math.max(-100, Math.min(100, pawns))
   const eta =
     EVAL_CURVE.taus.reduce(
       (sum, tau, i) =>

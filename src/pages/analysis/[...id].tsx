@@ -92,7 +92,11 @@ import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { isPhone } from 'src/lib/engine/maiaDownloadPrompt'
-import { engineChance, usualBlunderRiskIn5 } from 'src/lib/humanBar'
+import {
+  engineChance,
+  SMALL_NET_TO_SF19,
+  usualBlunderRiskIn5,
+} from 'src/lib/humanBar'
 import { GameGraph } from 'src/components/Analysis/GameGraph'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { playerLabel } from 'src/lib/pgn'
@@ -744,6 +748,20 @@ const Analysis: React.FC<Props> = ({
     humanBars.status !== 'off'
   const { rating: whiteRating = 1500 } = analyzedGame.whitePlayer
   const { rating: blackRating = 1500 } = analyzedGame.blackPlayer
+  // The server's evals are already on SF19's scale; a forced mate fills the bar.
+  const engineBarAt = useCallback(
+    (cpw: number) => {
+      if (Math.abs(cpw) >= 9000) return cpw > 0 ? 1 : 0
+      const [w, d] = engineChance(
+        cpw / 100,
+        whiteRating,
+        blackRating,
+        humanBars.timeControl,
+      )
+      return w + d / 2
+    },
+    [whiteRating, blackRating, humanBars.timeControl],
+  )
   const usualRiskIn5 = useMemo(
     () => ({
       white: usualBlunderRiskIn5(whiteRating, humanBars.timeControl),
@@ -1330,7 +1348,7 @@ const Analysis: React.FC<Props> = ({
         return displayedStockfishEvalBar.pawns > 0 ? 100 : 0
       }
       const [w, d] = engineChance(
-        displayedStockfishEvalBar.displayPawns,
+        displayedStockfishEvalBar.displayPawns * SMALL_NET_TO_SF19,
         whiteRating,
         blackRating,
         humanBars.timeControl,
@@ -2195,6 +2213,7 @@ const Analysis: React.FC<Props> = ({
                       ply={humanBars.ply}
                       usual={usualRiskIn5}
                       onSelectPly={selectHumanBarPly}
+                      engineAt={engineBarAt}
                     />
                   ) : null}
                 </div>

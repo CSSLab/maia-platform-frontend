@@ -15,25 +15,29 @@ interface Props {
   /** How often each player usually blunders within 5 moves (0-1). */
   usual: { white: number; black: number }
   onSelectPly: (ply: number) => void
+  /** Where an eval in centipawns sits on the Stockfish bar (0-1). */
+  engineAt: (cpw: number) => number
 }
 
 const PAD_L = 22
 const PAD_R = 12
 const PAD_TOP = 8
 const AXIS = 16
-const RISK = 7
-const RISK_GAP = 3
-const BLUNDER = '#d73027'
+const DANGER = '#e0301e'
+const BLUNDER = '#ff3b2f'
 const INACCURACY = '#fee08b'
 
-/** 0 at the player's usual risk, 1 at twice it or more. */
-const riskStrength = (risk: number, usual: number) =>
-  Math.max(0, Math.min(1, risk / usual - 1))
+/** 0 at the player's usual risk of a blunder, 1 at twice it or more. */
+const dangerOf = (risk: number | undefined, usual: number) =>
+  risk === undefined ? 0 : Math.max(0, Math.min(1, risk / usual - 1))
+
+const FADE = (d: number) => (d > 0 ? 0.18 + 0.67 * d : 0)
 
 /**
- * The game at a glance: the left bar, unrolled over the moves. White's chance
- * is the filled shape, its mistakes sit on the line, and two thin ribbons under
- * it turn red where a player's risk of a blunder runs above their usual.
+ * The two bars unrolled over the game. Below the white line is White's share of
+ * the game and above it Black's; a side turns red while that player is in danger
+ * of a blunder, so danger shows where it can cost them. The blue line is the
+ * Stockfish bar.
  */
 export const GameGraph: React.FC<Props> = ({
   bars,
@@ -41,6 +45,7 @@ export const GameGraph: React.FC<Props> = ({
   ply,
   usual,
   onSelectPly,
+  engineAt,
 }) => {
   const box = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
@@ -58,7 +63,7 @@ export const GameGraph: React.FC<Props> = ({
 
   const { w, h } = size
   const n = Math.max(mainline.length, 2)
-  const plotBottom = h - AXIS - 2 * RISK - 2 * RISK_GAP
+  const plotBottom = h - AXIS
   const x = useCallback(
     (p: number) => PAD_L + (p / (n - 1)) * (w - PAD_L - PAD_R),
     [n, w],
@@ -68,17 +73,21 @@ export const GameGraph: React.FC<Props> = ({
     [plotBottom],
   )
 
-  const { line, area } = useMemo(() => {
+  const { line, below, above } = useMemo(() => {
     let lineD = ''
-    let areaD = ''
+    let belowD = ''
+    let aboveD = ''
     let run: [number, number][] = []
     const flush = () => {
       if (run.length > 1) {
         const path = run
           .map(([a, b], i) => `${i ? 'L' : 'M'}${a.toFixed(1)} ${b.toFixed(1)}`)
           .join('')
+        const first = run[0][0].toFixed(1)
+        const last = run[run.length - 1][0].toFixed(1)
         lineD += path
-        areaD += `${path}L${run[run.length - 1][0].toFixed(1)} ${plotBottom}L${run[0][0].toFixed(1)} ${plotBottom}Z`
+        belowD += `${path}L${last} ${plotBottom}L${first} ${plotBottom}Z`
+        aboveD += `${path}L${last} ${PAD_TOP}L${first} ${PAD_TOP}Z`
       }
       run = []
     }
@@ -88,23 +97,36 @@ export const GameGraph: React.FC<Props> = ({
       else flush()
     }
     flush()
-    return { line: lineD, area: areaD }
+    return { line: lineD, below: belowD, above: aboveD }
   }, [bars, n, plotBottom, x, y])
 
-  // Each player's risk on their own moves, red in proportion to how far it
-  // runs above their usual.
-  const riskStops = useMemo(
+  const engineLine = useMemo(() => {
+    let d = ''
+    let open = false
+    for (let p = 0; p < n; p++) {
+      const cpw = bars[p]?.cpw
+      if (cpw === undefined) {
+        open = false
+        continue
+      }
+      d += `${open ? 'L' : 'M'}${x(p).toFixed(1)} ${y(engineAt(cpw)).toFixed(1)}`
+      open = true
+    }
+    return d
+  }, [bars, engineAt, n, x, y])
+
+  // Each player's danger on their own moves, as a gradient across the moves.
+  const dangerStops = useMemo(
     () =>
-      [0, 1].map((row) => {
+      [0, 1].map((side) => {
         const stops: [number, number][] = []
-        for (let p = row; p < n - 1; p += 2) {
+        for (let p = side; p < n - 1; p += 2) {
           const bar = bars[p]
-          const risk = row === 0 ? bar?.dW_K5_T15 : bar?.dB_K5_T15
-          const s =
-            risk === undefined
-              ? 0
-              : riskStrength(risk, row === 0 ? usual.white : usual.black)
-          stops.push([p / (n - 1), s > 0 ? 0.15 + 0.85 * s : 0])
+          const d =
+            side === 0
+              ? dangerOf(bar?.dW_K5_T15, usual.white)
+              : dangerOf(bar?.dB_K5_T15, usual.black)
+          stops.push([p / (n - 1), FADE(d)])
         }
         return stops
       }),
@@ -133,9 +155,6 @@ export const GameGraph: React.FC<Props> = ({
   const ticks = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].filter(
     (m) => m * 2 < n - 2,
   )
-  const ribbon = (row: number) =>
-    plotBottom + RISK_GAP + row * (RISK + RISK_GAP)
-  const step = (w - PAD_L - PAD_R) / (n - 1)
 
   return (
     <div
@@ -160,16 +179,13 @@ export const GameGraph: React.FC<Props> = ({
       {w > 0 && h > 0 ? (
         <svg width={w} height={h} className="absolute inset-0 block">
           <defs>
-            <linearGradient id="game-graph-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="rgb(245 186 186)" stopOpacity="0.5" />
-              <stop offset="1" stopColor="rgb(122 24 24)" stopOpacity="0.5" />
-            </linearGradient>
-            {riskStops.map((stops, row) => (
+            {dangerStops.map((stops, side) => (
               <linearGradient
-                key={row}
-                id={`game-graph-risk-${row}`}
-                x1="0"
-                x2="1"
+                key={side}
+                id={`game-graph-danger-${side}`}
+                gradientUnits="userSpaceOnUse"
+                x1={PAD_L}
+                x2={w - PAD_R}
                 y1="0"
                 y2="0"
               >
@@ -177,57 +193,39 @@ export const GameGraph: React.FC<Props> = ({
                   <stop
                     key={offset}
                     offset={offset}
-                    stopColor={BLUNDER}
+                    stopColor={DANGER}
                     stopOpacity={opacity}
                   />
                 ))}
               </linearGradient>
             ))}
           </defs>
-          <path d={area} fill="url(#game-graph-fill)" />
+          <path d={below} fill="rgb(255 255 255 / 0.13)" />
+          <path d={below} fill="url(#game-graph-danger-0)" />
+          <path d={above} fill="url(#game-graph-danger-1)" />
           <line
             x1={PAD_L}
             x2={w - PAD_R}
             y1={y(0.5)}
             y2={y(0.5)}
-            stroke="rgb(255 255 255 / 0.22)"
+            stroke="rgb(255 255 255 / 0.25)"
             strokeWidth="1"
             strokeDasharray="2 4"
           />
           <path
-            d={line}
+            d={engineLine}
             fill="none"
-            stroke="rgb(250 225 225)"
-            strokeWidth="1.5"
+            stroke="rgb(120 185 240)"
+            strokeWidth="1.25"
             strokeLinejoin="round"
           />
-          {[0, 1].map((row) => (
-            <g key={row}>
-              <rect
-                x={PAD_L}
-                y={ribbon(row)}
-                width={Math.max(0, w - PAD_L - PAD_R)}
-                height={RISK}
-                rx="1"
-                fill="rgb(255 255 255 / 0.06)"
-              />
-              <circle
-                cx={PAD_L - 11}
-                cy={ribbon(row) + RISK / 2}
-                r="3"
-                fill={row === 0 ? 'white' : 'rgb(18 14 14)'}
-                stroke={row === 0 ? 'none' : 'rgb(255 255 255 / 0.7)'}
-              />
-              <rect
-                x={PAD_L}
-                y={ribbon(row)}
-                width={Math.max(0, w - PAD_L - PAD_R)}
-                height={RISK}
-                rx="1"
-                fill={`url(#game-graph-risk-${row})`}
-              />
-            </g>
-          ))}
+          <path
+            d={line}
+            fill="none"
+            stroke="white"
+            strokeWidth="1.75"
+            strokeLinejoin="round"
+          />
           {mainline.map((node, p) => {
             const bar = bars[p]
             if (!bar || !(node.blunder || node.inaccuracy)) return null
@@ -236,10 +234,10 @@ export const GameGraph: React.FC<Props> = ({
                 key={p}
                 cx={x(p)}
                 cy={y(bar.W)}
-                r={node.blunder ? 3.5 : 2.75}
+                r={node.blunder ? 4 : 3}
                 fill={node.blunder ? BLUNDER : INACCURACY}
                 stroke="rgb(18 14 14)"
-                strokeWidth="1"
+                strokeWidth="1.25"
               />
             )
           })}
@@ -248,8 +246,8 @@ export const GameGraph: React.FC<Props> = ({
               x1={x(shown)}
               x2={x(shown)}
               y1={PAD_TOP}
-              y2={ribbon(1) + RISK}
-              stroke="rgb(255 255 255 / 0.4)"
+              y2={plotBottom}
+              stroke="rgb(255 255 255 / 0.45)"
               strokeWidth="1"
             />
           ) : null}
@@ -264,24 +262,13 @@ export const GameGraph: React.FC<Props> = ({
             />
           ) : null}
           <text
-            x={PAD_L}
-            y={PAD_TOP + 11}
-            fontSize="10"
-            fill="rgb(255 255 255 / 0.55)"
-          >
-            White&apos;s chance
-          </text>
-          <text
             x={PAD_L - 5}
             y={y(0.5) + 3}
             textAnchor="end"
             fontSize="9"
-            fill="rgb(255 255 255 / 0.35)"
+            fill="rgb(255 255 255 / 0.4)"
           >
             50
-          </text>
-          <text x={PAD_L} y={h - 3} fontSize="10" fill="rgb(255 255 255 / 0.4)">
-            blunder risk
           </text>
           {ticks.map((m) => (
             <text
@@ -295,6 +282,42 @@ export const GameGraph: React.FC<Props> = ({
               {m}
             </text>
           ))}
+          <text
+            x={PAD_L}
+            y={h - 3}
+            fontSize="10"
+            fontWeight="600"
+            fill="rgb(255 255 255 / 0.7)"
+          >
+            White
+          </text>
+          <text
+            x={PAD_L}
+            y={PAD_TOP + 10}
+            fontSize="10"
+            fontWeight="600"
+            fill="rgb(255 255 255 / 0.7)"
+          >
+            Black
+          </text>
+          <rect
+            x={w - PAD_R - 88}
+            y={PAD_TOP + 2}
+            width="9"
+            height="9"
+            rx="2"
+            fill={DANGER}
+          />
+          <text
+            x={w - PAD_R}
+            y={PAD_TOP + 10}
+            textAnchor="end"
+            fontSize="10"
+            fontWeight="600"
+            fill="rgb(255 255 255 / 0.7)"
+          >
+            blunder danger
+          </text>
         </svg>
       ) : null}
       {pointed !== null && shownBar ? (
