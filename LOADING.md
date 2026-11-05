@@ -1329,6 +1329,44 @@ milliseconds here, plus the download on a first visit and 5 times less memory.
 The best line first and the whole page have not been timed on the phone. Safari
 gets the plain build, without relaxed SIMD.
 
+**The whole site on the same iPhone**, in Safari, on 2026-11-05, with
+`public/phone-lab.html` (branches `claude/phone-lab-base` for main's code and
+`claude/engine-bench` for this round's). It runs the site in a frame, or for the
+real reloads as the whole page, with saved analysis stubbed out so that the
+engines run and nothing is stored. Runs were by hand, one or two per build, with
+a few minutes between them:
+
+| iPhone 12                      | main                      | new                      |
+| ------------------------------ | ------------------------- | ------------------------ |
+| 6 return visits                | page reloaded, both times | all finished, both times |
+| 10 reloads of the whole page   | Safari gave up after 4    | engines back on 10/10    |
+| 10 reloads in a frame          | page reloaded, twice      | engines back on 10/10    |
+| after a step: depth 12         | 0.82 s                    | 0.29 s                   |
+| after a step: depth 18         | 3.27 s                    | 1.17 s                   |
+| after a step: Maia's moves     | 0.30 s                    | 0.28 s                   |
+| after a step: chart            | 1.19 s                    | 1.46 s                   |
+| after a step: lines settled    | 3.42 s                    | 3.91 s                   |
+| after 10 quick taps: depth 12  | 1.12–1.54 s               | 0.24–0.29 s              |
+| first visit: Stockfish's depth | 22.0 s                    | 3.6 s                    |
+| first visit: Maia's moves      | 19.7 s                    | 10.6 s                   |
+| first visit: board             | 0.94 s                    | 3.05 s (one load)        |
+| Stockfish flat out, 2 minutes  | 577k → 478k a second      | 672k → 574k a second     |
+
+Return visits on the new code: board 0.30 s, Maia's moves 1.66 s, Stockfish's first
+depth 0.41 s, depth 12 0.73 s, depth 18 1.29 s, chart 2.75 s, lines settled 3.07 s,
+with no main-thread stall over 100 ms. Main has no such row, as it never finished.
+Stepping, quick taps and the first visit were measured just before the memory fix
+below; the fix doesn't touch that code path.
+
+**The memory fix (commit "reserve less memory, and wait when an iPhone has none to
+spare").** Before it, the new code's frame reloads brought both engines back on only
+3 of 10 (`RangeError: Out of memory`), and later reservations failed even with no
+page open. Reservations are now 134 MB for Stockfish and 268 MB for Maia (402 MB
+together; main reserves about 1.5 GB), and both retry after 1, 3, 8 and 15 s. With
+it, 10 of 10 in both reload tests. Maia's moves come at about 2.9 s on most of those
+reloads instead of about 1.6 s, which is what one 1 s retry would give, so the phone
+is still short of memory there; that isn't confirmed. Stockfish now uses 84 MB.
+
 **Maia on WebGPU: not pursued.** On the same phone, in a worker as on the site:
 
 | Maia-3                                      | WebAssembly | WebGPU |
@@ -1346,8 +1384,12 @@ second, so a warmer phone may have counted against it. It would bring the chart
 on average, 1.29 at most, the same top move in 30 of 30 cases), ~2.5 MB more to
 download and a fallback for browsers without `shader-f16`.
 
+A fairer rerun, with one move's work in mirrored order, reloaded the page with
+both Maia runtimes and Stockfish loaded, so it gave no numbers. The site never
+loads both runtimes at once.
+
 **Not known yet:** how this behaves on real Android phones, and for real
-visitors. No field data was used.
+visitors. No field data was used. The iPhone numbers are one phone and few runs.
 
 ## What changed
 
