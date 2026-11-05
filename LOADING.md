@@ -1196,42 +1196,43 @@ out of the shared analysis cache, and its depths labelled differently).
 
 ### Round 10: Stockfish 19's small net, and the best line first
 
-Measured on 2026-11-04 against main at 3e5ef6d, as in round 9 (local production
+Measured on 2026-11-05 against main at 3e5ef6d, as in round 9 (local production
 builds behind `scripts/perf/stub-proxy.mjs`, warm visits with each build's own
 primed profile, the phone at a quarter of full speed in every thread, 8 cores
-reported), with ada nearly idle (load 15–40 of 160). Six paired loads per
-device, the builds alternating, on the two test games:
+reported), with ada at load 25–45 of 160. Six paired loads per device, the builds
+alternating, on the two test games. The emulated phone is far slower than an iPhone
+12 (see below), so use it to compare builds, not as what a phone user sees.
 
 | warm visit, seconds     | phone: main → new | desktop: main → new |
 | ----------------------- | ----------------- | ------------------- |
-| board on screen         | 2.04 → 1.96       | 0.31 → 0.30         |
-| Maia's moves            | 6.84 → 7.09       | 1.54 → 1.61         |
-| Stockfish's first depth | 8.00 → 4.16       | 1.51 → 0.60         |
-| Stockfish depth 12      | 16.76 → 6.86      | 2.69 → 0.75         |
-| Stockfish depth 18      | 26.16 → 8.68      | 4.67 → 1.05         |
+| board on screen         | 2.38 → 2.48       | 0.33 → 0.33         |
+| Maia's moves            | 7.66 → 7.48       | 1.68 → 1.65         |
+| Stockfish's first depth | 9.02 → 5.02       | 1.55 → 0.65         |
+| Stockfish depth 12      | 18.02 → 7.50      | 2.80 → 0.80         |
+| Stockfish depth 18      | 29.54 → 9.46      | 4.87 → 1.25         |
 
-Every Stockfish row came out sooner in 6 of 6 pairs. The board and Maia's moves
-are within the noise: paired, Maia's moves were 0.39 s sooner on the phone (3 of 6) and 0.03 s later on a desktop (sooner in 1 of 6).
+Every Stockfish row came out sooner in 6 of 6 pairs. The board and Maia's moves are
+within the noise (the board 0.06 s later on the phone, sooner in 1 of 6).
 
-Moving through a game (`chart-probe.mjs`, 8 steps per run, 32 steps per build,
-each pair in both orders, 14 s per step on the phone and 5 s on a desktop):
+Moving through a game (`chart-probe.mjs`, each pair in both orders; 24 steps of 26 s
+per build on the phone, 32 of 7 s on a desktop):
 
 | after each step, seconds    | phone: main → new | desktop: main → new |
 | --------------------------- | ----------------- | ------------------- |
-| depth 12                    | 6.37 → 2.77       | 1.24 → 0.39         |
-| depth 18                    | 12.30 → 5.93      | 4.20 → 1.01         |
-| steps that reached depth 18 | 3 → 32 of 32      | 14 → 32 of 32       |
-| moves-by-rating chart drawn | 3.50 → 4.06       | 0.46 → 0.50         |
+| depth 12                    | 6.56 → 2.57       | 1.11 → 0.39         |
+| depth 18                    | 19.46 → 5.25      | 4.98 → 0.93         |
+| steps that reached depth 18 | 13 → 24 of 24     | 30 → 32 of 32       |
+| moves-by-rating chart drawn | 3.41 → 3.51       | 1.20 → 1.20         |
+| lines stop changing         | 21.99 → 17.69     | 5.36 → 3.38         |
 
-The chart is the cost: on the phone it comes ~0.5 s later after a step.
+Memory, measured before the memory fix below: the page's renderer peaks at
+1040–1050 MB on main and 550–557 MB now (a desktop, three runs each), and Stockfish's
+own memory goes from 517 to 84 MB.
 
-Memory: the page's renderer peaks at 1040–1050 MB on main and 550–557 MB now
-(a desktop, three runs each), and Stockfish's own memory goes from 517 to 81 MB.
-
-First visit on 4G (9 Mbit/s) on the phone, 2 runs each: Stockfish's first depth
-at 125–127 s on main and 5.2–6.1 s now, depth 18 at 143–147 s and 8.5–9.1 s, the
-board at 3.7–4.0 s and 2.4–2.5 s. Maia's 42 MB no longer shares the link with
-78 MB of nets, so its moves come at 53–54 s instead of 103–104 s.
+First visit on 4G (9 Mbit/s) on the phone, 2 runs each, before the last search change:
+Stockfish's first depth at 125–127 s on main and 5.2–6.1 s now, depth 18 at 143–147 s
+and 8.5–9.1 s, the board at 3.7–4.0 s and 2.4–2.5 s. Maia's 42 MB no longer shares the
+link with 78 MB of nets, so its moves come at 53–54 s instead of 103–104 s.
 
 **Stockfish 19's small net (commit "Stockfish 19 with its single 1.2 MB net").**
 `@lichess-org/stockfish-web` 0.5.0 ships Stockfish 19 with one net of 1.2 MB,
@@ -1283,10 +1284,13 @@ against 0.31. Stockfish 19 does a little worse on the same test (64.4% and 0.35)
 6").** On the same replay with the small net, depth 12 goes from 0.62 to 0.12 s
 and depth 18 from 1.51 to 0.98 s, with the same accuracy.
 
-The whole search takes longer: all lines done at ~7.3 s against ~6.0 s for main
-in that replay. On the real page, on a desktop, main's visible lines stopped
-changing with depth 18 at 4.6–4.9 s, and the new build's at 2.7–3.4 s (six loads
-each; only the four lines on show are counted).
+**The lines on show one at a time (commit "the lines on show one at a time, and the
+other moves after them").** The stages above made the four lines settle later than on
+main, which matters on every move: 0.49 s later on an iPhone. The other three lines now
+search one at a time among the moves not yet shown, and the second pass over every move
+comes after them, as it changes none of the lines on show. On the replay, the four lines
+are done at 5.37 s instead of 6.46 s, with as many of a deep search's top four moves
+(2.90 against 2.86 of 4). The whole search is no shorter (~9.1 s in that busier replay).
 
 **From a code review of the above (commit "an unfinished search is never taken
 for a finished one").** An update is `partial` until the search ends, because
@@ -1341,11 +1345,11 @@ a few minutes between them:
 | 6 return visits                | page reloaded, both times | all finished, both times |
 | 10 reloads of the whole page   | Safari gave up after 4    | engines back on 10/10    |
 | 10 reloads in a frame          | page reloaded, twice      | engines back on 10/10    |
-| after a step: depth 12         | 0.82 s                    | 0.29 s                   |
-| after a step: depth 18         | 3.27 s                    | 1.17 s                   |
+| after a step: depth 12         | 0.77–0.82 s               | 0.28–0.29 s              |
+| after a step: depth 18         | 3.27–3.37 s               | 0.87–1.18 s              |
 | after a step: Maia's moves     | 0.30 s                    | 0.28 s                   |
-| after a step: chart            | 1.19 s                    | 1.46 s                   |
-| after a step: lines settled    | 3.42 s                    | 3.91 s                   |
+| after a step: chart            | 1.19–1.34 s               | 1.39–1.58 s              |
+| after a step: lines settled    | 3.37–3.42 s               | 2.59–3.12 s              |
 | after 10 quick taps: depth 12  | 1.12–1.54 s               | 0.24–0.29 s              |
 | first visit: Stockfish's depth | 22.0 s                    | 3.6 s                    |
 | first visit: Maia's moves      | 19.7 s                    | 10.6 s                   |
@@ -1355,8 +1359,17 @@ a few minutes between them:
 Return visits on the new code: board 0.30 s, Maia's moves 1.66 s, Stockfish's first
 depth 0.41 s, depth 12 0.73 s, depth 18 1.29 s, chart 2.75 s, lines settled 3.07 s,
 with no main-thread stall over 100 ms. Main has no such row, as it never finished.
-Stepping, quick taps and the first visit were measured just before the memory fix
-below; the fix doesn't touch that code path.
+The step rows for the new code are from the final search order. Quick taps and the
+first visit were measured before the last search change. On main, the stepping test
+itself reloaded the page in 3 of 4 tries, so main's step rows come from the 2 runs that
+finished. The new code finished all 6 of its runs.
+
+**The chart, about 0.1–0.2 s later on the iPhone.** With a measure of Maia's last answer
+on the same page, the chart appears 40–60 ms after it, so the drawing is not what is
+late, and rendering it at normal priority instead of as a transition gained nothing
+(1.56 and 1.40 s against 1.40 and 1.39 s). Main's own split is unmeasured, since main
+reloaded both times; the likeliest cause is Maia sharing the phone's CPU with
+Stockfish's search. On ada the chart is unchanged within the noise.
 
 **The memory fix (commit "reserve less memory, and wait when an iPhone has none to
 spare").** Before it, the new code's frame reloads brought both engines back on only
