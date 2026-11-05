@@ -91,6 +91,7 @@ import {
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
+import { isPhone } from 'src/lib/engine/maiaDownloadPrompt'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { playerLabel } from 'src/lib/pgn'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
@@ -709,9 +710,11 @@ const Analysis: React.FC<Props> = ({
     // the engine effects see that the position is already analysed.
     if (storedAnalysisRevision > 0) refreshAnalysis()
   }, [storedAnalysisRevision, refreshAnalysis])
+  // Off by default on phones until they are measured on a real one: nothing
+  // may slow Stockfish there, and memory is tight.
   const [showHumanBars, setShowHumanBars] = useLocalStorage<boolean>(
     'analysis-show-human-bars',
-    true,
+    !isPhone(),
   )
   const humanBars = useHumanBars(
     analyzedGame,

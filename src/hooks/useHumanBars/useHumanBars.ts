@@ -63,6 +63,8 @@ const SITE_EVAL_MIN_DEPTH = 10
 const SITE_EVAL_FINAL_DEPTH = 18
 /** How long the position on screen waits for the site's eval before searching itself. */
 const SITE_EVAL_WAIT_MS = 1500
+/** A site search that has not finished by now is taken to have stopped. */
+const SITE_SEARCH_GIVE_UP_MS = 60000
 /**
  * Positions the site has not analysed (the rest of the game, for the chart)
  * get a small search of their own: about what depth 12 costs (median 14k
@@ -189,9 +191,13 @@ const siteEvalOf = (node: GameNode | undefined) => {
   const sideToMove = node.fen.split(' ')[1] === 'b' ? -white : white
   if (Math.abs(white) >= 10000) {
     const n = Math.abs(sf.mate_vec?.[sf.model_move] ?? 1)
-    return { cp: Math.sign(sideToMove) * (10000 - n), depth: sf.depth }
+    return {
+      cp: Math.sign(sideToMove) * (10000 - n),
+      depth: sf.depth,
+      settled: !sf.partial,
+    }
   }
-  return { cp: Math.round(sideToMove), depth: sf.depth }
+  return { cp: Math.round(sideToMove), depth: sf.depth, settled: !sf.partial }
 }
 
 const hasInputs = (run: GameRun, p: number) =>
@@ -468,13 +474,18 @@ export const useHumanBars = (
 
   // The site's eval of the position on screen deepens while its search runs:
   // take it at its final depth (or as soon as it replaces a fallback search)
-  // and ask for that ply's bars again if the eval moved.
+  // and when the search finishes, and ask for that ply's bars again if the
+  // eval moved.
   const siteDepth = currentNode?.analysis?.stockfish?.depth ?? 0
+  const siteSearching = !!currentNode?.analysis?.stockfish?.partial
   useEffect(() => {
     if (!enabled || !run || ply === null || run.cp[ply] === null) return
     const site = siteEvalOf(mainline[ply])
-    if (!site || site.depth <= run.cpDepth[ply]) return
-    if (run.cpDepth[ply] > 0 && site.depth < SITE_EVAL_FINAL_DEPTH) return
+    if (!site || site.depth < run.cpDepth[ply]) return
+    if (!site.settled) {
+      if (site.depth === run.cpDepth[ply]) return
+      if (run.cpDepth[ply] > 0 && site.depth < SITE_EVAL_FINAL_DEPTH) return
+    }
     const moved = run.cp[ply] !== site.cp
     run.cp[ply] = site.cp
     run.cpDepth[ply] = site.depth
@@ -482,7 +493,7 @@ export const useHumanBars = (
       run.stale.add(ply)
       send(run, run.token)
     }
-  }, [enabled, run, ply, siteDepth, mainline, send])
+  }, [enabled, run, ply, siteDepth, siteSearching, mainline, send])
 
   useEffect(() => {
     if (!enabled || !run || !serverConfigured) return
@@ -548,19 +559,15 @@ export const useHumanBars = (
           // only while the site's engine is idle, i.e. once the position on
           // screen has its final eval, so the two never share the CPU.
           const t = run.target
-          let lastDepth = -1
-          let lastChange = performance.now()
+          const since = performance.now()
           const idle = () => {
-            const d = mainlineRef.current[t]?.analysis?.stockfish?.depth ?? -1
-            if (d !== lastDepth) {
-              lastDepth = d
-              lastChange = performance.now()
-            }
-            // Final depth reached, or the site is not analysing / has stopped.
+            const sf = mainlineRef.current[t]?.analysis?.stockfish
+            // `partial` clears when the site's search of the position is done,
+            // well after its best line reaches the final depth.
             return (
-              run.cpDepth[t] >= SITE_EVAL_FINAL_DEPTH ||
-              (run.cp[t] !== null &&
-                (d === -1 || performance.now() - lastChange > 3000))
+              !siteAnalysingRef.current ||
+              (sf !== undefined && !sf.partial) ||
+              performance.now() - since > SITE_SEARCH_GIVE_UP_MS
             )
           }
           while (live() && !idle() && run.target === t) await pause(run, 500)
