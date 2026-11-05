@@ -2212,7 +2212,9 @@ const Analysis: React.FC<Props> = ({
           hideDetailedBlunderMeter={true}
           desktopContentHeightCss={desktopSidebarContentHeightCss}
           tablebase={tablebase}
-          overviewShare={humanBarsOnPage ? 0.56 : undefined}
+          overviewShare={
+            humanBarsOnPage ? (height < 850 ? 0.6 : 0.56) : undefined
+          }
           containerStyle={{
             width: 'clamp(23rem, 27vw, 26rem)',
             minWidth: '23rem',
