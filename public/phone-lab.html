@@ -21,7 +21,7 @@
 <body>
 <div id="top">
   <h3>Phone lab: <span id="which"></span></h3>
-  <p>Use Wi-Fi and close other tabs. Keep this tab in front and don't touch the page while it runs, even when it goes away to the analysis page and reloads by itself. Plug in if you can. If the page reloads on its own, tap Run again to carry on.</p>
+  <p id="about">Use Wi-Fi and close other tabs. Keep this tab in front and don't touch the page while it runs, even when it goes away to the analysis page and reloads by itself. Plug in if you can. If the page reloads on its own, tap Run again to carry on.</p>
   <div id="tests"></div>
   <button id="run">Run</button><button id="copy">Copy results</button><button id="clear">Clear results</button>
   <div id="status"></div>
@@ -34,6 +34,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const med = (a) => { const b = a.filter((x) => x != null).sort((x, y) => x - y); return b.length ? b[Math.floor((b.length - 1) / 2)] : null }
 const sec = (x) => (x == null ? '-' : (x / 1000).toFixed(2))
 const STORE = 'phone-lab-v1'
+// A chain of runs across the two deployments, carried in the address: one tap
+// starts it, each page runs its tests and goes on to the next, the last shows all.
+let seq = null
+try { if (location.hash.startsWith('#seq=')) seq = JSON.parse(decodeURIComponent(location.hash.slice(5))) } catch (e) {}
+const seqLink = (next) => '#seq=' + encodeURIComponent(JSON.stringify(next))
 const GAMES = ['G3MXUHW9', 'YQC4zrpR']
 const FENS = ['r1bqkb1r/pp2pppp/2n2n2/2p5/2Pp4/4PNP1/PP1P1PBP/RNBQK2R w KQkq - 0 6', '2rq1rk1/1b1n1pp1/1p2pn1p/p7/2PQ4/P4NP1/1B2PPBP/R2R2K1 w - - 1 16', '8/4n1pp/3bkp2/1pn1p3/4P3/1P1NNP2/1B2K1PP/8 w - - 2 30']
 let state = { results: {}, running: null, order: [], hidden: 0 }
@@ -340,16 +345,36 @@ async function search(sf, fen, depth) {
 }
 
 // ── The page ──
+let screenLock = 'not tried'
 const status = (s) => { $('status').textContent = s }
 const ORDER = ['first', 'load', 'steps', 'burst', 'pages', 'heat', 'gpu', 'real', 'reload']
 const render = () => {
-  const head = [`${isNew ? 'NEW CODE (Stockfish 19)' : "TODAY'S CODE (Stockfish 17)"}`, navigator.userAgent, `cores ${navigator.hardwareConcurrency}, isolated ${self.crossOriginIsolated}, hidden during tests: ${state.hidden}`]
-  $('log').textContent = [...head, '', ...state.order.flatMap((k) => ['== ' + k, state.results[k], ''])].join('\n')
+  const head = [`${seq ? `RUN ${seq.i} OF ${seq.n}: ` : ''}${isNew ? 'NEW CODE (Stockfish 19)' : "TODAY'S CODE (Stockfish 17)"}`, ...(seq && seq.i > 1 ? [] : [navigator.userAgent]), `cores ${navigator.hardwareConcurrency}, isolated ${self.crossOriginIsolated}, hidden during tests: ${state.hidden}, screen kept on: ${screenLock}`]
+  const mine = [...head, '', ...state.order.flatMap((k) => ['== ' + k, state.results[k], ''])].join('\n')
+  $('log').textContent = seq && seq.out.length ? seq.out.join('\n') + '\n' + mine : mine
 }
 const boot = async () => {
   isNew = (await fetch('/stockfish/sf_19_smallnet.js', { method: 'HEAD' })).ok
   $('which').textContent = isNew ? 'new code' : "today's code"
   $('tests').innerHTML = ORDER.map((k) => [k, TESTS[k]]).filter(([, t]) => !t.newOnly || isNew).map(([k, t]) => `<label><input type="checkbox" data-k="${k}" ${state.results[k] ? '' : 'checked'}> ${t.label}</label>`).join('')
+  if (seq) {
+    $('tests').style.display = 'none'; $('clear').style.display = 'none'; $('run').style.display = 'none'; $('copy').style.display = 'none'
+    $('about').textContent = `${seq.n} short runs, about ${Math.round(seq.n * (110 + seq.rest) / 60)} minutes in all. Use Wi-Fi and keep this tab in front. It moves from run to run by itself; don't touch it until it says All done. If the screen goes dark, wake it and leave it on this page.`
+    const crashed = state.running
+    state = { results: crashed ? { [crashed]: 'THE PAGE RELOADED during this test (probably out of memory)' } : {}, running: null, order: crashed ? [crashed] : [], hidden: 0 }
+    save()
+    if (crashed) { $('copy').style.display = ''; nextInChain(null); return }
+    if (seq.started) { status(`Run ${seq.i} of ${seq.n}`); setTimeout(() => { $('copy').style.display = ''; runTests(seq.tests) }, 1000) } else {
+      const b = document.createElement('button')
+      b.textContent = 'Start'
+      b.id = 'start'
+      b.style.cssText = 'font-size: 22px; padding: 18px 48px;'
+      b.onclick = () => { b.remove(); seq.started = true; history.replaceState(null, '', seqLink(seq)); $('copy').style.display = ''; runTests(seq.tests) }
+      $('top').insertBefore(b, $('status'))
+    }
+    render()
+    return
+  }
   const wanted = new URLSearchParams(location.search).get('tests')
   if (wanted) document.querySelectorAll('#tests input').forEach((x) => { x.checked = wanted.split(',').includes(x.dataset.k) })
   try {
@@ -381,11 +406,10 @@ const boot = async () => {
   render()
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && state.running) { state.hidden++; save() } })
-$('run').onclick = async () => {
+const runTests = async (keys) => {
   $('run').disabled = true
   let lock = null
-  try { lock = await navigator.wakeLock.request('screen') } catch (e) {}
-  const keys = [...document.querySelectorAll('#tests input:checked')].map((x) => x.dataset.k)
+  try { lock = await navigator.wakeLock.request('screen'); screenLock = 'yes' } catch (e) { screenLock = 'no' }
   for (const k of keys) {
     state.running = k; state.pending = keys.slice(keys.indexOf(k) + 1); save()
     status(TESTS[k].label)
@@ -399,9 +423,27 @@ $('run').onclick = async () => {
     document.querySelector(`input[data-k="${k}"]`).checked = false
     await sleep(2000)
   }
+  if (seq) { nextInChain(lock); return }
   if (lock) lock.release().catch(() => {})
   $('run').disabled = false
   status('Done. Tap Copy results and paste them to Claude.')
+}
+$('run').onclick = () => runTests([...document.querySelectorAll('#tests input:checked')].map((x) => x.dataset.k))
+const nextInChain = async (lock) => {
+  render()
+  const out = $('log').textContent
+  if (!seq.hosts.length) {
+    closeFrame()
+    if (lock) lock.release().catch(() => {})
+    try { localStorage.removeItem(STORE) } catch (e) {}
+    $('copy').style.cssText = 'font-size: 20px; padding: 16px 24px;'
+    status('All done. Tap Copy results and paste them to Claude.')
+    return
+  }
+  const [host, ...hosts] = seq.hosts
+  for (let left = seq.rest; left > 0; left--) { status(`Run ${seq.i} of ${seq.n} done. Letting the phone cool: ${left} s`); await sleep(1000) }
+  try { localStorage.removeItem(STORE) } catch (e) {}
+  location.href = host + '/phone-lab.html' + seqLink({ ...seq, hosts, i: seq.i + 1, out: [out], started: true })
 }
 $('copy').onclick = () => navigator.clipboard.writeText($('log').textContent)
 $('clear').onclick = () => { state = { results: {}, running: null, order: [], hidden: 0 }; save(); location.href = '/phone-lab.html' }
