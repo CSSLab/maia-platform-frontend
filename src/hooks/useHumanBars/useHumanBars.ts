@@ -746,6 +746,7 @@ export const useHumanBars = (
     ply,
     inVariation,
     mainline,
+    timeControl: setup?.ok ? setup.game.time_control : undefined,
     whiteName: setup?.ok ? setup.game.white : analyzedGame.whitePlayer.name,
     blackName: setup?.ok ? setup.game.black : analyzedGame.blackPlayer.name,
     retry,

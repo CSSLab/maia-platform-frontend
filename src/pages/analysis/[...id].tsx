@@ -92,6 +92,7 @@ import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { isPhone } from 'src/lib/engine/maiaDownloadPrompt'
+import { usualBlunderRiskIn5 } from 'src/lib/humanBar'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { playerLabel } from 'src/lib/pgn'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
@@ -725,10 +726,34 @@ const Analysis: React.FC<Props> = ({
   // Design step 1: the human chance goes in the left bar; the panel stays out
   // so that nothing else on today's page changes.
   const showHumanBarPanel = false
+  const currentTurnForHumanRisk = controller.currentNode?.turn ?? 'w'
   const humanBarOnScreen =
     humanBars.available && showHumanBars && humanBars.ply !== null
       ? humanBars.bars[humanBars.ply]
       : undefined
+  const humanRiskIn5 =
+    currentTurnForHumanRisk === 'w'
+      ? humanBarOnScreen?.dW_K5_T15
+      : humanBarOnScreen?.dB_K5_T15
+  const humanRiskRating =
+    currentTurnForHumanRisk === 'w'
+      ? analyzedGame.whitePlayer.rating
+      : analyzedGame.blackPlayer.rating
+  const humanRiskUsual =
+    humanRiskRating !== undefined
+      ? usualBlunderRiskIn5(humanRiskRating, humanBars.timeControl)
+      : undefined
+  const humanRiskLine =
+    humanRiskIn5 !== undefined &&
+    humanRiskUsual !== undefined &&
+    analysisEnabled
+      ? {
+          side: currentTurnForHumanRisk === 'w' ? 'White' : 'Black',
+          risk: `${Math.round(humanRiskIn5 * 100)}%`,
+          usual: `${Math.round(humanRiskUsual * 100)}%`,
+          high: humanRiskIn5 >= 2 * humanRiskUsual,
+        }
+      : null
   const humanBarExpected =
     humanBars.available &&
     showHumanBars &&
@@ -2127,6 +2152,22 @@ const Analysis: React.FC<Props> = ({
                 hover={analysisEnabled ? hover : mockHover}
                 makeMove={analysisEnabled ? makeMove : mockMakeMove}
               />
+              {humanRiskLine ? (
+                <p
+                  className="mt-2 text-xs text-secondary"
+                  title={`How likely ${humanRiskLine.side} is to blunder within the next 5 moves, this one included, against how often a player of this rating and time control does.`}
+                >
+                  {humanRiskLine.side}&apos;s blunder risk, next 5 moves:{' '}
+                  <span
+                    className={`font-semibold ${
+                      humanRiskLine.high ? 'text-[#d73027]' : 'text-primary'
+                    }`}
+                  >
+                    {humanRiskLine.risk}
+                  </span>{' '}
+                  (usual {humanRiskLine.usual})
+                </p>
+              ) : null}
             </div>
           </div>
         </motion.div>

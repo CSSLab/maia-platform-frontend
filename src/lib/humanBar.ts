@@ -1,3 +1,4 @@
+import { TYPICAL_DANGER_BY_LEVEL } from 'src/constants/typicalDanger'
 import { HumanBarGameInfo } from 'src/types/humanBar'
 
 const STANDARD_START_FEN =
@@ -240,4 +241,30 @@ export const evaluationOrder = (
     push(current - d)
   }
   return order
+}
+
+/** Lichess's class for a "base+increment" time control (estimated duration). */
+const timeClassOf = (timeControl: string | undefined) => {
+  const [base, inc] = String(timeControl || '180+0')
+    .split('+')
+    .map(Number)
+  const est = (base || 0) + 40 * (inc || 0)
+  return est < 180 ? 'bullet' : est < 480 ? 'blitz' : 'rapid'
+}
+
+/**
+ * How often a player of this rating and time control blunders within their
+ * next 5 moves (interpolated between rating bands).
+ */
+export const usualBlunderRiskIn5 = (
+  rating: number,
+  timeControl: string | undefined,
+): number => {
+  const rows = TYPICAL_DANGER_BY_LEVEL[timeClassOf(timeControl)]
+  let i = rows.findIndex((row) => row[0] >= rating)
+  if (i <= 0) i = i === 0 ? 1 : rows.length - 1
+  const a = rows[i - 1]
+  const b = rows[i]
+  const f = Math.max(0, Math.min(1, (rating - a[0]) / (b[0] - a[0])))
+  return a[2] + f * (b[2] - a[2])
 }

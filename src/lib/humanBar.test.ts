@@ -1,10 +1,12 @@
 import fs from 'node:fs'
+import { TYPICAL_DANGER_BY_LEVEL } from 'src/constants/typicalDanger'
 import {
   buildHumanBarSetup,
   evaluationOrder,
   float32ToBase64LE,
   parsePgnHeaders,
   parsePgnMainline,
+  usualBlunderRiskIn5,
 } from './humanBar'
 import {
   encodeSideToMoveScore,
@@ -109,5 +111,19 @@ describe('human bar engine label', () => {
   it('names the net the site ships, which the server has a map for', () => {
     const net = HUMAN_BAR_ENGINE.split('-')[1]
     expect(fs.existsSync(`public/stockfish/nn-${net}.nnue`)).toBe(true)
+  })
+})
+
+describe('usual blunder risk', () => {
+  it('reads the band for the rating and time control', () => {
+    expect(usualBlunderRiskIn5(1900, '180+2')).toBeCloseTo(0.3, 3)
+    expect(usualBlunderRiskIn5(1900, '60+0')).toBeCloseTo(0.336, 3)
+    expect(usualBlunderRiskIn5(1900, '600+0')).toBeCloseTo(0.285, 3)
+  })
+  it('interpolates between bands and stays in range at the ends', () => {
+    expect(usualBlunderRiskIn5(1800, '180+2')).toBeCloseTo(0.3125, 3)
+    const blitz = TYPICAL_DANGER_BY_LEVEL.blitz
+    expect(usualBlunderRiskIn5(800, '180+2')).toBe(blitz[0][2])
+    expect(usualBlunderRiskIn5(3000, '180+2')).toBe(blitz[blitz.length - 1][2])
   })
 })
