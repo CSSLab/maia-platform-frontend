@@ -1,14 +1,12 @@
 import { Chess } from 'chess.ts'
 import Engine, {
-  legacyNetCacheKey,
-  loadNnueModel,
+  reserveWasmMemory,
   sharedWasmMemory,
   STOCKFISH_MAX_MEMORY_PAGES,
 } from './stockfish'
-import { StockfishModelStorage } from './stockfishStorage'
 
 /**
- * A small stand-in for lila-stockfish-web: UCI commands run in order on a
+ * A small stand-in for @lichess-org/stockfish-web: UCI commands run in order on a
  * "UCI thread"; `go` searches one depth per timer tick; like Stockfish,
  * `ucinewgame`, `setoption` and `position` wait for a running search to end,
  * while `isready` and `stop` do not.
@@ -23,6 +21,10 @@ class FakeStockfish {
   private stopRequested = false
   private multiPv = 1
   private legalMoves: string[] = []
+  /** The score of a search with one line, when it differs from the others'. */
+  singleLineCp: number | null = null
+  /** The score of a search among several, but not all, moves. */
+  restrictedCp: number | null = null
 
   uci(command: string) {
     this.log.push(command)
@@ -73,19 +75,35 @@ class FakeStockfish {
     this.busy = false
   }
 
+  private scoreOf(
+    line: number,
+    lines: number,
+    searchMove: boolean,
+    restricted: boolean,
+  ) {
+    if (restricted && this.restrictedCp !== null) return this.restrictedCp
+    if (!searchMove && lines === 1 && this.singleLineCp !== null) {
+      return this.singleLineCp
+    }
+    return 50 - line * 10
+  }
+
   private async search(command: string) {
     this.searching = true
     this.stopRequested = false
     const depth = Number(/depth (\d+)/.exec(command)?.[1] ?? 1)
-    const searchMove = /searchmoves (\S+)/.exec(command)?.[1]
-    const moves = searchMove
-      ? [searchMove]
+    const allowed = /searchmoves (.+)$/.exec(command)?.[1]?.split(' ')
+    // Depth comes first or last, as the engine's commands have it.
+    const searchMoves = allowed?.filter((m) => !/^(depth|\d+)$/.test(m))
+    const searchMove = searchMoves?.length === 1 ? searchMoves[0] : undefined
+    const moves = searchMoves
+      ? searchMoves.slice(0, 1)
       : this.legalMoves.slice(0, Math.min(this.multiPv, this.legalMoves.length))
     for (let d = 1; d <= depth && !this.stopRequested; d++) {
       await new Promise((r) => setTimeout(r, 2))
       moves.forEach((move, i) =>
         this.emit(
-          `info depth ${d} seldepth ${d} multipv ${i + 1} score cp ${50 - i * 10} nodes 100 nps 1000 time 1 pv ${move}`,
+          `info depth ${d} seldepth ${d} multipv ${i + 1} score cp ${this.scoreOf(i, moves.length, !!searchMove, !!searchMoves && !searchMove)} nodes 100 nps 1000 time 1 pv ${move}`,
         ),
       )
     }
@@ -248,6 +266,104 @@ describe('Stockfish Engine run hand-over', () => {
     expect(fake.log).toContain('go depth 8 searchmoves g1f3')
   })
 
+  it('takes the best line alone to the target depth before the other lines', async () => {
+    const { engine, fake } = makeEngine()
+    await drain(
+      engine.streamEvaluations(START, legalMoveCount(START), 18, {
+        maiaCandidateMoves: ['g1f3'],
+        kSf: 4,
+      }),
+    )
+
+    const searches = fake.log
+      .filter((c) => c.startsWith('go '))
+      .map((c) => c.replace(/searchmoves .* /, 'searchmoves ... '))
+    expect(searches[0]).toBe('go depth 6')
+    expect(searches[1]).toBe('go depth 18')
+    expect(searches[2]).toBe('go depth 14 searchmoves g1f3')
+  })
+
+  it('searches the other lines one at a time, without the moves already shown', async () => {
+    const { engine, fake } = makeEngine()
+    await drain(
+      engine.streamEvaluations(START, legalMoveCount(START), 18, { kSf: 4 }),
+    )
+
+    const lines = fake.log.filter((c) =>
+      /go depth 18 searchmoves \S+ \S+/.test(c),
+    )
+    expect(lines).toHaveLength(3)
+    const counts = lines.map(
+      (c) => c.split('searchmoves ')[1].split(' ').length,
+    )
+    expect(counts).toEqual([19, 18, 17])
+  })
+
+  it('searches every other move deeper after the lines on show', async () => {
+    const { engine, fake } = makeEngine()
+    await drain(
+      engine.streamEvaluations(START, legalMoveCount(START), 18, { kSf: 4 }),
+    )
+
+    const searches = fake.log.filter((c) => c.startsWith('go '))
+    const rest = searches.indexOf('go depth 10')
+    const lastLine = searches.findLastIndex((c) =>
+      /go depth 18 searchmoves \S+ \S+/.test(c),
+    )
+    expect(rest).toBeGreaterThan(lastLine)
+  })
+
+  it('is partial until the last update, and its depth never falls', async () => {
+    const { engine } = makeEngine()
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8, {
+      maiaCandidateMoves: ['g1f3'],
+    })
+    const seen: { depth: number; partial?: boolean }[] = []
+    for await (const evaluation of run) seen.push(evaluation)
+
+    const depths = seen.map((e) => e.depth)
+    expect(depths).toEqual([...depths].sort((a, b) => a - b))
+    const beforeLast = seen.slice(0, -1)
+    const firstAtTarget = seen.findIndex((e) => e.depth === 8)
+    expect(firstAtTarget).toBeLessThan(seen.length - 1)
+    expect(
+      beforeLast.slice(firstAtTarget).every((e) => e.partial === true),
+    ).toBe(true)
+    expect(seen[seen.length - 1].partial).toBeUndefined()
+  })
+
+  it('keeps a shallower score from outranking the best line', async () => {
+    const { engine, fake } = makeEngine()
+    // Screening scores the first move 50; alone, at full depth, it is 20.
+    fake.singleLineCp = 20
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8)
+    const seen: {
+      model_move: string
+      model_optimal_cp: number
+      depth: number
+    }[] = []
+    for await (const evaluation of run) {
+      seen.push(evaluation)
+      if (evaluation.depth === 8) break
+    }
+    const atTarget = seen[seen.length - 1]
+    expect(atTarget.model_optimal_cp).toBe(20)
+  })
+
+  it('keeps a shallower score out of the final answer', async () => {
+    const { engine, fake } = makeEngine()
+    // Screening scores the moves 50, 40, ...; alone, at full depth, the best
+    // line is -100, so a move only screened must not win.
+    fake.singleLineCp = -100
+    fake.restrictedCp = -100
+    const run = engine.streamEvaluations(START, legalMoveCount(START), 8)
+    let last: { model_optimal_cp: number; partial?: boolean } | undefined
+    for await (const evaluation of run) last = evaluation
+
+    expect(last?.partial).toBeUndefined()
+    expect(last?.model_optimal_cp).toBe(-100)
+  })
+
   it('reaches the target depth after a restart for the same position', async () => {
     const { engine } = makeEngine()
 
@@ -262,140 +378,6 @@ describe('Stockfish Engine run hand-over', () => {
     await firstRun.return(undefined)
 
     expect(await drain(restart, await firstRestart)).toBe(8)
-  })
-})
-
-describe('loadNnueModel', () => {
-  const FILE = 'nn-test.nnue'
-  const cachedNet = new ArrayBuffer(8)
-  const downloadedNet = new ArrayBuffer(16)
-  let signal: AbortSignal | undefined
-
-  const later = <T>(ms: number, value: T) =>
-    new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
-  // A cached net found by the storage: reading it takes `readMs`.
-  const found = (net: ArrayBuffer, readMs = 0) =>
-    ({ arrayBuffer: () => later(readMs, net) }) as unknown as Blob
-  const storage = (findModel: (key: string) => Promise<Blob | null>) => {
-    const storeModel = jest.fn(async () => undefined)
-    return {
-      storage: { findModel, storeModel } as unknown as StockfishModelStorage,
-      storeModel,
-    }
-  }
-  // A download that finishes after `ms`, or fails if aborted first.
-  const mockDownload = (ms: number, fail = false) =>
-    jest.fn((s?: AbortSignal) => {
-      signal = s
-      return new Promise<ArrayBuffer>((resolve, reject) => {
-        s?.addEventListener('abort', () =>
-          reject(new DOMException('aborted', 'AbortError')),
-        )
-        setTimeout(
-          () =>
-            fail
-              ? reject(new TypeError('network error'))
-              : resolve(downloadedNet),
-          ms,
-        )
-      })
-    })
-
-  beforeEach(() => {
-    jest.useFakeTimers()
-    signal = undefined
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined)
-  })
-  afterEach(() => {
-    jest.useRealTimers()
-    jest.restoreAllMocks()
-  })
-
-  it('keeps a cached net that is read after the lookup timeout, and stops the download', async () => {
-    const download = mockDownload(60000)
-    const { storage: s, storeModel } = storage(() =>
-      later(4000, found(cachedNet)),
-    )
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(1600)
-    expect(download).toHaveBeenCalledTimes(1)
-    await jest.advanceTimersByTimeAsync(2500)
-    await expect(net).resolves.toBe(cachedNet)
-    expect(signal?.aborted).toBe(true)
-    expect(storeModel).not.toHaveBeenCalled()
-  })
-
-  it('does not count time the page is too busy to take the answer', async () => {
-    jest.useRealTimers()
-    const download = mockDownload(500)
-    const { storage: s } = storage(() => later(1550, found(cachedNet)))
-    const net = loadNnueModel(FILE, s, download)
-    // A long task that outlasts the lookup timeout, with the answer behind it.
-    const busyUntil = Date.now() + 1700
-    while (Date.now() < busyUntil) {
-      // busy
-    }
-    await expect(net).resolves.toBe(cachedNet)
-    expect(download).not.toHaveBeenCalled()
-  })
-
-  it('downloads the net when the cache never answers', async () => {
-    const download = mockDownload(500)
-    const { storage: s, storeModel } = storage(() => new Promise(() => null))
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(2100)
-    await expect(net).resolves.toBe(downloadedNet)
-    expect(storeModel).toHaveBeenCalledWith(FILE, downloadedNet)
-  })
-
-  it('downloads at once when the net is not cached', async () => {
-    const download = mockDownload(500)
-    const { storage: s } = storage(() => later(10, null))
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(25)
-    expect(download).toHaveBeenCalledTimes(1)
-    await jest.advanceTimersByTimeAsync(500)
-    await expect(net).resolves.toBe(downloadedNet)
-  })
-
-  it('uses the cached net when the download fails while the cache is slow', async () => {
-    const { storage: s } = storage(() => later(3000, found(cachedNet)))
-    const net = loadNnueModel(FILE, s, mockDownload(100, true))
-    await jest.advanceTimersByTimeAsync(3100)
-    await expect(net).resolves.toBe(cachedNet)
-  })
-
-  it('waits for a found net that is slow to read, without downloading', async () => {
-    const download = mockDownload(500)
-    const { storage: s } = storage(() => later(10, found(cachedNet, 8000)))
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(8100)
-    await expect(net).resolves.toBe(cachedNet)
-    expect(download).not.toHaveBeenCalled()
-  })
-
-  it('downloads a found net that cannot be read within 20 s', async () => {
-    const download = mockDownload(500)
-    const neverRead = {
-      arrayBuffer: () => new Promise(() => undefined),
-    } as unknown as Blob
-    const { storage: s } = storage(() => later(10, neverRead))
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(19000)
-    expect(download).not.toHaveBeenCalled()
-    await jest.advanceTimersByTimeAsync(1600)
-    await expect(net).resolves.toBe(downloadedNet)
-  })
-
-  it('uses a net cached under its old raw.githubusercontent.com URL', async () => {
-    const download = mockDownload(500)
-    const { storage: s } = storage((key) =>
-      later(10, key === legacyNetCacheKey(FILE) ? found(cachedNet) : null),
-    )
-    const net = loadNnueModel(FILE, s, download)
-    await jest.advanceTimersByTimeAsync(25)
-    await expect(net).resolves.toBe(cachedNet)
-    expect(download).not.toHaveBeenCalled()
   })
 })
 
@@ -420,18 +402,36 @@ describe('sharedWasmMemory', () => {
     return asked
   }
 
-  it('reserves at most 1 GB', () => {
+  it('reserves at most 134 MB', () => {
     const asked = fakeMemory(Infinity)
     sharedWasmMemory(2560)
-    expect(STOCKFISH_MAX_MEMORY_PAGES * 64 * 1024).toBe(2 ** 30)
+    expect(STOCKFISH_MAX_MEMORY_PAGES * 64 * 1024).toBe(2 ** 27)
     expect(asked).toEqual([
       { shared: true, initial: 2560, maximum: STOCKFISH_MAX_MEMORY_PAGES },
     ])
   })
 
+  it('tries again later when even the initial size cannot be reserved', async () => {
+    let free = false
+    fakeMemory(0)
+    const refusing = WebAssembly.Memory
+    WebAssembly.Memory = function Memory(d: WebAssembly.MemoryDescriptor) {
+      return free ? ({} as WebAssembly.Memory) : new refusing(d)
+    } as unknown as typeof WebAssembly.Memory
+    const reserving = reserveWasmMemory(1280, [1, 1])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    free = true
+    await expect(reserving).resolves.toBeDefined()
+  })
+
+  it('gives up when the memory is never released', async () => {
+    fakeMemory(0)
+    await expect(reserveWasmMemory(1280, [1, 1])).rejects.toThrow(RangeError)
+  })
+
   it('asks for less when the browser cannot reserve the maximum', () => {
-    const asked = fakeMemory(8192)
-    sharedWasmMemory(2560)
-    expect(asked.map((d) => d.maximum)).toEqual([16384, 12288, 8192])
+    const asked = fakeMemory(1536)
+    sharedWasmMemory(1280)
+    expect(asked.map((d) => d.maximum)).toEqual([2048, 1536])
   })
 })

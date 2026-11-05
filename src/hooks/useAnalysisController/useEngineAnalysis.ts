@@ -284,6 +284,7 @@ export const useEngineAnalysis = (
     if (
       currentNode.analysis.stockfish &&
       currentNode.analysis.stockfish?.depth >= targetDepth &&
+      !currentNode.analysis.stockfish.partial &&
       !shouldForceStockfishRerun
     )
       return
@@ -294,7 +295,9 @@ export const useEngineAnalysis = (
     const attemptStockfishAnalysis = async () => {
       // Wait longer for Stockfish to be ready on first load / slower devices.
       let retries = 0
-      const maxRetries = 120 // 12 seconds with 100ms intervals
+      // 40 seconds with 100ms intervals: after reloads on an iPhone, Stockfish
+      // may wait up to 27 s for memory to be released.
+      const maxRetries = 400
 
       while (retries < maxRetries && !stockfish.isReady() && !cancelled) {
         await new Promise((resolve) => setTimeout(resolve, 100))

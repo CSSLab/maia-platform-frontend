@@ -58,6 +58,11 @@ export interface StockfishEvaluation {
   winrate_loss_vec?: { [key: string]: number }
   mate_vec?: { [key: string]: number }
   is_checkmate?: boolean
+  /**
+   * Set while the search goes on: `depth` is that of the deepest line so far,
+   * and the position is not done even if it has reached the target depth.
+   */
+  partial?: boolean
 }
 
 export interface CachedEngineAnalysisEntry {

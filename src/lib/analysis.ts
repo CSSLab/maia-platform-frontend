@@ -157,7 +157,11 @@ export const collectEngineAnalysisData = (
     // position left before the rest arrived is stored without Maia (and
     // analysed again when loaded) rather than with some ratings missing.
     const hasAllMaia = MAIA_MODELS.every((model) => node.analysis.maia?.[model])
-    if (!hasAllMaia && !node.analysis.stockfish) {
+    // An unfinished search isn't saved: most of its moves are still shallow.
+    const stockfish = node.analysis.stockfish?.partial
+      ? undefined
+      : node.analysis.stockfish
+    if (!hasAllMaia && !stockfish) {
       return
     }
 
@@ -170,11 +174,11 @@ export const collectEngineAnalysisData = (
       position.maia = node.analysis.maia
     }
 
-    if (node.analysis.stockfish) {
+    if (stockfish) {
       position.stockfish = {
-        depth: node.analysis.stockfish.depth,
-        cp_vec: node.analysis.stockfish.cp_vec,
-        mate_vec: node.analysis.stockfish.mate_vec,
+        depth: stockfish.depth,
+        cp_vec: stockfish.cp_vec,
+        mate_vec: stockfish.mate_vec,
       }
     }
 

@@ -59,7 +59,7 @@ const abortError = () => new DOMException('Inference aborted', 'AbortError')
  * again in the same worker, so Maia starts again in a new one, a little
  * later, before reporting an error.
  */
-export const MAIA_RESTART_DELAYS_MS = [1000, 3000]
+export const MAIA_RESTART_DELAYS_MS = [1000, 3000, 8000, 15000]
 const isRuntimeStartFailure = (message: string) =>
   /out of memory|initWasm/i.test(message)
 
