@@ -1485,6 +1485,34 @@ WHERE event IN ('stockfish_engine_ready', 'stockfish_engine_failed') AND timesta
 GROUP BY after_round_10
 ```
 
+### Round 12: saved analysis says which engine made it
+
+The backend replaced a saved Stockfish eval only at a strictly greater depth, and saved
+evals didn't say which engine made them. So after round 10, a position saved at depth 18
+kept Stockfish 17's eval and move marks for good, under a label saying Stockfish 19.
+
+Every search now records its engine and saves it (backend: `store_engine_analysis`, in
+CSSLab/maia-platform-backend#235). A saved eval from another engine, or with none, shows
+at once and is searched again when its position is visited (`stockfishSearchIsDone`). It
+stays on show until that search finishes, then is replaced and saved with its engine.
+Plies not visited keep their old eval and colour until someone visits them. Evals from the
+server's own analysis are left alone, and a lower target (Learn From Mistakes, depth 12)
+doesn't redo them.
+
+**The backend must be live first:** without it, saved analysis comes back unlabelled, and
+every saved position is searched on every visit.
+
+In a browser, with the backend's routes answered by a test script: a saved eval from this
+engine starts no search; one with no engine and planted values of -7.77 showed at 0.48 s,
+stayed until the search finished, and was replaced at 3.67 s and saved with its engine.
+
+The cost, on games with saved analysis (six paired loads per device, live saved analysis
+for both builds): no later within the noise. Phone: board 2.34 → 2.46 s (paired median
++0.10 s, sooner in 1 of 6), saved results on show 4.64 → 4.54 s. Desktop: board 0.34 s
+both, saved results 0.83 → 0.72 s. The search itself still uses the CPU for a few seconds
+on each position visited, once per position across all visitors. Stepping and battery on
+such games weren't measured.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
