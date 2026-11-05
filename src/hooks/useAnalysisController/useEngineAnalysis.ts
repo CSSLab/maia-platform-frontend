@@ -239,7 +239,10 @@ export const useEngineAnalysis = (
             { ...currentNode.analysis.maia, ...maiaEvaluations },
             currentMaiaModel,
           )
-          if (stage === stages[0]) {
+          // The first answer, and the stage the chart is first drawn from, render
+          // at once: as a transition, Stockfish's updates kept restarting the
+          // chart's render.
+          if (stage === stages[0] || stage === stages[1]) {
             setAnalysisState((state) => state + 1)
           } else {
             // The other ratings only feed the moves-by-rating chart: render
