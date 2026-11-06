@@ -1560,6 +1560,15 @@ GROUP BY grp, device ORDER BY device, grp
 Not tested: a real phone, whether browsers grant the request to keep the model (the test
 browser refused it), and starting a drill on a phone.
 
+### Round 13d: desktops download without asking
+
+After about 23 hours, desktops got Maia-3 at 97 of 104 without the prompt against 53 of
+83 with it (93% against 64%, difference about 18 to 40 points at 95%), in both halves of
+the window. Staying showed no clear difference (active after 5 minutes 55% against 48%;
+loaded a game, puzzle or play game 59% against 65%). From 2026-11-06 every desktop without
+the model downloads it without asking, including the `wall` group; phones keep the split.
+Desktops in the `wall` group after that time are no longer a comparison group.
+
 ### Round 13c: "Continue without Maia"
 
 After 12 hours, phones in the `no_wall` group got Maia-3 less often than with the full-page

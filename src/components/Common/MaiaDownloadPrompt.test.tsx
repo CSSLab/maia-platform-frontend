@@ -50,14 +50,21 @@ describe('MaiaDownloadPrompt', () => {
     window.sessionStorage.clear()
   })
 
-  it('blocks the page, with no way past it, in the full-page group', () => {
-    setup('no-cache', { variant: 'wall' })
+  it('blocks the page on a phone, with no way past it, in the full-page group', () => {
+    setup('no-cache', { variant: 'wall', withoutAsking: false })
     expect(screen.getByTestId('download-modal')).toBeInTheDocument()
     expect(screen.getByText('Return Home')).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Continue without Maia' }),
     ).not.toBeInTheDocument()
     expect(startMaiaDownload).not.toHaveBeenCalled()
+  })
+
+  it('downloads without asking on a desktop, even in the full-page group', async () => {
+    const { downloadModel } = setup('no-cache', { variant: 'wall' })
+    await act(async () => undefined)
+    expect(startMaiaDownload).toHaveBeenCalledWith(downloadModel, 'auto')
+    expect(screen.queryByTestId('download-modal')).not.toBeInTheDocument()
   })
 
   it('downloads without asking on a desktop, and does not block', async () => {

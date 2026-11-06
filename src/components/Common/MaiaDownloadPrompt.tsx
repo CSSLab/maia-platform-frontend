@@ -29,10 +29,12 @@ const wasDismissed = () => {
 }
 
 /**
- * Asks for the Maia model, or fetches it (see maiaDownloadPrompt). One group
- * gets the prompt that blocks the page. In the other, desktops download without
- * asking, and phones get the same prompt but can say "Continue without Maia"; the page stays
- * usable during the download, with a small card showing how it's going.
+ * Asks for the Maia model, or fetches it (see maiaDownloadPrompt). Desktops
+ * download without asking: in the two-day comparison 93% got Maia that way,
+ * against 64% with the prompt that blocks the page. On phones one group still
+ * gets that prompt; the other gets the same prompt but can "Continue without
+ * Maia". The page stays usable during the download, with a small card showing
+ * how it's going.
  */
 export const MaiaDownloadPrompt: React.FC<Props> = ({
   engine,
@@ -45,7 +47,8 @@ export const MaiaDownloadPrompt: React.FC<Props> = ({
   const downloadSeen = useRef(false)
   if (status === 'downloading') downloadSeen.current = true
 
-  const usesWall = needed && maiaPromptVariant() === 'wall'
+  const usesWall =
+    needed && maiaPromptVariant() === 'wall' && !downloadsWithoutAsking()
   const asks = status === 'no-cache' && wanted && !usesWall
   const auto = asks && downloadsWithoutAsking()
 
