@@ -1658,6 +1658,24 @@ export const useOpeningDrillController = (
           return
         }
 
+        // A move from an earlier position of a running drill takes back the
+        // moves after it, like a takeback: the new move becomes the main line
+        // and Maia answers it. (It used to start a side line that Maia never
+        // answered, leaving the drill stuck on "Waiting for Maia".)
+        const tipNode = gameTree.getLastMainlineNode()
+        if (
+          !continueAnalyzingMode &&
+          nodeToMoveFrom !== tipNode &&
+          nodeToMoveFrom.isMainline
+        ) {
+          const openingEndNode = currentDrillGame.openingEndNode
+          const beforeDrillStart =
+            !!openingEndNode &&
+            nodeToMoveFrom.getPath().length < openingEndNode.getPath().length
+          if (beforeDrillStart || waitingForMaiaResponse) return
+          nodeToMoveFrom.removeAllChildren()
+        }
+
         let newNode: GameNode | null = null
 
         const existingChild = nodeToMoveFrom.children.find(
@@ -1691,15 +1709,20 @@ export const useOpeningDrillController = (
         if (newNode) {
           treeController.setCurrentNode(newNode)
 
-          // Simply increment the player move count since this function is only called for player moves
-          const updatedPlayerMoveCount = currentDrillGame.playerMoveCount + 1
-
           // Update the moves array by getting all moves after the opening
           const mainLine = gameTree.getMainLine()
           const openingLength = currentDrillGame.openingEndNode
             ? currentDrillGame.openingEndNode.getPath().length
             : 1
           const movesAfterOpening = mainLine.slice(openingLength)
+
+          // Count the player's moves on the main line (a node's mover is the
+          // side not to move in it), so that a takeback lowers the count.
+          const playerTurn = currentDrill?.playerColor === 'black' ? 'b' : 'w'
+          const updatedPlayerMoveCount = continueAnalyzingMode
+            ? currentDrillGame.playerMoveCount + 1
+            : movesAfterOpening.filter((node) => node.turn !== playerTurn)
+                .length
 
           const updatedGame = {
             ...currentDrillGame,
@@ -1748,6 +1771,7 @@ export const useOpeningDrillController = (
       isAnalyzingDrill,
       promptExtendCurrentDrill,
       treeController,
+      waitingForMaiaResponse,
     ],
   )
 

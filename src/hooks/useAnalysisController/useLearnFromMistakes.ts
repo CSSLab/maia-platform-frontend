@@ -170,15 +170,18 @@ export const useLearnFromMistakes = ({
     const chess = new Chess(currentNode.fen)
     const moveResult = chess.move(currentMistake.bestMove, { sloppy: true })
 
+    // The best move goes in the move list, but the board stays on the
+    // mistake's position (the page draws the move as an arrow), so that the
+    // panels, Moves by Rating among them, describe the position the question
+    // was about rather than the one after the answer.
     if (moveResult) {
-      const newVariation = gameTree.addVariationNode(
+      gameTree.addVariationNode(
         currentNode,
         chess.fen(),
         currentMistake.bestMove,
         currentMistake.bestMoveSan,
         currentMaiaModel,
       )
-      goToNode(newVariation)
     }
 
     setLearnModeState((prev) => ({

@@ -995,6 +995,25 @@ const Analysis: React.FC<Props> = ({
     [],
   )
 
+  // After "See solution", the best move as an arrow on the mistake's
+  // position (the board stays there).
+  const learnSolutionShapes = useMemo<DrawShape[]>(() => {
+    const { state } = controller.learnFromMistakes
+    if (!state.isActive || !state.showSolution) return []
+    if (controller.currentNode?.fen !== state.originalPosition) return []
+    const bestMove =
+      controller.learnFromMistakes.getCurrentInfo()?.mistake.bestMove
+    if (!bestMove || bestMove.length < 4) return []
+    return [
+      {
+        brush: 'green',
+        orig: bestMove.slice(0, 2) as Key,
+        dest: bestMove.slice(2, 4) as Key,
+        modifiers: { lineWidth: 10 },
+      },
+    ]
+  }, [controller.learnFromMistakes, controller.currentNode?.fen])
+
   const playedMoveShapes = useMemo<DrawShape[]>(() => {
     const playedMove = controller.currentNode?.mainChild?.move
     if (!playedMove || playedMove.length < 4) {
@@ -1775,6 +1794,8 @@ const Analysis: React.FC<Props> = ({
                           }
                         }
 
+                        baseShapes.push(...learnSolutionShapes)
+
                         // Add hover arrow if present
                         if (hoverArrow) {
                           baseShapes.push(hoverArrow)
@@ -1850,6 +1871,10 @@ const Analysis: React.FC<Props> = ({
                 setCurrentMaiaModel={controller.setCurrentMaiaModel}
                 showTopMoveBadges={controller.showTopMoveBadges}
                 setShowTopMoveBadges={controller.setShowTopMoveBadges}
+                stockfishDepth={controller.stockfishDepth}
+                setStockfishDepth={controller.setStockfishDepth}
+                stockfishEnabled={controller.stockfishEnabled}
+                setStockfishEnabled={controller.setStockfishEnabled}
                 launchContinue={launchContinue}
                 MAIA_MODELS={MAIA_MODELS}
                 game={analyzedGame}
@@ -2062,6 +2087,8 @@ const Analysis: React.FC<Props> = ({
                         }
                       }
 
+                      baseShapes.push(...learnSolutionShapes)
+
                       if (hoverArrow) {
                         baseShapes.push(hoverArrow)
                       }
@@ -2205,6 +2232,9 @@ const Analysis: React.FC<Props> = ({
                     simplified: true,
                     hideWhiteWinRateSummary: true,
                     hideStockfishEvalSummary: true,
+                    stockfishOff:
+                      !controller.stockfishEnabled &&
+                      !controller.moveEvaluation?.stockfish,
                   }}
                   blunderMeterProps={{
                     hover:
@@ -2304,6 +2334,10 @@ const Analysis: React.FC<Props> = ({
               setCurrentMaiaModel={controller.setCurrentMaiaModel}
               showTopMoveBadges={controller.showTopMoveBadges}
               setShowTopMoveBadges={controller.setShowTopMoveBadges}
+              stockfishDepth={controller.stockfishDepth}
+              setStockfishDepth={controller.setStockfishDepth}
+              stockfishEnabled={controller.stockfishEnabled}
+              setStockfishEnabled={controller.setStockfishEnabled}
               launchContinue={launchContinue}
               MAIA_MODELS={MAIA_MODELS}
               game={analyzedGame}

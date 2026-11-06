@@ -14,6 +14,11 @@ import {
 } from 'src/types'
 import { ModalContext } from 'src/contexts/ModalContext'
 import { startGameEarly } from 'src/api/play'
+import {
+  INCREMENT_SECONDS_STEPS,
+  TIME_MINUTES_STEPS,
+  nearestStepIndex,
+} from 'src/lib/timeControl'
 import { ModalContainer } from './ModalContainer'
 
 const maiaOptions = [
@@ -139,9 +144,11 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   const [timeControl, setTimeControl] = useState<TimeControl>(
     props.timeControl || TimeControlOptions[0],
   )
+  // The sliders' minutes and increment (kept while Unlimited is chosen, for
+  // when the slider is moved back).
   const [timeMinutes, setTimeMinutes] = useState<number>(() => {
     const initial = props.timeControl || TimeControlOptions[0]
-    if (initial === 'unlimited') return 0
+    if (initial === 'unlimited') return TIME_MINUTES_STEPS.at(-1) as number
     return parseInt(initial.split('+')[0])
   })
   const [incrementSeconds, setIncrementSeconds] = useState<number>(() => {
@@ -185,35 +192,33 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
 
   const handlePresetSelect = useCallback((preset: TimeControl) => {
     setTimeControl(preset)
-    if (preset === 'unlimited') {
-      setTimeMinutes(0)
-      setIncrementSeconds(0)
-    } else {
+    if (preset !== 'unlimited') {
       const [minutes, increment] = preset.split('+').map(Number)
       setTimeMinutes(minutes)
       setIncrementSeconds(increment)
     }
   }, [])
 
+  // `newTimeMinutes` null: Unlimited (the minutes slider's last position).
   const handleSliderChange = useCallback(
-    (newTimeMinutes: number, newIncrementSeconds: number) => {
-      setTimeMinutes(newTimeMinutes)
-      setIncrementSeconds(newIncrementSeconds)
-
-      if (newTimeMinutes === 0 && newIncrementSeconds === 0) {
+    (newTimeMinutes: number | null, newIncrementSeconds: number) => {
+      if (newTimeMinutes === null) {
         setTimeControl('unlimited')
-      } else {
-        const newTimeControl =
-          `${newTimeMinutes}+${newIncrementSeconds}` as TimeControl
-        if (TimeControlOptions.includes(newTimeControl)) {
-          setTimeControl(newTimeControl)
-        } else {
-          setTimeControl(newTimeControl)
-        }
+        return
       }
+      // A game needs some time: with no base time ("0+N", which starts at
+      // 3 seconds) there must be an increment.
+      const increment =
+        newTimeMinutes === 0 && newIncrementSeconds === 0
+          ? 1
+          : newIncrementSeconds
+      setTimeMinutes(newTimeMinutes)
+      setIncrementSeconds(increment)
+      setTimeControl(`${newTimeMinutes}+${increment}` as TimeControl)
     },
     [],
   )
+  const isUnlimited = timeControl === 'unlimited'
 
   const start = useCallback(
     (color: Color | undefined) => {
@@ -465,19 +470,23 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                         Time (minutes)
                       </label>
                       <span className="text-xs text-secondary">
-                        {timeMinutes}
+                        {isUnlimited ? 'Unlimited' : timeMinutes}
                       </span>
                     </div>
                     <input
                       id="time-minutes-slider"
                       type="range"
                       min="0"
-                      max="60"
+                      max={TIME_MINUTES_STEPS.length}
                       step="1"
-                      value={timeMinutes}
+                      value={
+                        isUnlimited
+                          ? TIME_MINUTES_STEPS.length
+                          : nearestStepIndex(TIME_MINUTES_STEPS, timeMinutes)
+                      }
                       onChange={(e) =>
                         handleSliderChange(
-                          Number(e.target.value),
+                          TIME_MINUTES_STEPS[Number(e.target.value)] ?? null,
                           incrementSeconds,
                         )
                       }
@@ -505,13 +514,20 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                       id="increment-seconds-slider"
                       type="range"
                       min="0"
-                      max="30"
+                      max={INCREMENT_SECONDS_STEPS.length - 1}
                       step="1"
-                      value={incrementSeconds}
+                      value={nearestStepIndex(
+                        INCREMENT_SECONDS_STEPS,
+                        incrementSeconds,
+                      )}
+                      disabled={isUnlimited}
                       onChange={(e) =>
-                        handleSliderChange(timeMinutes, Number(e.target.value))
+                        handleSliderChange(
+                          timeMinutes,
+                          INCREMENT_SECONDS_STEPS[Number(e.target.value)],
+                        )
                       }
-                      className="w-full accent-human-4"
+                      className="w-full accent-human-4 disabled:opacity-40"
                     />
                   </div>
                 </div>

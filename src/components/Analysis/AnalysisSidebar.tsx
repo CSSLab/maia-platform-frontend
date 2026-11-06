@@ -139,6 +139,10 @@ export const AnalysisSidebar: React.FC<Props> = ({
     simplified: false,
     hideStockfishEvalSummary: hideDetailedBlunderMeter,
     hideWhiteWinRateSummary: hideDetailedBlunderMeter,
+    // Off, unless this position already has Stockfish's analysis (saved, or
+    // from "Analyze entire game", which runs it anyway).
+    stockfishOff:
+      !controller.stockfishEnabled && !highlightMoveEvaluation?.stockfish,
   }
 
   const simplifiedBlunderMeterProps: ComponentProps<

@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useContext,
   useCallback,
+  useRef,
 } from 'react'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
@@ -160,6 +161,8 @@ interface Props {
   } | null
   onComplete: (configuration: DrillConfiguration) => void
   onClose: () => void
+  /** Called when the queue changes (not for the initial selections). */
+  onSelectionsChange?: (selections: OpeningSelection[]) => void
 }
 
 interface MobileOpeningPopupProps {
@@ -1756,6 +1759,7 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   initialCustomDraft = null,
   onComplete,
   onClose,
+  onSelectionsChange,
 }) => {
   const { startTour } = useTour()
   const { isMobile } = useContext(WindowSizeContext)
@@ -1856,6 +1860,14 @@ export const OpeningSelectionModal: React.FC<Props> = ({
   )
   const [selections, setSelections] =
     useState<OpeningSelection[]>(initialSelections)
+  const reportedInitialSelections = useRef(false)
+  useEffect(() => {
+    if (!reportedInitialSelections.current) {
+      reportedInitialSelections.current = true
+      return
+    }
+    onSelectionsChange?.(selections)
+  }, [selections])
   const [endgameTraitSelections, setEndgameTraitSelections] = useState<
     Record<string, EndgameTrait[]>
   >(() => {

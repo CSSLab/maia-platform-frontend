@@ -7,6 +7,7 @@ import { tourConfigs } from 'src/constants/tours'
 import { ModalContext, useTour } from 'src/contexts'
 import { Loading, PlayControls } from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
+import { normalizeTimeControl } from 'src/lib/timeControl'
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
@@ -159,7 +160,9 @@ const PlayMaiaPage: NextPage = () => {
       playType: 'againstMaia',
       player: (player || 'white') as Color,
       maiaVersion: (maiaVersion || 'maia_kdd_1100') as string,
-      timeControl: (timeControl || 'unlimited') as TimeControl,
+      timeControl: normalizeTimeControl(
+        typeof timeControl === 'string' ? timeControl : undefined,
+      ),
       isBrain: isBrain == 'true',
       sampleMoves: sampleMoves == 'true',
       simulateMaiaTime: simulateMaiaTime,

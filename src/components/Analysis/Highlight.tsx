@@ -47,6 +47,8 @@ interface Props {
   simplified?: boolean
   hideStockfishEvalSummary?: boolean
   hideWhiteWinRateSummary?: boolean
+  /** Stockfish is turned off in the analysis settings (Maia only). */
+  stockfishOff?: boolean
 }
 
 export const Highlight: React.FC<Props> = ({
@@ -63,6 +65,7 @@ export const Highlight: React.FC<Props> = ({
   simplified = false,
   hideStockfishEvalSummary = false,
   hideWhiteWinRateSummary = false,
+  stockfishOff = false,
 }: Props) => {
   const maiaEngine = useContext(MaiaEngineContext)
   const { isMobile } = useContext(WindowSizeContext)
@@ -638,7 +641,9 @@ export const Highlight: React.FC<Props> = ({
               <p className="text-sm font-bold text-engine-1 md:text-sm lg:text-lg">
                 {isCurrentPositionCheckmate
                   ? 'Checkmate'
-                  : getStockfishEvalDisplay()}
+                  : stockfishOff
+                    ? 'Off'
+                    : getStockfishEvalDisplay()}
               </p>
             </div>
           )}
@@ -726,7 +731,16 @@ export const Highlight: React.FC<Props> = ({
                   </button>
                 )
               })}
-            {emptyRows(recommendations.stockfish?.slice(0, 4).length ?? 0)}
+            {stockfishOff && (
+              <p className="w-full py-1 text-left text-xs text-secondary md:text-center md:text-xxs xl:text-xs">
+                Off in analysis settings
+              </p>
+            )}
+            {emptyRows(
+              stockfishOff
+                ? 1
+                : (recommendations.stockfish?.slice(0, 4).length ?? 0),
+            )}
           </div>
         </div>
       </div>

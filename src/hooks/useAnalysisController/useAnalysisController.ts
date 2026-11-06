@@ -11,6 +11,11 @@ import {
 import { AnalyzedGame, GameNode } from 'src/types'
 import type { DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
+import {
+  DEFAULT_LIVE_STOCKFISH_DEPTH,
+  MAX_LIVE_STOCKFISH_DEPTH,
+  MIN_LIVE_STOCKFISH_DEPTH,
+} from 'src/constants/analysis'
 import { useTreeController, useLocalStorage } from '..'
 import { useEngineAnalysis } from './useEngineAnalysis'
 import { useBoardDescription } from './useBoardDescription'
@@ -62,6 +67,21 @@ export const useAnalysisController = (
     'analysis-show-top-move-badges',
     true,
   )
+  // Stockfish while browsing a game: its depth, or off (Maia only).
+  const [storedStockfishDepth, setStockfishDepth] = useLocalStorage<number>(
+    'analysis-stockfish-depth',
+    DEFAULT_LIVE_STOCKFISH_DEPTH,
+  )
+  const stockfishDepth =
+    Number.isInteger(storedStockfishDepth) &&
+    storedStockfishDepth >= MIN_LIVE_STOCKFISH_DEPTH &&
+    storedStockfishDepth <= MAX_LIVE_STOCKFISH_DEPTH
+      ? storedStockfishDepth
+      : DEFAULT_LIVE_STOCKFISH_DEPTH
+  const [stockfishEnabled, setStockfishEnabled] = useLocalStorage<boolean>(
+    'analysis-stockfish-enabled',
+    true,
+  )
 
   const deepAnalysisController = useDeepAnalysis({
     gameTree: controller.tree,
@@ -91,8 +111,12 @@ export const useAnalysisController = (
     setAnalysisState,
     deepAnalysisController.progress.isAnalyzing
       ? deepAnalysisController.config.targetDepth
-      : 18,
+      : stockfishDepth,
     enableEngineAnalysis,
+    // Full-game analysis (and Learn from mistakes, which uses it) was asked
+    // for explicitly, so it runs Stockfish even when it's off.
+    stockfishEnabled || deepAnalysisController.progress.isAnalyzing,
+    !deepAnalysisController.progress.isAnalyzing,
   )
 
   const availableMoves = useMemo(() => {
@@ -256,6 +280,10 @@ export const useAnalysisController = (
     setCurrentMove,
     showTopMoveBadges,
     setShowTopMoveBadges,
+    stockfishDepth,
+    setStockfishDepth,
+    stockfishEnabled,
+    setStockfishEnabled,
     moveEvaluation,
     movesByRating,
     moveRecommendations,
