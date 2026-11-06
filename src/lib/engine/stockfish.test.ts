@@ -3,6 +3,7 @@ import Engine, {
   reserveWasmMemory,
   sharedWasmMemory,
   STOCKFISH_MAX_MEMORY_PAGES,
+  withStartupLog,
 } from './stockfish'
 
 /**
@@ -433,5 +434,27 @@ describe('sharedWasmMemory', () => {
     const asked = fakeMemory(1536)
     sharedWasmMemory(1280)
     expect(asked.map((d) => d.maximum)).toEqual([2048, 1536])
+  })
+})
+
+describe('withStartupLog', () => {
+  it('adds what the engine reported, without repeating its error', () => {
+    const error = new Error(
+      'Aborted(both async and sync fetching of the wasm failed). Build with -sASSERTIONS for more info.',
+    )
+    const log = [
+      'wasm streaming compile failed: TypeError: Load failed',
+      'falling back to ArrayBuffer instantiation',
+      'Aborted(both async and sync fetching of the wasm failed)',
+    ]
+    expect(withStartupLog(error, log).detail).toBe(
+      'Aborted(both async and sync fetching of the wasm failed). Build with -sASSERTIONS for more info. [wasm streaming compile failed: TypeError: Load failed | falling back to ArrayBuffer instantiation]',
+    )
+    // The page shows the error alone.
+    expect(withStartupLog(error, log).message).toBe(error.message)
+  })
+
+  it('leaves the error as it is when nothing was reported', () => {
+    expect(withStartupLog('timed out', []).detail).toBe('timed out')
   })
 })

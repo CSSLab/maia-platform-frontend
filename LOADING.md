@@ -1560,6 +1560,48 @@ GROUP BY grp, device ORDER BY device, grp
 Not tested: a real phone, whether browsers grant the request to keep the model (the test
 browser refused it), and starting a drill on a phone.
 
+### Round 14: why Stockfish fails to start
+
+From PostHog, 7 days to 2026-11-06, `stockfish_engine_failed` against 6,316
+`stockfish_engine_ready`:
+
+| Error                                                 | Events | People |
+| ----------------------------------------------------- | -----: | -----: |
+| Module initialization timed out after 15000ms         |    134 |     34 |
+| Aborted(both async and sync fetching of the wasm ...) |     49 |     17 |
+| Unaligned accesses (Chrome)                           |      8 |      6 |
+| No WebAssembly (Safari Lockdown Mode, etc.)           |     10 |      6 |
+| Script chunk or Stockfish script didn't load          |     15 |     10 |
+| Older Safari without SIMD                             |      5 |      2 |
+
+By day, timeouts went 29–38 a day until 2026-11-04, then 6 on 2026-11-05 and none
+since. On 2026-11-05 the wasm-fetch abort appeared (36, then 13). c7756ce (2026-11-05,
+the engine's memory passed in) made the engine report the failure instead of hanging,
+so what was timing out is mostly this one failure under a new name. Failures per day
+fell from about 3.6% of starts (2026-11-04) to about 1.9% (2026-11-06).
+
+The abort says only that the wasm couldn't be fetched. The wasm is 190 KB with brotli
+and served correctly. The failures come quickly (0.1 to 2 s), in bursts of 2 to 5 in
+one tab, and none of those tabs ever got Stockfish. That points to a fetch the browser
+refuses every time (an extension or a network filter, for example), not a slow network.
+Retrying wouldn't help, so this round only records the reason. Stockfish's script
+writes it to stderr ("wasm streaming compile failed: …"), which it sends to `onError`.
+Before the engine starts, `onError` now keeps the last few lines, and the failure event's
+`error` ends with them in brackets. The page still shows the short message.
+
+Checked on a local build: blocking `/stockfish/*.wasm` sends `error`: "Aborted(both
+async and sync fetching of the wasm failed). … [wasm streaming compile failed: TypeError:
+Failed to fetch | falling back to ArrayBuffer instantiation | …]". A normal visit is
+unchanged: ready in 0.5 s, d12 1,009 ms, d18 1,427 ms.
+
+```sql
+-- Round 14: Stockfish failures by reason
+SELECT properties.error AS err, count() AS n, uniq(person_id) AS people
+FROM events
+WHERE event = 'stockfish_engine_failed' AND timestamp > now() - INTERVAL 7 DAY
+GROUP BY err ORDER BY n DESC
+```
+
 ### Round 13d: desktops download without asking
 
 After about 23 hours, desktops got Maia-3 at 97 of 104 without the prompt against 53 of
