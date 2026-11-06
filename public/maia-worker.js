@@ -102,29 +102,72 @@ async function getCachedModel(modelUrl, modelVersion) {
   }
 
   startRuntime()
-  return await data.data.arrayBuffer()
+  // Saved as a Blob, or as the bytes themselves where the Blob wasn't taken.
+  return data.data instanceof Blob ? await data.data.arrayBuffer() : data.data
 }
 
+const describeError = (error) =>
+  error ? `${error.name}: ${error.message}` : 'no error given'
+
+// Saved only once the transaction completes: a full disk can still fail it
+// after the request itself has succeeded. A failed request aborts the
+// transaction, whose own error is then empty, so the request's is kept.
+function putModel(db, record) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_NAME], 'readwrite')
+    let requestError = null
+    tx.oncomplete = () => resolve()
+    tx.onabort = () => reject(requestError || tx.error)
+    const req = tx.objectStore(STORE_NAME).put(record)
+    req.onerror = () => {
+      requestError = req.error
+    }
+  })
+}
+
+/**
+ * Saves the model as a Blob, or, where that is refused, as the bytes
+ * themselves: Safari can refuse a large Blob in IndexedDB (known in private
+ * tabs) while taking the same bytes as an ArrayBuffer. Returns why the Blob
+ * was refused, or null if it wasn't.
+ */
 async function storeModel(modelUrl, modelVersion, buffer) {
   const db = await openDB()
-  const tx = db.transaction([STORE_NAME], 'readwrite')
-  const store = tx.objectStore(STORE_NAME)
+  const record = {
+    id: MODEL_KEY,
+    url: modelUrl,
+    version: modelVersion,
+    timestamp: Date.now(),
+    size: buffer.byteLength,
+  }
+  let blobError
+  try {
+    await putModel(db, { ...record, data: new Blob([buffer]) })
+    return null
+  } catch (error) {
+    blobError = describeError(error)
+  }
+  try {
+    await putModel(db, { ...record, data: buffer })
+    return blobError
+  } catch (error) {
+    throw new Error(
+      `as a Blob: ${blobError}; as bytes: ${describeError(error)}`,
+    )
+  }
+}
 
-  // Saved only once the transaction completes: a full disk can still fail it
-  // after the request itself has succeeded.
-  await new Promise((resolve, reject) => {
-    tx.oncomplete = () => resolve()
-    tx.onabort = () => reject(tx.error)
-    tx.onerror = () => reject(tx.error)
-    store.put({
-      id: MODEL_KEY,
-      url: modelUrl,
-      version: modelVersion,
-      data: new Blob([buffer]),
-      timestamp: Date.now(),
-      size: buffer.byteLength,
-    })
-  })
+/** The origin's storage, in MB, for reporting a failed save. */
+async function storageEstimate() {
+  try {
+    const { quota, usage } = await navigator.storage.estimate()
+    return {
+      quota_mb: Math.round(quota / 1e6),
+      usage_mb: Math.round(usage / 1e6),
+    }
+  } catch {
+    return {}
+  }
 }
 
 // ── Worker state ─────────────────────────────────────────────────────────────
@@ -224,9 +267,20 @@ self.onmessage = async (e) => {
         // Maia still works on this page if saving fails, but it will be
         // needed again on the next.
         try {
-          await storeModel(modelUrl, modelVersion, buffer.buffer)
+          const blobRefused = await storeModel(
+            modelUrl,
+            modelVersion,
+            buffer.buffer,
+          )
+          if (blobRefused) {
+            postMessage({ type: 'stored-as-bytes', message: blobRefused })
+          }
         } catch (err) {
-          postMessage({ type: 'store-failed', message: String(err) })
+          postMessage({
+            type: 'store-failed',
+            message: err instanceof Error ? err.message : String(err),
+            storage: await storageEstimate(),
+          })
         }
         await initSession(buffer.buffer)
         postMessage({ type: 'progress', progress: 100 })

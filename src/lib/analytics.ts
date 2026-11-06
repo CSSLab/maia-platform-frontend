@@ -42,8 +42,16 @@ export const trackMaiaModelProtected = (granted: boolean) => {
 }
 
 /** Downloaded, but the browser wouldn't save it: it's needed again next time. */
-export const trackMaiaModelStoreFailed = (message: string) => {
-  safeTrack('maia_model_store_failed', { message })
+export const trackMaiaModelStoreFailed = (
+  message: string,
+  storage: { quota_mb?: number; usage_mb?: number },
+) => {
+  safeTrack('maia_model_store_failed', { message, ...storage })
+}
+
+/** Saved, but as plain bytes: the browser refused it as a Blob. */
+export const trackMaiaModelStoredAsBytes = (blobError: string) => {
+  safeTrack('maia_model_stored_as_bytes', { blob_error: blobError })
 }
 
 /** The browser no longer has a model it had saved. */

@@ -4,6 +4,7 @@ import {
   trackMaiaModelLost,
   trackMaiaModelProtected,
   trackMaiaModelStoreFailed,
+  trackMaiaModelStoredAsBytes,
 } from 'src/lib/analytics'
 import {
   protectMaiaModel,
@@ -54,10 +55,11 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
       setStatus: setStatus,
       setProgress: setProgress,
       setError: setError,
-      onStoreFailed: (message) => {
+      onStoreFailed: (message, storage) => {
         storeFailed.current = true
-        trackMaiaModelStoreFailed(message)
+        trackMaiaModelStoreFailed(message, storage)
       },
+      onStoredAsBytes: trackMaiaModelStoredAsBytes,
     })
     return model
   }, [])
