@@ -1,3 +1,4 @@
+import { backOff } from 'exponential-backoff'
 import { buildUrl } from './utils'
 import { fetchAsGuest } from './guest'
 import { Color, TimeControl } from 'src/types'
@@ -279,3 +280,14 @@ export const fetchPlayPlayerStats = async () => {
     brainElo: data.brain_elo as number,
   }
 }
+
+/**
+ * fetchGameMove, retried a few times (a few seconds in all) unless the server
+ * rejected the request. Throws if it still fails.
+ */
+export const fetchMaiaMove = (...args: Parameters<typeof fetchGameMove>) =>
+  backOff(() => fetchGameMove(...args), {
+    jitter: 'full',
+    numOfAttempts: 6,
+    retry: retryUnlessRejected,
+  })
