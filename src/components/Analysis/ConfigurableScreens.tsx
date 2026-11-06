@@ -3,6 +3,7 @@ import { UnderlineTabs } from 'src/components/Common/UnderlineTabs'
 import { ConfigureAnalysis } from 'src/components/Analysis/ConfigureAnalysis'
 import { LearnFromMistakes } from 'src/components/Analysis/LearnFromMistakes'
 import { ExportGame } from 'src/components/Common/ExportGame'
+import { pgnNameOr } from 'src/lib/pgn'
 import {
   AnalyzedGame,
   GameNode,
@@ -82,6 +83,10 @@ export const ConfigurableScreens: React.FC<Props> = ({
   const [screenId, setScreenId] = useState<(typeof SCREENS)[number]['id']>(
     SCREENS[0].id,
   )
+  // A game played here by a visitor who wasn't signed in has no name for them.
+  const unnamedPlayer = ['play', 'hand', 'brain'].includes(game.type)
+    ? 'Guest'
+    : '?'
 
   // If learn from mistakes is active, show only the learning interface
   if (
@@ -160,8 +165,10 @@ export const ConfigurableScreens: React.FC<Props> = ({
             <ExportGame
               game={game}
               currentNode={currentNode}
-              whitePlayer={game.whitePlayer.name}
-              blackPlayer={game.blackPlayer.name}
+              whitePlayer={pgnNameOr(game.whitePlayer.name, unnamedPlayer)}
+              blackPlayer={pgnNameOr(game.blackPlayer.name, unnamedPlayer)}
+              whiteElo={game.whitePlayer.rating}
+              blackElo={game.blackPlayer.rating}
               event="Analysis"
               type="analysis"
             />

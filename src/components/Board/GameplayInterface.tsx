@@ -17,6 +17,8 @@ import {
   TreeControllerContext,
 } from 'src/contexts'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
+import { formatPgnDate, pgnPlayerName } from 'src/lib/pgn'
+import { pgnTimeControl } from 'src/lib/timeControl'
 
 interface Props {
   boardShapes?: DrawShape[]
@@ -123,13 +125,59 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
   }, [availableMoves])
 
   const maiaTitle = maiaVersion.replace('maia_kdd_', 'Maia-3 ')
-  const blackPlayer = player == 'black' ? user?.displayName : maiaTitle
-  const whitePlayer = player == 'white' ? user?.displayName : maiaTitle
+  // A visitor who isn't signed in is "Guest": their account has no name, and
+  // an exported game named them as missing.
+  const humanName = pgnPlayerName(user)
+  const blackPlayer = player == 'black' ? humanName : maiaTitle
+  const whitePlayer = player == 'white' ? humanName : maiaTitle
+
+  // The date and the player's rating as the game started, for its PGN: the
+  // rating shown changes once a rated game ends. Only a game against Maia
+  // has a rating for each side (Hand and Brain pairs the player with Maia).
+  const [gameStart, setGameStart] = useState<{
+    gameId: string
+    date: string
+    rating?: number
+  } | null>(null)
+  useEffect(() => {
+    const rating = stats.rating || undefined
+    setGameStart((previous) => {
+      if (previous?.gameId !== game.id) {
+        return { gameId: game.id, date: formatPgnDate(new Date()), rating }
+      }
+      // Stats load after the game may have started; once it's over, the
+      // rating is the one after it.
+      if (previous.rating || game.termination || !rating) return previous
+      return { ...previous, rating }
+    })
+  }, [game.id, game.termination, stats.rating])
+
+  const maiaRating = parseInt(maiaVersion.replace('maia_kdd_', ''), 10)
+  const playerRating =
+    playType === 'againstMaia' && gameStart?.gameId === game.id
+      ? gameStart.rating
+      : undefined
+  const pgnDetails = {
+    date: gameStart?.gameId === game.id ? gameStart.date : undefined,
+    timeControl: pgnTimeControl(timeControl),
+    whiteElo:
+      playType !== 'againstMaia'
+        ? undefined
+        : player === 'white'
+          ? playerRating
+          : maiaRating,
+    blackElo:
+      playType !== 'againstMaia'
+        ? undefined
+        : player === 'black'
+          ? playerRating
+          : maiaRating,
+  }
 
   const Info = (
     <>
       <div className="flex w-full items-center justify-between text-secondary">
-        <p>● {whitePlayer ?? 'Unknown'}</p>
+        <p>● {whitePlayer}</p>
         <p>
           {game.termination?.winner === 'white' ? (
             <span className="text-engine-3">1</span>
@@ -141,7 +189,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
         </p>
       </div>
       <div className="flex w-full items-center justify-between text-secondary">
-        <p>○ {blackPlayer ?? 'Unknown'}</p>
+        <p>○ {blackPlayer}</p>
         <p>
           {game.termination?.winner === 'black' ? (
             <span className="text-engine-3">1</span>
@@ -186,10 +234,11 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                     game={game}
                     gameTree={gameTree}
                     currentNode={currentNode}
-                    whitePlayer={whitePlayer ?? 'Unknown'}
-                    blackPlayer={blackPlayer ?? 'Unknown'}
+                    whitePlayer={whitePlayer}
+                    blackPlayer={blackPlayer}
                     event={`Play vs. ${maiaTitle}`}
                     type="play"
+                    {...pgnDetails}
                   />
                 </div>
                 <div className="h-3 border-y border-glass-border" />
@@ -348,10 +397,11 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                 game={game}
                 gameTree={gameTree}
                 currentNode={currentNode}
-                whitePlayer={whitePlayer ?? 'Unknown'}
-                blackPlayer={blackPlayer ?? 'Unknown'}
+                whitePlayer={whitePlayer}
+                blackPlayer={blackPlayer}
                 event={`Play vs. ${maiaTitle}`}
                 type="play"
+                {...pgnDetails}
               />
             </div>
           </div>
