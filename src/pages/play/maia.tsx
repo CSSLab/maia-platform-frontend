@@ -8,6 +8,11 @@ import { ModalContext, useTour } from 'src/contexts'
 import { Loading, PlayControls } from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
 import { normalizeTimeControl } from 'src/lib/timeControl'
+import {
+  UnfinishedGame,
+  loadUnfinishedGame,
+  sameGameSettings,
+} from 'src/lib/unfinishedGame'
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
@@ -25,6 +30,7 @@ interface Props {
   challengeId?: string
   simulateMaiaTime: boolean
   setSimulateMaiaTime: (value: boolean) => void
+  resume?: UnfinishedGame
 }
 
 const PlayMaia: React.FC<Props> = ({
@@ -36,12 +42,14 @@ const PlayMaia: React.FC<Props> = ({
   challengeId,
   simulateMaiaTime,
   setSimulateMaiaTime,
+  resume,
 }: Props) => {
   const router = useRouter()
   const controller = useVsMaiaPlayController(
     id,
     playGameConfig,
     simulateMaiaTime,
+    resume,
   )
   const returnTo = useMemo(() => {
     if (!returnToPath) return undefined
@@ -205,6 +213,12 @@ const PlayMaiaPage: NextPage = () => {
   const [gameKey, setGameKey] = useState(0)
   const hadGame = useRef(false)
 
+  // A game with these settings left unfinished in this browser (closed tab,
+  // refresh, or Continue in the setup dialog) is continued rather than a new
+  // one started, which would resign it. Decided each time a game is needed;
+  // the board is drawn again with its moves (PlayMaia's key).
+  const [resumeGame, setResumeGame] = useState<UnfinishedGame>()
+
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
     // after the first render. Starting before then also started a game, with
@@ -217,6 +231,36 @@ const PlayMaiaPage: NextPage = () => {
     if (hadGame.current) setGameKey((key) => key + 1)
 
     let canceled = false
+
+    const showGame = (gameId: string) =>
+      router.replace(
+        {
+          pathname: '/play/maia',
+          query: {
+            id: gameId,
+            ...playGameConfig,
+            returnTo,
+            challengeId,
+            forcedColor,
+            modalTitle,
+            modalSubtitle,
+          },
+        },
+        {
+          pathname: '/play/maia',
+          query: {
+            // We don't show the game ID in the address bar
+            // so that if the page is manually refreshed
+            // the old game ID is not persisted
+            ...playGameConfig,
+            returnTo,
+            challengeId,
+            forcedColor,
+            modalTitle,
+            modalSubtitle,
+          },
+        },
+      )
 
     async function fetchGameId() {
       let response
@@ -245,39 +289,17 @@ const PlayMaiaPage: NextPage = () => {
       }
       const newGameId = response.gameId
 
-      if (!canceled) {
-        router.replace(
-          {
-            pathname: '/play/maia',
-            query: {
-              id: newGameId,
-              ...playGameConfig,
-              returnTo,
-              challengeId,
-              forcedColor,
-              modalTitle,
-              modalSubtitle,
-            },
-          },
-          {
-            pathname: '/play/maia',
-            query: {
-              // We don't show the game ID in the address bar
-              // so that if the page is manually refreshed
-              // the old game ID is not persisted
-              ...playGameConfig,
-              returnTo,
-              challengeId,
-              forcedColor,
-              modalTitle,
-              modalSubtitle,
-            },
-          },
-        )
-      }
+      if (!canceled) showGame(newGameId)
     }
 
     if (!id) {
+      const unfinished = loadUnfinishedGame()
+      if (unfinished && sameGameSettings(unfinished.config, playGameConfig)) {
+        setResumeGame(unfinished)
+        showGame(unfinished.id)
+        return
+      }
+      setResumeGame(undefined)
       fetchGameId()
 
       return () => {
@@ -307,9 +329,10 @@ const PlayMaiaPage: NextPage = () => {
       {/* The game appears at once, without Loading's fade-in. */}
       {router.isReady ? (
         <PlayMaia
-          key={gameKey}
+          key={`${gameKey}-${resumeGame?.id ?? ''}`}
           id={typeof id === 'string' ? id : ''}
           playGameConfig={playGameConfig}
+          resume={resumeGame}
           playAgain={() =>
             setPlaySetupModalProps({
               ...playGameConfig,

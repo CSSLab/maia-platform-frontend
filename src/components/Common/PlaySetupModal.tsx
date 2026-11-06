@@ -19,6 +19,11 @@ import {
   TIME_MINUTES_STEPS,
   nearestStepIndex,
 } from 'src/lib/timeControl'
+import {
+  UnfinishedGame,
+  clearUnfinishedGame,
+  loadUnfinishedGame,
+} from 'src/lib/unfinishedGame'
 import { ModalContainer } from './ModalContainer'
 
 const maiaOptions = [
@@ -166,6 +171,36 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   )
   const [practice, setPractice] = useState<boolean>(props.practice ?? false)
 
+  // An unlimited or practice game vs Maia left unfinished in this browser,
+  // offered to continue (read after the first render: the dialog is in /play's
+  // server HTML).
+  const [unfinishedGame, setUnfinishedGame] = useState<UnfinishedGame | null>(
+    null,
+  )
+  // Shown for Hand & Brain too: starting any game resigns it.
+  useEffect(() => {
+    setUnfinishedGame(loadUnfinishedGame())
+  }, [])
+
+  const continueUnfinishedGame = useCallback(() => {
+    if (!unfinishedGame) return
+    const { config } = unfinishedGame
+    setPlaySetupModalProps(undefined)
+    onClose?.()
+    push({
+      pathname: '/play/maia',
+      query: {
+        player: config.player,
+        maiaVersion: config.maiaVersion,
+        timeControl: config.timeControl,
+        sampleMoves: config.sampleMoves,
+        simulateMaiaTime: config.simulateMaiaTime ?? true,
+        startFen: config.startFen,
+        practice: !!config.practice,
+      },
+    })
+  }, [unfinishedGame, setPlaySetupModalProps, onClose, push])
+
   const [maiaPartnerVersion, setMaiaPartnerVersion] = useState<string>(
     props.maiaPartnerVersion || maiaOptions[0],
   )
@@ -242,6 +277,8 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
 
       setPlaySetupModalProps(undefined)
       onClose?.()
+      // A new game resigns any unfinished one (on the backend, as it starts).
+      clearUnfinishedGame()
 
       if (props.playType == 'againstMaia') {
         startGameEarly(
@@ -352,6 +389,28 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
             }`}
           >
             <div className="space-y-4">
+              {unfinishedGame && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-human-4/50 bg-human-4/10 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-primary">
+                      Unfinished game vs{' '}
+                      {unfinishedGame.config.maiaVersion.replace(
+                        'maia_kdd_',
+                        'Maia-3 ',
+                      )}
+                    </p>
+                    <p className="text-xs text-secondary">
+                      Starting a new game resigns the unfinished game
+                    </p>
+                  </div>
+                  <button
+                    onClick={continueUnfinishedGame}
+                    className="shrink-0 rounded-md bg-human-4 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-human-4/90"
+                  >
+                    Continue
+                  </button>
+                </div>
+              )}
               {props.playType == 'handAndBrain' ? (
                 <>
                   <div>

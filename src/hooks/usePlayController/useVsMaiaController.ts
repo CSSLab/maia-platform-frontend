@@ -19,6 +19,12 @@ import {
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
 import { initialClockSeconds } from 'src/lib/timeControl'
+import {
+  UnfinishedGame,
+  canResume,
+  clearUnfinishedGame,
+  saveUnfinishedGame,
+} from 'src/lib/unfinishedGame'
 
 const playStatsLoader = async () => {
   const stats = await fetchPlayPlayerStats()
@@ -40,8 +46,9 @@ export const useVsMaiaPlayController = (
   id: string,
   playGameConfig: PlayGameConfig,
   simulateMaiaTime: boolean,
+  resume?: UnfinishedGame,
 ) => {
-  const controller = usePlayController(id, playGameConfig)
+  const controller = usePlayController(id, playGameConfig, resume)
   const [stats, incrementStats, updateRating] = useStats(playStatsLoader)
   const { playMoveSound } = useSound()
   const [queuedPremove, setQueuedPremove] = useState<QueuedPremove | null>(null)
@@ -292,6 +299,34 @@ export const useVsMaiaPlayController = (
     incrementStats,
     updateRating,
     playGameConfig.player,
+  ])
+
+  // Unlimited and practice games are kept in this browser after each move,
+  // so they can be continued if the tab is closed; forgotten once over.
+  useEffect(() => {
+    if (!controller.game.id || !canResume(playGameConfig)) return
+    if (controller.game.termination) {
+      clearUnfinishedGame(controller.game.id)
+      return
+    }
+    if (controller.moveList.length === 0) return
+    saveUnfinishedGame({
+      id: controller.game.id,
+      config: playGameConfig,
+      moves: controller.moveList,
+      moveTimes: controller.moveTimes,
+      whiteClock: controller.whiteClock,
+      blackClock: controller.blackClock,
+      savedAt: Date.now(),
+    })
+  }, [
+    controller.game.id,
+    controller.game.termination,
+    controller.moveList,
+    controller.moveTimes,
+    controller.whiteClock,
+    controller.blackClock,
+    playGameConfig,
   ])
 
   const takeBack = useCallback(() => {
