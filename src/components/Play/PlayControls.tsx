@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { PlayedGame } from 'src/types'
-import { ResignationConfirmModal } from 'src/components'
+import { ConfirmModal, ResignationConfirmModal } from 'src/components'
 
 interface Props {
   game: PlayedGame
@@ -37,6 +37,10 @@ export const PlayControls: React.FC<Props> = ({
   addTime,
 }: Props) => {
   const [showResignConfirm, setShowResignConfirm] = useState(false)
+  // Practice actions ask first, so a stray tap doesn't undo a move.
+  const [confirming, setConfirming] = useState<'takeBack' | 'addTime' | null>(
+    null,
+  )
 
   const handleResignClick = () => {
     setShowResignConfirm(true)
@@ -101,7 +105,7 @@ export const PlayControls: React.FC<Props> = ({
               {/* Stacked: the side panel can be narrow. */}
               <div className="flex flex-col gap-2">
                 <button
-                  onClick={takeBack}
+                  onClick={() => setConfirming('takeBack')}
                   disabled={!takeBack}
                   title="Take back your last move"
                   className="flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-md border border-glass-border bg-glass px-3 py-1.5 text-xs font-medium text-white/90 transition-colors duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-40"
@@ -113,7 +117,7 @@ export const PlayControls: React.FC<Props> = ({
                 </button>
                 {addTime && (
                   <button
-                    onClick={addTime}
+                    onClick={() => setConfirming('addTime')}
                     title="Add 15 seconds to your clock"
                     className="flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-md border border-glass-border bg-glass px-3 py-1.5 text-xs font-medium text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
                   >
@@ -193,6 +197,22 @@ export const PlayControls: React.FC<Props> = ({
         </>
       )}
 
+      <ConfirmModal
+        isOpen={confirming === 'takeBack' && !!takeBack}
+        onClose={() => setConfirming(null)}
+        onConfirm={() => takeBack?.()}
+        title="Take back your move?"
+        message="Your last move is undone, and Maia's reply to it if Maia has already moved."
+        confirmLabel="Take back"
+      />
+      <ConfirmModal
+        isOpen={confirming === 'addTime' && !!addTime}
+        onClose={() => setConfirming(null)}
+        onConfirm={() => addTime?.()}
+        title="Add more time?"
+        message="15 seconds are added to your clock."
+        confirmLabel="Add 15 seconds"
+      />
       <ResignationConfirmModal
         isOpen={showResignConfirm}
         onClose={() => setShowResignConfirm(false)}
