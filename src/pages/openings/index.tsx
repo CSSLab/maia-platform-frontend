@@ -1156,7 +1156,11 @@ const OpeningsPage: NextPage = () => {
   // prompt, not while choosing what to drill.
   const maiaMissing =
     maiaEngine.status === 'no-cache' || maiaEngine.status === 'downloading'
-  if (maiaMissing && (!showSelectionModal || maiaPromptVariant() === 'wall')) {
+  if (
+    maiaMissing &&
+    (!showSelectionModal ||
+      (maiaPromptVariant() === 'wall' && !downloadsWithoutAsking()))
+  ) {
     return (
       <AnimatePresence>
         <DownloadModelModal
