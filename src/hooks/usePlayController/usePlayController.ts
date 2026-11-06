@@ -91,15 +91,19 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     const turn = lastNode.turn
     const chess = gameTree.toChess()
 
-    const termination = timeExpired
-      ? computeTimeTermination(chess, timeExpired)
-      : resigned
-        ? ({
-            result: turn == 'w' ? '0-1' : '1-0',
-            winner: turn == 'w' ? 'black' : 'white',
-            type: 'resign',
-          } as Termination)
-        : computeTermination(chess)
+    // A mating move that was registered stands even if the clock ran out
+    // at the same moment, so checkmate takes precedence over the flag.
+    const termination = chess.inCheckmate()
+      ? computeTermination(chess)
+      : timeExpired
+        ? computeTimeTermination(chess, timeExpired)
+        : resigned
+          ? ({
+              result: turn == 'w' ? '0-1' : '1-0',
+              winner: turn == 'w' ? 'black' : 'white',
+              type: 'resign',
+            } as Termination)
+          : computeTermination(chess)
 
     const moves = []
     const rootNode = gameTree.getRoot()

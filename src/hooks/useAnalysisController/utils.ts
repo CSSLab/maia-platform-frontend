@@ -36,11 +36,28 @@ const getStockfishMoveOrderingScore = (
   return Number.NEGATIVE_INFINITY
 }
 
+// mate_vec is from the side to move's point of view: a positive N means the
+// side to move mates in N, a negative N means it gets mated in N.
+// Winning mates come first, then non-mating moves, then losing mates.
+const getMateTier = (mate: number | undefined): number =>
+  mate === undefined ? 1 : mate > 0 ? 0 : 2
+
 export const sortStockfishMoves = (
   stockfish: StockfishEvaluation,
   moves: string[],
 ): string[] =>
   [...moves].sort((a, b) => {
+    const mateA = stockfish.mate_vec?.[a]
+    const mateB = stockfish.mate_vec?.[b]
+    const tierDiff = getMateTier(mateA) - getMateTier(mateB)
+    if (tierDiff !== 0) {
+      return tierDiff
+    }
+    if (mateA !== undefined && mateB !== undefined && mateA !== mateB) {
+      // Faster wins first (M2 before M5); slower losses first (-M5 before -M2).
+      return mateA - mateB
+    }
+
     const scoreDiff =
       getStockfishMoveOrderingScore(stockfish, b) -
       getStockfishMoveOrderingScore(stockfish, a)
@@ -49,9 +66,11 @@ export const sortStockfishMoves = (
       return scoreDiff
     }
 
+    // cp_vec is from White's point of view, so break ties on the score
+    // relative to the side to move instead.
     const cpDiff =
-      (stockfish.cp_vec?.[b] ?? Number.NEGATIVE_INFINITY) -
-      (stockfish.cp_vec?.[a] ?? Number.NEGATIVE_INFINITY)
+      (stockfish.cp_relative_vec?.[b] ?? Number.NEGATIVE_INFINITY) -
+      (stockfish.cp_relative_vec?.[a] ?? Number.NEGATIVE_INFINITY)
     if (cpDiff !== 0) {
       return cpDiff
     }
