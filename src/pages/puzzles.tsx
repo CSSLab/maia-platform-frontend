@@ -13,7 +13,6 @@ import {
   memo,
 } from 'react'
 import Head from 'next/head'
-import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import { Chess, PieceSymbol } from 'chess.ts'
@@ -22,6 +21,8 @@ import {
   fetchPuzzle,
   logPuzzleGuesses,
   fetchTrainingPlayerStats,
+  PuzzleUnavailableError,
+  PuzzleUnavailableReason,
 } from 'src/api'
 import {
   trackPuzzleStarted,
@@ -80,13 +81,74 @@ const statsLoader = async () => {
   }
 }
 
+interface PuzzleUnavailableProps {
+  reason: PuzzleUnavailableReason
+  onRetry: () => void
+  // Back to the puzzles of this visit, when there are some.
+  onBack?: () => void
+}
+
+// In place of the puzzle when none could be loaded. This used to be /401,
+// whose "Try again" came back here to fail again: a player who has attempted
+// every puzzle would never get out of it.
+const PuzzleUnavailable: React.FC<PuzzleUnavailableProps> = ({
+  reason,
+  onRetry,
+  onBack,
+}) => (
+  <div className="flex min-h-[60vh] w-full items-center justify-center px-4 py-16">
+    <div className="flex max-w-md flex-col items-center gap-3 rounded-md border border-glass-border bg-glass p-6 text-center backdrop-blur-md">
+      <span className="material-symbols-outlined text-4xl text-human-3">
+        {reason === 'exhausted' ? 'check_circle' : 'error'}
+      </span>
+      {reason === 'exhausted' ? (
+        <>
+          <h1 className="text-xl font-bold">
+            You&apos;ve attempted every puzzle we have
+          </h1>
+          <p className="text-sm text-secondary">
+            There are no new puzzles for you right now. More are coming, so
+            check back soon. In the meantime, try the openings drills or play
+            against Maia.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 className="text-xl font-bold">We couldn&apos;t load a puzzle</h1>
+          <p className="text-sm text-secondary">
+            Something went wrong while getting your next puzzle. Please try
+            again in a moment.
+          </p>
+        </>
+      )}
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded bg-human-4 px-4 py-2 text-sm text-white transition hover:bg-human-4/80"
+        >
+          Try again
+        </button>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded bg-glass-strong px-4 py-2 text-sm text-primary transition hover:bg-glass-stronger"
+          >
+            Back to my puzzles
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+)
+
 interface TrainPageProps {
   // Called with whether a puzzle is on screen, before that frame is painted.
   onPuzzleShown: (shown: boolean) => void
 }
 
 const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
-  const router = useRouter()
   const { startTour, tourState } = useTour()
 
   const [trainingGames, setTrainingGames] = useState<PuzzleGame[]>([])
@@ -99,6 +161,9 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
   >([])
   const [initialTourCheck, setInitialTourCheck] = useState(false)
   const [loadingGame, setLoadingGame] = useState(false)
+  // Why the latest puzzle couldn't be loaded, while that is shown.
+  const [puzzleError, setPuzzleError] =
+    useState<PuzzleUnavailableReason | null>(null)
   const [lastAttemptedMove, setLastAttemptedMove] = useState<string | null>(
     null,
   )
@@ -119,6 +184,7 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
 
   const getNewGame = useCallback(async () => {
     setLoadingGame(true)
+    setPuzzleError(null)
     let game
     try {
       const prefetched = nextPuzzle.current
@@ -127,7 +193,9 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
         ? prefetched.catch(() => fetchPuzzle())
         : fetchPuzzle())
     } catch (e) {
-      router.push('/401')
+      console.error('Could not load a puzzle:', e)
+      setPuzzleError(e instanceof PuzzleUnavailableError ? e.reason : 'error')
+      setLoadingGame(false)
       return
     }
 
@@ -142,7 +210,7 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
     setTrainingGames(trainingGames.concat([game]))
     setPreviousGameResults(previousGameResults.concat([{ ...game }]))
     setLoadingGame(false)
-  }, [trainingGames, previousGameResults, router, stats?.rating])
+  }, [trainingGames, previousGameResults, stats?.rating])
 
   const logGuess = useCallback(
     async (
@@ -264,16 +332,36 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
     [currentIndex, trainingGames.length, userGuesses, incrementStats],
   )
 
+  // The first puzzle. After a failure, only the page's "Try again" asks
+  // again, or this would ask over and over.
   useEffect(() => {
-    if (trainingGames.length === 0 && !loadingGame) getNewGame()
-  }, [getNewGame, trainingGames.length, loadingGame])
+    if (trainingGames.length === 0 && !loadingGame && !puzzleError) getNewGame()
+  }, [getNewGame, trainingGames.length, loadingGame, puzzleError])
 
+  const showingError = !loadingGame && puzzleError !== null
   const puzzleShown =
-    !loadingGame && trainingGames.length > 0 && !!trainingGames[currentIndex]
-  // TrainPage renders only in the browser (it waits for the session).
+    !loadingGame &&
+    !showingError &&
+    trainingGames.length > 0 &&
+    !!trainingGames[currentIndex]
+  // TrainPage renders only in the browser (it waits for the session). The
+  // loading shell goes once there is something to show: a puzzle, or why
+  // there isn't one.
   useLayoutEffect(() => {
-    onPuzzleShown(puzzleShown)
-  }, [puzzleShown, onPuzzleShown])
+    onPuzzleShown(puzzleShown || showingError)
+  }, [puzzleShown, showingError, onPuzzleShown])
+
+  if (showingError && puzzleError) {
+    return (
+      <PuzzleUnavailable
+        reason={puzzleError}
+        onRetry={getNewGame}
+        onBack={
+          trainingGames.length > 0 ? () => setPuzzleError(null) : undefined
+        }
+      />
+    )
+  }
 
   if (loadingGame || trainingGames.length === 0) {
     return null
