@@ -283,6 +283,76 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     [gameTree, controller.setCurrentNode],
   )
 
+  // The player's last move, and Maia's reply to it if there is one, so
+  // that it is the player's turn again (practice games). The clocks keep
+  // their times: the side whose clock was running is charged up to now, and
+  // the player's clock runs from here.
+  const playerMovesPlayed = useMemo(() => {
+    const mainLine = gameTree.getMainLine()
+    const playerTurn = config.player === 'white' ? 'w' : 'b'
+    // A node's mover is the side not to move in it.
+    return mainLine.slice(1).filter((node) => node.turn !== playerTurn).length
+  }, [gameTree, treeVersion, config.player])
+  const canTakeBack =
+    !!config.practice && !game.termination && playerMovesPlayed > 0
+
+  // Charges the running clock (the side to move's) with the time since the
+  // last move, without increment, and restarts the count from now, so a
+  // clock change mid-move keeps the running time.
+  const chargeRunningClock = useCallback(() => {
+    if (moveList.length < 2 || lastMoveTime <= 0 || !toPlay) return
+    const elapsed = Date.now() - lastMoveTime
+    if (toPlay === 'white') {
+      setWhiteClock((clock) => Math.max(clock - elapsed, 0))
+    } else {
+      setBlackClock((clock) => Math.max(clock - elapsed, 0))
+    }
+    setLastMoveTime(Date.now())
+  }, [moveList.length, lastMoveTime, toPlay])
+
+  const takeBack = useCallback(() => {
+    if (!canTakeBack) return
+
+    const tip = gameTree.getLastMainlineNode()
+    const plies = playerActive ? 2 : 1
+    let target = tip
+    for (let i = 0; i < plies && target.parent; i++) {
+      target = target.parent
+    }
+
+    chargeRunningClock()
+    // Clocks only run from the second move on: back before it, they wait
+    // to start again.
+    if (moveList.length - plies < 2) setLastMoveTime(0)
+
+    target.removeAllChildren()
+    setTreeVersion((prev) => prev + 1)
+    controller.setCurrentNode(target)
+  }, [
+    canTakeBack,
+    gameTree,
+    playerActive,
+    moveList.length,
+    chargeRunningClock,
+    controller.setCurrentNode,
+  ])
+
+  // Extra time on the player's clock, on request (practice games).
+  const canAddTime =
+    !!config.practice && !game.termination && config.timeControl != 'unlimited'
+  const addTime = useCallback(
+    (ms: number) => {
+      if (!canAddTime) return
+      chargeRunningClock()
+      if (config.player === 'white') {
+        setWhiteClock((clock) => clock + ms)
+      } else {
+        setBlackClock((clock) => clock + ms)
+      }
+    },
+    [canAddTime, config.player, chargeRunningClock],
+  )
+
   const reset = () => {
     const newTree = new GameTree(config.startFen || nullFen)
     setGameTree(newTree)
@@ -350,6 +420,11 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     addMoveWithTime,
     setResigned,
     reset,
+    practice: !!config.practice,
+    canTakeBack,
+    takeBack,
+    canAddTime,
+    addTime,
     makePlayerMove,
     updateClock,
     updateClockForColor,

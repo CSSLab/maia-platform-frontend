@@ -13,6 +13,9 @@ import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 
+// What "More time" adds to the player's clock in a practice game.
+const PRACTICE_EXTRA_TIME_MS = 15_000
+
 interface Props {
   id: string
   playGameConfig: PlayGameConfig
@@ -106,6 +109,13 @@ const PlayMaia: React.FC<Props> = ({
             returnToLabel={returnToLabel}
             simulateMaiaTime={simulateMaiaTime}
             setSimulateMaiaTime={setSimulateMaiaTime}
+            practice={controller.practice}
+            takeBack={controller.canTakeBack ? controller.takeBack : undefined}
+            addTime={
+              controller.canAddTime
+                ? () => controller.addTime(PRACTICE_EXTRA_TIME_MS)
+                : undefined
+            }
           />
         </div>
       </GameplayInterface>
@@ -137,6 +147,7 @@ const PlayMaiaPage: NextPage = () => {
     sampleMoves,
     simulateMaiaTime: simulateMaiaTimeQuery,
     startFen,
+    practice,
     returnTo,
     challengeId,
     forcedColor,
@@ -167,9 +178,11 @@ const PlayMaiaPage: NextPage = () => {
       sampleMoves: sampleMoves == 'true',
       simulateMaiaTime: simulateMaiaTime,
       startFen: typeof startFen == 'string' ? startFen : undefined,
+      practice: practice === 'true',
     }),
     [
       startFen,
+      practice,
       isBrain,
       maiaVersion,
       player,

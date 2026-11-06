@@ -87,6 +87,7 @@ export interface PlaySetupModalProps {
   isBrain?: boolean
   sampleMoves?: boolean
   simulateMaiaTime?: boolean
+  practice?: boolean
   startFen?: string
   returnTo?: string
   challengeId?: string
@@ -163,6 +164,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
     props.simulateMaiaTime !== undefined ? props.simulateMaiaTime : true,
   )
+  const [practice, setPractice] = useState<boolean>(props.practice ?? false)
 
   const [maiaPartnerVersion, setMaiaPartnerVersion] = useState<string>(
     props.maiaPartnerVersion || maiaOptions[0],
@@ -258,6 +260,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
             sampleMoves: sampleMoves,
             simulateMaiaTime: simulateMaiaTime,
             startFen: fen,
+            practice: practice,
             returnTo: props.returnTo,
             challengeId: props.challengeId,
             forcedColor: forcedPlayerColor,
@@ -290,6 +293,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       timeControl,
       sampleMoves,
       simulateMaiaTime,
+      practice,
       fen,
       forcedPlayerColor,
       isBrain,
@@ -552,6 +556,27 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   </div>
                 </div>
               </div>
+
+              {props.playType === 'againstMaia' && (
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="practiceMode"
+                    checked={practice}
+                    onChange={() => setPractice(!practice)}
+                    className="mt-0.5 accent-human-4"
+                  />
+                  <label
+                    htmlFor="practiceMode"
+                    className="text-sm text-primary"
+                  >
+                    Practice mode{' '}
+                    <span className="text-xs text-secondary">
+                      (unrated, with takebacks and extra time)
+                    </span>
+                  </label>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <input
