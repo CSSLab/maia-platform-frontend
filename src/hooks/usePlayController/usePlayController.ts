@@ -6,6 +6,7 @@ import { useTreeController } from '../useTreeController'
 import { usePlayGameTracking } from './usePlayGameTracking'
 import { useMemo, useState, useCallback, useEffect } from 'react'
 import { initialClockSeconds } from 'src/lib/timeControl'
+import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 const nullFen = new Chess().fen()
 
@@ -54,12 +55,25 @@ const computeTimeTermination = (
   }
 }
 
-export const usePlayController = (id: string, config: PlayGameConfig) => {
-  const [gameTree, setGameTree] = useState<GameTree>(
-    () => new GameTree(config.startFen || nullFen),
-  )
+export const usePlayController = (
+  id: string,
+  config: PlayGameConfig,
+  // A game continued from where it was left (src/lib/unfinishedGame.ts).
+  resume?: UnfinishedGame,
+) => {
+  const [gameTree, setGameTree] = useState<GameTree>(() => {
+    const tree = new GameTree(config.startFen || nullFen)
+    if (resume) tree.addMovesToMainLine(resume.moves, resume.moveTimes)
+    return tree
+  })
 
   const controller = useTreeController(gameTree, config.player)
+
+  // A continued game opens on its last position (the tree controller starts
+  // at the root).
+  useEffect(() => {
+    if (resume) controller.setCurrentNode(gameTree.getLastMainlineNode())
+  }, [])
 
   const [treeVersion, setTreeVersion] = useState<number>(0)
   const [resigned, setResigned] = useState<boolean>(false)
@@ -72,9 +86,17 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
   // "0+N" starts at 3 seconds (see initialClockSeconds).
   const initialClockValue = initialClockSeconds(config.timeControl) * 1000
 
-  const [whiteClock, setWhiteClock] = useState<number>(initialClockValue)
-  const [blackClock, setBlackClock] = useState<number>(initialClockValue)
-  const [lastMoveTime, setLastMoveTime] = useState<number>(0)
+  // A continued game's clocks were paused while it was away: they run again
+  // from now.
+  const [whiteClock, setWhiteClock] = useState<number>(
+    resume?.whiteClock ?? initialClockValue,
+  )
+  const [blackClock, setBlackClock] = useState<number>(
+    resume?.blackClock ?? initialClockValue,
+  )
+  const [lastMoveTime, setLastMoveTime] = useState<number>(() =>
+    resume && resume.moves.length >= 2 ? Date.now() : 0,
+  )
 
   const moveList = useMemo(
     () => gameTree.toMoveArray(),

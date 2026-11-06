@@ -94,3 +94,24 @@ describe('usePlayController extra time (practice games)', () => {
     expect(result.current.canAddTime).toBe(false)
   })
 })
+
+describe('usePlayController continuing a game', () => {
+  it('starts from the saved moves and clocks', () => {
+    const { result } = renderHook(() =>
+      usePlayController('game', config({ practice: true }), {
+        id: 'game',
+        config: config({ practice: true }),
+        moves: ['e2e4', 'e7e5', 'g1f3'],
+        moveTimes: [0, 0, 1200],
+        whiteClock: 200_000,
+        blackClock: 250_000,
+        savedAt: Date.now(),
+      }),
+    )
+    expect(result.current.moveList).toEqual(['e2e4', 'e7e5', 'g1f3'])
+    expect(result.current.currentNode.move).toBe('g1f3')
+    expect(result.current.whiteClock).toBe(200_000)
+    expect(result.current.blackClock).toBe(250_000)
+    expect(result.current.playerActive).toBe(false)
+  })
+})
