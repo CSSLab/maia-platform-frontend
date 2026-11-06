@@ -22,6 +22,7 @@ export const fetchWorldChampionshipGameList = async (): Promise<
   Map<string, WorldChampionshipGameListEntry[]>
 > => {
   const res = await fetch(buildUrl('analysis/list'))
+  if (!res.ok) throw new Error(`Game list request failed (HTTP ${res.status})`)
   const data = await res.json()
 
   return data
