@@ -1,7 +1,65 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { PlayedGame } from 'src/types'
-import { ConfirmModal, ResignationConfirmModal } from 'src/components'
+import { ResignationConfirmModal } from 'src/components'
+
+type PracticeAction = 'takeBack' | 'addTime'
+
+// How long a practice button waits for its confirming tap.
+const CONFIRM_TIMEOUT_MS = 4000
+
+/**
+ * A practice action's button. The first tap turns it into a confirm button
+ * (until it's tapped again, the focus leaves it, or the wait runs out); the
+ * second tap does the action.
+ */
+const PracticeButton: React.FC<{
+  action: PracticeAction
+  confirming: PracticeAction | null
+  setConfirming: (action: PracticeAction | null) => void
+  onConfirm?: () => void
+  icon: string
+  label: string
+  confirmLabel: string
+  title: string
+}> = ({
+  action,
+  confirming,
+  setConfirming,
+  onConfirm,
+  icon,
+  label,
+  confirmLabel,
+  title,
+}) => {
+  const isConfirming = confirming === action && !!onConfirm
+  return (
+    <button
+      onClick={() => {
+        if (!onConfirm) return
+        if (isConfirming) {
+          setConfirming(null)
+          onConfirm()
+        } else {
+          setConfirming(action)
+        }
+      }}
+      onBlur={() => {
+        if (isConfirming) setConfirming(null)
+      }}
+      disabled={!onConfirm}
+      title={title}
+      className={`flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
+        isConfirming
+          ? 'border-human-4 bg-human-4 text-white hover:bg-human-4/90'
+          : 'border-glass-border bg-glass text-white/90 hover:bg-glass-stronger'
+      }`}
+    >
+      <span className="material-symbols-outlined !text-sm">{icon}</span>
+      {isConfirming ? confirmLabel : label}
+    </button>
+  )
+}
 
 interface Props {
   game: PlayedGame
@@ -37,10 +95,14 @@ export const PlayControls: React.FC<Props> = ({
   addTime,
 }: Props) => {
   const [showResignConfirm, setShowResignConfirm] = useState(false)
-  // Practice actions ask first, so a stray tap doesn't undo a move.
-  const [confirming, setConfirming] = useState<'takeBack' | 'addTime' | null>(
-    null,
-  )
+  // Practice actions ask first, so a stray tap doesn't undo a move: the
+  // first tap turns the button into a confirm button, the second acts.
+  const [confirming, setConfirming] = useState<PracticeAction | null>(null)
+  useEffect(() => {
+    if (!confirming) return
+    const timeout = setTimeout(() => setConfirming(null), CONFIRM_TIMEOUT_MS)
+    return () => clearTimeout(timeout)
+  }, [confirming])
 
   const handleResignClick = () => {
     setShowResignConfirm(true)
@@ -104,28 +166,27 @@ export const PlayControls: React.FC<Props> = ({
             <div className="px-4 pb-1">
               {/* Stacked: the side panel can be narrow. */}
               <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setConfirming('takeBack')}
-                  disabled={!takeBack}
+                <PracticeButton
+                  action="takeBack"
+                  confirming={confirming}
+                  setConfirming={setConfirming}
+                  onConfirm={takeBack}
+                  icon="undo"
+                  label="Takeback"
+                  confirmLabel="Confirm takeback"
                   title="Take back your last move"
-                  className="flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-md border border-glass-border bg-glass px-3 py-1.5 text-xs font-medium text-white/90 transition-colors duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <span className="material-symbols-outlined !text-sm">
-                    undo
-                  </span>
-                  Takeback
-                </button>
+                />
                 {addTime && (
-                  <button
-                    onClick={() => setConfirming('addTime')}
+                  <PracticeButton
+                    action="addTime"
+                    confirming={confirming}
+                    setConfirming={setConfirming}
+                    onConfirm={addTime}
+                    icon="more_time"
+                    label="+15s"
+                    confirmLabel="Confirm +15s"
                     title="Add 15 seconds to your clock"
-                    className="flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-md border border-glass-border bg-glass px-3 py-1.5 text-xs font-medium text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
-                  >
-                    <span className="material-symbols-outlined !text-sm">
-                      more_time
-                    </span>
-                    +15s
-                  </button>
+                  />
                 )}
               </div>
             </div>
@@ -197,22 +258,6 @@ export const PlayControls: React.FC<Props> = ({
         </>
       )}
 
-      <ConfirmModal
-        isOpen={confirming === 'takeBack' && !!takeBack}
-        onClose={() => setConfirming(null)}
-        onConfirm={() => takeBack?.()}
-        title="Take back your move?"
-        message="Your last move is undone, and Maia's reply to it if Maia has already moved."
-        confirmLabel="Take back"
-      />
-      <ConfirmModal
-        isOpen={confirming === 'addTime' && !!addTime}
-        onClose={() => setConfirming(null)}
-        onConfirm={() => addTime?.()}
-        title="Add more time?"
-        message="15 seconds are added to your clock."
-        confirmLabel="Add 15 seconds"
-      />
       <ResignationConfirmModal
         isOpen={showResignConfirm}
         onClose={() => setShowResignConfirm(false)}
