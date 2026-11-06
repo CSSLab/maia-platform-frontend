@@ -26,6 +26,8 @@ export interface PlayGameConfig {
   simulateMaiaTime?: boolean
   startFen?: string
   maiaPartnerVersion?: string
+  // Practice game: unrated, with takebacks and extra time on request.
+  practice?: boolean
 }
 
 export interface PlayedGame extends BaseGame {

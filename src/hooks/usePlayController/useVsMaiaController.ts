@@ -31,6 +31,11 @@ const playStatsLoader = async () => {
 
 const PREMOVE_SOUND_DELAY_MS = 120
 
+// The backend updates ratings only for games sent without a starting
+// position, so a practice game from the usual start sends it explicitly to
+// stay unrated. (Its win, draw or loss still counts in the player's stats.)
+const STANDARD_START_FEN = new Chess().fen()
+
 export const useVsMaiaPlayController = (
   id: string,
   playGameConfig: PlayGameConfig,
@@ -259,7 +264,8 @@ export const useVsMaiaPlayController = (
             controller.moveTimes,
             gameOverState,
             'play',
-            playGameConfig.startFen || undefined,
+            playGameConfig.startFen ||
+              (playGameConfig.practice ? STANDARD_START_FEN : undefined),
             winner,
           ),
         {
@@ -269,7 +275,9 @@ export const useVsMaiaPlayController = (
 
       if (controller.game.termination) {
         const winner = controller.game.termination?.winner
-        safeUpdateRating(response.player_elo, updateRating)
+        if (!playGameConfig.practice) {
+          safeUpdateRating(response.player_elo, updateRating)
+        }
         incrementStats(1, winner == playGameConfig.player ? 1 : 0)
       }
     }
@@ -280,13 +288,20 @@ export const useVsMaiaPlayController = (
     controller.game.termination,
     controller.moveTimes,
     playGameConfig.startFen,
+    playGameConfig.practice,
     incrementStats,
     updateRating,
     playGameConfig.player,
   ])
 
+  const takeBack = useCallback(() => {
+    clearPremove()
+    controller.takeBack()
+  }, [clearPremove, controller.takeBack])
+
   return {
     ...controller,
+    takeBack,
     makePlayerMove,
     premovesEnabled: true,
     queuedPremove,

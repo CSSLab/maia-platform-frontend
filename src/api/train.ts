@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { buildUrl } from './utils'
+import { fetchAsGuest } from './guest'
 import { MoveValueMapping, GameTree } from 'src/types'
 import { AvailableMoves, PuzzleGame } from 'src/types/puzzle'
 
@@ -18,7 +19,7 @@ export const fetchPuzzleData = async () => {
     const data = await early.catch(() => null)
     if (data) return data
   }
-  const res = await fetch(buildUrl('puzzle/new_puzzle'))
+  const res = await fetchAsGuest(buildUrl('puzzle/new_puzzle'))
   return res.json()
 }
 
