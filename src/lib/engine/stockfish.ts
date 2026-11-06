@@ -134,7 +134,11 @@ class Engine {
       .catch((error) => {
         console.error('Failed to initialize Stockfish:', error)
         this.initErrorDetail =
-          error instanceof Error ? error.message : String(error)
+          error instanceof StartupError
+            ? error.detail
+            : error instanceof Error
+              ? error.message
+              : String(error)
         this.initError =
           error instanceof StockfishFileError
             ? NNUE_DOWNLOAD_FAILED_MESSAGE
@@ -2125,6 +2129,25 @@ const setNnueBuffer = (
 /** Stockfish's script or its net could not be fetched. */
 class StockfishFileError extends Error {}
 
+/** The engine failed to start; `detail` adds what it reported, for analytics. */
+class StartupError extends Error {
+  constructor(
+    message: string,
+    readonly detail: string,
+  ) {
+    super(message)
+  }
+}
+
+export const withStartupLog = (error: unknown, log: string[]): StartupError => {
+  const message = error instanceof Error ? error.message : String(error)
+  const reported = log.filter((line) => !message.includes(line))
+  return new StartupError(
+    message,
+    reported.length ? `${message} [${reported.join(' | ')}]` : message,
+  )
+}
+
 /**
  * Stockfish 19 with its single 1.2 MB net (@lichess-org/stockfish-web's
  * smallnet build). Stockfish 17's nets were 78 MB, which took minutes to
@@ -2152,14 +2175,26 @@ const setupStockfish = async (
     throw new StockfishFileError(String(error))
   })
   const wasmMemory = await reserveWasmMemory(STOCKFISH_INITIAL_MEMORY_PAGES)
-  const instance: StockfishWeb = await withTimeout(
+  // The engine's own reports of why it failed to start, such as why its
+  // wasm couldn't be fetched: its error says only "both async and sync
+  // fetching of the wasm failed". Its stderr goes to `onError`, which the
+  // engine takes over once started.
+  const startupLog: string[] = []
+  const instance: StockfishWeb = await withTimeout<StockfishWeb>(
     makeModule.default({
       wasmMemory,
       locateFile: (name: string) => `${STOCKFISH_BASE}/${name}`,
+      onError: (message: string) => {
+        console.error(message)
+        startupLog.push(String(message))
+        if (startupLog.length > 5) startupLog.shift()
+      },
     }),
     moduleInitTimeoutMs,
     `Stockfish module initialization timed out after ${moduleInitTimeoutMs}ms`,
-  )
+  ).catch((error) => {
+    throw withStartupLog(error, startupLog)
+  })
 
   onPhaseChange?.('loading-nnue')
   const net = instance.getRecommendedNnue(0)
