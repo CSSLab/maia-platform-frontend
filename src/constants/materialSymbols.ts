@@ -32,6 +32,7 @@ export const MATERIAL_SYMBOLS = [
   'close',
   'cloud_done',
   'content_copy',
+  'database',
   'delete',
   'download',
   'downloading',

@@ -17,6 +17,7 @@ import {
 import type { ComponentProps, CSSProperties, ReactNode } from 'react'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
 import type { MaiaEvaluation, StockfishEvaluation } from 'src/types'
+import type { TablebaseResult } from 'src/lib/tablebase'
 import { WindowSizeContext } from 'src/contexts'
 
 // Tailwind's xl breakpoint, where the sidebar switches layouts.
@@ -36,6 +37,8 @@ interface Props {
   containerStyle?: CSSProperties
   footerContent?: ReactNode
   desktopContentHeightCss?: string
+  /** The tablebase's result for the current position (see useTablebase). */
+  tablebase?: TablebaseResult | null
   itemVariants?: {
     hidden: {
       opacity: number
@@ -72,6 +75,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
   containerStyle,
   footerContent,
   desktopContentHeightCss = '85vh',
+  tablebase = null,
   itemVariants,
 }) => {
   // The sidebar has a layout for xl screens and one below, and CSS shows
@@ -143,6 +147,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
     // from "Analyze entire game", which runs it anyway).
     stockfishOff:
       !controller.stockfishEnabled && !highlightMoveEvaluation?.stockfish,
+    tablebase: analysisEnabled ? tablebase : null,
   }
 
   const simplifiedBlunderMeterProps: ComponentProps<
