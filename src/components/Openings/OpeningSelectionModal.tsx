@@ -3156,7 +3156,14 @@ export const OpeningSelectionModal: React.FC<Props> = ({
         : (mobilePopupOpening?.fen ?? DEFAULT_START_FEN)
 
   return (
-    <ModalContainer className="!z-10" dismiss={onClose}>
+    // Setting up drills takes a while (pasting positions from another
+    // window, choosing colours and ratings), so a click outside the modal
+    // mustn't throw that away; it closes with its close button.
+    <ModalContainer
+      className="!z-10"
+      dismiss={onClose}
+      dismissOnBackdrop={false}
+    >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

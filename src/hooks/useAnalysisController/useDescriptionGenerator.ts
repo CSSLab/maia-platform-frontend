@@ -89,7 +89,9 @@ const TEMPT_NOUN = ['alternatives', 'ways to go wrong'] as const
 /* —— constants —— */
 const EPS = 0.08
 const BLUNDER_GAP = 0.1
-const BL_PROB = 0.5 // aggregate–probability threshold for blunders
+// Mean probability across rating levels above which a move counts as a
+// likely blunder (was a sum of 0.5 over the original 9 Maia levels).
+const BL_PROB = 0.5 / 9
 
 /* —— maths —— */
 const winRate = (p: number): number => 1 / (1 + Math.exp(-(p - 1) / 0.8))
@@ -203,7 +205,11 @@ export function describePosition(
   const aggProb: Record<string, number> = {}
   const temptCnt: Record<string, number> = {}
 
-  for (let lvl = 0; lvl < 9; lvl += 1) {
+  // Look at every rating level Maia gave probabilities for (600–2600 for
+  // Maia-3), not just the first nine.
+  const nLevels = Math.max(1, ...Object.values(maia).map((p) => p.length))
+
+  for (let lvl = 0; lvl < nLevels; lvl += 1) {
     const probs = moves
       .map((m) => [maia[m]?.[lvl] ?? 0, m] as [number, string])
       .sort((a, b) => b[0] - a[0])
@@ -234,7 +240,10 @@ export function describePosition(
   }
 
   /* —— tiers & phrasing —— */
-  const tier = (k: number): 0 | 1 | 2 => (k <= 2 ? 0 : k <= 6 ? 1 : 2)
+  // Same cut-offs as the original 9 levels (≤2/9 hard, ≤6/9 skilled), as
+  // fractions of however many levels there are.
+  const tier = (k: number): 0 | 1 | 2 =>
+    k / nLevels <= 2 / 9 ? 0 : k / nLevels <= 6 / 9 ? 1 : 2
   const setT = tier(setLv)
   const optT = tier(optLv)
   const bestHarder = optT < setT && !optCloseSecond
@@ -272,11 +281,15 @@ export function describePosition(
     .slice(0, 4)
 
   let blunderMove: string | null = null
-  if (topNonGood && isBlunder(topNonGood) && topNonGoodProb > BL_PROB) {
+  if (
+    topNonGood &&
+    isBlunder(topNonGood) &&
+    topNonGoodProb / nLevels > BL_PROB
+  ) {
     blunderMove = topNonGood
   } else {
     for (const [m, p] of top4) {
-      if (p > BL_PROB && isBlunder(m)) {
+      if (p / nLevels > BL_PROB && isBlunder(m)) {
         blunderMove = m
         break
       }
@@ -317,7 +330,8 @@ export function describePosition(
   }
 
   const alwaysWarn = setT < 2 && maxTopProbNonOpt > 0.1
-  const showTempt = !blunderMove && (alwaysWarn || (setT === 2 && temptLv > 4))
+  const showTempt =
+    !blunderMove && (alwaysWarn || (setT === 2 && temptLv / nLevels > 4 / 9))
 
   if (showTempt) {
     let temptUci =

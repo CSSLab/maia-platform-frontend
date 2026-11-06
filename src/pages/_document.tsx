@@ -41,6 +41,12 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
+        {/* The site is already dark. Saying so stops browsers' automatic
+            dark modes (Chrome on Android, Samsung Internet) and the Dark
+            Reader extension from inverting it, which turned Black's pieces
+            white. */}
+        <meta name="color-scheme" content="dark" />
+        <meta name="darkreader-lock" />
         <script dangerouslySetInnerHTML={{ __html: EARLY_REQUESTS }} />
       </Head>
       <body>

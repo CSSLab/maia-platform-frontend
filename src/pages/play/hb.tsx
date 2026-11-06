@@ -115,9 +115,11 @@ const PlayHandBrainPage: NextPage = () => {
     ],
   )
 
+  // Start the next game's setup from this game's settings (partner,
+  // opponent, role, time control), as "Play again" does against Maia.
   const playAgain = useCallback(() => {
-    setPlaySetupModalProps({ playType: 'handAndBrain' })
-  }, [setPlaySetupModalProps])
+    setPlaySetupModalProps({ ...playGameConfig })
+  }, [setPlaySetupModalProps, playGameConfig])
 
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
