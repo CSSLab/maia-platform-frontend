@@ -31,7 +31,7 @@ const wasDismissed = () => {
 /**
  * Asks for the Maia model, or fetches it (see maiaDownloadPrompt). One group
  * gets the prompt that blocks the page. In the other, desktops download without
- * asking, and phones get the same prompt but can say "Not now"; the page stays
+ * asking, and phones get the same prompt but can say "Continue without Maia"; the page stays
  * usable during the download, with a small card showing how it's going.
  */
 export const MaiaDownloadPrompt: React.FC<Props> = ({

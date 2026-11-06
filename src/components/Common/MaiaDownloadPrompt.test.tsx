@@ -55,7 +55,7 @@ describe('MaiaDownloadPrompt', () => {
     expect(screen.getByTestId('download-modal')).toBeInTheDocument()
     expect(screen.getByText('Return Home')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Not now' }),
+      screen.queryByRole('button', { name: 'Continue without Maia' }),
     ).not.toBeInTheDocument()
     expect(startMaiaDownload).not.toHaveBeenCalled()
   })
@@ -68,7 +68,7 @@ describe('MaiaDownloadPrompt', () => {
     expect(screen.queryByTestId('download-modal')).not.toBeInTheDocument()
   })
 
-  it('asks on a phone, with the large prompt and "Not now"', async () => {
+  it('asks on a phone, with the large prompt and "Continue without Maia"', async () => {
     setup('no-cache', { withoutAsking: false })
     await act(async () => undefined)
     expect(startMaiaDownload).not.toHaveBeenCalled()
@@ -81,10 +81,12 @@ describe('MaiaDownloadPrompt', () => {
     expect(startMaiaDownload).toHaveBeenCalledWith(expect.any(Function), 'tap')
   })
 
-  it('stays away after "Not now" until the session ends', async () => {
+  it('stays away after "Continue without Maia" until the session ends', async () => {
     setup('no-cache', { withoutAsking: false })
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Not now' }))
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Continue without Maia' }),
+      )
     })
     expect(trackDownloadModelDismissed).toHaveBeenCalledTimes(1)
     // It fades out first.

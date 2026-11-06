@@ -1560,6 +1560,13 @@ GROUP BY grp, device ORDER BY device, grp
 Not tested: a real phone, whether browsers grant the request to keep the model (the test
 browser refused it), and starting a drill on a phone.
 
+### Round 13c: "Continue without Maia"
+
+After 12 hours, phones in the `no_wall` group got Maia-3 less often than with the full-page
+prompt (11 of 31 against 17 of 28; 16 of 31 chose "Not now"). Too few to call, but "Not
+now" makes skipping sound free. From 2026-11-06 it reads "Continue without Maia", which says
+what is given up. Compare phones from that time on separately from the hours before it.
+
 ### Round 13b: Safari not saving the model
 
 In the first 12 hours of round 13, 6 of 25 Safari downloads (iPhone 4 of 16, Mac 2 of 9)
