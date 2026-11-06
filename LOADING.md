@@ -1560,6 +1560,25 @@ GROUP BY grp, device ORDER BY device, grp
 Not tested: a real phone, whether browsers grant the request to keep the model (the test
 browser refused it), and starting a drill on a phone.
 
+### Round 13b: Safari not saving the model
+
+In the first 12 hours of round 13, 6 of 25 Safari downloads (iPhone 4 of 16, Mac 2 of 9)
+finished but weren't saved, so those visitors need it again next time. No other browser
+failed (0 of 83). The reported error was `null`: a failed save request aborts the
+transaction, whose own error is then empty. WebKit has long-standing reports of refusing
+large Blobs in IndexedDB, notably in private tabs ([268037](https://bugs.webkit.org/show_bug.cgi?id=268037),
+[188438](https://bugs.webkit.org/show_bug.cgi?id=188438)), so that is the likely cause,
+though WebKit doesn't run on ada to check.
+
+The worker now keeps the request's error, and if the Blob is refused, saves the same bytes
+as an ArrayBuffer, which loads the same way. In Chromium with the Blob refused on purpose,
+the model saved as bytes and a reload used it without asking; with both refused, the event
+gave both errors and the storage quota.
+
+New: `maia_model_stored_as_bytes` (`blob_error`), and `maia_model_store_failed` now has a
+real `message` plus `quota_mb` and `usage_mb`. Safari also refused to keep the model for 49
+of 55 iPhones (`maia_model_protected`), against 20 of 58 Android phones.
+
 ## What changed
 
 | commit                    | change                                                                                                                                                                                                                                                                                                                        | effect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |

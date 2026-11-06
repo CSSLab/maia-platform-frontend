@@ -28,7 +28,12 @@ interface MaiaOptions {
   setProgress: (progress: number) => void
   setError: (error: string) => void
   /** Downloaded, but the browser wouldn't save it. */
-  onStoreFailed?: (message: string) => void
+  onStoreFailed?: (
+    message: string,
+    storage: { quota_mb?: number; usage_mb?: number },
+  ) => void
+  /** Saved as plain bytes, because the browser refused it as a Blob. */
+  onStoredAsBytes?: (message: string) => void
 }
 
 interface PendingInference {
@@ -133,7 +138,11 @@ class Maia {
         }
 
         case 'store-failed':
-          this.options.onStoreFailed?.(msg.message)
+          this.options.onStoreFailed?.(msg.message, msg.storage ?? {})
+          break
+
+        case 'stored-as-bytes':
+          this.options.onStoredAsBytes?.(msg.message)
           break
 
         case 'error': {
