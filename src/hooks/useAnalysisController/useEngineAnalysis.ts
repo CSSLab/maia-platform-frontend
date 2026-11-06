@@ -42,6 +42,10 @@ export const useEngineAnalysis = (
   setAnalysisState: React.Dispatch<React.SetStateAction<number>>,
   targetDepth = 18,
   enabled = true,
+  // false: Maia only. Stockfish isn't run (the analysis settings' "Off").
+  stockfishEnabled = true,
+  // false while full-game analysis moves through the game by itself.
+  isLiveAnalysis = true,
 ) => {
   const maia = useContext(MaiaEngineContext)
   const stockfish = useContext(StockfishEngineContext)
@@ -84,10 +88,10 @@ export const useEngineAnalysis = (
 
   // Timed before the engine effects below, for the position they start on.
   useEffect(() => {
-    // Full-game analysis moves through the game by itself, at other depths.
-    if (!currentNode || !enabled || targetDepth !== 18) return
+    // Full-game analysis moves through the game by itself.
+    if (!currentNode || !enabled || !isLiveAnalysis) return
     analysisPositionShown(currentNode.fen)
-  }, [currentNode, enabled, targetDepth])
+  }, [currentNode, enabled, isLiveAnalysis])
 
   async function inferenceMaiaModel(
     board: Chess,
@@ -283,7 +287,7 @@ export const useEngineAnalysis = (
   ])
 
   useEffect(() => {
-    if (!currentNode || !enabled) return
+    if (!currentNode || !enabled || !stockfishEnabled) return
 
     const shouldForceStockfishRerun =
       stockfishDebugRerunToken > lastConsumedStockfishRerunTokenRef.current
@@ -426,5 +430,6 @@ export const useEngineAnalysis = (
     stockfishDebugRerunToken,
     currentNode?.mainChild?.move,
     enabled,
+    stockfishEnabled,
   ])
 }

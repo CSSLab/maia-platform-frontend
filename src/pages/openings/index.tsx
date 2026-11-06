@@ -23,6 +23,7 @@ import {
 } from 'src/contexts'
 import {
   DrillConfiguration,
+  OpeningSelection,
   AnalyzedGame,
   GameNode,
   MaiaEvaluation,
@@ -65,6 +66,7 @@ import {
 import { MAIA_MODELS } from 'src/constants/common'
 import { cpToWinrate } from 'src/lib/analysis'
 import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
+import { loadDrillQueue, saveDrillQueue } from 'src/lib/drillQueue'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
 import {
@@ -148,6 +150,16 @@ const OpeningsPage: NextPage = () => {
 
   const [drillConfiguration, setDrillConfiguration] =
     useState<DrillConfiguration | null>(null)
+
+  // Drills queued before a refresh. Read after the first render (the dialog
+  // is in the server's HTML), then the dialog is remounted with them.
+  const [restoredQueue, setRestoredQueue] = useState<OpeningSelection[] | null>(
+    null,
+  )
+  useEffect(() => {
+    const queue = loadDrillQueue()
+    if (queue.length) setRestoredQueue(queue)
+  }, [])
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
@@ -1137,7 +1149,10 @@ const OpeningsPage: NextPage = () => {
             ? 'Drill Complete'
             : controller.isPlayerTurn
               ? 'Your Turn'
-              : 'Waiting for Maia'}
+              : // Looking back at a position Maia already answered.
+                controller.currentNode?.mainChild
+                ? 'Viewing an Earlier Move'
+                : 'Waiting for Maia'}
         </p>
         {controller.drillEndReasonMessage && (
           <p className="mt-2 text-center text-xs font-medium text-human-4">
@@ -1183,14 +1198,18 @@ const OpeningsPage: NextPage = () => {
         />
         <AnimatePresence>
           <OpeningSelectionModal
+            key={restoredQueue ? 'restored-queue' : 'new-queue'}
             openings={openings}
             endgames={endgameOpenings}
             endgameDataset={endgameDataset}
             onLoadEndgames={loadEndgames}
-            initialSelections={drillConfiguration?.selections || []}
+            initialSelections={
+              drillConfiguration?.selections || restoredQueue || []
+            }
             initialCustomDraft={linkedCustomDraft}
             onComplete={handleCompleteSelection}
             onClose={handleCloseModal}
+            onSelectionsChange={saveDrillQueue}
           />
         </AnimatePresence>
       </>
@@ -1600,6 +1619,10 @@ const OpeningsPage: NextPage = () => {
                   setCurrentMaiaModel={analysisController.setCurrentMaiaModel}
                   showTopMoveBadges={analysisController.showTopMoveBadges}
                   setShowTopMoveBadges={analysisController.setShowTopMoveBadges}
+                  stockfishDepth={analysisController.stockfishDepth}
+                  setStockfishDepth={analysisController.setStockfishDepth}
+                  stockfishEnabled={analysisController.stockfishEnabled}
+                  setStockfishEnabled={analysisController.setStockfishEnabled}
                   launchContinue={() => {
                     launchContinue()
                   }}
@@ -1947,6 +1970,10 @@ const OpeningsPage: NextPage = () => {
                 setCurrentMaiaModel={analysisController.setCurrentMaiaModel}
                 showTopMoveBadges={analysisController.showTopMoveBadges}
                 setShowTopMoveBadges={analysisController.setShowTopMoveBadges}
+                stockfishDepth={analysisController.stockfishDepth}
+                setStockfishDepth={analysisController.setStockfishDepth}
+                stockfishEnabled={analysisController.stockfishEnabled}
+                setStockfishEnabled={analysisController.setStockfishEnabled}
                 launchContinue={launchContinue}
                 MAIA_MODELS={MAIA_MODELS}
                 game={analyzedGame}

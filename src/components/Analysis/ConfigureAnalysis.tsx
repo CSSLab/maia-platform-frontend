@@ -1,5 +1,10 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { AnalyzedGame } from 'src/types'
+import {
+  DEFAULT_LIVE_STOCKFISH_DEPTH,
+  MAX_LIVE_STOCKFISH_DEPTH,
+  MIN_LIVE_STOCKFISH_DEPTH,
+} from 'src/constants/analysis'
 
 import { ContinueAgainstMaia } from 'src/components'
 
@@ -8,6 +13,10 @@ interface Props {
   setCurrentMaiaModel: (model: string) => void
   showTopMoveBadges: boolean
   setShowTopMoveBadges: (show: boolean) => void
+  stockfishDepth?: number
+  setStockfishDepth?: (depth: number) => void
+  stockfishEnabled?: boolean
+  setStockfishEnabled?: (enabled: boolean) => void
   launchContinue: () => void
   MAIA_MODELS: string[]
   game: AnalyzedGame
@@ -28,6 +37,10 @@ export const ConfigureAnalysis: React.FC<Props> = ({
   setCurrentMaiaModel,
   showTopMoveBadges,
   setShowTopMoveBadges,
+  stockfishDepth,
+  setStockfishDepth,
+  stockfishEnabled,
+  setStockfishEnabled,
   launchContinue,
   MAIA_MODELS,
   game,
@@ -60,6 +73,14 @@ export const ConfigureAnalysis: React.FC<Props> = ({
           </span>
         </div>
       </div>
+      {setStockfishDepth && setStockfishEnabled && (
+        <StockfishSetting
+          depth={stockfishDepth ?? DEFAULT_LIVE_STOCKFISH_DEPTH}
+          setDepth={setStockfishDepth}
+          enabled={stockfishEnabled !== false}
+          setEnabled={setStockfishEnabled}
+        />
+      )}
       {onAnalyzeEntireGame && (
         <button
           onClick={onAnalyzeEntireGame}
@@ -160,6 +181,94 @@ export const ConfigureAnalysis: React.FC<Props> = ({
           >
             <span className="underline">Delete</span> this custom game
           </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const TOGGLE_TRACK_CLASS =
+  "peer h-5 w-9 rounded-full bg-white/10 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-white/20 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500/40 peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:after:bg-red-400"
+
+// How long the depth slider rests before Stockfish restarts at the new depth
+// (each depth while dragging would otherwise start a search).
+const DEPTH_COMMIT_DELAY_MS = 400
+
+/** Stockfish on or off (Maia only), and its depth while browsing a game. */
+const StockfishSetting: React.FC<{
+  depth: number
+  setDepth: (depth: number) => void
+  enabled: boolean
+  setEnabled: (enabled: boolean) => void
+}> = ({ depth, setDepth, enabled, setEnabled }) => {
+  const [shownDepth, setShownDepth] = useState(depth)
+  useEffect(() => setShownDepth(depth), [depth])
+  // setDepth changes on every render of the page (which re-renders as
+  // Stockfish streams), so it's read through a ref: as a dependency it would
+  // restart the delay each time and the new depth would never be saved.
+  const setDepthRef = useRef(setDepth)
+  setDepthRef.current = setDepth
+  useEffect(() => {
+    if (shownDepth === depth) return
+    const timeout = setTimeout(
+      () => setDepthRef.current(shownDepth),
+      DEPTH_COMMIT_DELAY_MS,
+    )
+    return () => clearTimeout(timeout)
+  }, [shownDepth, depth])
+
+  return (
+    <div className="flex w-full flex-col gap-1.5 rounded border border-glass-border bg-glass px-2.5 py-2">
+      <div className="flex w-full items-center justify-between">
+        <div className="flex flex-col">
+          <span className="text-xs text-white/90">Stockfish</span>
+          <span className="text-[11px] text-white/60">
+            {enabled ? 'Engine moves and evals' : 'Off: Maia only'}
+          </span>
+        </div>
+        <label
+          htmlFor="analysis-stockfish-toggle"
+          className="relative inline-flex cursor-pointer items-center"
+        >
+          <input
+            id="analysis-stockfish-toggle"
+            type="checkbox"
+            checked={enabled}
+            onChange={() => setEnabled(!enabled)}
+            className="peer sr-only"
+          />
+          <div className={TOGGLE_TRACK_CLASS}></div>
+          <span className="sr-only">Toggle Stockfish analysis</span>
+        </label>
+      </div>
+      {enabled && (
+        <div className="flex w-full flex-col gap-0.5">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="analysis-stockfish-depth"
+              className="text-[11px] text-white/70"
+            >
+              Depth
+            </label>
+            <span className="text-[11px] text-white/70">
+              {shownDepth}
+              {shownDepth === DEFAULT_LIVE_STOCKFISH_DEPTH
+                ? ' (default)'
+                : shownDepth > DEFAULT_LIVE_STOCKFISH_DEPTH
+                  ? ' (slower)'
+                  : ' (faster)'}
+            </span>
+          </div>
+          <input
+            id="analysis-stockfish-depth"
+            type="range"
+            min={MIN_LIVE_STOCKFISH_DEPTH}
+            max={MAX_LIVE_STOCKFISH_DEPTH}
+            step="1"
+            value={shownDepth}
+            onChange={(e) => setShownDepth(Number(e.target.value))}
+            className="w-full accent-human-4"
+          />
         </div>
       )}
     </div>

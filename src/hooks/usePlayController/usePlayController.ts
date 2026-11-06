@@ -5,6 +5,7 @@ import { Chess, Piece, SQUARES } from 'chess.ts'
 import { useTreeController } from '../useTreeController'
 import { usePlayGameTracking } from './usePlayGameTracking'
 import { useMemo, useState, useCallback, useEffect } from 'react'
+import { initialClockSeconds } from 'src/lib/timeControl'
 
 const nullFen = new Chess().fen()
 
@@ -64,11 +65,12 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
   const [resigned, setResigned] = useState<boolean>(false)
   const [timeExpired, setTimeExpired] = useState<Color | null>(null)
 
-  const [baseMinutes, incrementSeconds] =
+  const incrementSeconds =
     config.timeControl == 'unlimited'
-      ? [0, 0]
-      : config.timeControl.split('+').map(Number)
-  const initialClockValue = baseMinutes * 60 * 1000
+      ? 0
+      : Number(config.timeControl.split('+')[1]) || 0
+  // "0+N" starts at 3 seconds (see initialClockSeconds).
+  const initialClockValue = initialClockSeconds(config.timeControl) * 1000
 
   const [whiteClock, setWhiteClock] = useState<number>(initialClockValue)
   const [blackClock, setBlackClock] = useState<number>(initialClockValue)

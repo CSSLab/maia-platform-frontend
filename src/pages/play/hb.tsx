@@ -9,6 +9,7 @@ import { GameplayInterface } from 'src/components/Board'
 import { HandBrainPlayControls } from 'src/components/Play'
 import { ModalContext, useTour } from 'src/contexts'
 import { Color, PlayGameConfig, TimeControl } from 'src/types'
+import { normalizeTimeControl } from 'src/lib/timeControl'
 import { useHandBrainController } from 'src/hooks/usePlayController/useHandBrainController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 import { tourConfigs } from 'src/constants/tours'
@@ -97,7 +98,9 @@ const PlayHandBrainPage: NextPage = () => {
       player: (player || 'white') as Color,
       maiaPartnerVersion: (maiaPartnerVersion || 'maia_kdd_1100') as string,
       maiaVersion: (maiaVersion || 'maia_kdd_1100') as string,
-      timeControl: (timeControl || 'unlimited') as TimeControl,
+      timeControl: normalizeTimeControl(
+        typeof timeControl === 'string' ? timeControl : undefined,
+      ),
       isBrain: isBrain == 'true',
       sampleMoves: sampleMoves == 'true',
       simulateMaiaTime: simulateMaiaTime,

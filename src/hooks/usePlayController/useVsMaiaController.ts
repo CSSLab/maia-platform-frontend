@@ -7,6 +7,7 @@ import { usePlayController } from 'src/hooks/usePlayController'
 import { fetchGameMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
+import { initialClockSeconds } from 'src/lib/timeControl'
 
 const playStatsLoader = async () => {
   const stats = await fetchPlayPlayerStats()
@@ -90,9 +91,7 @@ export const useVsMaiaPlayController = (
           (controller.player == 'white'
             ? controller.blackClock
             : controller.whiteClock) / 1000
-        const initialClock = controller.timeControl.includes('+')
-          ? parseInt(controller.timeControl.split('+')[0]) * 60
-          : 0
+        const initialClock = initialClockSeconds(controller.timeControl)
 
         const maiaMoves = await backOff(
           () =>

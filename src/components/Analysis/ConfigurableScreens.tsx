@@ -15,6 +15,10 @@ interface Props {
   setCurrentMaiaModel: (model: string) => void
   showTopMoveBadges: boolean
   setShowTopMoveBadges: (show: boolean) => void
+  stockfishDepth?: number
+  setStockfishDepth?: (depth: number) => void
+  stockfishEnabled?: boolean
+  setStockfishEnabled?: (enabled: boolean) => void
   launchContinue: () => void
   MAIA_MODELS: string[]
   game: AnalyzedGame
@@ -53,6 +57,10 @@ export const ConfigurableScreens: React.FC<Props> = ({
   setCurrentMaiaModel,
   showTopMoveBadges,
   setShowTopMoveBadges,
+  stockfishDepth,
+  setStockfishDepth,
+  stockfishEnabled,
+  setStockfishEnabled,
   launchContinue,
   MAIA_MODELS,
   game,
@@ -133,6 +141,10 @@ export const ConfigurableScreens: React.FC<Props> = ({
             setCurrentMaiaModel={setCurrentMaiaModel}
             showTopMoveBadges={showTopMoveBadges}
             setShowTopMoveBadges={setShowTopMoveBadges}
+            stockfishDepth={stockfishDepth}
+            setStockfishDepth={setStockfishDepth}
+            stockfishEnabled={stockfishEnabled}
+            setStockfishEnabled={setStockfishEnabled}
             launchContinue={launchContinue}
             MAIA_MODELS={MAIA_MODELS}
             game={game}
