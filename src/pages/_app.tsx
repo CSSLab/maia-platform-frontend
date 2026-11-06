@@ -27,6 +27,10 @@ import { loadPostHog } from 'src/lib/posthogClient'
 import { whenPageIsIdle } from 'src/lib/whenPageIsIdle'
 import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
 import { markAppHydrated } from 'src/components/Common/PageShell'
+import { guardAgainstTranslation } from 'src/lib/translationGuard'
+
+// Before React first touches the page (see src/lib/translationGuard).
+if (typeof window !== 'undefined') guardAgainstTranslation()
 
 const openSansClassName = 'font-sans'
 const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
