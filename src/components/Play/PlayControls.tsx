@@ -14,6 +14,11 @@ interface Props {
   returnToLabel?: string
   simulateMaiaTime?: boolean
   setSimulateMaiaTime?: (value: boolean) => void
+  // Practice games: unrated, with takebacks and extra time. Each button is
+  // shown when its handler is given (and is usable now).
+  practice?: boolean
+  takeBack?: () => void
+  addTime?: () => void
 }
 
 export const PlayControls: React.FC<Props> = ({
@@ -27,6 +32,9 @@ export const PlayControls: React.FC<Props> = ({
   returnToLabel = 'RETURN',
   simulateMaiaTime,
   setSimulateMaiaTime,
+  practice = false,
+  takeBack,
+  addTime,
 }: Props) => {
   const [showResignConfirm, setShowResignConfirm] = useState(false)
 
@@ -81,7 +89,43 @@ export const PlayControls: React.FC<Props> = ({
             >
               {playerActive ? 'Your Turn' : 'Waiting for Opponent'}
             </p>
+            {practice && (
+              <p className="mt-1 text-center text-[11px] uppercase tracking-wider text-white/50">
+                Practice · Unrated
+              </p>
+            )}
           </div>
+
+          {practice && (
+            <div className="px-4 pb-1">
+              {/* Stacked: the side panel can be narrow. */}
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={takeBack}
+                  disabled={!takeBack}
+                  title="Take back your last move"
+                  className="flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-md border border-glass-border bg-glass px-3 py-1.5 text-xs font-medium text-white/90 transition-colors duration-200 hover:bg-glass-stronger disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined !text-sm">
+                    undo
+                  </span>
+                  Takeback
+                </button>
+                {addTime && (
+                  <button
+                    onClick={addTime}
+                    title="Add 15 seconds to your clock"
+                    className="flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-md border border-glass-border bg-glass px-3 py-1.5 text-xs font-medium text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
+                  >
+                    <span className="material-symbols-outlined !text-sm">
+                      more_time
+                    </span>
+                    +15s
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {simulateMaiaTime !== undefined && setSimulateMaiaTime && (
             <div className="bg-transparent px-4 py-2">
