@@ -35,6 +35,10 @@ import {
 } from 'src/components/Analysis'
 import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens'
 import { BroadcastGameList } from 'src/components/Analysis/BroadcastGameList'
+import {
+  BroadcastClock,
+  useBroadcastClocks,
+} from 'src/components/Analysis/BroadcastClock'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
 import type { MaiaEvaluation, StockfishEvaluation } from 'src/types'
 
@@ -646,6 +650,12 @@ export const BroadcastAnalysis: React.FC<Props> = ({
     return `Maia %\n@ ${ratingLevel}`
   }, [analysisController.currentMaiaModel])
 
+  // Each player's clock at the position being viewed, shown by their name.
+  const clocks = useBroadcastClocks(
+    broadcastController.currentGame,
+    analysisController.currentNode,
+  )
+
   const NestedGameInfo = () => (
     <div className="flex w-full flex-col">
       <div className="hidden md:block">
@@ -662,13 +672,21 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 {player.rating ? <>({player.rating})</> : null}
               </span>
             </div>
-            {game.termination?.winner === (index === 0 ? 'white' : 'black') ? (
-              <p className="text-xs text-engine-3">1</p>
-            ) : game.termination?.winner !== 'none' ? (
-              <p className="text-xs text-human-3">0</p>
-            ) : game.termination === undefined ? null : (
-              <p className="text-xs text-secondary">1/2</p>
-            )}
+            <div className="flex items-center gap-2">
+              <BroadcastClock
+                clocks={clocks}
+                color={index === 0 ? 'white' : 'black'}
+                className="text-xs"
+              />
+              {game.termination?.winner ===
+              (index === 0 ? 'white' : 'black') ? (
+                <p className="text-xs text-engine-3">1</p>
+              ) : game.termination?.winner !== 'none' ? (
+                <p className="text-xs text-human-3">0</p>
+              ) : game.termination === undefined ? null : (
+                <p className="text-xs text-secondary">1/2</p>
+              )}
+            </div>
           </div>
         ))}
         <div className="mt-1 flex items-center justify-center gap-1">
@@ -689,6 +707,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
           {game.whitePlayer.rating && (
             <span className="text-primary/60">({game.whitePlayer.rating})</span>
           )}
+          <BroadcastClock clocks={clocks} color="white" className="text-xxs" />
         </div>
         <div className="flex items-center gap-1">
           {broadcastController.broadcastState.isLive && !game.termination ? (
@@ -715,6 +734,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
           {game.blackPlayer.rating && (
             <span className="text-primary/60">({game.blackPlayer.rating})</span>
           )}
+          <BroadcastClock clocks={clocks} color="black" className="text-xxs" />
         </div>
       </div>
     </div>

@@ -19,6 +19,14 @@ import {
 } from 'src/types'
 import { ENGINE_PROVIDERS } from 'src/contexts/pageProviders'
 
+// Broadcasts open with the strongest Maia, as the players are strong. The
+// model is remembered under its own key: a model picked here stays from game
+// to game, and doesn't change the one on the analysis page.
+const BROADCAST_MAIA_MODEL_SETTING = {
+  storageKey: 'broadcastMaiaModel',
+  defaultModel: 'maia_kdd_2600',
+}
+
 const BroadcastAnalysisPage: NextPage = () => {
   const router = useRouter()
   const { broadcastId, roundId } = router.query as {
@@ -111,25 +119,9 @@ const BroadcastAnalysisPage: NextPage = () => {
     currentGame,
     undefined,
     false,
+    true,
+    BROADCAST_MAIA_MODEL_SETTING,
   )
-  const defaultModelAppliedForGameId = useRef<string | null>(null)
-
-  useEffect(() => {
-    const gameId = broadcastController.currentGame?.id
-    if (!gameId) return
-
-    if (defaultModelAppliedForGameId.current === gameId) return
-
-    defaultModelAppliedForGameId.current = gameId
-
-    if (analysisController.currentMaiaModel === 'maia_kdd_2600') return
-
-    analysisController.setCurrentMaiaModel('maia_kdd_2600')
-  }, [
-    broadcastController.currentGame?.id,
-    analysisController.currentMaiaModel,
-    analysisController.setCurrentMaiaModel,
-  ])
 
   // Auto-follow live moves for the selected game
   const lastGameMoveCount = useRef(0)

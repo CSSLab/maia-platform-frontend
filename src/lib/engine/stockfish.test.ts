@@ -3,6 +3,7 @@ import Engine, {
   reserveWasmMemory,
   sharedWasmMemory,
   STOCKFISH_MAX_MEMORY_PAGES,
+  startModuleWithRetry,
   withStartupLog,
 } from './stockfish'
 
@@ -456,5 +457,48 @@ describe('withStartupLog', () => {
 
   it('leaves the error as it is when nothing was reported', () => {
     expect(withStartupLog('timed out', []).detail).toBe('timed out')
+  })
+})
+
+describe('startModuleWithRetry', () => {
+  const after = <T>(ms: number, value: T) =>
+    new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
+  const never = () => new Promise<string>(() => undefined)
+
+  it('takes a start that finishes in time, without starting again', async () => {
+    const start = jest.fn(() => after(1, 'first'))
+    await expect(startModuleWithRetry(start, 50)).resolves.toBe('first')
+    expect(start).toHaveBeenCalledTimes(1)
+  })
+
+  it('starts again when the first start runs out of time', async () => {
+    const start = jest
+      .fn<Promise<string>, []>()
+      .mockImplementationOnce(never)
+      .mockImplementationOnce(() => after(1, 'second'))
+    await expect(startModuleWithRetry(start, 20)).resolves.toBe('second')
+    expect(start).toHaveBeenCalledTimes(2)
+  })
+
+  it('still takes a slow first start that finishes before the second', async () => {
+    const start = jest
+      .fn<Promise<string>, []>()
+      .mockImplementationOnce(() => after(30, 'first'))
+      .mockImplementationOnce(never)
+    await expect(startModuleWithRetry(start, 20)).resolves.toBe('first')
+  })
+
+  it('does not start again after a failure', async () => {
+    const start = jest.fn(() => Promise.reject(new Error('wasm failed')))
+    await expect(startModuleWithRetry(start, 20)).rejects.toThrow('wasm failed')
+    expect(start).toHaveBeenCalledTimes(1)
+  })
+
+  it('gives up when neither start finishes in time', async () => {
+    const start = jest.fn(never)
+    await expect(startModuleWithRetry(start, 10)).rejects.toThrow(
+      'Stockfish module initialization timed out after 20ms (started twice)',
+    )
+    expect(start).toHaveBeenCalledTimes(2)
   })
 })

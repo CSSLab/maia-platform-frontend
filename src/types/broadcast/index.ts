@@ -60,6 +60,13 @@ export interface BroadcastGame {
     isActive: boolean
     lastUpdateTime: number
   }
+  // The time left, in seconds, of the player who made each move (from the
+  // PGN's `[%clk]` comments), or null for a move without one.
+  moveClocks?: (number | null)[]
+  // When the latest move reached this page, if it arrived while the page was
+  // watching. Unset for moves that were already played when the round
+  // loaded: how long the side to move has been thinking is unknown then.
+  lastMoveReceivedAt?: number
 }
 
 export interface BroadcastRoundData {

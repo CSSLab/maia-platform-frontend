@@ -114,6 +114,11 @@ const Turing: React.FC<Props> = (props: Props) => {
     },
   }
 
+  // The result stays hidden until the guess is in: who won, and how (a
+  // checkmate or a resignation), says much about which side was the bot.
+  const resultShown = !!game.result
+  const termination = resultShown ? game.termination : undefined
+
   const launchContinue = useCallback(() => {
     const fen = controller.currentNode?.fen
 
@@ -135,15 +140,17 @@ const Turing: React.FC<Props> = (props: Props) => {
               iconClassName="!text-xs"
             />
           </div>
-          <span>
-            {game.termination.winner === 'white' ? (
-              <span className="text-engine-3">1</span>
-            ) : game.termination.winner === 'black' ? (
-              <span className="text-human-3">0</span>
-            ) : (
-              <span className="text-secondary">½</span>
-            )}
-          </span>
+          {termination && (
+            <span>
+              {termination.winner === 'white' ? (
+                <span className="text-engine-3">1</span>
+              ) : termination.winner === 'black' ? (
+                <span className="text-human-3">0</span>
+              ) : (
+                <span className="text-secondary">½</span>
+              )}
+            </span>
+          )}
         </div>
         <div className="flex w-full items-center justify-between gap-2 text-sm">
           <div className="flex items-center gap-1">
@@ -154,26 +161,28 @@ const Turing: React.FC<Props> = (props: Props) => {
               iconClassName="!text-xs"
             />
           </div>
-          <span>
-            {game.termination.winner === 'black' ? (
-              <span className="text-engine-3">1</span>
-            ) : game.termination.winner === 'white' ? (
-              <span className="text-human-3">0</span>
-            ) : (
-              <span className="text-secondary">½</span>
-            )}
-          </span>
+          {termination && (
+            <span>
+              {termination.winner === 'black' ? (
+                <span className="text-engine-3">1</span>
+              ) : termination.winner === 'white' ? (
+                <span className="text-human-3">0</span>
+              ) : (
+                <span className="text-secondary">½</span>
+              )}
+            </span>
+          )}
         </div>
       </div>
-      {game.termination && (
-        <div className="mt-2 text-center text-xs text-secondary">
-          <span className="font-semibold uppercase tracking-wider">
-            {game.termination.winner !== 'none'
-              ? `${game.termination.winner} wins`
-              : 'draw'}
-          </span>
-        </div>
-      )}
+      <div className="mt-2 text-center text-xs text-secondary">
+        <span className="font-semibold uppercase tracking-wider">
+          {termination
+            ? termination.winner !== 'none'
+              ? `${termination.winner} wins`
+              : 'draw'
+            : 'Result shown after your guess'}
+        </span>
+      </div>
     </>
   )
 
@@ -225,7 +234,7 @@ const Turing: React.FC<Props> = (props: Props) => {
               <div className="relative bottom-0 min-h-[38px] flex-1 overflow-hidden">
                 <MovesContainer
                   game={game}
-                  termination={game.termination}
+                  termination={termination}
                   embedded
                   heightClass="h-full"
                 />
@@ -292,7 +301,7 @@ const Turing: React.FC<Props> = (props: Props) => {
               <div className="relative bottom-0 flex-1 overflow-hidden">
                 <MovesContainer
                   game={game}
-                  termination={game.termination}
+                  termination={termination}
                   embedded
                   heightClass="h-full"
                 />

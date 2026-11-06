@@ -28,11 +28,26 @@ import { generateColorSanMapping, calculateBlunderMeter } from './utils'
 import { StockfishEngineContext } from 'src/contexts/StockfishEngineContext'
 import { useContentStable } from 'src/hooks/useContentStable'
 
+interface MaiaModelSetting {
+  // Where the chosen Maia model is remembered, and the model before any is
+  // chosen. A page with its own default (the broadcasts) keeps its choice
+  // under its own key, so that it doesn't change the model of the analysis
+  // page, and the other way round.
+  storageKey: string
+  defaultModel: string
+}
+
+const DEFAULT_MAIA_MODEL_SETTING: MaiaModelSetting = {
+  storageKey: 'currentMaiaModel',
+  defaultModel: MAIA_MODELS[0],
+}
+
 export const useAnalysisController = (
   game: AnalyzedGame,
   initialOrientation?: 'white' | 'black',
   enableAutoSave = true,
   enableEngineAnalysis = true,
+  maiaModelSetting: MaiaModelSetting = DEFAULT_MAIA_MODEL_SETTING,
 ) => {
   const defaultOrientation = initialOrientation
     ? initialOrientation
@@ -60,8 +75,8 @@ export const useAnalysisController = (
 
   const [currentMove, setCurrentMove] = useState<[string, string] | null>()
   const [currentMaiaModel, setCurrentMaiaModel] = useLocalStorage(
-    'currentMaiaModel',
-    MAIA_MODELS[0],
+    maiaModelSetting.storageKey,
+    maiaModelSetting.defaultModel,
   )
   const [showTopMoveBadges, setShowTopMoveBadges] = useLocalStorage<boolean>(
     'analysis-show-top-move-badges',
@@ -100,7 +115,7 @@ export const useAnalysisController = (
 
   useEffect(() => {
     if (!MAIA_MODELS.includes(currentMaiaModel)) {
-      setCurrentMaiaModel(MAIA_MODELS[0])
+      setCurrentMaiaModel(maiaModelSetting.defaultModel)
     }
   }, [currentMaiaModel, setCurrentMaiaModel])
 
