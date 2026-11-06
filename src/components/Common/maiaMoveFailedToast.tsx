@@ -1,4 +1,6 @@
 import toast, { Toast } from 'react-hot-toast'
+import { MoveRequestError } from 'src/api/play'
+import { trackMaiaMoveFailed } from 'src/lib/analytics'
 
 const TOAST_ID = 'maia-move-failed'
 
@@ -37,3 +39,16 @@ export const showMaiaMoveFailedToast = (retry: () => void) => {
 }
 
 export const dismissMaiaMoveFailedToast = () => toast.dismiss(TOAST_ID)
+
+/**
+ * Maia's move couldn't be fetched, even after retrying: it is reported, and
+ * the game waits for the player to try again instead of breaking.
+ */
+export const reportMaiaMoveFailed = (error: unknown, retry: () => void) => {
+  console.error(error)
+  trackMaiaMoveFailed(
+    error instanceof Error ? error.message : String(error),
+    error instanceof MoveRequestError ? error.status : undefined,
+  )
+  showMaiaMoveFailedToast(retry)
+}

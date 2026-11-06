@@ -4,17 +4,10 @@ import { PlayGameConfig, QueuedPremove } from 'src/types'
 import { backOff } from 'exponential-backoff'
 import { useStats } from 'src/hooks/useStats'
 import { usePlayController } from 'src/hooks/usePlayController'
-import {
-  fetchGameMove,
-  logGameMove,
-  fetchPlayPlayerStats,
-  retryUnlessRejected,
-  MoveRequestError,
-} from 'src/api'
-import { trackMaiaMoveFailed } from 'src/lib/analytics'
+import { fetchMaiaMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
 import {
   dismissMaiaMoveFailedToast,
-  showMaiaMoveFailedToast,
+  reportMaiaMoveFailed,
 } from 'src/components/Common/maiaMoveFailedToast'
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
@@ -120,31 +113,17 @@ export const useVsMaiaPlayController = (
 
         let maiaMoves
         try {
-          maiaMoves = await backOff(
-            () =>
-              fetchGameMove(
-                controller.moveList,
-                playGameConfig.maiaVersion,
-                playGameConfig.startFen,
-                null,
-                simulateMaiaTime ? initialClock : 0,
-                simulateMaiaTime ? maiaClock : 0,
-              ),
-            {
-              jitter: 'full',
-              numOfAttempts: 6,
-              retry: retryUnlessRejected,
-            },
+          maiaMoves = await fetchMaiaMove(
+            controller.moveList,
+            playGameConfig.maiaVersion,
+            playGameConfig.startFen,
+            null,
+            simulateMaiaTime ? initialClock : 0,
+            simulateMaiaTime ? maiaClock : 0,
           )
         } catch (error) {
           if (canceled) return
-          // Reported, but the game waits for the player instead of breaking.
-          console.error(error)
-          trackMaiaMoveFailed(
-            error instanceof Error ? error.message : String(error),
-            error instanceof MoveRequestError ? error.status : undefined,
-          )
-          showMaiaMoveFailedToast(() => setMaiaMoveAttempt((n) => n + 1))
+          reportMaiaMoveFailed(error, () => setMaiaMoveAttempt((n) => n + 1))
           return
         }
         dismissMaiaMoveFailedToast()
