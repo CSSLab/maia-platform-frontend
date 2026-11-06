@@ -80,6 +80,10 @@ import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
+import {
+  applyImportedVariations,
+  saveImportedVariations,
+} from 'src/lib/customGameVariations'
 import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
@@ -143,6 +147,8 @@ const formatMoveHistoryAsPgn = (moves: string[]): string => {
   return tokens.join(' ').trim()
 }
 
+// The backend gets the main line only; an imported game's variations are kept
+// in the browser and added back when it opens (see customGameVariations).
 const normalizeCustomPgnForBackendStore = (pgn: string): string => {
   const trimmed = pgn.trim()
   const candidates = Array.from(
@@ -409,6 +415,7 @@ const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
       const rawGame = await fetchAnalyzedMaiaGame(id, type)
       const game =
         type === 'custom' ? applyCustomPgnResultOverride(id, rawGame) : rawGame
+      if (type === 'custom') applyImportedVariations(id, game.tree)
 
       if (setCurrentMove) setCurrentMove(0)
 
@@ -740,6 +747,7 @@ const Analysis: React.FC<Props> = ({
           if (pgnResult && pgnResult !== '*') {
             setCustomPgnResultOverride(game_id, pgnResult)
           }
+          if (type === 'pgn') saveImportedVariations(game_id, data)
 
           trackCustomGameInputUsed(type, data.length, true)
           setShowCustomModal(false)

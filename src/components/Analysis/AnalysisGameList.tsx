@@ -13,6 +13,7 @@ import { Tournament } from 'src/components'
 import { FavoriteModal } from 'src/components/Common/FavoriteModal'
 import { AnalysisListContext } from 'src/contexts'
 import { fetchMaiaGameList, deleteCustomGame } from 'src/api'
+import { forgetImportedVariations } from 'src/lib/customGameVariations'
 import {
   getFavoritesAsWebGames,
   addFavoriteGame,
@@ -698,6 +699,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
       console.error('Failed to delete custom game', error)
       return
     }
+    forgetImportedVariations(deletedGameId)
 
     setGamesByPage((prev) => {
       const next = { ...prev }
