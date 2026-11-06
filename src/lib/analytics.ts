@@ -59,7 +59,7 @@ export const trackMaiaModelLost = (daysSinceSaved: number) => {
   safeTrack('maia_model_lost', { days_since_saved: daysSinceSaved })
 }
 
-/** "Not now" on the download prompt. */
+/** "Continue without Maia" on the download prompt. */
 export const trackDownloadModelDismissed = (page: string) => {
   safeTrack('download_model_dismissed', { page })
 }

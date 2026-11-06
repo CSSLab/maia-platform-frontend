@@ -129,14 +129,14 @@ export const DownloadModelModal: React.FC<Props> = ({
               </div>
             ) : null}
 
-            <div className="order-1 flex flex-row flex-wrap justify-end gap-2 md:order-2">
+            <div className="order-1 flex flex-row flex-wrap-reverse justify-end gap-2 md:order-2">
               {onNotNow ? (
                 <button
                   type="button"
                   onClick={onNotNow}
                   className="flex h-8 cursor-pointer select-none items-center whitespace-nowrap rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
                 >
-                  Not now
+                  Continue without Maia
                 </button>
               ) : (
                 <Link
