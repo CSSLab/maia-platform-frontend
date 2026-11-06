@@ -36,6 +36,8 @@ import {
 import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens'
 import { BroadcastGameList } from 'src/components/Analysis/BroadcastGameList'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
+import { useBoardWheelNavigation } from 'src/hooks/useBoardWheelNavigation'
+import { useTablebase } from 'src/hooks/useTablebase'
 import type { MaiaEvaluation, StockfishEvaluation } from 'src/types'
 
 const EVAL_BAR_RANGE = 4
@@ -85,6 +87,14 @@ export const BroadcastAnalysis: React.FC<Props> = ({
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
+  // Exact endgame results (7 pieces or fewer) from the Lichess tablebase.
+  const tablebase = useTablebase(analysisController.currentNode?.fen, true)
+  // Wheel over the board steps through the moves, like the arrow keys.
+  const boardWheelRef = useBoardWheelNavigation<HTMLDivElement>({
+    onNext: analysisController.goToNextNode,
+    onPrevious: analysisController.goToPreviousNode,
+    disabled: !!promotionFromTo,
+  })
 
   useIsomorphicLayoutEffect(() => {
     if (useMobileStyleAnalysisLayout) return
@@ -896,7 +906,10 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                       desktopSize={desktopBarChromeSize}
                     />
                   </div>
-                  <div className="relative flex aspect-square w-full">
+                  <div
+                    ref={boardWheelRef}
+                    className="relative flex aspect-square w-full"
+                  >
                     <GameBoard
                       game={game}
                       availableMoves={analysisController.availableMoves}
@@ -965,6 +978,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
           }}
           hideDetailedBlunderMeter={true}
           desktopContentHeightCss={desktopSidebarContentHeightCss}
+          tablebase={tablebase}
           containerStyle={{
             width: 'clamp(23rem, 27vw, 26rem)',
             minWidth: '23rem',
@@ -1108,6 +1122,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 </div>
                 <div
                   id="analysis"
+                  ref={boardWheelRef}
                   className="relative flex aspect-square w-full"
                 >
                   <GameBoard
@@ -1213,6 +1228,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                     simplified: true,
                     hideWhiteWinRateSummary: true,
                     hideStockfishEvalSummary: true,
+                    tablebase,
                   }}
                   blunderMeterProps={{
                     hover,
