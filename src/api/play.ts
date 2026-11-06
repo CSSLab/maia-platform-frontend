@@ -1,4 +1,5 @@
 import { buildUrl } from './utils'
+import { fetchAsGuest } from './guest'
 import { Color, TimeControl } from 'src/types'
 
 const normalizeOpeningBookFen = (fen: string) => {
@@ -34,7 +35,7 @@ export const startGame = async (
         time_control: timeControl,
       }
 
-  const res = await fetch(
+  const res = await fetchAsGuest(
     buildUrl('play/start_game?' + new URLSearchParams(params)),
     {
       method: 'GET',
