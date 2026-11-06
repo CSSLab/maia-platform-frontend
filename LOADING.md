@@ -1560,6 +1560,25 @@ GROUP BY grp, device ORDER BY device, grp
 Not tested: a real phone, whether browsers grant the request to keep the model (the test
 browser refused it), and starting a drill on a phone.
 
+### Round 15: the first puzzle is asked for by the page's HTML
+
+/puzzles had the slowest main content of the main pages (PostHog, 7 days to
+2026-11-06: LCP p75 2.8 s on 194 visitors; the others 1.1–1.8 s). The puzzle waits
+for `new_puzzle`, about 1.6 s on the backend, which started only once the page's
+JavaScript had run. The page's HTML now starts it, as it does the account
+request, and `fetchPuzzle` takes it. On a first visit there is no guest cookie
+yet: the request fails and the page asks again, as before.
+
+Local build against the live backend, returning visitor, median of 5 loads (ms
+from navigation):
+
+|                         | `new_puzzle` starts |        ends |         LCP | puzzle shown |
+| ----------------------- | ------------------: | ----------: | ----------: | -----------: |
+| Desktop                 |           296 → 126 | 1939 → 1740 | 2228 → 2027 |  2168 → 2088 |
+| Emulated phone (4× CPU) |          1031 → 347 | 2643 → 1963 | 3160 → 2542 |  3459 → 3016 |
+
+Tool: `loadperf/tools/puzzle-early.mjs`.
+
 ### Round 14: why Stockfish fails to start
 
 From PostHog, 7 days to 2026-11-06, `stockfish_engine_failed` against 6,316

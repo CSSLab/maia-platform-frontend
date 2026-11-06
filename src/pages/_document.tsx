@@ -2,9 +2,11 @@ import { Html, Head, Main, NextScript } from 'next/document'
 
 /**
  * Starts requests the first render waits for before the app's JavaScript has
- * loaded: the account (as fetchAccount does, taken from `window.__account`)
- * and, on /analysis/<id>/lichess, the game's PGN (as fetchPgnOfLichessGame
- * does, taken from `window.__lichessPgn`).
+ * loaded: the account (as fetchAccount does, taken from `window.__account`);
+ * on /puzzles, the first puzzle (as fetchPuzzle does, taken from
+ * `window.__puzzle`; the backend takes ~1.6 s, which on a phone started ~1 s
+ * after the page did); and, on /analysis/<id>/lichess, the game's PGN (as
+ * fetchPgnOfLichessGame does, taken from `window.__lichessPgn`).
  */
 const EARLY_REQUESTS = `(function () {
   if (!window.fetch) return
@@ -13,6 +15,16 @@ const EARLY_REQUESTS = `(function () {
   })
   account.catch(function () {})
   window.__account = account
+
+  // Needs the guest cookie: on a first visit it fails and the page asks again.
+  if (/^\\/puzzles\\/?$/.test(location.pathname)) {
+    var puzzle = fetch('/api/v1/puzzle/new_puzzle').then(function (res) {
+      if (!res.ok) throw new Error(String(res.status))
+      return res.json()
+    })
+    puzzle.catch(function () {})
+    window.__puzzle = puzzle
+  }
 
   var match = /^\\/analysis\\/([^/]+)\\/lichess\\/?$/.exec(location.pathname)
   if (!match) return
