@@ -17,7 +17,11 @@ export interface TourStep {
   title: string
   description: string
   targetId: string
-  placement?: 'top' | 'bottom' | 'left' | 'right'
+  /**
+   * 'center': in the middle of the screen, over the whole page, without
+   * scrolling (for a step about the page as a whole).
+   */
+  placement?: 'top' | 'bottom' | 'left' | 'right' | 'center'
   offset?: { x: number; y: number }
 }
 
@@ -145,7 +149,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     return (
       <div
         {...tooltipProps}
-        className="from-white/12/80 to-white/5/80 w-[320px] overflow-hidden rounded-xl border-2 border-glass-border bg-gradient-to-br backdrop-blur-xl"
+        className="w-[320px] max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border-2 border-glass-border bg-backdrop/95 shadow-xl backdrop-blur-xl"
         style={{
           fontFamily: 'inherit',
         }}
@@ -229,7 +233,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
   // Convert TourStep[] to Joyride Step[]
   const convertToJoyrideSteps = useCallback((steps: TourStep[]): Step[] => {
     return steps.map((step) => ({
-      target: `#${step.targetId}`,
+      target: step.placement === 'center' ? 'body' : `#${step.targetId}`,
       content: step as unknown as React.ReactNode, // Custom tooltip component handles this
       placement: step.placement || 'bottom',
       disableBeacon: true,

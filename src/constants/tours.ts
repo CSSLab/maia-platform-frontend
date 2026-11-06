@@ -7,7 +7,7 @@ export const analysisTourSteps: TourStep[] = [
     description:
       "This analysis page combines Maia's human-like predictions with Stockfish evaluations to bring new depth to understanding chess. Here you can see how moves change as you get better, understand which positions are more challenging for players at different skill levels, and discover many more metrics that help improve your chess understanding.",
     targetId: 'analysis',
-    placement: 'left',
+    placement: 'center',
   },
   {
     id: 'analysis-game-list',
@@ -66,7 +66,7 @@ export const trainTourSteps: TourStep[] = [
     description:
       'This is the puzzle page where you solve chess puzzles to improve your tactical skills. Each puzzle presents a position where you need to find the best move. The puzzles are rated, and your performance affects your puzzle rating. Try to solve each puzzle by making the correct moves on the board.',
     targetId: 'train-page',
-    placement: 'right',
+    placement: 'center',
   },
   {
     id: 'train-analysis',
@@ -85,7 +85,7 @@ export const turingTourSteps: TourStep[] = [
     description:
       'This is the "Bot or Not" challenge - a Turing test for chess! You\'ll be shown real chess games and your task is to determine whether each player (white or black) was human or an AI. Study the moves, look for patterns, and use your chess intuition to distinguish between human and computer play styles.',
     targetId: 'turing-page',
-    placement: 'right',
+    placement: 'center',
   },
   {
     id: 'turing-submission',
@@ -104,7 +104,7 @@ export const playTourSteps: TourStep[] = [
     description:
       "You're now playing against Maia, the human-like chess AI! Unlike traditional engines that play perfectly, Maia has been trained to play like humans at different rating levels. This means you'll face a more realistic and instructive opponent that can help you improve. The Maia version you're playing against mimics the playing style of players at that specific rating level.",
     targetId: 'play-page',
-    placement: 'right',
+    placement: 'center',
   },
   {
     id: 'play-controls',
@@ -123,7 +123,7 @@ export const handBrainTourSteps: TourStep[] = [
     description:
       "Hand and Brain is a collaborative chess format where you team up with Maia! If you're playing as Hand, you make the actual moves on the board while your Maia partner (Brain) selects which pieces to move. If you're playing as Brain, you choose which piece type should be moved and your Maia partner (Hand) executes the specific move. Try to work together to win!",
     targetId: 'play-page',
-    placement: 'right',
+    placement: 'center',
   },
   {
     id: 'handbrain-controls',
@@ -142,7 +142,7 @@ export const openingDrillTourSteps: TourStep[] = [
     description:
       'Practice your openings by drilling specific openings against Maia. First select the openings you want to practice, configure drill settings, and practice them repeatedly until they become second nature. You can track your progress and analyze your performance after each drill.',
     targetId: 'opening-drill-modal',
-    placement: 'bottom',
+    placement: 'center',
   },
   {
     id: 'opening-drill-selection',
