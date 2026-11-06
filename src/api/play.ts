@@ -157,8 +157,41 @@ export const fetchGameMove = async (
     },
   )
 
-  return res.json()
+  const body = await res.json().catch(() => null)
+  if (!res.ok || typeof body?.top_move !== 'string') {
+    const detail = body?.detail
+    throw new MoveRequestError(
+      res.status,
+      `Maia's move: HTTP ${res.status}${
+        detail
+          ? ` ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`
+          : ''
+      }`,
+    )
+  }
+  return body
 }
+
+/** The server answered, but not with a move. */
+export class MoveRequestError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+/**
+ * For `backOff`: a request the server rejected (an illegal move list, for
+ * example) would be rejected again, so only other failures are retried.
+ */
+export const retryUnlessRejected = (error: unknown) =>
+  !(
+    error instanceof MoveRequestError &&
+    error.status >= 400 &&
+    error.status < 500
+  )
 
 export const fetchOpeningBookMoves = async (fen: string) => {
   const normalizedFen = normalizeOpeningBookFen(fen)

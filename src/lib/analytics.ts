@@ -87,6 +87,11 @@ export const trackDownloadModelFailed = (
   })
 }
 
+/** Maia's move in a game couldn't be fetched, even after retrying. */
+export const trackMaiaMoveFailed = (message: string, status?: number) => {
+  safeTrack('maia_move_failed', { message: message.slice(0, 300), status })
+}
+
 export const trackStockfishEngineLoading = (page: string) => {
   safeTrack('stockfish_engine_loading', { page })
 }
