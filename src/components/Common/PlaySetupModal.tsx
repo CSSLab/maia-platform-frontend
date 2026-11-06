@@ -68,7 +68,7 @@ function OptionSelect<T>({
         return (
           <button
             key={index}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors ${
               option === selected ? selectedClassName : unselectedClassName
             } ${index === 0 ? 'rounded-l-lg' : ''} ${
               index === options.length - 1 ? 'rounded-r-lg' : ''
@@ -490,12 +490,14 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
               </div>
 
               <div>
+                {/* On phones the label sits above the buttons, which share
+                    the row's width, so that "Unlimited" fits. */}
                 <div
-                  className={`flex items-center justify-between ${
+                  className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${
                     compactHandBrainLayout ? 'mb-2' : 'mb-3'
                   }`}
                 >
-                  <span className="text-sm font-medium text-primary">
+                  <span className="whitespace-nowrap text-sm font-medium text-primary">
                     Time Control:
                   </span>
                   <div className="flex gap-1.5">
@@ -503,7 +505,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                       <button
                         key={option}
                         onClick={() => handlePresetSelect(option)}
-                        className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${
+                        className={`flex-1 whitespace-nowrap rounded border px-1.5 py-1 text-xs font-medium transition-colors sm:flex-none sm:px-2 ${
                           timeControl === option
                             ? 'border-glass-border bg-glass-stronger text-white backdrop-blur-md'
                             : 'border-glass-border bg-glass text-white/90 hover:bg-glass-strong'
@@ -597,7 +599,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
               </div>
 
               <div>
-                <div className="grid grid-cols-[auto,1fr] items-center gap-3">
+                <div className="flex flex-col gap-2 sm:grid sm:grid-cols-[auto,1fr] sm:items-center sm:gap-3">
                   <label
                     htmlFor="maia-timing-select"
                     className="whitespace-nowrap text-sm font-medium text-primary"
