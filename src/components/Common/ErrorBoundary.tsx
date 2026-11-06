@@ -5,6 +5,7 @@ import { Component } from 'react'
 import { Header } from './Header'
 import { Footer } from './Footer'
 import { trackErrorEncountered } from 'src/lib/analytics'
+import { ModalContextProvider } from 'src/contexts/ModalContext'
 import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
 
 const ErrorChessground = dynamic(() => import('@react-chess/chessground'), {
@@ -63,9 +64,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      // The header below asks ModalContext for the play dialog, and this
+      // boundary is outside the app's ModalContextProvider.
       if (this.state.isUnauthorized) {
         return (
-          <>
+          <ModalContextProvider>
             <Head>
               <link rel="stylesheet" href={MATERIAL_SYMBOLS_STYLESHEET} />
             </Head>
@@ -93,12 +96,12 @@ export class ErrorBoundary extends Component<Props, State> {
                 <Footer />
               </div>
             </div>
-          </>
+          </ModalContextProvider>
         )
       }
 
       return (
-        <>
+        <ModalContextProvider>
           <Head>
             <link rel="stylesheet" href={MATERIAL_SYMBOLS_STYLESHEET} />
           </Head>
@@ -176,7 +179,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <Footer />
           </div>
-        </>
+        </ModalContextProvider>
       )
     }
 
