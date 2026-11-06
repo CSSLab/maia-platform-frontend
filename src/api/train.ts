@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { buildUrl } from './utils'
+import { fetchAsGuest } from './guest'
 import { MoveValueMapping, GameTree } from 'src/types'
 import { AvailableMoves, PuzzleGame } from 'src/types/puzzle'
 
 export const fetchPuzzle = async () => {
-  const res = await fetch(buildUrl('puzzle/new_puzzle'))
+  const res = await fetchAsGuest(buildUrl('puzzle/new_puzzle'))
   const data = await res.json()
   const id =
     data['puzzle_id']['game_source'] +

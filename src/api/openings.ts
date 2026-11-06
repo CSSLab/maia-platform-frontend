@@ -1,4 +1,5 @@
 import { buildUrl } from './utils'
+import { fetchAsGuest } from './guest'
 
 export interface LogOpeningDrillRequest {
   opening_fen: string
@@ -11,7 +12,7 @@ export interface LogOpeningDrillRequest {
 export const logOpeningDrill = async (
   request: LogOpeningDrillRequest,
 ): Promise<void> => {
-  const res = await fetch(buildUrl('opening/log_opening_drill'), {
+  const res = await fetchAsGuest(buildUrl('opening/log_opening_drill'), {
     method: 'POST',
     headers: {
       Accept: 'application/json',
