@@ -4,7 +4,18 @@ import { PlayGameConfig, QueuedPremove } from 'src/types'
 import { backOff } from 'exponential-backoff'
 import { useStats } from 'src/hooks/useStats'
 import { usePlayController } from 'src/hooks/usePlayController'
-import { fetchGameMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
+import {
+  fetchGameMove,
+  logGameMove,
+  fetchPlayPlayerStats,
+  retryUnlessRejected,
+  MoveRequestError,
+} from 'src/api'
+import { trackMaiaMoveFailed } from 'src/lib/analytics'
+import {
+  dismissMaiaMoveFailedToast,
+  showMaiaMoveFailedToast,
+} from 'src/components/Common/maiaMoveFailedToast'
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
 import { initialClockSeconds } from 'src/lib/timeControl'
@@ -31,6 +42,8 @@ export const useVsMaiaPlayController = (
   const [queuedPremove, setQueuedPremove] = useState<QueuedPremove | null>(null)
   const queuedPremoveRef = useRef<QueuedPremove | null>(null)
   const [premoveResetKey, setPremoveResetKey] = useState(0)
+  // Asks for Maia's move again after a request that failed.
+  const [maiaMoveAttempt, setMaiaMoveAttempt] = useState(0)
 
   const clearPremove = useCallback(() => {
     if (!queuedPremoveRef.current) {
@@ -93,21 +106,37 @@ export const useVsMaiaPlayController = (
             : controller.whiteClock) / 1000
         const initialClock = initialClockSeconds(controller.timeControl)
 
-        const maiaMoves = await backOff(
-          () =>
-            fetchGameMove(
-              controller.moveList,
-              playGameConfig.maiaVersion,
-              playGameConfig.startFen,
-              null,
-              simulateMaiaTime ? initialClock : 0,
-              simulateMaiaTime ? maiaClock : 0,
-            ),
-          {
-            jitter: 'full',
-          },
-        )
-        const nextMove = maiaMoves['top_move']
+        let maiaMoves
+        try {
+          maiaMoves = await backOff(
+            () =>
+              fetchGameMove(
+                controller.moveList,
+                playGameConfig.maiaVersion,
+                playGameConfig.startFen,
+                null,
+                simulateMaiaTime ? initialClock : 0,
+                simulateMaiaTime ? maiaClock : 0,
+              ),
+            {
+              jitter: 'full',
+              numOfAttempts: 6,
+              retry: retryUnlessRejected,
+            },
+          )
+        } catch (error) {
+          if (canceled) return
+          // Reported, but the game waits for the player instead of breaking.
+          console.error(error)
+          trackMaiaMoveFailed(
+            error instanceof Error ? error.message : String(error),
+            error instanceof MoveRequestError ? error.status : undefined,
+          )
+          showMaiaMoveFailedToast(() => setMaiaMoveAttempt((n) => n + 1))
+          return
+        }
+        dismissMaiaMoveFailedToast()
+        const nextMove: string = maiaMoves['top_move']
         const moveDelay = maiaMoves['move_delay']
 
         if (canceled) {
@@ -206,6 +235,7 @@ export const useVsMaiaPlayController = (
     simulateMaiaTime,
     clearPremove,
     getLegalPremoveUci,
+    maiaMoveAttempt,
   ])
 
   useEffect(() => {
