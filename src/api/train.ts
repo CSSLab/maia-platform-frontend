@@ -3,9 +3,27 @@ import { buildUrl } from './utils'
 import { MoveValueMapping, GameTree } from 'src/types'
 import { AvailableMoves, PuzzleGame } from 'src/types/puzzle'
 
-export const fetchPuzzle = async () => {
+declare global {
+  interface Window {
+    /** The first puzzle, asked for by the page's HTML (see _document.tsx). */
+    __puzzle?: Promise<any>
+  }
+}
+
+export const fetchPuzzleData = async () => {
+  // The first call takes the request the page's HTML started.
+  const early = typeof window !== 'undefined' ? window.__puzzle : undefined
+  if (early) {
+    delete window.__puzzle
+    const data = await early.catch(() => null)
+    if (data) return data
+  }
   const res = await fetch(buildUrl('puzzle/new_puzzle'))
-  const data = await res.json()
+  return res.json()
+}
+
+export const fetchPuzzle = async () => {
+  const data = await fetchPuzzleData()
   const id =
     data['puzzle_id']['game_source'] +
     '-' +
