@@ -3,7 +3,14 @@ import { Chess } from 'chess.ts'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/router'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCallback, useContext, useEffect, useState } from 'react'
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 
 import {
   Color,
@@ -24,26 +31,29 @@ import {
   clearUnfinishedGame,
   loadUnfinishedGame,
 } from 'src/lib/unfinishedGame'
+import {
+  MAIA_VERSIONS as maiaOptions,
+  PlaySetupInitialState,
+  loadPlaySettings,
+  playSetupInitialState,
+  savePlaySettings,
+} from 'src/lib/playSettings'
+import {
+  chess960BackRank,
+  chess960Fen,
+  randomChess960Index,
+} from 'src/lib/chess960'
 import { ModalContainer } from './ModalContainer'
 
-const maiaOptions = [
-  'maia_kdd_600',
-  'maia_kdd_800',
-  'maia_kdd_1000',
-  'maia_kdd_1100',
-  'maia_kdd_1200',
-  'maia_kdd_1300',
-  'maia_kdd_1400',
-  'maia_kdd_1500',
-  'maia_kdd_1600',
-  'maia_kdd_1700',
-  'maia_kdd_1800',
-  'maia_kdd_1900',
-  'maia_kdd_2000',
-  'maia_kdd_2200',
-  'maia_kdd_2400',
-  'maia_kdd_2600',
-]
+const PIECE_NAMES: Record<string, string> = {
+  K: 'king',
+  Q: 'queen',
+  R: 'rook',
+  B: 'bishop',
+  N: 'knight',
+}
+
+const subscribeToNothing = () => () => undefined
 
 interface OptionSelectProps<T> {
   options: T[]
@@ -147,29 +157,58 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     onClose,
   ])
 
+  const forcedPlayerColor = props.forcedPlayerColor
+  const colorSelectionLocked = forcedPlayerColor !== undefined
+  const positionLocked = forcedPlayerColor !== undefined
+
+  // The dialog starts from its props, then the settings of the last game
+  // started in this browser (src/lib/playSettings.ts), then the defaults.
+  // /play renders it in the server's HTML, which can't know what this
+  // browser saved: while hydrating that HTML (useSyncExternalStore gives its
+  // server value then) it starts from the defaults as the server did, and
+  // takes the saved settings once mounted. The dialog ignores taps until
+  // then anyway (`interactive`). Opened later (ModalContext, or /play reached
+  // in the app), it starts from them at once, without a visible change.
+  const hydrating = useSyncExternalStore(
+    subscribeToNothing,
+    () => false,
+    () => true,
+  )
+  const initialProps = {
+    playType: props.playType,
+    timeControl: props.timeControl,
+    maiaVersion: props.maiaVersion,
+    maiaPartnerVersion: props.maiaPartnerVersion,
+    isBrain: props.isBrain,
+    simulateMaiaTime: props.simulateMaiaTime,
+    practice: props.practice,
+    startFen: props.startFen,
+    positionLocked,
+  }
+  const [initial] = useState<PlaySetupInitialState>(() =>
+    playSetupInitialState(
+      initialProps,
+      hydrating ? {} : loadPlaySettings(props.playType),
+    ),
+  )
+
   const [timeControl, setTimeControl] = useState<TimeControl>(
-    props.timeControl || TimeControlOptions[0],
+    initial.timeControl,
   )
   // The sliders' minutes and increment (kept while Unlimited is chosen, for
   // when the slider is moved back).
-  const [timeMinutes, setTimeMinutes] = useState<number>(() => {
-    const initial = props.timeControl || TimeControlOptions[0]
-    if (initial === 'unlimited') return TIME_MINUTES_STEPS.at(-1) as number
-    return parseInt(initial.split('+')[0])
-  })
-  const [incrementSeconds, setIncrementSeconds] = useState<number>(() => {
-    const initial = props.timeControl || TimeControlOptions[0]
-    if (initial === 'unlimited') return 0
-    return parseInt(initial.split('+')[1])
-  })
-  const [isBrain, setIsBrain] = useState<boolean>(props.isBrain || false)
+  const [timeMinutes, setTimeMinutes] = useState<number>(initial.timeMinutes)
+  const [incrementSeconds, setIncrementSeconds] = useState<number>(
+    initial.incrementSeconds,
+  )
+  const [isBrain, setIsBrain] = useState<boolean>(initial.isBrain)
   const [sampleMoves, setSampleMoves] = useState<boolean>(
     props.sampleMoves || true,
   )
   const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
-    props.simulateMaiaTime !== undefined ? props.simulateMaiaTime : true,
+    initial.simulateMaiaTime,
   )
-  const [practice, setPractice] = useState<boolean>(props.practice ?? false)
+  const [practice, setPractice] = useState<boolean>(initial.practice)
 
   // An unlimited or practice game vs Maia left unfinished in this browser,
   // offered to continue (read after the first render: the dialog is in /play's
@@ -202,17 +241,39 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   }, [unfinishedGame, setPlaySetupModalProps, onClose, push])
 
   const [maiaPartnerVersion, setMaiaPartnerVersion] = useState<string>(
-    props.maiaPartnerVersion || maiaOptions[0],
+    initial.maiaPartnerVersion,
   )
-  const [maiaVersion, setMaiaVersion] = useState<string>(
-    props.maiaVersion || maiaOptions[0],
+  const [maiaVersion, setMaiaVersion] = useState<string>(initial.maiaVersion)
+  const [fen, setFen] = useState<string | undefined>(initial.fen)
+  // A Chess960 starting position (its number), offered vs Maia only.
+  const [chess960Index, setChess960Index] = useState<number | undefined>(
+    initial.chess960Index,
   )
-  const [fen, setFen] = useState<string | undefined>(
-    props.startFen ? props.startFen : undefined,
-  )
-  const forcedPlayerColor = props.forcedPlayerColor
-  const colorSelectionLocked = forcedPlayerColor !== undefined
-  const positionLocked = forcedPlayerColor !== undefined
+  const offerChess960 = props.playType === 'againstMaia' && !positionLocked
+  const startFen =
+    chess960Index !== undefined ? chess960Fen(chess960Index) : fen
+
+  // After hydrating /play's server HTML (see above), the saved settings.
+  const savedSettingsLoaded = useRef(!hydrating)
+  useEffect(() => {
+    if (savedSettingsLoaded.current) return
+    savedSettingsLoaded.current = true
+    const saved = loadPlaySettings(props.playType)
+    if (Object.keys(saved).length === 0) return
+    const state = playSetupInitialState(initialProps, saved)
+    setTimeControl(state.timeControl)
+    setTimeMinutes(state.timeMinutes)
+    setIncrementSeconds(state.incrementSeconds)
+    setIsBrain(state.isBrain)
+    setSimulateMaiaTime(state.simulateMaiaTime)
+    setPractice(state.practice)
+    setMaiaPartnerVersion(state.maiaPartnerVersion)
+    setMaiaVersion(state.maiaVersion)
+    setFen(state.fen)
+    setChess960Index(state.chess960Index)
+    // Once, on mounting: later prop changes remount the dialog (/play's key).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [openMoreOptions, setMoreOptionsOpen] = useState<boolean>(true)
   const compactHandBrainLayout = props.playType === 'handAndBrain'
@@ -270,7 +331,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       const player = color ?? ['white', 'black'][Math.floor(Math.random() * 2)]
       const resolvedPlayer = forcedPlayerColor ?? player
 
-      if (fen && !new Chess().validateFen(fen).valid) {
+      if (startFen && !new Chess().validateFen(startFen).valid) {
         toast.error('Invalid Starting FEN provided')
         return
       }
@@ -279,6 +340,24 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       onClose?.()
       // A new game resigns any unfinished one (on the backend, as it starts).
       clearUnfinishedGame()
+
+      // Next time the dialog starts from these choices. Not a challenge's:
+      // those settings were set for the visitor, not chosen by them.
+      if (!props.challengeId && forcedPlayerColor === undefined) {
+        const shared = {
+          maiaVersion,
+          timeControl,
+          timeMinutes,
+          incrementSeconds,
+          simulateMaiaTime,
+        }
+        savePlaySettings(
+          props.playType,
+          props.playType === 'againstMaia'
+            ? { ...shared, practice, chess960: chess960Index !== undefined }
+            : { ...shared, maiaPartnerVersion, isBrain },
+        )
+      }
 
       if (props.playType == 'againstMaia') {
         startGameEarly(
@@ -296,7 +375,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
             timeControl: timeControl,
             sampleMoves: sampleMoves,
             simulateMaiaTime: simulateMaiaTime,
-            startFen: fen,
+            startFen: startFen,
             practice: practice,
             returnTo: props.returnTo,
             challengeId: props.challengeId,
@@ -316,7 +395,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
             isBrain: isBrain,
             sampleMoves: sampleMoves,
             simulateMaiaTime: simulateMaiaTime,
-            startFen: fen,
+            startFen: startFen,
           },
         })
       }
@@ -331,7 +410,10 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       sampleMoves,
       simulateMaiaTime,
       practice,
-      fen,
+      startFen,
+      chess960Index,
+      timeMinutes,
+      incrementSeconds,
       forcedPlayerColor,
       isBrain,
       props.challengeId,
@@ -642,7 +724,10 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   type="checkbox"
                   id="customPosition"
                   checked={fen !== undefined}
-                  onChange={() => setFen(fen === undefined ? '' : undefined)}
+                  onChange={() => {
+                    setFen(fen === undefined ? '' : undefined)
+                    setChess960Index(undefined)
+                  }}
                   className="accent-human-4"
                 />
                 <label
@@ -652,6 +737,81 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   Start from custom position
                 </label>
               </div>
+
+              {offerChess960 && (
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="chess960Position"
+                    checked={chess960Index !== undefined}
+                    onChange={() => {
+                      setChess960Index(
+                        chess960Index === undefined
+                          ? randomChess960Index()
+                          : undefined,
+                      )
+                      setFen(undefined)
+                    }}
+                    className="mt-0.5 accent-human-4"
+                  />
+                  <label
+                    htmlFor="chess960Position"
+                    className="text-sm text-primary"
+                  >
+                    Chess960 (no castling){' '}
+                    <span className="text-xs text-secondary">
+                      (random starting position, unrated)
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {chess960Index !== undefined && (
+                <div className="rounded border border-glass-border bg-glass p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-primary">
+                      Chess960 position {chess960Index}
+                    </p>
+                    <button
+                      onClick={() => setChess960Index(randomChess960Index())}
+                      className="flex items-center gap-1 rounded border border-glass-border bg-glass px-2 py-1 text-xs font-medium text-white/90 transition-colors hover:bg-glass-stronger"
+                    >
+                      <span className="material-symbols-outlined text-sm">
+                        shuffle
+                      </span>
+                      Shuffle
+                    </button>
+                  </div>
+                  {/* White's back rank; Black's mirrors it, and the pawns
+                      start as usual. */}
+                  <div
+                    className="flex justify-center gap-0.5"
+                    title={chess960Fen(chess960Index)}
+                  >
+                    {chess960BackRank(chess960Index)
+                      .split('')
+                      .map((piece, file) => (
+                        <div
+                          key={file}
+                          className={`relative h-8 w-8 ${
+                            file % 2 === 0 ? 'bg-white/10' : 'bg-white/20'
+                          }`}
+                        >
+                          <Image
+                            src={`/assets/pieces/white ${PIECE_NAMES[piece]}.svg`}
+                            fill={true}
+                            alt={`White ${PIECE_NAMES[piece]}`}
+                          />
+                        </div>
+                      ))}
+                  </div>
+                  <p className="mt-2 text-xs text-secondary">
+                    The back-rank pieces are shuffled (bishops on opposite
+                    colours, king between the rooks), mirrored for Black.
+                    Castling isn&apos;t available in these games.
+                  </p>
+                </div>
+              )}
 
               {fen !== undefined && (
                 <div className="rounded border border-glass-border bg-glass p-3">

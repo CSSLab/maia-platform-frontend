@@ -159,12 +159,25 @@ export const Header: React.FC = () => {
       </AnimatePresence>
     </div>
   ) : (
-    <button
-      onClick={connectLichess}
-      className="px-2 py-1 text-sm tracking-wide text-primary/80 transition-all duration-200 hover:text-primary"
-    >
-      Sign in
-    </button>
+    <>
+      {/* Settings (board theme, sounds) are kept in the browser, so they're
+          open to visitors without an account too; signed-in users find them
+          in their profile menu. */}
+      <Link
+        href="/settings"
+        aria-label="Settings"
+        title="Settings"
+        className={`flex items-center transition-all duration-200 hover:text-primary ${router.pathname.startsWith('/settings') ? 'text-primary' : 'text-primary/80'}`}
+      >
+        <span className="material-symbols-outlined text-2xl">settings</span>
+      </Link>
+      <button
+        onClick={connectLichess}
+        className="px-2 py-1 text-sm tracking-wide text-primary/80 transition-all duration-200 hover:text-primary"
+      >
+        Sign in
+      </button>
+    </>
   )
 
   const desktopLayout = (
@@ -477,7 +490,7 @@ export const Header: React.FC = () => {
             >
               Feedback
             </a> */}
-            {user?.lichessId && (
+            {user?.lichessId ? (
               <>
                 <Link href="/profile" className="uppercase">
                   Profile
@@ -489,6 +502,11 @@ export const Header: React.FC = () => {
                   Log out
                 </button>
               </>
+            ) : (
+              // Browser-kept settings, for visitors without an account too.
+              <Link href="/settings" className="uppercase">
+                Settings
+              </Link>
             )}
           </div>
           <div className="flex w-full flex-row items-center gap-3 px-12">

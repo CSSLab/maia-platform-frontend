@@ -74,6 +74,7 @@ export const MATERIAL_SYMBOLS = [
   'school',
   'search',
   'settings',
+  'shuffle',
   'skip_next',
   'smart_toy',
   'sports_esports',
