@@ -391,14 +391,16 @@ export const Highlight: React.FC<Props> = ({
 
   const useCompactMobileColumnTitles = isMobile || simplified
   const maiaRating = currentMaiaModel.replace('maia_kdd_', '')
-  // Compact titles (phones, and the desktop side panel) are two lines, the
-  // model over what the column lists: on one line, "Maia-3 1600: Human
-  // Moves" was wider than its column and ran into the Stockfish title.
-  const compactSubtitleClass =
-    'mt-1 block text-[11px] font-medium leading-none opacity-75'
+  const mobileMaiaColumnTitle = `Maia-3 ${maiaRating}: Human Moves`
+  const mobileStockfishColumnTitle = 'SF 19: Engine Moves'
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
-  const compactTitleTextClass = 'text-sm font-semibold leading-none'
+  const compactTitleTextClass = 'font-semibold leading-none'
+  // Compact titles are one line, "Maia-3 1600: Human Moves" beside "SF 19:
+  // Engine Moves", in a panel as narrow as 360px. Their size follows the
+  // panel's width (cqi: 1% of it), 14px down to 11px, and the Maia column,
+  // whose title is longer, gets 56% of it.
+  const compactTitleStyle = { fontSize: 'clamp(11px, 3.1cqi, 14px)' }
   const splitTitleTextClass =
     'text-sm font-semibold leading-none md:text-xxs lg:text-xs'
   const stockfishDepth = moveEvaluation?.stockfish?.depth
@@ -427,9 +429,16 @@ export const Highlight: React.FC<Props> = ({
       className="flex h-full w-full flex-col border-glass-border bg-transparent"
     >
       <div
-        className={`grid grid-cols-2 border-b border-glass-border ${
-          simplified ? 'grid-cols-1' : ''
+        className={`grid border-b border-glass-border ${
+          useCompactMobileColumnTitles
+            ? 'grid-cols-[minmax(0,56fr)_minmax(0,44fr)]'
+            : 'grid-cols-2'
         }`}
+        style={
+          useCompactMobileColumnTitles
+            ? { containerType: 'inline-size' }
+            : undefined
+        }
       >
         <div
           className={`flex flex-col items-center justify-start border-r border-glass-border ${
@@ -445,22 +454,25 @@ export const Highlight: React.FC<Props> = ({
           >
             {isHomePage ? (
               <div
-                className={`text-center text-human-1 ${
+                className={`whitespace-nowrap text-center text-human-1 ${
                   useCompactMobileColumnTitles
                     ? compactTitleTextClass
                     : splitTitleTextClass
                 }`}
+                style={
+                  useCompactMobileColumnTitles ? compactTitleStyle : undefined
+                }
               >
-                {`Maia-3 ${maiaRating}`}
-                {useCompactMobileColumnTitles && (
-                  <span className={compactSubtitleClass}>Human Moves</span>
-                )}
+                {useCompactMobileColumnTitles
+                  ? mobileMaiaColumnTitle
+                  : `Maia-3 ${maiaRating}`}
               </div>
             ) : (
               <>
                 {useCompactMobileColumnTitles ? (
                   <div
-                    className={`flex items-center justify-center pr-4 text-human-1 ${compactTitleTextClass}`}
+                    className={`flex items-center justify-center gap-0.5 text-human-1 ${compactTitleTextClass}`}
+                    style={compactTitleStyle}
                   >
                     <select
                       ref={maiaHeaderSelectRef}
@@ -479,9 +491,16 @@ export const Highlight: React.FC<Props> = ({
                         </option>
                       ))}
                     </select>
-                    <span className="whitespace-nowrap text-center leading-none">
-                      {`Maia-3 ${maiaRating}`}
-                      <span className={compactSubtitleClass}>Human Moves</span>
+                    <span className="whitespace-nowrap leading-none">
+                      {mobileMaiaColumnTitle}
+                    </span>
+                    {/* Beside the title rather than at the cell's edge,
+                        where it took the title's room. */}
+                    <span
+                      aria-hidden
+                      className="material-symbols-outlined pointer-events-none !text-[1.15em] leading-none text-human-1/65"
+                    >
+                      expand_more
                     </span>
                   </div>
                 ) : (
@@ -505,7 +524,11 @@ export const Highlight: React.FC<Props> = ({
                 )}
                 <button
                   type="button"
-                  className="material-symbols-outlined absolute right-0.5 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center text-base leading-none text-human-1/65"
+                  className={`material-symbols-outlined absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-base leading-none text-human-1/65 ${
+                    useCompactMobileColumnTitles
+                      ? 'inset-x-0 h-full w-full text-transparent'
+                      : 'right-0.5 h-5 w-5'
+                  }`}
                   onMouseDown={(e) => {
                     e.preventDefault()
                     openMaiaHeaderPicker()
@@ -623,27 +646,27 @@ export const Highlight: React.FC<Props> = ({
                 : splitTitleRowClass
             }`}
           >
-            <div
-              className={`whitespace-nowrap text-center text-engine-1 ${
+            <p
+              className={`flex items-center justify-center gap-1 whitespace-nowrap text-center text-engine-1 ${
                 useCompactMobileColumnTitles
                   ? compactTitleTextClass
                   : splitTitleTextClass
               }`}
+              style={
+                useCompactMobileColumnTitles ? compactTitleStyle : undefined
+              }
             >
-              <p className="flex items-center justify-center gap-1">
-                <span className="leading-none">
-                  {useCompactMobileColumnTitles ? 'SF 19' : 'Stockfish 19'}
+              <span className="leading-none">
+                {useCompactMobileColumnTitles
+                  ? mobileStockfishColumnTitle
+                  : 'Stockfish 19'}
+              </span>
+              {stockfishDepthLabel && (
+                <span className="text-[10px] font-normal leading-none text-engine-2/75 md:text-[9px] lg:text-[10px]">
+                  {stockfishDepthLabel}
                 </span>
-                {stockfishDepthLabel && (
-                  <span className="text-[10px] font-normal leading-none text-engine-2/75 md:text-[9px] lg:text-[10px]">
-                    {stockfishDepthLabel}
-                  </span>
-                )}
-              </p>
-              {useCompactMobileColumnTitles && (
-                <span className={compactSubtitleClass}>Engine Moves</span>
               )}
-            </div>
+            </p>
           </div>
 
           {!hideStockfishEvalSummary && (
