@@ -3,7 +3,8 @@ import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-import { startGame } from 'src/api'
+import { MoveRequestError, startGameWithRetry } from 'src/api/play'
+import { trackGameStartFailed } from 'src/lib/analytics'
 import { Loading } from 'src/components/Common'
 import { GameplayInterface } from 'src/components/Board'
 import { HandBrainPlayControls } from 'src/components/Play'
@@ -135,7 +136,7 @@ const PlayHandBrainPage: NextPage = () => {
     async function fetchGameId() {
       let response
       try {
-        response = await startGame(
+        response = await startGameWithRetry(
           playGameConfig.player,
           playGameConfig.maiaVersion,
           playGameConfig.isBrain ? 'brain' : 'hand',
@@ -144,6 +145,12 @@ const PlayHandBrainPage: NextPage = () => {
           playGameConfig.maiaPartnerVersion,
         )
       } catch (e) {
+        console.error(e)
+        trackGameStartFailed(
+          playGameConfig.isBrain ? 'brain' : 'hand',
+          e,
+          e instanceof MoveRequestError ? e.status : undefined,
+        )
         router.push('/401')
         return
       }
