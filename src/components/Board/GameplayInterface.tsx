@@ -212,7 +212,9 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
 
   const desktopLayout = (
     <>
-      <div className="flex h-full flex-1 flex-col justify-center gap-1 py-2 md:py-4">
+      {/* From the top, as on the analysis page: centred, the game sat under
+          a band of empty space (about 100px in a 900px-tall window). */}
+      <div className="flex h-full flex-1 flex-col justify-start gap-1 py-2 md:py-4">
         <div className="mx-auto mt-2 flex w-[90%] flex-row items-start justify-between gap-3">
           <div className="flex h-[75vh] max-h-[75vh] min-h-[75vh] w-[22rem] min-w-[22rem] max-w-[22rem] flex-shrink-0 flex-col overflow-hidden">
             <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
