@@ -43,3 +43,39 @@ export const ANALYSIS_LEFT_PANEL_TABS = [
   { id: 'moves', name: 'Moves' },
   { id: 'select-game', name: 'Select Game' },
 ] as const
+
+// The analysis page's game lists, as its game picker names them.
+export type AnalysisGameListName =
+  | 'tournament'
+  | 'lichess'
+  | 'play'
+  | 'hb'
+  | 'custom'
+  | 'favorites'
+
+// What the site's Analysis menu can open: one of the lists, or the box for
+// pasting a PGN or FEN.
+export type AnalysisMenuRequest = AnalysisGameListName | 'import'
+
+export const ANALYSIS_MENU_ITEMS: readonly {
+  request: AnalysisMenuRequest
+  label: string
+}[] = [
+  { request: 'play', label: 'My games vs Maia' },
+  { request: 'hb', label: 'My Hand and Brain games' },
+  { request: 'lichess', label: 'My Lichess games' },
+  { request: 'custom', label: 'My imported games' },
+  { request: 'favorites', label: 'Favorites' },
+  { request: 'tournament', label: 'World Championship games' },
+  { request: 'import', label: 'Paste a PGN or FEN' },
+]
+
+export const isAnalysisMenuRequest = (
+  value: unknown,
+): value is AnalysisMenuRequest =>
+  ANALYSIS_MENU_ITEMS.some((item) => item.request === value)
+
+// On the analysis page the menu sends this event; from any other page it
+// leaves the request here and opens the analysis page, which reads it.
+export const OPEN_ANALYSIS_LIST_EVENT = 'maia:open-analysis-list' as const
+export const OPEN_ANALYSIS_LIST_KEY = 'maia.openAnalysisList' as const
