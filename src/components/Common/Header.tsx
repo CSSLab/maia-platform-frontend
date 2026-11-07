@@ -172,7 +172,7 @@ export const Header: React.FC = () => {
         <span className="material-symbols-outlined text-2xl">settings</span>
       </Link>
       <button
-        onClick={connectLichess}
+        onClick={() => connectLichess('header')}
         className="px-2 py-1 text-sm tracking-wide text-primary/80 transition-all duration-200 hover:text-primary"
       >
         Sign in
@@ -526,7 +526,10 @@ export const Header: React.FC = () => {
                 </span>
               </div>
             ) : (
-              <button onClick={connectLichess} className="uppercase">
+              <button
+                onClick={() => connectLichess('header_menu')}
+                className="uppercase"
+              >
                 Sign in
               </button>
             )}
