@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { Chess } from 'chess.ts'
 import { GameTree } from 'src/types'
 import { PlayControls } from './PlayControls'
+import { AuthContext } from 'src/contexts/AuthContext'
 
 // The components index pulls in modules Jest can't parse (react-markdown);
 // only the resign dialog is used here.
@@ -62,5 +63,43 @@ describe('PlayControls practice buttons', () => {
 
     fireEvent.click(screen.getByText('Takeback'))
     expect(takeBack).not.toHaveBeenCalled()
+  })
+})
+
+describe('PlayControls sign-in prompt after a game', () => {
+  const connectLichess = jest.fn()
+  const renderOver = (
+    user: { clientId: string; displayName: string; lichessId?: string } | null,
+    gameOver = true,
+  ) =>
+    render(
+      <AuthContext.Provider value={{ user, connectLichess, logout: jest.fn() }}>
+        <PlayControls
+          game={game}
+          playerActive={false}
+          gameOver={gameOver}
+          playAgain={jest.fn()}
+        />
+      </AuthContext.Provider>,
+    )
+
+  beforeEach(() => connectLichess.mockClear())
+
+  it('asks a guest to sign in, coming back to /play', () => {
+    renderOver({ clientId: 'c', displayName: '' })
+    fireEvent.click(screen.getByText('Sign in with Lichess'))
+    expect(connectLichess).toHaveBeenCalledWith('game_over', '/play')
+  })
+
+  it('does not ask a signed-in player', () => {
+    renderOver({ clientId: 'c', displayName: 'alice', lichessId: 'alice' })
+    expect(screen.queryByText('Sign in with Lichess')).toBeNull()
+  })
+
+  it('does not ask before the account has loaded, or during a game', () => {
+    renderOver(null)
+    expect(screen.queryByText('Sign in with Lichess')).toBeNull()
+    renderOver({ clientId: 'c', displayName: '' }, false)
+    expect(screen.queryByText('Sign in with Lichess')).toBeNull()
   })
 })
