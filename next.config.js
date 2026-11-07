@@ -18,6 +18,12 @@ module.exports = withTM({
   async rewrites() {
     return [
       {
+        // The original site's prediction visualizer, still embedded by a
+        // Microsoft Research blog post (see public/maia-viz/index.html).
+        source: '/maia-viz{/}?',
+        destination: '/maia-viz/index.html',
+      },
+      {
         source: '/api/:path*',
         destination: 'https://dock2.csslab.ca/api/:path*',
       },
