@@ -3,6 +3,7 @@ import {
   TIME_MINUTES_STEPS,
   initialClockSeconds,
   nearestStepIndex,
+  pgnTimeControl,
   normalizeTimeControl,
 } from './timeControl'
 
@@ -44,5 +45,13 @@ describe('nearestStepIndex', () => {
     expect(
       INCREMENT_SECONDS_STEPS[nearestStepIndex(INCREMENT_SECONDS_STEPS, 40)],
     ).toBe(45)
+  })
+})
+
+describe('pgnTimeControl', () => {
+  it('writes seconds and increment, or "-" without clocks', () => {
+    expect(pgnTimeControl('5+3')).toBe('300+3')
+    expect(pgnTimeControl('0+1')).toBe('3+1')
+    expect(pgnTimeControl('unlimited')).toBe('-')
   })
 })

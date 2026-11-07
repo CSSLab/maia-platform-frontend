@@ -2,6 +2,7 @@ import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
 import { MoveTooltip } from './MoveTooltip'
 import { InteractiveDescription } from './InteractiveDescription'
+import { TablebasePanel } from './TablebasePanel'
 import { useState, useEffect, useRef, useContext, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -16,6 +17,7 @@ import {
   MAIA_DOWNLOAD_MB,
   startMaiaDownload,
 } from 'src/lib/engine/maiaDownloadPrompt'
+import type { TablebaseResult } from 'src/lib/tablebase'
 
 type DescriptionSegment =
   | { type: 'text'; content: string }
@@ -49,6 +51,8 @@ interface Props {
   hideWhiteWinRateSummary?: boolean
   /** Stockfish is turned off in the analysis settings (Maia only). */
   stockfishOff?: boolean
+  /** The endgame tablebase's result, for positions with at most 7 pieces. */
+  tablebase?: TablebaseResult | null
 }
 
 export const Highlight: React.FC<Props> = ({
@@ -66,6 +70,7 @@ export const Highlight: React.FC<Props> = ({
   hideStockfishEvalSummary = false,
   hideWhiteWinRateSummary = false,
   stockfishOff = false,
+  tablebase = null,
 }: Props) => {
   const maiaEngine = useContext(MaiaEngineContext)
   const { isMobile } = useContext(WindowSizeContext)
@@ -744,6 +749,14 @@ export const Highlight: React.FC<Props> = ({
           </div>
         </div>
       </div>
+      {tablebase && tablebase.fen === currentNode?.fen ? (
+        <TablebasePanel
+          result={tablebase}
+          hover={hover}
+          makeMove={makeMove}
+          simplified={simplified}
+        />
+      ) : null}
       <div
         className={`flex flex-col items-start justify-start bg-transparent text-sm ${simplified ? 'p-3' : 'p-2'}`}
       >

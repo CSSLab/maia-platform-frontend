@@ -6,6 +6,7 @@ import {
   TopBroadcastsResponse,
   TopBroadcastItem,
 } from 'src/types'
+import { getClocksAtPly, parseClockComment } from 'src/lib/broadcastClocks'
 
 const readStream = (processLine: (data: any) => void) => (response: any) => {
   const stream = response.body.getReader()
@@ -295,13 +296,8 @@ const parseSinglePGN = (pgnString: string): BroadcastGame | null => {
 
   // Parse moves and clock information from full PGN
   const parseResult = parseMovesAndClocksFromPGN(pgnString)
-  const moves = parseResult.moves
-  const { whiteClock, blackClock } = parseResult
+  const { moves, moveClocks, whiteClock, blackClock } = parseResult
   const fen = extractFENFromMoves()
-
-  // Debug clock parsing
-  if (whiteClock || blackClock) {
-  }
 
   const game: BroadcastGame = {
     id: generateGameId(white, black, event, site),
@@ -328,6 +324,7 @@ const parseSinglePGN = (pgnString: string): BroadcastGame | null => {
     utcTime: headers.UTCTime,
     whiteClock,
     blackClock,
+    moveClocks,
   }
 
   // Note: Last move extraction would need proper move parsing to convert SAN to UCI
@@ -336,28 +333,20 @@ const parseSinglePGN = (pgnString: string): BroadcastGame | null => {
   return game
 }
 
+type BroadcastClock = NonNullable<BroadcastGame['whiteClock']>
+
 const parseMovesAndClocksFromPGN = (
   pgnString: string,
 ): {
   moves: string[]
-  whiteClock?: {
-    timeInSeconds: number
-    isActive: boolean
-    lastUpdateTime: number
-  }
-  blackClock?: {
-    timeInSeconds: number
-    isActive: boolean
-    lastUpdateTime: number
-  }
+  moveClocks: (number | null)[]
+  whiteClock?: BroadcastClock
+  blackClock?: BroadcastClock
 } => {
   const moves: string[] = []
-  let whiteClock:
-    | { timeInSeconds: number; isActive: boolean; lastUpdateTime: number }
-    | undefined
-  let blackClock:
-    | { timeInSeconds: number; isActive: boolean; lastUpdateTime: number }
-    | undefined
+  const moveClocks: (number | null)[] = []
+  let whiteClock: BroadcastClock | undefined
+  let blackClock: BroadcastClock | undefined
 
   try {
     // Use chess.js to parse the full PGN
@@ -368,74 +357,49 @@ const parseMovesAndClocksFromPGN = (
       console.warn(
         'Failed to parse PGN with chess.js, falling back to manual parsing',
       )
-      return { moves }
+      return { moves, moveClocks }
     }
 
-    // Get all moves from the game history
-    const history = chess.history({ verbose: true })
-    for (const move of history) {
-      moves.push(move.san)
+    // chess.ts keys each comment by the position after the move it follows.
+    // Within one game no two positions share a FEN (the move counters
+    // differ), so replaying the moves finds each move's comment, and with it
+    // the clock of the player who made it.
+    const commentsByFen = new Map(
+      chess.getComments().map(({ fen, comment }) => [fen, comment]),
+    )
+    const replay = new Chess()
+    for (const move of chess.history()) {
+      moves.push(move)
+      replay.move(move)
+      const comment = commentsByFen.get(replay.fen())
+      moveClocks.push(
+        comment === undefined ? null : (parseClockComment(comment) ?? null),
+      )
     }
 
-    // Get comments which contain clock information
-    const comments = chess.getComments()
-    let lastWhiteClock: any = null
-    let lastBlackClock: any = null
-
-    for (const commentData of comments) {
-      const comment = commentData.comment
-
-      // Extract clock from comment using regex
-      const clockMatch = comment.match(/\[%clk\s+(\d+):(\d+)(?::(\d+))?\]/)
-      if (clockMatch) {
-        const hours = clockMatch[3] ? parseInt(clockMatch[1]) : 0
-        const minutes = clockMatch[3]
-          ? parseInt(clockMatch[2])
-          : parseInt(clockMatch[1])
-        const seconds = clockMatch[3]
-          ? parseInt(clockMatch[3])
-          : parseInt(clockMatch[2])
-
-        const timeInSeconds = hours * 3600 + minutes * 60 + seconds
-        const clockData = {
-          timeInSeconds,
-          isActive: false,
-          lastUpdateTime: Date.now(),
-        }
-
-        // Determine if this is white or black's move based on the FEN
-        const chess_temp = new Chess(commentData.fen)
-        const isWhiteToMove = chess_temp.turn() === 'b' // After white's move, it's black's turn
-
-        if (isWhiteToMove) {
-          lastWhiteClock = clockData
-        } else {
-          lastBlackClock = clockData
-        }
+    // The clocks at the end of the game, with the side to move's running.
+    const latest = getClocksAtPly(moveClocks, moves.length)
+    const isWhiteToMove = chess.turn() === 'w'
+    const lastUpdateTime = Date.now()
+    if (latest.white !== undefined) {
+      whiteClock = {
+        timeInSeconds: latest.white,
+        isActive: moves.length > 0 && isWhiteToMove,
+        lastUpdateTime,
       }
     }
-
-    whiteClock = lastWhiteClock
-    blackClock = lastBlackClock
-
-    // Determine which clock is active based on current turn
-    if (moves.length > 0) {
-      const finalPosition = new Chess()
-      finalPosition.loadPgn(pgnString)
-      const isCurrentlyWhiteTurn = finalPosition.turn() === 'w'
-
-      if (whiteClock) {
-        whiteClock.isActive = isCurrentlyWhiteTurn
-      }
-      if (blackClock) {
-        blackClock.isActive = !isCurrentlyWhiteTurn
+    if (latest.black !== undefined) {
+      blackClock = {
+        timeInSeconds: latest.black,
+        isActive: moves.length > 0 && !isWhiteToMove,
+        lastUpdateTime,
       }
     }
   } catch (error) {
     console.warn('Error parsing PGN with chess.js:', error)
   }
 
-  return { moves, whiteClock, blackClock }
+  return { moves, moveClocks, whiteClock, blackClock }
 }
 
 const extractFENFromMoves = (): string | null => {

@@ -1,12 +1,22 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
-import { Chess } from 'chess.ts'
 import toast from 'react-hot-toast'
 import { useContext, useEffect, useState } from 'react'
 
 import { PlayedGame, AnalyzedGame, GameTree, GameNode } from 'src/types'
 import { TreeControllerContext } from 'src/contexts'
+import { gameTreeToPgn } from 'src/lib/pgn'
 
-interface AnalysisProps {
+// What the PGN's headers say of the game when it's known.
+interface GameDetails {
+  /** PGN's form, "2026.11.06". */
+  date?: string
+  /** PGN's form, "300+3", or "-" without clocks. */
+  timeControl?: string
+  whiteElo?: number
+  blackElo?: number
+}
+
+interface AnalysisProps extends GameDetails {
   game: AnalyzedGame
   whitePlayer: string
   blackPlayer: string
@@ -15,7 +25,7 @@ interface AnalysisProps {
   currentNode: GameNode
 }
 
-interface PlayProps {
+interface PlayProps extends GameDetails {
   game: PlayedGame
   gameTree?: GameTree
   whitePlayer: string
@@ -25,7 +35,7 @@ interface PlayProps {
   currentNode: GameNode
 }
 
-interface TuringProps {
+interface TuringProps extends GameDetails {
   game: PlayedGame
   whitePlayer: string
   blackPlayer: string
@@ -37,7 +47,17 @@ interface TuringProps {
 type Props = AnalysisProps | PlayProps | TuringProps
 
 export const ExportGame: React.FC<Props> = (props) => {
-  const { game, whitePlayer, blackPlayer, event, type } = props
+  const {
+    game,
+    whitePlayer,
+    blackPlayer,
+    event,
+    type,
+    date,
+    timeControl,
+    whiteElo,
+    blackElo,
+  } = props
   const [fen, setFen] = useState('')
   const [pgn, setPgn] = useState('')
 
@@ -59,25 +79,28 @@ export const ExportGame: React.FC<Props> = (props) => {
             gameTree: controller.gameTree,
           }
 
+  // Written from the tree itself, so the variations explored on the board are
+  // in it too (chess.ts writes only the main line). It's written again as
+  // the current move changes, which is also when a variation is added.
   useEffect(() => {
-    const tree = new GameTree(gameTree.getRoot().fen)
-    tree.setHeader('ID', game.id)
-    tree.setHeader('Event', event)
-    tree.setHeader('Site', 'https://maiachess.com/')
-    tree.setHeader('White', whitePlayer)
-    tree.setHeader('Black', blackPlayer)
-    if (game.termination) {
-      tree.setHeader('Result', game.termination.result)
-      if (game.termination.condition) {
-        tree.setHeader('Termination', game.termination.condition)
-      }
-    }
+    const positiveElo = (elo?: number) =>
+      elo && Number.isFinite(elo) && elo > 0 ? Math.round(elo) : undefined
 
-    const originalMoves = gameTree.toMoveArray()
-    const originalTimes = gameTree.toTimeArray()
-    tree.addMovesToMainLine(originalMoves, originalTimes)
-
-    setPgn(tree.toPGN())
+    setPgn(
+      gameTreeToPgn(gameTree, {
+        Event: event,
+        Site: 'https://maiachess.com/',
+        Date: date,
+        White: whitePlayer,
+        Black: blackPlayer,
+        Result: game.termination?.result,
+        ID: game.id,
+        WhiteElo: positiveElo(whiteElo),
+        BlackElo: positiveElo(blackElo),
+        TimeControl: timeControl,
+        Termination: game.termination?.condition,
+      }),
+    )
     setFen(currentNode.fen)
   }, [
     currentNode,
@@ -88,6 +111,10 @@ export const ExportGame: React.FC<Props> = (props) => {
     event,
     gameTree,
     type,
+    date,
+    timeControl,
+    whiteElo,
+    blackElo,
   ])
 
   const copy = (content: string) => {

@@ -44,3 +44,14 @@ export const initialClockSeconds = (timeControl: string): number => {
   if (!Number.isFinite(minutes)) return 0
   return minutes === 0 ? ZERO_BASE_START_SECONDS : minutes * 60
 }
+
+/**
+ * A time control as PGN's TimeControl header writes it: the starting time and
+ * increment in seconds ("300+3"), or "-" for a game without clocks.
+ */
+export const pgnTimeControl = (timeControl: string): string => {
+  const seconds = initialClockSeconds(timeControl)
+  if (!seconds) return '-'
+  const increment = parseInt(timeControl.split('+')[1], 10) || 0
+  return `${seconds}+${increment}`
+}

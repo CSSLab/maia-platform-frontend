@@ -64,6 +64,9 @@ export const useBroadcastController = (): BroadcastStreamController => {
   const abortController = useRef<AbortController | null>(null)
   const currentRoundId = useRef<string | null>(null)
   const gameStates = useRef<Map<string, LiveGame>>(new Map())
+  // When each game's latest move arrived, for the running clock of the side
+  // to move (see BroadcastGame.lastMoveReceivedAt).
+  const lastMoveReceivedAt = useRef<Map<string, number>>(new Map())
   const lastPGNData = useRef<string>('')
   const currentGameRef = useRef<BroadcastGame | null>(null)
 
@@ -236,6 +239,7 @@ export const useBroadcastController = (): BroadcastStreamController => {
             }))
             currentRoundId.current = null
             gameStates.current.clear()
+            lastMoveReceivedAt.current.clear()
             lastPGNData.current = ''
 
             // Clear current game selection when switching rounds
@@ -283,6 +287,7 @@ export const useBroadcastController = (): BroadcastStreamController => {
     currentRoundId.current = null
     setCurrentGame(null)
     gameStates.current.clear()
+    lastMoveReceivedAt.current.clear()
     lastPGNData.current = ''
   }, [])
 
@@ -421,6 +426,20 @@ export const useBroadcastController = (): BroadcastStreamController => {
 
       if (parseResult.games.length === 0) {
         return
+      }
+
+      // A game already on the page whose PGN now has more moves has just had
+      // a move played, so its side to move started thinking now. Games seen
+      // for the first time (the round's opening snapshot) get no time: their
+      // last move could have been played long ago. This runs before the
+      // state update below, which replaces the games' known move counts.
+      const receivedAt = Date.now()
+      for (const game of parseResult.games) {
+        const known = gameStates.current.get(game.id)
+        if (known && game.moves.length > known.tree.getMainLine().length - 1) {
+          lastMoveReceivedAt.current.set(game.id, receivedAt)
+        }
+        game.lastMoveReceivedAt = lastMoveReceivedAt.current.get(game.id)
       }
 
       // Store the current game ID to preserve selection

@@ -70,7 +70,11 @@ import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import { Chess, PieceSymbol } from 'chess.ts'
 import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
-import { useAnalysisController } from 'src/hooks'
+import {
+  useAnalysisController,
+  useBoardWheelNavigation,
+  useTablebase,
+} from 'src/hooks'
 import { tourConfigs } from 'src/constants/tours'
 import { ANALYSIS_LEFT_PANEL_TABS } from 'src/constants/analysis'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
@@ -78,6 +82,10 @@ import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
+import {
+  applyImportedVariations,
+  saveImportedVariations,
+} from 'src/lib/customGameVariations'
 import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
@@ -141,6 +149,8 @@ const formatMoveHistoryAsPgn = (moves: string[]): string => {
   return tokens.join(' ').trim()
 }
 
+// The backend gets the main line only; an imported game's variations are kept
+// in the browser and added back when it opens (see customGameVariations).
 const normalizeCustomPgnForBackendStore = (pgn: string): string => {
   const trimmed = pgn.trim()
   const candidates = Array.from(
@@ -401,6 +411,7 @@ const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
       const rawGame = await fetchAnalyzedMaiaGame(id, type)
       const game =
         type === 'custom' ? applyCustomPgnResultOverride(id, rawGame) : rawGame
+      if (type === 'custom') applyImportedVariations(id, game.tree)
 
       if (setCurrentMove) setCurrentMove(0)
 
@@ -648,6 +659,12 @@ const Analysis: React.FC<Props> = ({
 
   const controller = useAnalysisController(analyzedGame)
   const { refreshAnalysis } = controller
+  // Exact endgame results (7 pieces or fewer) from the Lichess tablebase.
+  // Not during Learn from mistakes, where it would give the answer away.
+  const tablebase = useTablebase(
+    controller.currentNode?.fen,
+    analysisEnabled && !controller.learnFromMistakes.state.isActive,
+  )
   useEffect(() => {
     // Stored analysis can arrive after the game is on screen: show it, and let
     // the engine effects see that the position is already analysed.
@@ -758,6 +775,7 @@ const Analysis: React.FC<Props> = ({
           if (pgnResult && pgnResult !== '*') {
             setCustomPgnResultOverride(game_id, pgnResult)
           }
+          if (type === 'pgn') saveImportedVariations(game_id, data)
 
           trackCustomGameInputUsed(type, data.length, true)
           setShowCustomModal(false)
@@ -1450,6 +1468,40 @@ const Analysis: React.FC<Props> = ({
     useMobileStyleAnalysisLayout,
   ])
 
+  // Wheel over the board steps through the moves, like the arrow keys (and
+  // like Lichess). Off whenever the arrow keys are: in Learn from mistakes,
+  // which locks navigation, and while "Analyze entire game" walks the board
+  // through the game itself; and while the promotion picker is open.
+  const wheelNavigationDisabled =
+    controller.learnFromMistakes.state.isActive ||
+    controller.gameAnalysis.progress.isAnalyzing ||
+    !!promotionFromTo
+  const handleWheelNext = useCallback(() => {
+    if (!controller.currentNode?.mainChild) return
+    controller.goToNextNode()
+    if (!useMobileStyleAnalysisLayout) showDesktopMovesAfterNavigation()
+  }, [
+    controller.currentNode,
+    controller.goToNextNode,
+    showDesktopMovesAfterNavigation,
+    useMobileStyleAnalysisLayout,
+  ])
+  const handleWheelPrevious = useCallback(() => {
+    if (!controller.currentNode?.parent) return
+    controller.goToPreviousNode()
+    if (!useMobileStyleAnalysisLayout) showDesktopMovesAfterNavigation()
+  }, [
+    controller.currentNode,
+    controller.goToPreviousNode,
+    showDesktopMovesAfterNavigation,
+    useMobileStyleAnalysisLayout,
+  ])
+  const boardWheelRef = useBoardWheelNavigation<HTMLDivElement>({
+    onNext: handleWheelNext,
+    onPrevious: handleWheelPrevious,
+    disabled: wheelNavigationDisabled,
+  })
+
   const smoothedEvalPosition = useSpring(50, {
     stiffness: 520,
     damping: 42,
@@ -1786,7 +1838,10 @@ const Analysis: React.FC<Props> = ({
                       desktopSize={desktopBarChromeSize}
                     />
                   </div>
-                  <div className="relative flex aspect-square w-full">
+                  <div
+                    ref={boardWheelRef}
+                    className="relative flex aspect-square w-full"
+                  >
                     <GameBoard
                       game={analyzedGame}
                       availableMoves={
@@ -1884,6 +1939,7 @@ const Analysis: React.FC<Props> = ({
           handleToggleAnalysis={handleToggleAnalysis}
           hideDetailedBlunderMeter={true}
           desktopContentHeightCss={desktopSidebarContentHeightCss}
+          tablebase={tablebase}
           containerStyle={{
             width: 'clamp(23rem, 27vw, 26rem)',
             minWidth: '23rem',
@@ -2080,6 +2136,7 @@ const Analysis: React.FC<Props> = ({
                 </div>
                 <div
                   id="analysis"
+                  ref={boardWheelRef}
                   className="relative flex aspect-square w-full"
                 >
                   <GameBoard
@@ -2263,6 +2320,7 @@ const Analysis: React.FC<Props> = ({
                     stockfishOff:
                       !controller.stockfishEnabled &&
                       !controller.moveEvaluation?.stockfish,
+                    tablebase,
                   }}
                   blunderMeterProps={{
                     hover:

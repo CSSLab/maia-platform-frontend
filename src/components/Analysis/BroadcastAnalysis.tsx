@@ -35,7 +35,13 @@ import {
 } from 'src/components/Analysis'
 import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens'
 import { BroadcastGameList } from 'src/components/Analysis/BroadcastGameList'
+import {
+  BroadcastClock,
+  useBroadcastClocks,
+} from 'src/components/Analysis/BroadcastClock'
 import { useAnalysisController } from 'src/hooks/useAnalysisController'
+import { useBoardWheelNavigation } from 'src/hooks/useBoardWheelNavigation'
+import { useTablebase } from 'src/hooks/useTablebase'
 import type { MaiaEvaluation, StockfishEvaluation } from 'src/types'
 
 const EVAL_BAR_RANGE = 4
@@ -85,6 +91,14 @@ export const BroadcastAnalysis: React.FC<Props> = ({
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
+  // Exact endgame results (7 pieces or fewer) from the Lichess tablebase.
+  const tablebase = useTablebase(analysisController.currentNode?.fen, true)
+  // Wheel over the board steps through the moves, like the arrow keys.
+  const boardWheelRef = useBoardWheelNavigation<HTMLDivElement>({
+    onNext: analysisController.goToNextNode,
+    onPrevious: analysisController.goToPreviousNode,
+    disabled: !!promotionFromTo,
+  })
 
   useIsomorphicLayoutEffect(() => {
     if (useMobileStyleAnalysisLayout) return
@@ -646,6 +660,12 @@ export const BroadcastAnalysis: React.FC<Props> = ({
     return `Maia %\n@ ${ratingLevel}`
   }, [analysisController.currentMaiaModel])
 
+  // Each player's clock at the position being viewed, shown by their name.
+  const clocks = useBroadcastClocks(
+    broadcastController.currentGame,
+    analysisController.currentNode,
+  )
+
   const NestedGameInfo = () => (
     <div className="flex w-full flex-col">
       <div className="hidden md:block">
@@ -662,13 +682,21 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 {player.rating ? <>({player.rating})</> : null}
               </span>
             </div>
-            {game.termination?.winner === (index === 0 ? 'white' : 'black') ? (
-              <p className="text-xs text-engine-3">1</p>
-            ) : game.termination?.winner !== 'none' ? (
-              <p className="text-xs text-human-3">0</p>
-            ) : game.termination === undefined ? null : (
-              <p className="text-xs text-secondary">1/2</p>
-            )}
+            <div className="flex items-center gap-2">
+              <BroadcastClock
+                clocks={clocks}
+                color={index === 0 ? 'white' : 'black'}
+                className="text-xs"
+              />
+              {game.termination?.winner ===
+              (index === 0 ? 'white' : 'black') ? (
+                <p className="text-xs text-engine-3">1</p>
+              ) : game.termination?.winner !== 'none' ? (
+                <p className="text-xs text-human-3">0</p>
+              ) : game.termination === undefined ? null : (
+                <p className="text-xs text-secondary">1/2</p>
+              )}
+            </div>
           </div>
         ))}
         <div className="mt-1 flex items-center justify-center gap-1">
@@ -689,6 +717,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
           {game.whitePlayer.rating && (
             <span className="text-primary/60">({game.whitePlayer.rating})</span>
           )}
+          <BroadcastClock clocks={clocks} color="white" className="text-xxs" />
         </div>
         <div className="flex items-center gap-1">
           {broadcastController.broadcastState.isLive && !game.termination ? (
@@ -715,6 +744,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
           {game.blackPlayer.rating && (
             <span className="text-primary/60">({game.blackPlayer.rating})</span>
           )}
+          <BroadcastClock clocks={clocks} color="black" className="text-xxs" />
         </div>
       </div>
     </div>
@@ -896,7 +926,10 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                       desktopSize={desktopBarChromeSize}
                     />
                   </div>
-                  <div className="relative flex aspect-square w-full">
+                  <div
+                    ref={boardWheelRef}
+                    className="relative flex aspect-square w-full"
+                  >
                     <GameBoard
                       game={game}
                       availableMoves={analysisController.availableMoves}
@@ -965,6 +998,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
           }}
           hideDetailedBlunderMeter={true}
           desktopContentHeightCss={desktopSidebarContentHeightCss}
+          tablebase={tablebase}
           containerStyle={{
             width: 'clamp(23rem, 27vw, 26rem)',
             minWidth: '23rem',
@@ -1108,6 +1142,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                 </div>
                 <div
                   id="analysis"
+                  ref={boardWheelRef}
                   className="relative flex aspect-square w-full"
                 >
                   <GameBoard
@@ -1213,6 +1248,7 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                     simplified: true,
                     hideWhiteWinRateSummary: true,
                     hideStockfishEvalSummary: true,
+                    tablebase,
                   }}
                   blunderMeterProps={{
                     hover,

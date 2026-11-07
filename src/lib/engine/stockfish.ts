@@ -13,7 +13,11 @@ export const NNUE_DOWNLOAD_FAILED_MESSAGE =
   'the download failed. Check your connection.'
 
 const DEFAULT_NNUE_FETCH_TIMEOUT_MS = 30000
-const DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS = 15000
+// How long one start of the engine's module (fetching and compiling its
+// wasm, starting its threads) may take. Slow phones took more than the 15 s
+// this used to be, so the engine starts a second time before giving up (see
+// startModuleWithRetry): at worst 2 x 20 s before the error shows.
+const DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS = 20000
 type StockfishInitPhase =
   | 'idle'
   | 'loading-module'
@@ -2070,6 +2074,9 @@ const getNnueFetchTimeoutMs = (): number => {
     : DEFAULT_NNUE_FETCH_TIMEOUT_MS
 }
 
+/** A wait that ran out of time, as opposed to a failure. */
+class TimeoutError extends Error {}
+
 const withTimeout = async <T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -2085,7 +2092,10 @@ const withTimeout = async <T>(
     return await Promise.race([
       promise,
       new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
+        timeoutId = setTimeout(
+          () => reject(new TimeoutError(message)),
+          timeoutMs,
+        )
       }),
     ])
   } finally {
@@ -2093,6 +2103,41 @@ const withTimeout = async <T>(
       clearTimeout(timeoutId)
     }
   }
+}
+
+/**
+ * Starts the engine's module, and once more if the first start runs out of
+ * time. On a slow device the first start can be slow for reasons a second
+ * one doesn't share: the wasm is downloaded and compiled then, and the
+ * second start finds both in the browser's cache. The first start isn't
+ * abandoned: whichever of the two finishes first is used, so a first start
+ * that was merely slow still counts. A start that fails outright (rather than
+ * running out of time) is not retried, as it would most likely fail again.
+ */
+export const startModuleWithRetry = async <T>(
+  start: () => Promise<T>,
+  timeoutMs: number,
+): Promise<T> => {
+  const first = start()
+  try {
+    return await withTimeout(first, timeoutMs, 'timed out')
+  } catch (error) {
+    if (!(error instanceof TimeoutError)) throw error
+  }
+
+  // Ignore the first start's failure if it comes while the second runs: the
+  // second start then decides.
+  first.catch(() => undefined)
+  const second = start()
+  const eitherStart = new Promise<T>((resolve, reject) => {
+    first.then(resolve, () => undefined)
+    second.then(resolve, reject)
+  })
+  return withTimeout(
+    eitherStart,
+    timeoutMs,
+    `Stockfish module initialization timed out after ${2 * timeoutMs}ms (started twice)`,
+  )
 }
 
 const getStockfishModuleInitTimeoutMs = (): number => {
@@ -2174,14 +2219,23 @@ const setupStockfish = async (
   ).catch((error) => {
     throw new StockfishFileError(String(error))
   })
-  const wasmMemory = await reserveWasmMemory(STOCKFISH_INITIAL_MEMORY_PAGES)
   // The engine's own reports of why it failed to start, such as why its
   // wasm couldn't be fetched: its error says only "both async and sync
   // fetching of the wasm failed". Its stderr goes to `onError`, which the
   // engine takes over once started.
   const startupLog: string[] = []
-  const instance: StockfishWeb = await withTimeout<StockfishWeb>(
-    makeModule.default({
+  // The first start's memory is reserved before its time starts: waiting
+  // for memory to be released has its own delays. A second start, while the
+  // first still holds its memory, needs memory of its own.
+  let memoryForNextStart: WebAssembly.Memory | null = await reserveWasmMemory(
+    STOCKFISH_INITIAL_MEMORY_PAGES,
+  )
+  const startModule = async (): Promise<StockfishWeb> => {
+    const wasmMemory =
+      memoryForNextStart ??
+      (await reserveWasmMemory(STOCKFISH_INITIAL_MEMORY_PAGES))
+    memoryForNextStart = null
+    return makeModule.default({
       wasmMemory,
       locateFile: (name: string) => `${STOCKFISH_BASE}/${name}`,
       onError: (message: string) => {
@@ -2189,9 +2243,11 @@ const setupStockfish = async (
         startupLog.push(String(message))
         if (startupLog.length > 5) startupLog.shift()
       },
-    }),
+    })
+  }
+  const instance: StockfishWeb = await startModuleWithRetry(
+    startModule,
     moduleInitTimeoutMs,
-    `Stockfish module initialization timed out after ${moduleInitTimeoutMs}ms`,
   ).catch((error) => {
     throw withStartupLog(error, startupLog)
   })
