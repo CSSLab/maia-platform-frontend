@@ -395,7 +395,12 @@ export const Highlight: React.FC<Props> = ({
   const mobileStockfishColumnTitle = 'SF 19: Engine Moves'
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
-  const compactTitleTextClass = 'text-sm font-semibold leading-none'
+  const compactTitleTextClass = 'font-semibold leading-none'
+  // Compact titles are one line, "Maia-3 1600: Human Moves" beside "SF 19:
+  // Engine Moves", in two equal columns of a panel as narrow as 360px. Both
+  // are one size, which follows the panel's width (cqi: 1% of it) so that
+  // the longer Maia title fits its half, up to 14px.
+  const compactTitleStyle = { fontSize: 'min(2.85cqi, 14px)' }
   const splitTitleTextClass =
     'text-sm font-semibold leading-none md:text-xxs lg:text-xs'
   const stockfishDepth = moveEvaluation?.stockfish?.depth
@@ -424,9 +429,12 @@ export const Highlight: React.FC<Props> = ({
       className="flex h-full w-full flex-col border-glass-border bg-transparent"
     >
       <div
-        className={`grid grid-cols-2 border-b border-glass-border ${
-          simplified ? 'grid-cols-1' : ''
-        }`}
+        className="grid grid-cols-2 border-b border-glass-border"
+        style={
+          useCompactMobileColumnTitles
+            ? { containerType: 'inline-size' }
+            : undefined
+        }
       >
         <div
           className={`flex flex-col items-center justify-start border-r border-glass-border ${
@@ -442,11 +450,14 @@ export const Highlight: React.FC<Props> = ({
           >
             {isHomePage ? (
               <div
-                className={`text-center text-human-1 ${
+                className={`whitespace-nowrap text-center text-human-1 ${
                   useCompactMobileColumnTitles
                     ? compactTitleTextClass
                     : splitTitleTextClass
                 }`}
+                style={
+                  useCompactMobileColumnTitles ? compactTitleStyle : undefined
+                }
               >
                 {useCompactMobileColumnTitles
                   ? mobileMaiaColumnTitle
@@ -456,7 +467,8 @@ export const Highlight: React.FC<Props> = ({
               <>
                 {useCompactMobileColumnTitles ? (
                   <div
-                    className={`flex items-center justify-center pr-4 text-human-1 ${compactTitleTextClass}`}
+                    className={`flex items-center justify-center gap-0.5 text-human-1 ${compactTitleTextClass}`}
+                    style={compactTitleStyle}
                   >
                     <select
                       ref={maiaHeaderSelectRef}
@@ -477,6 +489,14 @@ export const Highlight: React.FC<Props> = ({
                     </select>
                     <span className="whitespace-nowrap leading-none">
                       {mobileMaiaColumnTitle}
+                    </span>
+                    {/* Beside the title rather than at the cell's edge,
+                        where it took the title's room. */}
+                    <span
+                      aria-hidden
+                      className="material-symbols-outlined pointer-events-none !text-[1.15em] leading-none text-human-1/65"
+                    >
+                      expand_more
                     </span>
                   </div>
                 ) : (
@@ -500,7 +520,11 @@ export const Highlight: React.FC<Props> = ({
                 )}
                 <button
                   type="button"
-                  className="material-symbols-outlined absolute right-0.5 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center text-base leading-none text-human-1/65"
+                  className={`material-symbols-outlined absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-base leading-none text-human-1/65 ${
+                    useCompactMobileColumnTitles
+                      ? 'inset-x-0 h-full w-full text-transparent'
+                      : 'right-0.5 h-5 w-5'
+                  }`}
                   onMouseDown={(e) => {
                     e.preventDefault()
                     openMaiaHeaderPicker()
@@ -624,6 +648,9 @@ export const Highlight: React.FC<Props> = ({
                   ? compactTitleTextClass
                   : splitTitleTextClass
               }`}
+              style={
+                useCompactMobileColumnTitles ? compactTitleStyle : undefined
+              }
             >
               <span className="leading-none">
                 {useCompactMobileColumnTitles
