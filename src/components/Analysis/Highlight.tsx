@@ -391,8 +391,11 @@ export const Highlight: React.FC<Props> = ({
 
   const useCompactMobileColumnTitles = isMobile || simplified
   const maiaRating = currentMaiaModel.replace('maia_kdd_', '')
-  const mobileMaiaColumnTitle = `Maia-3 ${maiaRating}: Human Moves`
-  const mobileStockfishColumnTitle = 'SF 19: Engine Moves'
+  // Compact titles (phones, and the desktop side panel) are two lines, the
+  // model over what the column lists: on one line, "Maia-3 1600: Human
+  // Moves" was wider than its column and ran into the Stockfish title.
+  const compactSubtitleClass =
+    'mt-1 block text-[11px] font-medium leading-none opacity-75'
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
   const compactTitleTextClass = 'text-sm font-semibold leading-none'
@@ -448,9 +451,10 @@ export const Highlight: React.FC<Props> = ({
                     : splitTitleTextClass
                 }`}
               >
-                {useCompactMobileColumnTitles
-                  ? mobileMaiaColumnTitle
-                  : `Maia-3 ${maiaRating}`}
+                {`Maia-3 ${maiaRating}`}
+                {useCompactMobileColumnTitles && (
+                  <span className={compactSubtitleClass}>Human Moves</span>
+                )}
               </div>
             ) : (
               <>
@@ -475,8 +479,9 @@ export const Highlight: React.FC<Props> = ({
                         </option>
                       ))}
                     </select>
-                    <span className="whitespace-nowrap leading-none">
-                      {mobileMaiaColumnTitle}
+                    <span className="whitespace-nowrap text-center leading-none">
+                      {`Maia-3 ${maiaRating}`}
+                      <span className={compactSubtitleClass}>Human Moves</span>
                     </span>
                   </div>
                 ) : (
@@ -618,24 +623,27 @@ export const Highlight: React.FC<Props> = ({
                 : splitTitleRowClass
             }`}
           >
-            <p
-              className={`flex items-center justify-center gap-1 whitespace-nowrap text-center text-engine-1 ${
+            <div
+              className={`whitespace-nowrap text-center text-engine-1 ${
                 useCompactMobileColumnTitles
                   ? compactTitleTextClass
                   : splitTitleTextClass
               }`}
             >
-              <span className="leading-none">
-                {useCompactMobileColumnTitles
-                  ? mobileStockfishColumnTitle
-                  : 'Stockfish 19'}
-              </span>
-              {stockfishDepthLabel && (
-                <span className="text-[10px] font-normal leading-none text-engine-2/75 md:text-[9px] lg:text-[10px]">
-                  {stockfishDepthLabel}
+              <p className="flex items-center justify-center gap-1">
+                <span className="leading-none">
+                  {useCompactMobileColumnTitles ? 'SF 19' : 'Stockfish 19'}
                 </span>
+                {stockfishDepthLabel && (
+                  <span className="text-[10px] font-normal leading-none text-engine-2/75 md:text-[9px] lg:text-[10px]">
+                    {stockfishDepthLabel}
+                  </span>
+                )}
+              </p>
+              {useCompactMobileColumnTitles && (
+                <span className={compactSubtitleClass}>Engine Moves</span>
               )}
-            </p>
+            </div>
           </div>
 
           {!hideStockfishEvalSummary && (
