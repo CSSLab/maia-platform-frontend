@@ -38,20 +38,7 @@ import {
   playSetupInitialState,
   savePlaySettings,
 } from 'src/lib/playSettings'
-import {
-  chess960BackRank,
-  chess960Fen,
-  randomChess960Index,
-} from 'src/lib/chess960'
 import { ModalContainer } from './ModalContainer'
-
-const PIECE_NAMES: Record<string, string> = {
-  K: 'king',
-  Q: 'queen',
-  R: 'rook',
-  B: 'bishop',
-  N: 'knight',
-}
 
 const subscribeToNothing = () => () => undefined
 
@@ -183,7 +170,6 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     simulateMaiaTime: props.simulateMaiaTime,
     practice: props.practice,
     startFen: props.startFen,
-    positionLocked,
   }
   const [initial] = useState<PlaySetupInitialState>(() =>
     playSetupInitialState(
@@ -245,13 +231,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   )
   const [maiaVersion, setMaiaVersion] = useState<string>(initial.maiaVersion)
   const [fen, setFen] = useState<string | undefined>(initial.fen)
-  // A Chess960 starting position (its number), offered vs Maia only.
-  const [chess960Index, setChess960Index] = useState<number | undefined>(
-    initial.chess960Index,
-  )
-  const offerChess960 = props.playType === 'againstMaia' && !positionLocked
-  const startFen =
-    chess960Index !== undefined ? chess960Fen(chess960Index) : fen
+  const startFen = fen
 
   // After hydrating /play's server HTML (see above), the saved settings.
   const savedSettingsLoaded = useRef(!hydrating)
@@ -270,7 +250,6 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     setMaiaPartnerVersion(state.maiaPartnerVersion)
     setMaiaVersion(state.maiaVersion)
     setFen(state.fen)
-    setChess960Index(state.chess960Index)
     // Once, on mounting: later prop changes remount the dialog (/play's key).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -354,7 +333,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
         savePlaySettings(
           props.playType,
           props.playType === 'againstMaia'
-            ? { ...shared, practice, chess960: chess960Index !== undefined }
+            ? { ...shared, practice }
             : { ...shared, maiaPartnerVersion, isBrain },
         )
       }
@@ -411,7 +390,6 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       simulateMaiaTime,
       practice,
       startFen,
-      chess960Index,
       timeMinutes,
       incrementSeconds,
       forcedPlayerColor,
@@ -724,10 +702,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   type="checkbox"
                   id="customPosition"
                   checked={fen !== undefined}
-                  onChange={() => {
-                    setFen(fen === undefined ? '' : undefined)
-                    setChess960Index(undefined)
-                  }}
+                  onChange={() => setFen(fen === undefined ? '' : undefined)}
                   className="accent-human-4"
                 />
                 <label
@@ -737,81 +712,6 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   Start from custom position
                 </label>
               </div>
-
-              {offerChess960 && (
-                <div className="flex items-start gap-2">
-                  <input
-                    type="checkbox"
-                    id="chess960Position"
-                    checked={chess960Index !== undefined}
-                    onChange={() => {
-                      setChess960Index(
-                        chess960Index === undefined
-                          ? randomChess960Index()
-                          : undefined,
-                      )
-                      setFen(undefined)
-                    }}
-                    className="mt-0.5 accent-human-4"
-                  />
-                  <label
-                    htmlFor="chess960Position"
-                    className="text-sm text-primary"
-                  >
-                    Chess960 (no castling){' '}
-                    <span className="text-xs text-secondary">
-                      (random starting position, unrated)
-                    </span>
-                  </label>
-                </div>
-              )}
-
-              {chess960Index !== undefined && (
-                <div className="rounded border border-glass-border bg-glass p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-primary">
-                      Chess960 position {chess960Index}
-                    </p>
-                    <button
-                      onClick={() => setChess960Index(randomChess960Index())}
-                      className="flex items-center gap-1 rounded border border-glass-border bg-glass px-2 py-1 text-xs font-medium text-white/90 transition-colors hover:bg-glass-stronger"
-                    >
-                      <span className="material-symbols-outlined text-sm">
-                        shuffle
-                      </span>
-                      Shuffle
-                    </button>
-                  </div>
-                  {/* White's back rank; Black's mirrors it, and the pawns
-                      start as usual. */}
-                  <div
-                    className="flex justify-center gap-0.5"
-                    title={chess960Fen(chess960Index)}
-                  >
-                    {chess960BackRank(chess960Index)
-                      .split('')
-                      .map((piece, file) => (
-                        <div
-                          key={file}
-                          className={`relative h-8 w-8 ${
-                            file % 2 === 0 ? 'bg-white/10' : 'bg-white/20'
-                          }`}
-                        >
-                          <Image
-                            src={`/assets/pieces/white ${PIECE_NAMES[piece]}.svg`}
-                            fill={true}
-                            alt={`White ${PIECE_NAMES[piece]}`}
-                          />
-                        </div>
-                      ))}
-                  </div>
-                  <p className="mt-2 text-xs text-secondary">
-                    The back-rank pieces are shuffled (bishops on opposite
-                    colours, king between the rooks), mirrored for Black.
-                    Castling isn&apos;t available in these games.
-                  </p>
-                </div>
-              )}
 
               {fen !== undefined && (
                 <div className="rounded border border-glass-border bg-glass p-3">

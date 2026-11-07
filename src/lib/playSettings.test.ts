@@ -1,4 +1,3 @@
-import { chess960Fen } from './chess960'
 import {
   MAIA_VERSIONS,
   SavedPlaySettings,
@@ -15,7 +14,6 @@ const saved: SavedPlaySettings = {
   incrementSeconds: 2,
   simulateMaiaTime: false,
   practice: true,
-  chess960: false,
   maiaPartnerVersion: 'maia_kdd_1900',
   isBrain: true,
 }
@@ -46,7 +44,6 @@ describe('validatePlaySettings', () => {
       }),
     ).toEqual({
       simulateMaiaTime: false,
-      chess960: false,
       maiaPartnerVersion: 'maia_kdd_1900',
       isBrain: true,
     })
@@ -114,7 +111,6 @@ describe('playSetupInitialState', () => {
       simulateMaiaTime: true,
       practice: false,
       fen: undefined,
-      chess960Index: undefined,
     })
   })
 
@@ -129,7 +125,6 @@ describe('playSetupInitialState', () => {
       simulateMaiaTime: false,
       practice: true,
       fen: undefined,
-      chess960Index: undefined,
     })
   })
 
@@ -185,48 +180,11 @@ describe('playSetupInitialState', () => {
     ).toBe('unlimited')
   })
 
-  it('gives a new Chess960 position when Chess960 was chosen last', () => {
-    const state = playSetupInitialState(
-      { playType: 'againstMaia' },
-      { chess960: true },
-      () => 0.5,
-    )
-    expect(state.chess960Index).toBe(480)
-    expect(state.fen).toBeUndefined()
-  })
-
-  it('offers Chess960 vs Maia only, and not with a given position', () => {
-    expect(
-      playSetupInitialState({ playType: 'handAndBrain' }, { chess960: true })
-        .chess960Index,
-    ).toBeUndefined()
+  it('starts from a given position', () => {
     const fen = '8/8/8/4k3/8/8/8/4K2R w K - 0 1'
     expect(
-      playSetupInitialState(
-        { playType: 'againstMaia', startFen: fen },
-        { chess960: true },
-      ),
-    ).toMatchObject({ fen, chess960Index: undefined })
-  })
-
-  it('shows a Chess960 position passed back (Play again) as Chess960', () => {
-    expect(
-      playSetupInitialState(
-        { playType: 'againstMaia', startFen: chess960Fen(100) },
-        {},
-      ),
-    ).toMatchObject({ fen: undefined, chess960Index: 100 })
-    // A challenge's fixed position stays as given.
-    expect(
-      playSetupInitialState(
-        {
-          playType: 'againstMaia',
-          startFen: chess960Fen(100),
-          positionLocked: true,
-        },
-        {},
-      ),
-    ).toMatchObject({ fen: chess960Fen(100), chess960Index: undefined })
+      playSetupInitialState({ playType: 'againstMaia', startFen: fen }, {}).fen,
+    ).toBe(fen)
   })
 
   it('treats an empty starting position from the URL as none', () => {

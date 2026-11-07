@@ -4,7 +4,6 @@ import {
   TIME_MINUTES_STEPS,
   normalizeTimeControl,
 } from 'src/lib/timeControl'
-import { chess960Index, randomChess960Index } from 'src/lib/chess960'
 
 export const MAIA_VERSIONS = [
   'maia_kdd_600',
@@ -33,7 +32,7 @@ export const MAIA_VERSIONS = [
  *
  * The custom starting FEN isn't kept: it's for one position, and a dialog
  * opening with last week's position filled in would start a game from it by
- * mistake. Chess960 is kept as a choice, and gives a new position each time.
+ * mistake.
  */
 export interface SavedPlaySettings {
   maiaVersion: string
@@ -44,7 +43,6 @@ export interface SavedPlaySettings {
   simulateMaiaTime: boolean
   // vs Maia only.
   practice: boolean
-  chess960: boolean
   // Hand & Brain only.
   maiaPartnerVersion: string
   isBrain: boolean
@@ -67,7 +65,6 @@ const VALIDATORS: {
   incrementSeconds: (v) => INCREMENT_SECONDS_STEPS.includes(v as number),
   simulateMaiaTime: (v) => typeof v === 'boolean',
   practice: (v) => typeof v === 'boolean',
-  chess960: (v) => typeof v === 'boolean',
   maiaPartnerVersion: (v) => MAIA_VERSIONS.includes(v as string),
   isBrain: (v) => typeof v === 'boolean',
 }
@@ -122,8 +119,6 @@ export interface PlaySetupInitialProps {
   simulateMaiaTime?: boolean
   practice?: boolean
   startFen?: string
-  // A challenge's fixed position: shown as given, never as Chess960.
-  positionLocked?: boolean
 }
 
 export interface PlaySetupInitialState {
@@ -137,8 +132,6 @@ export interface PlaySetupInitialState {
   practice: boolean
   // The custom position's FEN (undefined: none; '' while being typed).
   fen: string | undefined
-  // The Chess960 position's number, when one is chosen (vs Maia only).
-  chess960Index: number | undefined
 }
 
 /**
@@ -149,7 +142,6 @@ export interface PlaySetupInitialState {
 export const playSetupInitialState = (
   props: PlaySetupInitialProps,
   saved: Partial<SavedPlaySettings>,
-  random: () => number = Math.random,
 ): PlaySetupInitialState => {
   // (A time control from the URL may be anything.)
   const timeControl = props.timeControl
@@ -159,27 +151,6 @@ export const playSetupInitialState = (
   // slider's last position) keeps the minutes and increment chosen before.
   const [minutes, increment] =
     timeControl === 'unlimited' ? [] : timeControl.split('+').map(Number)
-
-  const againstMaia = props.playType === 'againstMaia'
-  // A Chess960 position passed back by Play again is shown as Chess960 (with
-  // the same position, which can be shuffled), not as a custom FEN.
-  const passedChess960 =
-    againstMaia && !props.positionLocked
-      ? chess960Index(props.startFen)
-      : undefined
-  let fen = props.startFen || undefined
-  let chess960: number | undefined
-  if (passedChess960 !== undefined) {
-    fen = undefined
-    chess960 = passedChess960
-  } else if (
-    !props.startFen &&
-    againstMaia &&
-    !props.positionLocked &&
-    saved.chess960
-  ) {
-    chess960 = randomChess960Index(random)
-  }
 
   return {
     maiaVersion: props.maiaVersion || saved.maiaVersion || MAIA_VERSIONS[0],
@@ -192,7 +163,6 @@ export const playSetupInitialState = (
     isBrain: props.isBrain ?? saved.isBrain ?? false,
     simulateMaiaTime: props.simulateMaiaTime ?? saved.simulateMaiaTime ?? true,
     practice: props.practice ?? saved.practice ?? false,
-    fen,
-    chess960Index: chess960,
+    fen: props.startFen || undefined,
   }
 }
