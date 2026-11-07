@@ -92,6 +92,28 @@ export const trackMaiaMoveFailed = (message: string, status?: number) => {
   safeTrack('maia_move_failed', { message: message.slice(0, 300), status })
 }
 
+/**
+ * A game couldn't be started (the visitor is then sent to /401). `status`:
+ * the server's reply, if there was one.
+ */
+export const trackGameStartFailed = (
+  gameType: 'play' | 'hand' | 'brain',
+  error: unknown,
+  status?: number,
+) => {
+  safeTrack('game_start_failed', {
+    game_type: gameType,
+    message: (error instanceof Error ? error.message : String(error)).slice(
+      0,
+      300,
+    ),
+    status,
+    online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+    cookies_enabled:
+      typeof navigator !== 'undefined' ? navigator.cookieEnabled : undefined,
+  })
+}
+
 export const trackStockfishEngineLoading = (page: string) => {
   safeTrack('stockfish_engine_loading', { page })
 }

@@ -1,6 +1,10 @@
 import Head from 'next/head'
-import { startGame } from 'src/api'
-import { takeEarlyGame } from 'src/api/play'
+import {
+  MoveRequestError,
+  startGameWithRetry,
+  takeEarlyGame,
+} from 'src/api/play'
+import { trackGameStartFailed } from 'src/lib/analytics'
 import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { tourConfigs } from 'src/constants/tours'
@@ -266,7 +270,7 @@ const PlayMaiaPage: NextPage = () => {
       let response
       try {
         const start = () =>
-          startGame(
+          startGameWithRetry(
             playGameConfig.player,
             playGameConfig.maiaVersion,
             'play',
@@ -284,6 +288,12 @@ const PlayMaiaPage: NextPage = () => {
         )
         response = await (early ? early.catch(start) : start())
       } catch (e) {
+        console.error(e)
+        trackGameStartFailed(
+          'play',
+          e,
+          e instanceof MoveRequestError ? e.status : undefined,
+        )
         router.push('/401')
         return
       }
