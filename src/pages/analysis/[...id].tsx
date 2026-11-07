@@ -76,7 +76,14 @@ import {
   useTablebase,
 } from 'src/hooks'
 import { tourConfigs } from 'src/constants/tours'
-import { ANALYSIS_LEFT_PANEL_TABS } from 'src/constants/analysis'
+import {
+  ANALYSIS_LEFT_PANEL_TABS,
+  AnalysisGameListName,
+  AnalysisMenuRequest,
+  OPEN_ANALYSIS_LIST_EVENT,
+  OPEN_ANALYSIS_LIST_KEY,
+  isAnalysisMenuRequest,
+} from 'src/constants/analysis'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
@@ -1408,6 +1415,45 @@ const Analysis: React.FC<Props> = ({
   const [desktopLeftPanelTab, setDesktopLeftPanelTab] = useState<
     (typeof ANALYSIS_LEFT_PANEL_TABS)[number]['id']
   >(ANALYSIS_LEFT_PANEL_TABS[0].id)
+  const [showGameListMobile, setShowGameListMobile] = useState(false)
+
+  // The site's Analysis menu opens one of the game lists (or the box for
+  // pasting a PGN or FEN) with an event here, or from another page through
+  // session storage.
+  const [gameListRequest, setGameListRequest] = useState<{
+    list: AnalysisGameListName
+    nonce: number
+  } | null>(null)
+  useEffect(() => {
+    const open = (request: AnalysisMenuRequest) => {
+      if (request === 'import') {
+        setShowCustomModal(true)
+        return
+      }
+      setGameListRequest({ list: request, nonce: Date.now() })
+      if (useMobileStyleAnalysisLayout) {
+        setShowGameListMobile(true)
+      } else {
+        setDesktopLeftPanelTab('select-game')
+      }
+    }
+    const onRequest = (event: Event) => {
+      const request = (event as CustomEvent<unknown>).detail
+      if (isAnalysisMenuRequest(request)) open(request)
+    }
+    window.addEventListener(OPEN_ANALYSIS_LIST_EVENT, onRequest)
+
+    let pending: string | null = null
+    try {
+      pending = sessionStorage.getItem(OPEN_ANALYSIS_LIST_KEY)
+      if (pending) sessionStorage.removeItem(OPEN_ANALYSIS_LIST_KEY)
+    } catch {
+      // Storage can be blocked; the menu still works on this page.
+    }
+    if (isAnalysisMenuRequest(pending)) open(pending)
+
+    return () => window.removeEventListener(OPEN_ANALYSIS_LIST_EVENT, onRequest)
+  }, [useMobileStyleAnalysisLayout])
   const showDesktopMovesAfterNavigation = useCallback(() => {
     if (desktopLeftPanelTab !== 'select-game') return
 
@@ -1733,6 +1779,7 @@ const Analysis: React.FC<Props> = ({
                     }
                     onCustomAnalysis={() => setShowCustomModal(true)}
                     refreshTrigger={refreshTrigger}
+                    requestedList={gameListRequest}
                     embedded
                   />
                 </div>
@@ -1988,8 +2035,6 @@ const Analysis: React.FC<Props> = ({
     </motion.div>
   )
 
-  const [showGameListMobile, setShowGameListMobile] = useState(false)
-
   const mobileLayout = (
     <motion.div
       variants={containerVariants}
@@ -2047,6 +2092,7 @@ const Analysis: React.FC<Props> = ({
                 }}
                 onGameSelected={() => setShowGameListMobile(false)}
                 refreshTrigger={refreshTrigger}
+                requestedList={gameListRequest}
               />
             </div>
           </div>

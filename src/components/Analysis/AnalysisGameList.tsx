@@ -23,6 +23,7 @@ import {
 import { MaiaGameListEntry } from 'src/types'
 import { formatMaiaName, formatSavedName } from 'src/lib/maiaNames'
 import { useRouter } from 'next/router'
+import { AnalysisGameListName } from 'src/constants/analysis'
 
 interface GameData {
   game_id: string
@@ -59,6 +60,9 @@ interface AnalysisGameListProps {
   onGameSelected?: () => void // Called when a game is selected (for mobile popup closing)
   refreshTrigger?: number // Used to trigger refresh when custom analysis is added
   embedded?: boolean // Render without outer card container
+  // Switches to this list; a new nonce switches again (the site's Analysis
+  // menu asks for a list each time it's used).
+  requestedList?: { list: AnalysisGameListName; nonce: number } | null
 }
 
 export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
@@ -68,6 +72,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   refreshTrigger,
   loadNewWorldChampionshipGame,
   embedded = false,
+  requestedList,
 }) => {
   const router = useRouter()
   const { analysisLichessList, analysisTournamentList } =
@@ -165,9 +170,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
     }
   }, [analysisTournamentList, currentId, listKeys])
 
-  const [selected, setSelected] = useState<
-    'tournament' | 'lichess' | 'play' | 'hb' | 'custom' | 'favorites'
-  >(() => {
+  const [selected, setSelected] = useState<AnalysisGameListName>(() => {
     if (currentId?.[1] === 'custom') {
       return 'custom'
     } else if (currentId?.[1] === 'lichess') {
@@ -181,6 +184,9 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
     }
     return 'tournament'
   })
+  useEffect(() => {
+    if (requestedList) setSelected(requestedList.list)
+  }, [requestedList])
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null)
   const [openIndex, setOpenIndex] = useState<number | null>(initialOpenIndex)
 
@@ -802,7 +808,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
             selected={selected}
             setSelected={setSelected}
           />
-          <div className="grid flex-1 grid-cols-5">
+          <div className="flex flex-1">
             <Header
               label="Play"
               name="play"
@@ -1122,7 +1128,7 @@ const Header = memo(function Header({
   return (
     <button
       onClick={() => setSelected(name)}
-      className={`relative flex items-center justify-center py-1 ${selected === name ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'} ${name === 'favorites' ? 'px-3' : ''}`}
+      className={`relative flex items-center justify-center whitespace-nowrap py-1 ${name === 'favorites' ? 'flex-none px-2' : 'flex-auto px-1'} ${selected === name ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'}`}
     >
       <div className="flex items-center justify-start">
         <p
