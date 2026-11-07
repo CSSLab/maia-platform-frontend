@@ -1,4 +1,3 @@
-import { useRouter } from 'next/router'
 import { AuthContext } from 'src/contexts'
 import React, { ReactNode, useContext, useEffect, useState } from 'react'
 import { MaiaGameListEntry, WorldChampionshipGameListEntry } from 'src/types'
@@ -8,6 +7,7 @@ import {
   fetchMaiaGameList,
 } from 'src/api'
 import { formatMaiaName } from 'src/lib/maiaNames'
+import { backOff } from 'exponential-backoff'
 
 interface IAnalysisListContext {
   analysisTournamentList: Map<string, WorldChampionshipGameListEntry[]> | null
@@ -32,7 +32,6 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
 }: {
   children: ReactNode
 }) => {
-  const router = useRouter()
   const { user } = useContext(AuthContext)
 
   const [analysisTournamentList, setAnalysisTournamentList] = useState<Map<
@@ -59,9 +58,14 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
     async function getAndSetData() {
       let response
       try {
-        response = await fetchWorldChampionshipGameList()
-      } catch (e) {
-        router.push('/401')
+        response = await backOff(fetchWorldChampionshipGameList, {
+          numOfAttempts: 3,
+        })
+      } catch (error) {
+        // The rest of the list (the visitor's own games) still works, and
+        // the game on screen doesn't depend on it.
+        console.error('Failed to load the tournament game list:', error)
+        setAnalysisTournamentList(new Map())
         return
       }
 
