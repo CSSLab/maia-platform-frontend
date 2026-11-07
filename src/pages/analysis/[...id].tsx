@@ -1539,27 +1539,29 @@ const Analysis: React.FC<Props> = ({
       <div className="hidden md:block">
         {[analyzedGame.whitePlayer, analyzedGame.blackPlayer].map(
           (player, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div
+              key={index}
+              className="flex items-center justify-between gap-2"
+            >
+              <div className="flex min-w-0 items-center gap-2">
                 <div
-                  className={`h-2 w-2 rounded-full ${index === 0 ? 'bg-white' : 'border-[0.5px] bg-black'}`}
+                  className={`h-2 w-2 shrink-0 rounded-full ${index === 0 ? 'bg-white' : 'border-[0.5px] bg-black'}`}
                 />
-                <div className="flex items-center gap-1">
-                  <p className="text-sm">
+                <div className="flex min-w-0 items-center gap-1">
+                  <p className="truncate text-sm" title={player.name}>
                     {formatAnalysisPlayerName(player.name)}
                   </p>
-                  <span className="text-xs">
+                  <span className="shrink-0 text-xs">
                     {player.rating ? <>({player.rating})</> : null}
                   </span>
                 </div>
               </div>
-              {analyzedGame.termination?.winner ===
-              (index == 0 ? 'white' : 'black') ? (
+              {/* Nothing for a game without a result (still going). */}
+              {!analyzedGame.termination?.winner ? null : analyzedGame
+                  .termination.winner === (index == 0 ? 'white' : 'black') ? (
                 <p className="text-xs text-engine-3">1</p>
-              ) : analyzedGame.termination?.winner !== 'none' ? (
+              ) : analyzedGame.termination.winner !== 'none' ? (
                 <p className="text-xs text-human-3">0</p>
-              ) : analyzedGame.termination === undefined ? (
-                <></>
               ) : (
                 <p className="text-xs text-secondary">½</p>
               )}
@@ -1567,44 +1569,40 @@ const Analysis: React.FC<Props> = ({
           ),
         )}
       </div>
-      <div className="flex w-full items-center justify-between text-xs md:hidden">
-        <div className="flex items-center gap-1">
-          <span className="inline-flex w-4 items-center justify-center">
+      {/* Phones: one line, each name cut short rather than wrapped, and the
+          result between them only if the game has one. */}
+      <div className="flex w-full items-center gap-2 text-xs md:hidden">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <span className="inline-flex w-4 shrink-0 items-center justify-center">
             <div className="h-2 w-2 rounded-full bg-white" />
           </span>
-          <span className="font-medium">
+          <span className="truncate font-medium">
             {formatAnalysisPlayerName(analyzedGame.whitePlayer.name)}
           </span>
           {analyzedGame.whitePlayer.rating && (
-            <span className="text-primary/60">
+            <span className="shrink-0 text-primary/60">
               ({analyzedGame.whitePlayer.rating})
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          {analyzedGame.termination?.winner === 'none' ? (
-            <span className="font-medium text-primary/80">½-½</span>
-          ) : (
-            <span className="font-medium">
-              <span className="text-primary/70">
-                {analyzedGame.termination?.winner === 'white' ? '1' : '0'}
-              </span>
-              <span className="text-primary/70">-</span>
-              <span className="text-primary/70">
-                {analyzedGame.termination?.winner === 'black' ? '1' : '0'}
-              </span>
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="inline-flex w-4 items-center justify-center">
+        {analyzedGame.termination?.winner && (
+          <span className="shrink-0 font-medium text-primary/70">
+            {analyzedGame.termination.winner === 'white'
+              ? '1-0'
+              : analyzedGame.termination.winner === 'black'
+                ? '0-1'
+                : '½-½'}
+          </span>
+        )}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+          <span className="inline-flex w-4 shrink-0 items-center justify-center">
             <div className="h-2 w-2 rounded-full border-[0.5px] bg-black" />
           </span>
-          <span className="font-medium">
+          <span className="truncate font-medium">
             {formatAnalysisPlayerName(analyzedGame.blackPlayer.name)}
           </span>
           {analyzedGame.blackPlayer.rating && (
-            <span className="text-primary/60">
+            <span className="shrink-0 text-primary/60">
               ({analyzedGame.blackPlayer.rating})
             </span>
           )}

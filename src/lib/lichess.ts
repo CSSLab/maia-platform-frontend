@@ -152,12 +152,18 @@ export const parseLichessPgn = (
       )
   }
 
+  // "*": the game isn't over (or its result is unknown), so it has no
+  // ending to show, rather than a draw.
   const result = headers.Result ?? '*'
-  const termination: Termination = {
-    result,
-    winner: result === '1-0' ? 'white' : result === '0-1' ? 'black' : 'none',
-    condition: 'Normal',
-  }
+  const termination: Termination | undefined =
+    result === '*'
+      ? undefined
+      : {
+          result,
+          winner:
+            result === '1-0' ? 'white' : result === '0-1' ? 'black' : 'none',
+          condition: 'Normal',
+        }
 
   return {
     id,

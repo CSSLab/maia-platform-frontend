@@ -30,6 +30,14 @@ describe('parseLichessPgn', () => {
     })
   })
 
+  it('gives a game without a result no ending', () => {
+    const game = parseLichessPgn(
+      'AAAAAAAA',
+      `${HEADERS.replace('1/2-1/2', '*')}\n1. e4 e5 *`,
+    )
+    expect(game?.termination).toBeUndefined()
+  })
+
   it('skips clocks, comments, glyphs, NAGs and variations', () => {
     const game = parseLichessPgn(
       'AAAAAAAA',
