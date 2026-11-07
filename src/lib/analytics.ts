@@ -588,6 +588,7 @@ export type SignInSource =
   | 'header_menu'
   | 'error_page'
   | 'game_over'
+  | 'analysis_lichess_tab'
   | 'auth_prompt'
 
 export const trackLichessConnectionInitiated = (source: SignInSource) => {

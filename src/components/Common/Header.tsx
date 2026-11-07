@@ -20,6 +20,12 @@ import { ModalContext } from 'src/contexts/ModalContext'
 import { WindowSizeContext } from 'src/contexts/WindowSizeContext'
 import { LeaderboardNavBadge } from '../Leaderboard/LeaderboardNavBadge'
 import { useLeaderboardStatus } from 'src/hooks/useLeaderboardStatus'
+import {
+  ANALYSIS_MENU_ITEMS,
+  AnalysisMenuRequest,
+  OPEN_ANALYSIS_LIST_EVENT,
+  OPEN_ANALYSIS_LIST_KEY,
+} from 'src/constants/analysis'
 
 // A header menu opens on hover, keyboard focus or a click (or tap), and
 // closes when the pointer or the focus leaves it, or on Escape.
@@ -41,6 +47,23 @@ export const Header: React.FC = () => {
   const [showMenu, setShowMenu] = useState(false)
   const [showPlayDropdown, setShowPlayDropdown] = useState(false)
   const [showMoreDropdown, setShowMoreDropdown] = useState(false)
+  const [showAnalysisDropdown, setShowAnalysisDropdown] = useState(false)
+
+  const openAnalysisList = (request: AnalysisMenuRequest) => {
+    setShowAnalysisDropdown(false)
+    if (router.pathname === '/analysis/[...id]') {
+      window.dispatchEvent(
+        new CustomEvent(OPEN_ANALYSIS_LIST_EVENT, { detail: request }),
+      )
+      return
+    }
+    try {
+      sessionStorage.setItem(OPEN_ANALYSIS_LIST_KEY, request)
+    } catch {
+      // Without storage the analysis page still opens, on its usual tab.
+    }
+    router.push('/analysis')
+  }
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const { isMobile, width } = useContext(WindowSizeContext)
 
@@ -239,12 +262,47 @@ export const Header: React.FC = () => {
               )}
             </AnimatePresence>
           </div>
-          <Link
-            href="/analysis"
-            className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/analysis') ? '!text-primary' : '!text-primary/80'}`}
-          >
-            ANALYSIS
-          </Link>
+          <div className="relative" {...menuProps(setShowAnalysisDropdown)}>
+            <Link
+              href="/analysis"
+              aria-haspopup="menu"
+              aria-expanded={showAnalysisDropdown}
+              onClick={() => setShowAnalysisDropdown(false)}
+              className={`-gap-1 flex items-center px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/analysis') ? '!text-primary' : '!text-primary/80'}`}
+            >
+              <p>ANALYSIS</p>
+              <motion.i
+                className="material-symbols-outlined text-sm"
+                animate={{ rotate: showAnalysisDropdown ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                arrow_drop_down
+              </motion.i>
+            </Link>
+            <AnimatePresence>
+              {showAnalysisDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute left-0 top-[100%] z-30 w-56 overflow-hidden rounded-md border border-glass-border bg-backdrop"
+                >
+                  <div className="divide-y divide-glass-border tracking-wide">
+                    {ANALYSIS_MENU_ITEMS.map((item) => (
+                      <button
+                        key={item.request}
+                        onClick={() => openAnalysisList(item.request)}
+                        className="flex w-full items-center justify-start px-3 py-2 text-sm text-primary transition-colors hover:bg-glass"
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <Link
             href="/puzzles"
             className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/puzzles') ? '!text-primary' : '!text-primary/80'}`}
