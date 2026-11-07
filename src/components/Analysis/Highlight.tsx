@@ -397,10 +397,10 @@ export const Highlight: React.FC<Props> = ({
   const splitTitleRowClass = 'grid h-12 place-items-center'
   const compactTitleTextClass = 'font-semibold leading-none'
   // Compact titles are one line, "Maia-3 1600: Human Moves" beside "SF 19:
-  // Engine Moves", in a panel as narrow as 360px. Their size follows the
-  // panel's width (cqi: 1% of it), 14px down to 11px, and the Maia column,
-  // whose title is longer, gets 56% of it.
-  const compactTitleStyle = { fontSize: 'clamp(11px, 3.1cqi, 14px)' }
+  // Engine Moves", in two equal columns of a panel as narrow as 360px. Both
+  // are one size, which follows the panel's width (cqi: 1% of it) so that
+  // the longer Maia title fits its half, up to 14px.
+  const compactTitleStyle = { fontSize: 'min(2.85cqi, 14px)' }
   const splitTitleTextClass =
     'text-sm font-semibold leading-none md:text-xxs lg:text-xs'
   const stockfishDepth = moveEvaluation?.stockfish?.depth
@@ -429,11 +429,7 @@ export const Highlight: React.FC<Props> = ({
       className="flex h-full w-full flex-col border-glass-border bg-transparent"
     >
       <div
-        className={`grid border-b border-glass-border ${
-          useCompactMobileColumnTitles
-            ? 'grid-cols-[minmax(0,56fr)_minmax(0,44fr)]'
-            : 'grid-cols-2'
-        }`}
+        className="grid grid-cols-2 border-b border-glass-border"
         style={
           useCompactMobileColumnTitles
             ? { containerType: 'inline-size' }
