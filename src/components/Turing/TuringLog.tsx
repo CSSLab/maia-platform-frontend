@@ -84,9 +84,13 @@ export const TuringLog: React.FC<{ embedded?: boolean }> = ({
                         ? 'White was the bot'
                         : game.result?.bot === 'black'
                           ? 'Black was the bot'
-                          : // Not the game's result: it would give the
-                            // answer away before the guess.
-                            'Awaiting your guess'}
+                          : game.termination.winner === 'white'
+                            ? 'White wins'
+                            : game.termination.winner === 'black'
+                              ? 'Black wins'
+                              : game.termination.winner === 'none'
+                                ? 'Draw'
+                                : 'Game in progress'}
                     </p>
                     {game.result?.ratingDiff !== undefined && (
                       <div className="flex items-center">
