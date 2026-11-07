@@ -14,6 +14,7 @@ import {
   fetchAnalyzedMaiaGame,
   fetchAnalyzedPgnGame,
   fetchAnalyzedWorldChampionshipGame,
+  isGameNotFound,
   retrieveGameAnalysisCache,
   sendPgnGame,
   storeCustomGame,
@@ -45,6 +46,7 @@ import {
 } from 'src/components/Analysis/BoardChrome'
 import { MovesByRating } from 'src/components/Analysis/MovesByRating'
 import { AnalysisGameList } from 'src/components/Analysis/AnalysisGameList'
+import { GameLoadFailure } from 'src/components/Analysis/GameLoadFailure'
 import { MaiaDownloadPrompt } from 'src/components/Common/MaiaDownloadPrompt'
 import { CustomAnalysisModal } from 'src/components/Analysis/CustomAnalysisModal'
 import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens'
@@ -337,13 +339,7 @@ const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
-      let game
-      try {
-        game = await fetchAnalyzedWorldChampionshipGame(newId)
-      } catch (e) {
-        router.push('/401')
-        return
-      }
+      const game = await fetchAnalyzedWorldChampionshipGame(newId)
       if (setCurrentMove) setCurrentMove(0)
 
       trackAnalysisGameLoaded('tournament')
@@ -422,6 +418,13 @@ const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
     [router, loadGameAnalysisCache],
   )
 
+  // The game in the URL that couldn't be loaded, and whether it doesn't exist
+  // (rather than the server failing).
+  const [loadFailure, setLoadFailure] = useState<{
+    id: string
+    notFound: boolean
+  }>()
+
   useEffect(() => {
     ;(async () => {
       const queryId = id as string[]
@@ -429,34 +432,59 @@ const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
 
       const needsNewGame =
         !analyzedGame || currentId.join('/') !== queryId.join('/')
+      if (!needsNewGame || loadFailure?.id === queryId.join('/')) return
 
-      if (needsNewGame) {
+      try {
         if (queryId[1] === 'lichess') {
           const pgn = await takeLichessPgn(queryId[0])
-          getAndSetLichessGame(queryId[0], pgn, undefined, false)
+          await getAndSetLichessGame(queryId[0], pgn, undefined, false)
         } else if (['play', 'hand', 'brain', 'custom'].includes(queryId[1])) {
-          getAndSetUserGame(
+          await getAndSetUserGame(
             queryId[0],
             queryId[1] as 'play' | 'hand' | 'brain' | 'custom',
             undefined,
             false,
           )
         } else {
-          getAndSetWorldChampionshipGame(queryId, undefined, false)
+          await getAndSetWorldChampionshipGame(queryId, undefined, false)
+        }
+      } catch (error) {
+        console.error('Failed to load game:', error)
+        const notFound = isGameNotFound(error)
+        setLoadFailure({ id: queryId.join('/'), notFound })
+        // With a game already on screen, it stays there.
+        if (analyzedGame) {
+          toast.error(
+            notFound
+              ? "That game couldn't be found."
+              : "Couldn't load that game. Try again in a moment.",
+          )
         }
       }
     })()
   }, [
     id,
     analyzedGame,
+    loadFailure,
     getAndSetWorldChampionshipGame,
     getAndSetLichessGame,
     getAndSetUserGame,
   ])
 
+  const showLoadFailure = !analyzedGame && loadFailure !== undefined
+
   useIsomorphicLayoutEffect(() => {
-    onGameShown(analyzedGame !== undefined)
-  }, [analyzedGame, onGameShown])
+    onGameShown(analyzedGame !== undefined || showLoadFailure)
+  }, [analyzedGame, showLoadFailure, onGameShown])
+
+  if (showLoadFailure) {
+    return (
+      <GameLoadFailure
+        notFound={loadFailure.notFound}
+        onRetry={() => setLoadFailure(undefined)}
+      />
+    )
+  }
 
   return (
     <>

@@ -1,4 +1,10 @@
-import { fetchPgnOfLichessGame } from './analysis'
+import {
+  fetchAnalyzedMaiaGame,
+  fetchAnalyzedWorldChampionshipGame,
+  fetchPgnOfLichessGame,
+  GameLoadError,
+  isGameNotFound,
+} from './analysis'
 
 const PGN =
   '[Event "rated blitz game"]\n[Site "https://lichess.org/game/W2114ZgI"]\n\n1. b3 e5 0-1\n'
@@ -10,6 +16,7 @@ const reply = (body: string, status = 200) =>
     ok: status < 400,
     status,
     text: () => Promise.resolve(body),
+    json: () => Promise.resolve(JSON.parse(body)),
   })
 
 let fetchMock: jest.Mock
@@ -77,5 +84,48 @@ describe('fetchPgnOfLichessGame', () => {
     ).resolves.toBe(PGN)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0][0]).toBe(BATCH_URL)
+  })
+
+  it('reports a game Lichess does not have as not found', async () => {
+    // Lichess answers 404 for the single game, and an empty 200 by ids.
+    fetchMock.mockReturnValueOnce(reply('', 404)).mockReturnValueOnce(reply(''))
+
+    const error = await fetchPgnOfLichessGame('notarealgame').catch((e) => e)
+    expect(error).toBeInstanceOf(GameLoadError)
+    expect(isGameNotFound(error)).toBe(true)
+  })
+
+  it('reports a failing export by id as a server error', async () => {
+    fetchMock
+      .mockReturnValueOnce(Promise.reject(new TypeError('Failed to fetch')))
+      .mockReturnValueOnce(reply('', 503))
+
+    const error = await fetchPgnOfLichessGame('W2114ZgI').catch((e) => e)
+    expect(error).toEqual(new GameLoadError(503))
+    expect(isGameNotFound(error)).toBe(false)
+  })
+})
+
+describe('game requests to the Maia server', () => {
+  it('reports a rejected world championship game as not found', async () => {
+    fetchMock.mockReturnValueOnce(reply('{"detail":"bad id"}', 422))
+
+    const error = await fetchAnalyzedWorldChampionshipGame([
+      'notarealgame',
+      '1',
+    ]).catch((e) => e)
+    expect(isGameNotFound(error)).toBe(true)
+  })
+
+  it('reports a server failure for a Maia game as not a missing game', async () => {
+    fetchMock.mockReturnValueOnce(reply('{}', 500))
+
+    const error = await fetchAnalyzedMaiaGame('abc', 'play').catch((e) => e)
+    expect(error).toEqual(new GameLoadError(500))
+    expect(isGameNotFound(error)).toBe(false)
+  })
+
+  it('treats a network failure as not a missing game', () => {
+    expect(isGameNotFound(new TypeError('Failed to fetch'))).toBe(false)
   })
 })

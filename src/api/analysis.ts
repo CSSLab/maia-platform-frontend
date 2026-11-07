@@ -67,6 +67,26 @@ export const streamLichessGames = async (
 const looksLikePgn = (text: string) => /^\s*\[\w+\s+"/.test(text)
 
 /**
+ * A game for the analysis page couldn't be loaded. `status`: the HTTP status
+ * of the reply (404 for a Lichess game that doesn't exist).
+ */
+export class GameLoadError extends Error {
+  constructor(readonly status: number) {
+    super(`Game request failed (HTTP ${status})`)
+    this.name = 'GameLoadError'
+  }
+}
+
+/** No game behind the link: a 4xx reply, rather than a server failure. */
+export const isGameNotFound = (error: unknown) =>
+  error instanceof GameLoadError && error.status >= 400 && error.status < 500
+
+const readGameReply = async (res: Response) => {
+  if (!res.ok) throw new GameLoadError(res.status)
+  return res.json()
+}
+
+/**
  * `early`: the same request already started by the page's HTML (see
  * _document.tsx), used instead of a new one.
  */
@@ -99,7 +119,11 @@ export const fetchPgnOfLichessGame = async (
       body: id,
     },
   )
-  return res.text()
+  if (!res.ok) throw new GameLoadError(res.status)
+  // An id that matches no game gets an empty reply.
+  const text = await res.text()
+  if (!looksLikePgn(text)) throw new GameLoadError(404)
+  return text
 }
 
 export const fetchAnalyzedWorldChampionshipGame = async (
@@ -109,7 +133,7 @@ export const fetchAnalyzedWorldChampionshipGame = async (
     buildUrl(`analysis/analysis_list/${gameId.join('/')}`),
   )
 
-  const data = await res.json()
+  const data = await readGameReply(res)
 
   const id = data['id']
   const termination = {
@@ -175,7 +199,7 @@ export const fetchAnalyzedPgnGame = async (id: string, pgn: string) => {
     },
   })
 
-  const data = await res.json()
+  const data = await readGameReply(res)
 
   const termination = {
     ...data['termination'],
@@ -259,7 +283,7 @@ export const fetchAnalyzedMaiaGame = async (
     },
   )
 
-  const data = await res.json()
+  const data = await readGameReply(res)
 
   const termination = {
     ...data['termination'],
