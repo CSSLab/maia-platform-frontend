@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 
 import { PlayedGame } from 'src/types'
 import { ResignationConfirmModal } from 'src/components'
+import { AuthContext } from 'src/contexts/AuthContext'
+import { LichessSignInButton } from 'src/components/Common/LichessSignInButton'
 
 type PracticeAction = 'takeBack' | 'addTime'
 
@@ -94,6 +96,7 @@ export const PlayControls: React.FC<Props> = ({
   takeBack,
   addTime,
 }: Props) => {
+  const { user } = useContext(AuthContext)
   const [showResignConfirm, setShowResignConfirm] = useState(false)
   // Practice actions ask first, so a stray tap doesn't undo a move: the
   // first tap turns the button into a confirm button, the second acts.
@@ -143,6 +146,23 @@ export const PlayControls: React.FC<Props> = ({
             >
               {returnToLabel}
             </button>
+          ) : null}
+          {/* Guests only (`user` is null until the account has loaded). A
+              first sign-in keeps the guest's rating and games, and only
+              signed-in players are on the leaderboard. It comes back to
+              /play: this page, without its game, would start a new one. */}
+          {user && !user.lichessId ? (
+            <div className="mt-1 flex flex-col gap-2 border-t border-glass-border pt-3">
+              <p className="text-center text-xs leading-relaxed text-white/70">
+                Sign in to keep your rating and games on any device, and to
+                appear on the leaderboard.
+              </p>
+              <LichessSignInButton
+                source="game_over"
+                returnTo="/play"
+                className="whitespace-nowrap px-2 md:text-[13px]"
+              />
+            </div>
           ) : null}
         </div>
       ) : (

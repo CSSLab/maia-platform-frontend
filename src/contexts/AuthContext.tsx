@@ -11,7 +11,11 @@ import { registerProperties } from 'src/lib/posthogClient'
 
 interface IAuthContext {
   user: User | null
-  connectLichess: (source: SignInSource) => void
+  /**
+   * Goes to Lichess's sign-in, then back to `returnTo` (a path on this site)
+   * or, without it, the current page.
+   */
+  connectLichess: (source: SignInSource, returnTo?: string) => void
   logout: () => Promise<void>
 }
 
@@ -69,22 +73,26 @@ export const AuthContextProvider: React.FC<{ children: ReactNode }> = ({
     getAndSetAccount()
   }, [])
 
-  const connectLichess = useCallback((source: SignInSource) => {
-    trackLichessConnectionInitiated(source)
-    try {
-      window.sessionStorage.setItem(
-        SIGN_IN_KEY,
-        JSON.stringify({ source, at: Date.now() }),
+  const connectLichess = useCallback(
+    (source: SignInSource, returnTo?: string) => {
+      trackLichessConnectionInitiated(source)
+      try {
+        window.sessionStorage.setItem(
+          SIGN_IN_KEY,
+          JSON.stringify({ source, at: Date.now() }),
+        )
+      } catch {
+        // Not measured, but the sign-in still works.
+      }
+      const back = returnTo
+        ? new URL(returnTo, window.location.origin).toString()
+        : window.location.toString()
+      window.location.assign(
+        connectLichessUrl + '?redirect_url=' + encodeURIComponent(back),
       )
-    } catch {
-      // Not measured, but the sign-in still works.
-    }
-    window.location.assign(
-      connectLichessUrl +
-        '?redirect_url=' +
-        encodeURIComponent(window.location.toString()),
-    )
-  }, [])
+    },
+    [],
+  )
 
   const logout = useCallback(async () => {
     trackLoggedOut()

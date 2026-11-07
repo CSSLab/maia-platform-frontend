@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import Link from 'next/link'
+import { LichessSignInButton } from 'src/components/Common/LichessSignInButton'
 import Image from 'next/image'
 import { PlayType } from 'src/types'
 import { useRouter } from 'next/router'
@@ -66,7 +67,7 @@ export const Header: React.FC = () => {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false)
   const { isMobile, width } = useContext(WindowSizeContext)
 
-  const { user, connectLichess, logout } = useContext(AuthContext)
+  const { user, logout } = useContext(AuthContext)
 
   // Get leaderboard status for the logged in user
   const { status: leaderboardStatus, loading: leaderboardLoading } =
@@ -194,12 +195,7 @@ export const Header: React.FC = () => {
       >
         <span className="material-symbols-outlined text-2xl">settings</span>
       </Link>
-      <button
-        onClick={() => connectLichess('header')}
-        className="px-2 py-1 text-sm tracking-wide text-primary/80 transition-all duration-200 hover:text-primary"
-      >
-        Sign in
-      </button>
+      <LichessSignInButton source="header" />
     </>
   )
 
@@ -584,12 +580,10 @@ export const Header: React.FC = () => {
                 </span>
               </div>
             ) : (
-              <button
-                onClick={() => connectLichess('header_menu')}
-                className="uppercase"
-              >
-                Sign in
-              </button>
+              <LichessSignInButton
+                source="header_menu"
+                className="px-4 py-2 text-base"
+              />
             )}
           </div>
         </div>
