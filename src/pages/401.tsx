@@ -59,7 +59,10 @@ export default function Error401Page() {
           If it keeps happening,{' '}
           {!user?.lichessId && (
             <>
-              <button onClick={connectLichess} className="underline">
+              <button
+                onClick={() => connectLichess('error_page')}
+                className="underline"
+              >
                 sign in with Lichess
               </button>{' '}
               or{' '}

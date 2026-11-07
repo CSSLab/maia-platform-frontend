@@ -1,10 +1,7 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Fragment, useCallback, useContext, useEffect, useState } from 'react'
-import {
-  trackHomepageFeatureClicked,
-  trackLichessConnectionInitiated,
-} from 'src/lib/analytics'
+import { trackHomepageFeatureClicked } from 'src/lib/analytics'
 
 import { PlayType } from 'src/types'
 import { getGlobalStats } from 'src/api'
@@ -192,8 +189,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                 <motion.button
                   className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
                   onClick={() => {
-                    trackLichessConnectionInitiated('homepage')
-                    connectLichess()
+                    connectLichess('homepage')
                   }}
                 >
                   <img
@@ -208,8 +204,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                 {/* <motion.button
                   className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
                   onClick={() => {
-                    trackLichessConnectionInitiated('homepage')
-                    connectLichess()
+                    connectLichess('homepage')
                   }}
                 >
                   <img

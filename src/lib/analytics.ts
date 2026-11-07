@@ -581,10 +581,35 @@ export const trackHomepageFeatureClicked = (
   })
 }
 
-export const trackLichessConnectionInitiated = (
-  source: 'homepage' | 'auth_prompt',
-) => {
+/** Where a "Sign in with Lichess" button was pressed. */
+export type SignInSource =
+  | 'homepage'
+  | 'header'
+  | 'header_menu'
+  | 'error_page'
+  | 'auth_prompt'
+
+export const trackLichessConnectionInitiated = (source: SignInSource) => {
   safeTrack('lichess_connection_initiated', { source })
+}
+
+/**
+ * The visitor came back from Lichess's sign-in page (to the page they
+ * started from), signed in or not. `seconds`: since the button was pressed.
+ */
+export const trackLichessSignInReturned = (
+  completed: boolean,
+  source: SignInSource,
+  seconds: number,
+) => {
+  safeTrack(
+    completed ? 'lichess_sign_in_completed' : 'lichess_sign_in_not_completed',
+    { source, seconds },
+  )
+}
+
+export const trackLoggedOut = () => {
+  safeTrack('logged_out')
 }
 
 export const trackTourStarted = (
