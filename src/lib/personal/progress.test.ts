@@ -28,7 +28,12 @@ describe('fetchProgress', () => {
             games: [{ created_time: daysAgo(1) }, { created_time: daysAgo(9) }],
           }
         : type === 'brain'
-          ? { games: [{ created_time: daysAgo(6.9) }] }
+          ? {
+              games: [
+                { created_time: daysAgo(6) },
+                { created_time: daysAgo(7.5) },
+              ],
+            }
           : { games: [] },
     )
     const progress = await fetchProgress(NOW)
@@ -39,6 +44,8 @@ describe('fetchProgress', () => {
     ])
     expect(progress.gamesThisWeek).toBe(2)
     expect(progress.gamesThisWeekAtLeast).toBe(false)
+    // By day, the oldest first: 6 days ago and yesterday.
+    expect(progress.days.map((d) => d.games)).toEqual([1, 0, 0, 0, 0, 1, 0])
   })
 })
 
