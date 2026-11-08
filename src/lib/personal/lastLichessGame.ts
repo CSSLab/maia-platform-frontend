@@ -1,4 +1,5 @@
 import { readJson, writeJson } from './storage'
+import { queueLichessRequest } from 'src/lib/lichessQueue'
 
 /**
  * The visitor's most recent finished Lichess game (standard chess), for the
@@ -90,16 +91,19 @@ const requestNewestGame = async (
     evals: 'false',
   })
   if (since) params.set('since', String(since))
-  const res = await fetch(
-    `https://lichess.org/api/games/user/${encodeURIComponent(lichessId)}?${params}`,
-    { headers: { Accept: 'application/x-ndjson' } },
-  )
-  if (res.status === 429) {
+  const { status, body } = await queueLichessRequest(async () => {
+    const res = await fetch(
+      `https://lichess.org/api/games/user/${encodeURIComponent(lichessId)}?${params}`,
+      { headers: { Accept: 'application/x-ndjson' } },
+    )
+    return { status: res.status, body: res.ok ? await res.text() : '' }
+  })
+  if (status === 429) {
     pausedUntil = Date.now() + RATE_LIMIT_PAUSE_MS
     throw new Error('Lichess rate limit')
   }
-  if (!res.ok) throw new Error(`Lichess games: HTTP ${res.status}`)
-  const line = (await res.text()).split(/\r?\n/).find((l) => l.trim())
+  if (status !== 200) throw new Error(`Lichess games: HTTP ${status}`)
+  const line = body.split(/\r?\n/).find((l) => l.trim())
   if (!line) return since ? 'unchanged' : null
   return parseLichessGameJson(JSON.parse(line), lichessId)
 }
@@ -160,16 +164,19 @@ export const fetchRecentLichessGames = async (
     clocks: 'false',
     evals: 'false',
   })
-  const res = await fetch(
-    `https://lichess.org/api/games/user/${encodeURIComponent(lichessId)}?${params}`,
-    { headers: { Accept: 'application/x-ndjson' } },
-  )
-  if (res.status === 429) {
+  const { status, body } = await queueLichessRequest(async () => {
+    const res = await fetch(
+      `https://lichess.org/api/games/user/${encodeURIComponent(lichessId)}?${params}`,
+      { headers: { Accept: 'application/x-ndjson' } },
+    )
+    return { status: res.status, body: res.ok ? await res.text() : '' }
+  })
+  if (status === 429) {
     pausedUntil = Date.now() + RATE_LIMIT_PAUSE_MS
     throw new Error('Lichess rate limit')
   }
-  if (!res.ok) throw new Error(`Lichess games: HTTP ${res.status}`)
-  return (await res.text())
+  if (status !== 200) throw new Error(`Lichess games: HTTP ${status}`)
+  return body
     .split(/\r?\n/)
     .filter((line) => line.trim())
     .map((line) => parseLichessGameJson(JSON.parse(line), lichessId))

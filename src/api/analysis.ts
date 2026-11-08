@@ -14,6 +14,7 @@ import {
   insertBackendStockfishEvalToGameTree,
 } from 'src/lib'
 import { buildUrl } from './utils'
+import { queueLichessRequest } from 'src/lib/lichessQueue'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { AvailableMoves } from 'src/types/puzzle'
 import { Chess } from 'chess.ts'
@@ -54,15 +55,18 @@ export const streamLichessGames = async (
   username: string,
   onMessage: (data: any) => void,
 ) => {
-  const stream = fetch(
-    `https://lichess.org/api/games/user/${username}?max=100&pgnInJson=true`,
-    {
-      headers: {
-        Accept: 'application/x-ndjson',
+  // One Lichess request at a time (src/lib/lichessQueue): the next one waits
+  // until this stream has been read.
+  return queueLichessRequest(() =>
+    fetch(
+      `https://lichess.org/api/games/user/${username}?max=100&pgnInJson=true`,
+      {
+        headers: {
+          Accept: 'application/x-ndjson',
+        },
       },
-    },
+    ).then(readLichessStream(onMessage)),
   )
-  stream.then(readLichessStream(onMessage))
 }
 
 const looksLikePgn = (text: string) => /^\s*\[\w+\s+"/.test(text)
