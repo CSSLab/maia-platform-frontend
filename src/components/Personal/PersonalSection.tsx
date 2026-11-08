@@ -3,14 +3,16 @@ import { AuthContext } from 'src/contexts/AuthContext'
 import { PersonalEngines } from './PersonalEngines'
 import { LastGameCard } from './LastGameCard'
 import { SignInTeaser } from './SignInTeaser'
+import { ProgressStrip } from './ProgressStrip'
 
 interface Props {
   location: 'home' | 'profile'
 }
 
 /**
- * The visitor's own section on the home page and profile: their last game's
- * key moments, or, for a guest, a line to sign in in its place.
+ * The visitor's own section on the home page and profile: their progress and
+ * their last game's key moments, or, for a guest, a line to sign in in their
+ * place.
  */
 export const PersonalSection = ({ location }: Props) => {
   const { user } = useContext(AuthContext)
@@ -28,8 +30,11 @@ export const PersonalSection = ({ location }: Props) => {
   if (!user.lichessId) return <SignInTeaser location={location} />
 
   return (
-    <PersonalEngines>
-      <LastGameCard lichessId={user.lichessId} />
-    </PersonalEngines>
+    <div className="flex flex-col gap-4">
+      <ProgressStrip />
+      <PersonalEngines>
+        <LastGameCard lichessId={user.lichessId} />
+      </PersonalEngines>
+    </div>
   )
 }
