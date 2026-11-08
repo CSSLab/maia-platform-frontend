@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { AnimatePresence } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
 import { MAIA_DOWNLOAD_MB } from 'src/lib/engine/maiaDownloadPrompt'
@@ -216,17 +217,23 @@ export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
           </button>
         )}
       </div>
-      <AnimatePresence>
-        {askingForMaia && maia.status !== 'ready' && (
-          <DownloadModelModal
-            maia={maia.maia}
-            progress={maia.progress}
-            download={maia.downloadModel}
-            downloading={maia.status === 'downloading'}
-            onNotNow={() => setAskingForMaia(false)}
-          />
+      {/* On the page itself: the card's backdrop blur would hold the
+          dialog's fixed position inside the card. */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {askingForMaia && maia.status !== 'ready' && (
+              <DownloadModelModal
+                maia={maia.maia}
+                progress={maia.progress}
+                download={maia.downloadModel}
+                downloading={maia.status === 'downloading'}
+                onNotNow={() => setAskingForMaia(false)}
+              />
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </section>
   )
 }
