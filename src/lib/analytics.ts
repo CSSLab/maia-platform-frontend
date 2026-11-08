@@ -654,18 +654,35 @@ export const trackLichessConnectionInitiated = (source: SignInSource) => {
 }
 
 /**
- * The visitor came back from Lichess's sign-in page (to the page they
- * started from), signed in or not. `seconds`: since the button was pressed.
+ * Why a Lichess sign-in didn't complete, as far as this site can tell: the
+ * visitor came back without being signed in, or was sent to /401 (an account
+ * Lichess sign-in doesn't allow). A sign-in that fails on the backend (Lichess
+ * access denied, an error exchanging the code) ends on the backend's error
+ * page and never comes back, unless the backend sends the visitor back with
+ * ?lichess_error=<reason>, which is used as the reason.
  */
-export const trackLichessSignInReturned = (
-  completed: boolean,
+export type LichessConnectionFailure =
+  | 'returned_signed_out'
+  | 'not_allowed'
+  | (string & {})
+
+/**
+ * The visitor came back from Lichess's sign-in (to the page they started
+ * from). `seconds`: since the button was pressed.
+ */
+export const trackLichessConnectionCompleted = (
   source: SignInSource,
   seconds: number,
 ) => {
-  safeTrack(
-    completed ? 'lichess_sign_in_completed' : 'lichess_sign_in_not_completed',
-    { source, seconds },
-  )
+  safeTrack('lichess_connection_completed', { source, seconds })
+}
+
+export const trackLichessConnectionFailed = (
+  source: SignInSource,
+  seconds: number,
+  reason: LichessConnectionFailure,
+) => {
+  safeTrack('lichess_connection_failed', { source, seconds, reason })
 }
 
 export const trackLoggedOut = () => {

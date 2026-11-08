@@ -3,8 +3,9 @@ import React, { ReactNode, useCallback, useEffect, useState } from 'react'
 import { fetchAccount, connectLichessUrl, logoutAndFetchAccount } from 'src/api'
 import {
   SignInSource,
+  trackLichessConnectionCompleted,
+  trackLichessConnectionFailed,
   trackLichessConnectionInitiated,
-  trackLichessSignInReturned,
   trackLoggedOut,
 } from 'src/lib/analytics'
 import {
@@ -75,6 +76,41 @@ const takePendingSignIn = () => {
   }
 }
 
+// A reason the backend may add when it sends a failed sign-in back
+// (?lichess_error=access_denied, say): read once, then taken off the address.
+const LICHESS_ERROR_PARAM = 'lichess_error'
+
+const takeLichessError = (): string | undefined => {
+  try {
+    const url = new URL(window.location.href)
+    const reason = url.searchParams.get(LICHESS_ERROR_PARAM)
+    if (reason === null) return undefined
+    url.searchParams.delete(LICHESS_ERROR_PARAM)
+    window.history.replaceState(window.history.state, '', url.toString())
+    return /^[a-z0-9_]{1,40}$/i.test(reason) ? reason.toLowerCase() : 'other'
+  } catch {
+    return undefined
+  }
+}
+
+const reportSignInOutcome = (signedIn: boolean) => {
+  const lichessError = takeLichessError()
+  const pending = takePendingSignIn()
+  if (!pending) return
+  if (signedIn) {
+    trackLichessConnectionCompleted(pending.source, pending.seconds)
+    return
+  }
+  trackLichessConnectionFailed(
+    pending.source,
+    pending.seconds,
+    lichessError ??
+      (window.location.pathname === '/401'
+        ? 'not_allowed'
+        : 'returned_signed_out'),
+  )
+}
+
 export const AuthContextProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }: {
@@ -91,13 +127,19 @@ export const AuthContextProvider: React.FC<{ children: ReactNode }> = ({
       // On every event from now on, so that any of them can be split by it.
       registerProperties({ signed_in: signedIn })
       identifyAccount(response)
-      const pending = takePendingSignIn()
-      if (pending) {
-        trackLichessSignInReturned(signedIn, pending.source, pending.seconds)
-      }
+      reportSignInOutcome(signedIn)
     }
 
     getAndSetAccount()
+
+    // Back to a page kept in the browser's back-forward cache (from Lichess's
+    // page, or the backend's error page): it doesn't load again, so the
+    // account is asked for again here.
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) getAndSetAccount()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
   const connectLichess = useCallback(

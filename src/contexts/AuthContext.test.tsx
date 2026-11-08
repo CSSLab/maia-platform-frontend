@@ -98,7 +98,7 @@ describe('sign-in measurement', () => {
     api.fetchAccount.mockResolvedValue(signedIn)
     await load()
     expect(events()).toEqual([
-      ['lichess_sign_in_completed', { source: 'header', seconds: 0 }],
+      ['lichess_connection_completed', { source: 'header', seconds: 0 }],
     ])
 
     // Only once.
@@ -115,7 +115,69 @@ describe('sign-in measurement', () => {
     api.fetchAccount.mockResolvedValue(signedOut)
     await load()
     expect(events()).toEqual([
-      ['lichess_sign_in_not_completed', { source: 'homepage', seconds: 42 }],
+      [
+        'lichess_connection_failed',
+        { source: 'homepage', seconds: 42, reason: 'returned_signed_out' },
+      ],
+    ])
+  })
+
+  it('takes a reason the backend sends back, and clears it from the address', async () => {
+    window.history.replaceState(
+      null,
+      '',
+      '/play?x=1&lichess_error=access_denied',
+    )
+    window.sessionStorage.setItem(
+      'maia.signInStarted',
+      JSON.stringify({ source: 'header', at: Date.now() }),
+    )
+    api.fetchAccount.mockResolvedValue(signedOut)
+    await load()
+    expect(events()).toEqual([
+      [
+        'lichess_connection_failed',
+        { source: 'header', seconds: 0, reason: 'access_denied' },
+      ],
+    ])
+    expect(window.location.search).toBe('?x=1')
+  })
+
+  it('records a sign-in sent to /401 as not allowed', async () => {
+    window.history.replaceState(null, '', '/401')
+    window.sessionStorage.setItem(
+      'maia.signInStarted',
+      JSON.stringify({ source: 'header', at: Date.now() }),
+    )
+    api.fetchAccount.mockResolvedValue(signedOut)
+    await load()
+    expect(events()).toEqual([
+      [
+        'lichess_connection_failed',
+        { source: 'header', seconds: 0, reason: 'not_allowed' },
+      ],
+    ])
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('asks for the account again on a page restored from the cache', async () => {
+    api.fetchAccount.mockResolvedValue(signedOut)
+    await load()
+    window.sessionStorage.setItem(
+      'maia.signInStarted',
+      JSON.stringify({ source: 'header', at: Date.now() }),
+    )
+    const restored = new Event('pageshow') as PageTransitionEvent
+    Object.defineProperty(restored, 'persisted', { value: true })
+    await act(async () => {
+      window.dispatchEvent(restored)
+    })
+    expect(api.fetchAccount).toHaveBeenCalledTimes(2)
+    expect(events()).toEqual([
+      [
+        'lichess_connection_failed',
+        { source: 'header', seconds: 0, reason: 'returned_signed_out' },
+      ],
     ])
   })
 
