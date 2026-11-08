@@ -24,8 +24,10 @@ interface Props {
   returnToLabel?: string
 }
 
+// The panel sits in the game page's narrow side column on desktops (inside
+// its padding): labels may wrap, so they're small and tight.
 const actionClass =
-  'flex w-full items-center justify-center gap-2 rounded-md border px-4 py-2.5 text-sm font-semibold transition-colors duration-200'
+  'flex w-full items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-center text-xs font-semibold leading-tight transition-colors duration-200 md:text-[13px]'
 const primaryClass = `${actionClass} border-human-4 bg-human-4 text-white hover:bg-human-4/90`
 const secondaryClass = `${actionClass} border-glass-border bg-glass text-white/90 hover:bg-glass-stronger`
 
@@ -82,10 +84,7 @@ export const PostGamePanel: React.FC<Props> = ({
     trackPostGameCtaClicked(cta, gameId, gameType)
 
   return (
-    <div className="flex flex-col gap-2.5 p-4" data-testid="post-game-panel">
-      <p className="text-center text-xs font-medium uppercase tracking-wider text-white/60">
-        What next?
-      </p>
+    <div className="flex flex-col gap-2" data-testid="post-game-panel">
       {ctas.includes('analyze') && (
         <button
           type="button"
@@ -95,7 +94,7 @@ export const PostGamePanel: React.FC<Props> = ({
           }}
           className={primaryClass}
         >
-          <span className="material-symbols-outlined !text-base">
+          <span className="material-symbols-outlined shrink-0 !text-sm">
             analytics
           </span>
           Analyze this game
@@ -107,7 +106,9 @@ export const PostGamePanel: React.FC<Props> = ({
           onClick={() => click('practice')}
           className={secondaryClass}
         >
-          <span className="material-symbols-outlined !text-base">target</span>
+          <span className="material-symbols-outlined shrink-0 !text-sm">
+            target
+          </span>
           Practice the moment you went wrong
         </a>
       )}
@@ -120,7 +121,9 @@ export const PostGamePanel: React.FC<Props> = ({
           }}
           className={secondaryClass}
         >
-          <span className="material-symbols-outlined !text-base">refresh</span>
+          <span className="material-symbols-outlined shrink-0 !text-sm">
+            refresh
+          </span>
           Play again
         </button>
       )}
@@ -146,16 +149,16 @@ export const PostGamePanel: React.FC<Props> = ({
           new one. */}
       {isGuest && (
         <div
-          className="mt-1 flex flex-col gap-2 border-t border-glass-border pt-3"
+          className="mt-1 flex flex-col gap-2 border-t border-glass-border pt-2"
           onClickCapture={() => trackSigninPromptClicked('post_game')}
         >
-          <p className="text-center text-xs leading-relaxed text-white/70">
+          <p className="text-center text-xs leading-snug text-white/70">
             Sign in with Lichess to keep your rating and games.
           </p>
           <LichessSignInButton
             source="game_over"
             returnTo="/play"
-            className="whitespace-nowrap px-2 md:text-[13px]"
+            className="px-2 text-xs md:text-[13px]"
           />
         </div>
       )}
