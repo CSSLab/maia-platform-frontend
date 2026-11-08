@@ -493,30 +493,51 @@ export const trackTuringSubmissionMade = (
 }
 
 // Play vs Maia Events (vs Maia, and Hand & Brain)
+/** The kind of game, as the site's paths name it (/analysis/<id>/<type>). */
 export type PlayGameType = 'play' | 'hand' | 'brain'
 
 /**
  * How the opponent was picked: kept as the setup dialog offered it (the last
- * one played, or its first), changed there, the Quick game's default, the
- * Quick game's closest rating, or unknown (a link or a reloaded page).
+ * one played, or its first), changed there, the Quick game's opponent, or
+ * unknown (a link or a reloaded page).
  */
 export type OpponentChoice =
   | 'preselected'
   | 'changed'
   | 'quick_default'
-  | 'quick_closest_rating'
-  | 'rematch'
   | 'unknown'
 
-/** Sent with every event of one game. */
+/**
+ * Sent with every event of one game. The properties these events had before
+ * keep their names and meanings (game_type, is_brain, maia_version), so
+ * existing insights and queries read the new events as they did the old.
+ */
 export interface PlayGameProperties {
   game_id: string
-  game_type: PlayGameType
-  /** The bot, e.g. maia_kdd_1100. */
+  game_type: 'vs_maia' | 'hand_and_brain'
+  /** Hand & Brain: the visitor is the Brain (false: the Hand). */
+  is_brain: boolean
+  /** The bot, e.g. maia_kdd_1100 (the same as maia_version). */
   maia_name: string
-  /** The Maia generation playing it, e.g. maia3. */
+  /** The bot, e.g. maia_kdd_1100: this property's meaning before. */
   maia_version: string
+  /** The Maia generation playing it, e.g. maia3. */
+  maia_model: string
 }
+
+export const playGameProperties = (
+  gameId: string,
+  type: PlayGameType,
+  maiaName: string,
+  maiaModel: string,
+): PlayGameProperties => ({
+  game_id: gameId,
+  game_type: type === 'play' ? 'vs_maia' : 'hand_and_brain',
+  is_brain: type === 'brain',
+  maia_name: maiaName,
+  maia_version: maiaName,
+  maia_model: maiaModel,
+})
 
 export const trackPlayGameStarted = (
   game: PlayGameProperties,
@@ -577,21 +598,26 @@ export const trackMaiaMoveLatency = (
   })
 }
 
-export type PlayResult = 'human_win' | 'maia_win' | 'draw'
+/** From the visitor's side: a win is the visitor's, a loss Maia's. */
+export type PlayResult = 'win' | 'loss' | 'draw'
 
+/**
+ * `total_moves`: plies (each side's move counts). Named as the event's
+ * properties were before.
+ */
 export const trackPlayGameEnded = (
   game: PlayGameProperties,
   result: PlayResult,
-  termination: string,
-  plyCount: number,
+  terminationReason: string,
+  totalMoves: number,
   durationMs: number,
 ) => {
   safeTrack('play_game_ended', {
     ...game,
     result,
-    termination,
-    ply_count: plyCount,
-    duration_ms: durationMs,
+    termination_reason: terminationReason,
+    total_moves: totalMoves,
+    game_duration_seconds: Math.round(durationMs / 1000),
   })
 }
 
@@ -624,21 +650,19 @@ export const trackPlayGameAbandoned = (
 }
 
 // The panel shown when a game against Maia ends.
-export type PostGameCta =
-  | 'analyze'
-  | 'practice'
-  | 'play_again'
-  | 'change_settings'
+export type PostGameCta = 'analyze' | 'practice' | 'play_again'
 
 export const trackPostGameCtaShown = (
   cta: PostGameCta,
   gameId: string,
   gameType: PlayGameType,
 ) => {
+  const { game_type, is_brain } = playGameProperties(gameId, gameType, '', '')
   safeTrack('post_game_cta_shown', {
     cta,
     game_id: gameId,
-    game_type: gameType,
+    game_type,
+    is_brain,
   })
 }
 
@@ -647,10 +671,12 @@ export const trackPostGameCtaClicked = (
   gameId: string,
   gameType: PlayGameType,
 ) => {
+  const { game_type, is_brain } = playGameProperties(gameId, gameType, '', '')
   safeTrack('post_game_cta_clicked', {
     cta,
     game_id: gameId,
-    game_type: gameType,
+    game_type,
+    is_brain,
   })
 }
 
@@ -776,6 +802,8 @@ export const trackLichessConnectionCompleted = (
   seconds: number,
 ) => {
   safeTrack('lichess_connection_completed', { source, seconds })
+  // The event this replaced, still sent so its insights and queries go on.
+  safeTrack('lichess_sign_in_completed', { source, seconds })
 }
 
 export const trackLichessConnectionFailed = (
@@ -784,6 +812,7 @@ export const trackLichessConnectionFailed = (
   reason: LichessConnectionFailure,
 ) => {
   safeTrack('lichess_connection_failed', { source, seconds, reason })
+  safeTrack('lichess_sign_in_not_completed', { source, seconds })
 }
 
 export const trackLoggedOut = () => {

@@ -44,8 +44,11 @@ const signedIn = {
   cookieCreatedAt: 1800000000,
 }
 
-const events = () =>
+// The events the old sign-in events were renamed to, still also sent.
+const LEGACY = ['lichess_sign_in_completed', 'lichess_sign_in_not_completed']
+const allEvents = () =>
   posthog.capture.mock.calls.map(([name, props]) => [name, props])
+const events = () => allEvents().filter(([name]) => !LEGACY.includes(name))
 
 let connect: ((source: 'header') => void) | undefined
 let logout: (() => Promise<void>) | undefined
@@ -100,6 +103,10 @@ describe('sign-in measurement', () => {
     expect(events()).toEqual([
       ['lichess_connection_completed', { source: 'header', seconds: 0 }],
     ])
+    expect(allEvents()).toContainEqual([
+      'lichess_sign_in_completed',
+      { source: 'header', seconds: 0 },
+    ])
 
     // Only once.
     jest.clearAllMocks()
@@ -119,6 +126,10 @@ describe('sign-in measurement', () => {
         'lichess_connection_failed',
         { source: 'homepage', seconds: 42, reason: 'returned_signed_out' },
       ],
+    ])
+    expect(allEvents()).toContainEqual([
+      'lichess_sign_in_not_completed',
+      { source: 'homepage', seconds: 42 },
     ])
   })
 

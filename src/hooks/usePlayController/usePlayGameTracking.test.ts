@@ -12,6 +12,8 @@ import { noteOpponentChoice } from 'src/lib/opponentChoice'
 import { usePlayGameTracking } from './usePlayGameTracking'
 
 jest.mock('src/lib/analytics', () => ({
+  playGameProperties:
+    jest.requireActual('src/lib/analytics').playGameProperties,
   trackPlayGameStarted: jest.fn(),
   trackPlayFirstMove: jest.fn(),
   trackPlayGameFirstMoves: jest.fn(),
@@ -36,9 +38,11 @@ const draw: Termination = { result: '1/2-1/2', winner: 'none', type: 'rules' }
 
 const game = (id: string, type = 'play') => ({
   game_id: id,
-  game_type: type,
+  game_type: type === 'play' ? 'vs_maia' : 'hand_and_brain',
+  is_brain: type === 'brain',
   maia_name: 'maia_kdd_1500',
-  maia_version: 'maia3',
+  maia_version: 'maia_kdd_1500',
+  maia_model: 'maia3',
 })
 
 interface Props {
@@ -216,8 +220,8 @@ describe('usePlayGameTracking', () => {
   })
 
   it.each([
-    ['human_win', win, 'rules'],
-    ['maia_win', loss, 'resign'],
+    ['win', win, 'rules'],
+    ['loss', loss, 'resign'],
     ['draw', draw, 'rules'],
   ] as const)('tracks a %s once', (result, termination, reason) => {
     const { rerender } = setup('game-1')

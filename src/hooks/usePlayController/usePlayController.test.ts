@@ -3,6 +3,8 @@ import { PlayGameConfig } from 'src/types'
 import { usePlayController } from './usePlayController'
 
 jest.mock('src/lib/analytics', () => ({
+  playGameProperties:
+    jest.requireActual('src/lib/analytics').playGameProperties,
   trackPlayGameStarted: jest.fn(),
   trackPlayFirstMove: jest.fn(),
   trackPlayGameFirstMoves: jest.fn(),

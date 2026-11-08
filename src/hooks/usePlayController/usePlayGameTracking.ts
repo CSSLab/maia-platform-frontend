@@ -5,6 +5,7 @@ import {
   PlayGameProperties,
   PlayGameType,
   PlayResult,
+  playGameProperties,
   trackMaiaMoveLatency,
   trackPlayFirstMove,
   trackPlayGameAbandoned,
@@ -32,7 +33,7 @@ const getResult = (
   player: PlayGameConfig['player'],
 ): PlayResult => {
   if (termination.winner === 'none') return 'draw'
-  return termination.winner === player ? 'human_win' : 'maia_win'
+  return termination.winner === player ? 'win' : 'loss'
 }
 
 /** The side that makes the game's first move. */
@@ -101,12 +102,12 @@ export const usePlayGameTracking = (
     if (!id || tracked.current.id === id) return
     abandon('new_game')
 
-    const game: PlayGameProperties = {
-      game_id: id,
-      game_type: gameType(config),
-      maia_name: config.maiaVersion,
-      maia_version: MAIA_PLAY_MODEL_VERSION,
-    }
+    const game = playGameProperties(
+      id,
+      gameType(config),
+      config.maiaVersion,
+      MAIA_PLAY_MODEL_VERSION,
+    )
     tracked.current = {
       ...emptyTracked(),
       id,
