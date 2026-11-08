@@ -163,7 +163,10 @@ export const usePlayController = (
     }
   }, [gameTree, treeVersion, resigned, timeExpired, whiteClock, blackClock, id])
 
-  usePlayGameTracking(id, config, moveList.length, game.termination)
+  usePlayGameTracking(id, config, moveList.length, game.termination, {
+    resumed: !!resume,
+    simulateMaiaTime: config.simulateMaiaTime,
+  })
 
   const toPlay: Color | null = game.termination ? null : game.turn
   const playerActive = toPlay == config.player

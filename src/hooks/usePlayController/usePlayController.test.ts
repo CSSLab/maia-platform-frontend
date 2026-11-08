@@ -4,9 +4,13 @@ import { usePlayController } from './usePlayController'
 
 jest.mock('src/lib/analytics', () => ({
   trackPlayGameStarted: jest.fn(),
+  trackPlayFirstMove: jest.fn(),
   trackPlayGameFirstMoves: jest.fn(),
+  trackMaiaMoveLatency: jest.fn(),
   trackPlayGameEnded: jest.fn(),
+  trackPlayGameAbandoned: jest.fn(),
 }))
+jest.mock('src/api/play', () => ({ MAIA_PLAY_MODEL_VERSION: 'maia3' }))
 
 const config = (overrides: Partial<PlayGameConfig> = {}): PlayGameConfig => ({
   player: 'white',

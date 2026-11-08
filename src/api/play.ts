@@ -3,6 +3,9 @@ import { buildUrl } from './utils'
 import { fetchAsGuest } from './guest'
 import { Color, TimeControl } from 'src/types'
 
+/** The Maia generation that plays the bots (sent with each move request). */
+export const MAIA_PLAY_MODEL_VERSION = 'maia3'
+
 const normalizeOpeningBookFen = (fen: string) => {
   const parts = fen.trim().split(/\s+/)
   if (parts.length >= 4) {
@@ -136,14 +139,14 @@ export const fetchGameMove = async (
                   piece: piece || '',
                   initial_clock: initial_clock.toString(),
                   current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
+                  maia_version: MAIA_PLAY_MODEL_VERSION,
                 }
               : {
                   maia_name: maiaVersion,
                   piece: piece || '',
                   initial_clock: initial_clock.toString(),
                   current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
+                  maia_version: MAIA_PLAY_MODEL_VERSION,
                 }
             : fen
               ? {
@@ -151,13 +154,13 @@ export const fetchGameMove = async (
                   maia_name: maiaVersion,
                   initial_clock: initial_clock.toString(),
                   current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
+                  maia_version: MAIA_PLAY_MODEL_VERSION,
                 }
               : {
                   maia_name: maiaVersion,
                   initial_clock: initial_clock.toString(),
                   current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
+                  maia_version: MAIA_PLAY_MODEL_VERSION,
                 },
         ),
     ),

@@ -20,6 +20,7 @@ import {
 } from 'src/types'
 import { ModalContext } from 'src/contexts/ModalContext'
 import { startGameEarly } from 'src/api/play'
+import { noteOpponentChoice } from 'src/lib/opponentChoice'
 import { checkStartPosition } from 'src/lib/startPosition'
 import {
   INCREMENT_SECONDS_STEPS,
@@ -350,6 +351,13 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
         )
       }
 
+      // For the game's analytics: kept as offered (the last one played, or
+      // the first), or changed.
+      noteOpponentChoice(
+        maiaVersion,
+        maiaVersion === initial.maiaVersion ? 'preselected' : 'changed',
+      )
+
       if (props.playType == 'againstMaia') {
         startGameEarly(
           resolvedPlayer as Color,
@@ -412,6 +420,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       props.modalTitle,
       props.returnTo,
       onClose,
+      initial.maiaVersion,
     ],
   )
 

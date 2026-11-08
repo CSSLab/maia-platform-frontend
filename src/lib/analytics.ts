@@ -1,6 +1,6 @@
 'use client'
 
-import { capture } from 'src/lib/posthogClient'
+import { capture, captureOnExit } from 'src/lib/posthogClient'
 import { STOCKFISH_ENGINE } from 'src/constants/analysis'
 
 type EventProperties = Record<string, unknown>
@@ -492,76 +492,134 @@ export const trackTuringSubmissionMade = (
   })
 }
 
-// Play vs Maia Events
-export type PlayGameType = 'vs_maia' | 'hand_and_brain'
+// Play vs Maia Events (vs Maia, and Hand & Brain)
+export type PlayGameType = 'play' | 'hand' | 'brain'
+
+/**
+ * How the opponent was picked: kept as the setup dialog offered it (the last
+ * one played, or its first), changed there, the Quick game's default, the
+ * Quick game's closest rating, or unknown (a link or a reloaded page).
+ */
+export type OpponentChoice =
+  | 'preselected'
+  | 'changed'
+  | 'quick_default'
+  | 'quick_closest_rating'
+  | 'unknown'
+
+/** Sent with every event of one game. */
+export interface PlayGameProperties {
+  game_id: string
+  game_type: PlayGameType
+  /** The bot, e.g. maia_kdd_1100. */
+  maia_name: string
+  /** The Maia generation playing it, e.g. maia3. */
+  maia_version: string
+}
 
 export const trackPlayGameStarted = (
-  gameId: string,
-  gameType: PlayGameType,
-  maiaVersion: string,
-  playerColor: 'white' | 'black',
-  timeControl: string,
-  customPosition: boolean,
-  isBrain: boolean,
-  loggedIn: boolean,
+  game: PlayGameProperties,
+  details: {
+    time_control: string
+    player_color: 'white' | 'black'
+    was_default_opponent: boolean
+    opponent_choice: OpponentChoice
+    custom_position: boolean
+    practice: boolean
+    /** Continued from where it was left in this browser. */
+    resumed: boolean
+    logged_in: boolean
+    /** Hand & Brain: the visitor's Maia partner. */
+    maia_partner_name?: string
+  },
 ) => {
-  safeTrack('play_game_started', {
-    game_id: gameId,
-    game_type: gameType,
-    maia_version: maiaVersion,
-    player_color: playerColor,
-    time_control: timeControl,
-    custom_position: customPosition,
-    is_brain: isBrain,
-    logged_in: loggedIn,
+  safeTrack('play_game_started', { ...game, ...details })
+}
+
+/** The game's first move, by either side. */
+export const trackPlayFirstMove = (
+  game: PlayGameProperties,
+  side: 'human' | 'maia',
+  msSinceStart: number,
+) => {
+  safeTrack('play_first_move', {
+    ...game,
+    side,
+    ms_since_start: msSinceStart,
   })
 }
 
 // Both sides have moved, as opposed to a game opened and left untouched.
-export const trackPlayGameFirstMoves = (
-  gameId: string,
-  gameType: PlayGameType,
-  maiaVersion: string,
+export const trackPlayGameFirstMoves = (game: PlayGameProperties) => {
+  safeTrack('play_game_first_moves', { ...game })
+}
+
+/**
+ * From the visitor's move (or the start, when Maia moves first) to Maia's
+ * reply on the board. `sample_rate`: the share of such moves sent (all of a
+ * game's first three, then about one in ten), to weight by. With human-like
+ * thinking time on, it includes Maia's pretend thinking.
+ */
+export const trackMaiaMoveLatency = (
+  game: PlayGameProperties,
+  ply: number,
+  ms: number,
+  sampleRate: number,
+  simulatedThinkingTime: boolean,
 ) => {
-  safeTrack('play_game_first_moves', {
-    game_id: gameId,
-    game_type: gameType,
-    maia_version: maiaVersion,
+  safeTrack('maia_move_latency', {
+    ...game,
+    ply,
+    ms,
+    sample_rate: sampleRate,
+    simulated_thinking_time: simulatedThinkingTime,
   })
 }
 
-export const trackPlayMoveMade = (
-  gameId: string,
-  moveNumber: number,
-  moveUci: string,
-  timeRemainingSeconds: number,
-) => {
-  safeTrack('play_move_made', {
-    game_id: gameId,
-    move_number: moveNumber,
-    move_uci: moveUci,
-    time_remaining_seconds: timeRemainingSeconds,
-  })
-}
+export type PlayResult = 'human_win' | 'maia_win' | 'draw'
 
 export const trackPlayGameEnded = (
-  gameId: string,
-  gameType: PlayGameType,
-  maiaVersion: string,
-  result: 'win' | 'loss' | 'draw',
-  terminationReason: string,
-  totalMoves: number,
-  gameDurationSeconds: number,
+  game: PlayGameProperties,
+  result: PlayResult,
+  termination: string,
+  plyCount: number,
+  durationMs: number,
 ) => {
   safeTrack('play_game_ended', {
-    game_id: gameId,
-    game_type: gameType,
-    maia_version: maiaVersion,
+    ...game,
     result,
-    termination_reason: terminationReason,
-    total_moves: totalMoves,
-    game_duration_seconds: gameDurationSeconds,
+    termination,
+    ply_count: plyCount,
+    duration_ms: durationMs,
   })
+}
+
+/**
+ * Left before the end: another game started, the page was left within the
+ * site (`unmount`), or the tab was closed or navigated away (`pagehide`, sent
+ * as a beacon). `resumable`: an unlimited or practice game, which this
+ * browser can continue later.
+ */
+export const trackPlayGameAbandoned = (
+  game: PlayGameProperties,
+  plyCount: number,
+  msSinceStart: number,
+  exit: 'new_game' | 'unmount' | 'pagehide',
+  resumable: boolean,
+) => {
+  const properties = {
+    ...game,
+    ply_count: plyCount,
+    ms_since_start: msSinceStart,
+    exit,
+    resumable,
+  }
+  try {
+    if (exit === 'pagehide') captureOnExit('play_game_abandoned', properties)
+    else capture('play_game_abandoned', properties)
+  } catch (error) {
+    console.error('Failed to track event play_game_abandoned:', error)
+  }
 }
 
 // Navigation & Feature Discovery Events
