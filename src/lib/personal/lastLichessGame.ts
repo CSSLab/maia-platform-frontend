@@ -142,3 +142,36 @@ export const fetchLastLichessGame = (
   inFlight = { lichessId, request }
   return request
 }
+
+/**
+ * The visitor's recent finished standard games (up to `max`), one request.
+ * For "Practice your mistakes", which asks once a day; shares the pause
+ * after a rate limit.
+ */
+export const fetchRecentLichessGames = async (
+  lichessId: string,
+  max = 10,
+): Promise<LastLichessGame[]> => {
+  if (Date.now() < pausedUntil) throw new Error('Lichess rate limit')
+  const params = new URLSearchParams({
+    max: String(max),
+    pgnInJson: 'true',
+    perfType: STANDARD_PERFS,
+    clocks: 'false',
+    evals: 'false',
+  })
+  const res = await fetch(
+    `https://lichess.org/api/games/user/${encodeURIComponent(lichessId)}?${params}`,
+    { headers: { Accept: 'application/x-ndjson' } },
+  )
+  if (res.status === 429) {
+    pausedUntil = Date.now() + RATE_LIMIT_PAUSE_MS
+    throw new Error('Lichess rate limit')
+  }
+  if (!res.ok) throw new Error(`Lichess games: HTTP ${res.status}`)
+  return (await res.text())
+    .split(/\r?\n/)
+    .filter((line) => line.trim())
+    .map((line) => parseLichessGameJson(JSON.parse(line), lichessId))
+    .filter((game): game is LastLichessGame => !!game)
+}

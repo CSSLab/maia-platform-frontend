@@ -170,12 +170,22 @@ export const LastGameCard = ({ lichessId, onMomentClick }: Props) => {
         </ol>
       )}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <Link
-          href={`/analysis/${game.id}/lichess`}
-          className="text-sm text-white/70 underline hover:text-white/90"
-        >
-          Open the game in analysis
-        </Link>
+        {count > 0 ? (
+          <Link
+            href="/practice"
+            className="flex items-center justify-center gap-1 rounded-md bg-human-4 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-human-4/90"
+          >
+            <span className="material-symbols-outlined !text-base">target</span>
+            Practice your mistakes
+          </Link>
+        ) : (
+          <Link
+            href={`/analysis/${game.id}/lichess`}
+            className="text-sm text-white/70 underline hover:text-white/90"
+          >
+            Open the game in analysis
+          </Link>
+        )}
         {!entry.usedMaia && maia.status === 'no-cache' && (
           <button
             type="button"

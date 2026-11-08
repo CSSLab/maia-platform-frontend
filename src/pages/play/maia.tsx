@@ -34,6 +34,8 @@ import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 
+const MIN_PLIES_TO_PRACTICE = 10
+
 // What "More time" adds to the player's clock in a practice game.
 const PRACTICE_EXTRA_TIME_MS = 15_000
 
@@ -98,6 +100,19 @@ const PlayMaia: React.FC<Props> = ({
     router,
   ])
 
+  // The game's mistakes to practise, once it's over and long enough to have
+  // some (five moves each).
+  const practiceHref =
+    controller.game.termination &&
+    controller.game.id &&
+    controller.moveList.length >= MIN_PLIES_TO_PRACTICE
+      ? `/practice?${new URLSearchParams({
+          game: controller.game.id,
+          type: 'play',
+          color: playGameConfig.player,
+        })}`
+      : undefined
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!controller.playerActive || controller.game.termination) return
@@ -132,6 +147,7 @@ const PlayMaia: React.FC<Props> = ({
             }}
             playAgain={playAgain}
             changeSettings={changeSettings}
+            practiceHref={practiceHref}
             returnTo={returnTo}
             returnToLabel={returnToLabel}
             simulateMaiaTime={simulateMaiaTime}
