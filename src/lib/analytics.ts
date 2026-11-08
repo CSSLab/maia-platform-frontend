@@ -691,6 +691,7 @@ export type SignInSource =
   | 'game_over'
   | 'analysis_lichess_tab'
   | 'auth_prompt'
+  | 'last_game_teaser'
 
 export const trackLichessConnectionInitiated = (source: SignInSource) => {
   safeTrack('lichess_connection_initiated', { source })

@@ -33,10 +33,16 @@ export const MaiaEngineContext = React.createContext<MaiaEngine>({
   },
 })
 
-export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
+export const MaiaEngineContextProvider: React.FC<{
+  children: ReactNode
+  // No toasts (see StockfishEngineContextProvider's `quiet`).
+  quiet?: boolean
+}> = ({
   children,
+  quiet = false,
 }: {
   children: ReactNode
+  quiet?: boolean
 }) => {
   const [status, setStatus] = useState<MaiaStatus>('loading')
   const [progress, setProgress] = useState(0)
@@ -135,6 +141,7 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
   }, [])
 
   useEffect(() => {
+    if (quiet) return
     if (status === 'loading') {
       if (
         typeof window === 'undefined' ||
@@ -190,7 +197,7 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
         toast.error(message)
       }
     }
-  }, [status, error])
+  }, [status, error, quiet])
 
   return (
     <MaiaEngineContext.Provider

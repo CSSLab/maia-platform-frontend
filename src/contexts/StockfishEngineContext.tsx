@@ -963,7 +963,11 @@ export const StockfishEngineContextProvider: React.FC<{
   // doesn't compete with the page, on pages that need Stockfish only after a
   // while.
   deferStart?: boolean
-}> = ({ children, deferStart = false }) => {
+  // No toasts: for an engine that works in the background of a page that
+  // isn't about analysis (the home page's last-game card), which shows its own
+  // state.
+  quiet?: boolean
+}> = ({ children, deferStart = false, quiet = false }) => {
   const engineRef = useRef<Engine | null>(null)
   if (!engineRef.current && (!deferStart || sharedClientStockfishEngine)) {
     engineRef.current = getOrCreateStockfishEngine()
@@ -1090,6 +1094,7 @@ export const StockfishEngineContextProvider: React.FC<{
   }, [])
 
   useEffect(() => {
+    if (quiet) return
     if (status !== 'error' && errorToastId.current) {
       toast.dismiss(errorToastId.current)
       errorToastId.current = null
@@ -1170,7 +1175,7 @@ export const StockfishEngineContextProvider: React.FC<{
       })
       toastId.current = null
     }
-  }, [status, error, loadingLabel, debugLoadingEnabled, retry])
+  }, [status, error, loadingLabel, debugLoadingEnabled, retry, quiet])
 
   const contextValue = useMemo(
     () => ({
@@ -1194,8 +1199,9 @@ export const StockfishEngineContextProvider: React.FC<{
 // For pages that need Stockfish only after a while (see deferStart).
 export const LateStockfishEngineContextProvider: React.FC<{
   children: ReactNode
-}> = ({ children }) => (
-  <StockfishEngineContextProvider deferStart>
+  quiet?: boolean
+}> = ({ children, quiet }) => (
+  <StockfishEngineContextProvider deferStart quiet={quiet}>
     {children}
   </StockfishEngineContextProvider>
 )

@@ -15,6 +15,16 @@ import {
   ProfileLeaderboardBadges,
 } from 'src/components'
 import { useLeaderboardStatus } from 'src/hooks/useLeaderboardStatus'
+import dynamic from 'next/dynamic'
+
+// The last game's key moments, with the engines they use.
+const PersonalSection = dynamic(
+  () =>
+    import('src/components/Personal/PersonalSection').then(
+      (mod) => mod.PersonalSection,
+    ),
+  { ssr: false },
+)
 
 const ProfilePage: NextPage = () => {
   const router = useRouter()
@@ -185,6 +195,9 @@ const Profile: React.FC<Props> = (props: Props) => {
           )}
         </div>
       </motion.div>
+      <motion.div variants={itemVariants} className="w-full">
+        <PersonalSection location="profile" />
+      </motion.div>
       <motion.div
         variants={itemVariants}
         className="flex flex-col items-start gap-4 md:flex-row"
@@ -237,6 +250,9 @@ const Profile: React.FC<Props> = (props: Props) => {
             </a>
           )}
         </div>
+      </motion.div>
+      <motion.div variants={itemVariants} className="w-full">
+        <PersonalSection location="profile" />
       </motion.div>
       <motion.div
         variants={itemVariants}

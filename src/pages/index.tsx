@@ -61,6 +61,16 @@ const AdditionalFeaturesSection = dynamic(
   },
 )
 
+// The visitor's own cards (or a line to sign in): after the page has loaded,
+// with the engines they use.
+const PersonalSection = dynamic(
+  () =>
+    import('src/components/Personal/PersonalSection').then(
+      (mod) => mod.PersonalSection,
+    ),
+  { ssr: false },
+)
+
 const Home: NextPage = () => {
   const { setPlaySetupModalProps } = useContext(ModalContext)
 
@@ -88,6 +98,9 @@ const Home: NextPage = () => {
         />
       </Head>
       <HomeHero scrollHandler={scrollHandler} />
+      <div className="mx-auto w-full max-w-[1200px] px-4 pb-6">
+        <PersonalSection location="home" />
+      </div>
       <GameCarousel />
       <PageNavigation />
       <div ref={featuresRef}>

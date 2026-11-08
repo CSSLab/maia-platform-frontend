@@ -256,6 +256,15 @@ const applyCustomPgnResultOverride = (
  * account to load), by game id. Each is used once, so opening a game again
  * fetches it again.
  */
+/** The ply in the address (?ply=N), if the address is this game's. */
+const linkedPly = (gameId: string | undefined): number | undefined => {
+  if (typeof window === 'undefined' || !gameId) return undefined
+  const path = window.location.pathname.split('/')
+  if (path[2] !== gameId) return undefined
+  const ply = Number(new URLSearchParams(window.location.search).get('ply'))
+  return Number.isInteger(ply) && ply >= 0 ? ply : undefined
+}
+
 const prefetchedLichessPgns = new Map<string, Promise<string>>()
 
 declare global {
@@ -715,11 +724,22 @@ const Analysis: React.FC<Props> = ({
     controller.topHumanMoveBadge,
   ])
 
+  // A link to a move of the game (`?ply=N`, the position after N plies of
+  // the main line, as from the key moments of a game) opens there, once,
+  // for the game in the address.
+  const linkedPlyUsed = useRef(false)
   useEffect(() => {
     if (analyzedGame?.tree) {
       try {
         const rootNode = analyzedGame.tree.getRoot()
-        if (rootNode) {
+        const linked = linkedPlyUsed.current
+          ? undefined
+          : linkedPly(analyzedGame.id)
+        const mainLine = analyzedGame.tree.getMainLine()
+        if (linked !== undefined && mainLine[linked]) {
+          linkedPlyUsed.current = true
+          controller.setCurrentNode(mainLine[linked])
+        } else if (rootNode) {
           controller.setCurrentNode(rootNode)
         }
       } catch (error) {
