@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from 'react'
 import { AuthContext } from 'src/contexts/AuthContext'
 import { StockfishEngineContext } from 'src/contexts/StockfishEngineContext'
+import { MaiaEngineContext } from 'src/contexts/MaiaEngineContext'
 import {
   fetchAnalyzedMaiaGame,
   fetchPgnOfLichessGame,
@@ -9,7 +10,7 @@ import {
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { parseLichessPgn } from 'src/lib/lichess'
 import { GameTree } from 'src/types'
-import { findKeyMoments } from 'src/lib/personal/keyMoments'
+import { MAX_KEPT_MISTAKES, findKeyMoments } from 'src/lib/personal/keyMoments'
 import {
   AnalysisProgress,
   analysePlayerMoves,
@@ -20,13 +21,8 @@ import {
   loadGameMoments,
   saveGameMoments,
 } from 'src/lib/personal/momentStore'
-import {
-  POSITIONS_PER_DAY,
-  PracticeDay,
-  loadPracticeDay,
-  practicePool,
-} from 'src/lib/personal/practiceStore'
-import { gatherEarlierGames } from 'src/lib/personal/practice'
+import { PracticeDay, loadPracticeDay } from 'src/lib/personal/practiceStore'
+import { addMaiaViews, gatherEarlierGames } from 'src/lib/personal/practice'
 
 export interface PracticeSource {
   gameId: string
@@ -41,25 +37,37 @@ export type PracticeDayState =
       day: PracticeDay
       /** The game named in the address, once analysed. */
       source?: GameMoments
+      /**
+       * Maia's model isn't in this browser, so the positions weren't checked
+       * for being fixable at the visitor's level.
+       */
+      withoutMaia: boolean
     }
   | { status: 'error' }
 
-const loadTree = async (source: PracticeSource): Promise<GameTree | null> => {
+const loadGame = async (
+  source: PracticeSource,
+): Promise<{ tree: GameTree; playerRating?: number } | null> => {
   if (source.gameType === 'lichess') {
     const pgn = await fetchPgnOfLichessGame(source.gameId)
-    return parseLichessPgn(source.gameId, pgn)?.tree ?? null
+    const tree = parseLichessPgn(source.gameId, pgn)?.tree
+    return tree ? { tree } : null
   }
-  return (await fetchAnalyzedMaiaGame(source.gameId, source.gameType)).tree
+  const game = await fetchAnalyzedMaiaGame(source.gameId, source.gameType)
+  const player = source.color === 'white' ? game.whitePlayer : game.blackPlayer
+  return { tree: game.tree, playerRating: player?.rating }
 }
 
 /**
- * Today's practice positions. A game named in the address (the end of a game
- * against Maia) is analysed first, here, and its mistakes come first; for a
- * Lichess-linked visitor short of positions, earlier games with saved
- * analysis are looked through.
+ * Today's practice positions, from as many of the visitor's games as there
+ * are. A game named in the address (the end of a game against Maia) is
+ * analysed first, here, and leads; a Lichess-linked visitor's earlier games
+ * with saved analysis are looked through once a day. With Maia's model in
+ * this browser, only mistakes players at the visitor's level can fix.
  */
 export const usePracticeDay = (source: PracticeSource | null | undefined) => {
   const stockfish = useContext(StockfishEngineContext)
+  const maia = useContext(MaiaEngineContext)
   const { user } = useContext(AuthContext)
   const [state, setState] = useState<PracticeDayState>({
     status: 'preparing',
@@ -69,6 +77,8 @@ export const usePracticeDay = (source: PracticeSource | null | undefined) => {
   const sourceKey = source === undefined ? undefined : JSON.stringify(source)
   const lichessId = user?.lichessId
   const accountKnown = !!user
+  const maiaSettled = maia.status !== 'loading' && maia.status !== 'downloading'
+  const maiaReady = maia.status === 'ready' && !!maia.maia
 
   useEffect(() => {
     if (sourceKey === undefined || !accountKnown) return
@@ -79,8 +89,9 @@ export const usePracticeDay = (source: PracticeSource | null | undefined) => {
       if (!source) return undefined
       const kept = loadGameMoments(source.gameId)
       if (kept) return kept
-      const tree = await loadTree(source)
-      if (!tree || signal.aborted) return undefined
+      const loaded = await loadGame(source)
+      if (!loaded || signal.aborted) return undefined
+      const { tree } = loaded
       const stored = await retrieveGameAnalysisCache(source.gameId).catch(
         () => null,
       )
@@ -101,8 +112,9 @@ export const usePracticeDay = (source: PracticeSource | null | undefined) => {
         gameId: source.gameId,
         gameType: source.gameType,
         color: source.color,
-        moments: findKeyMoments(tree, source.color),
+        moments: findKeyMoments(tree, source.color, MAX_KEPT_MISTAKES),
         usedMaia: false,
+        playerRating: loaded.playerRating,
         savedAt: Date.now(),
       }
       saveGameMoments(entry)
@@ -115,13 +127,25 @@ export const usePracticeDay = (source: PracticeSource | null | undefined) => {
     const run = async () => {
       const first = await prepareSource()
       if (signal.aborted) return
-      if (lichessId && practicePool(first).length < POSITIONS_PER_DAY) {
+      if (lichessId) {
         await gatherEarlierGames(lichessId).catch((error) =>
           console.warn('Earlier games could not be looked through:', error),
         )
         if (signal.aborted) return
       }
-      setState({ status: 'ready', day: loadPracticeDay(first), source: first })
+      // Maia's model loads from this browser, or isn't there.
+      if (!maiaSettled) return
+      if (maiaReady && maia.maia) {
+        await addMaiaViews(maia.maia, first, signal)
+        if (signal.aborted) return
+      }
+      const fresh = first ? (loadGameMoments(first.gameId) ?? first) : first
+      setState({
+        status: 'ready',
+        day: loadPracticeDay(fresh),
+        source: fresh,
+        withoutMaia: !maiaReady,
+      })
     }
 
     run().catch((error) => {
@@ -138,7 +162,14 @@ export const usePracticeDay = (source: PracticeSource | null | undefined) => {
       controller.abort()
       stockfish.stopEvaluation()
     }
-  }, [sourceKey, accountKnown, lichessId, stockfish.status])
+  }, [
+    sourceKey,
+    accountKnown,
+    lichessId,
+    stockfish.status,
+    maiaSettled,
+    maiaReady,
+  ])
 
-  return state
+  return { state, maia }
 }

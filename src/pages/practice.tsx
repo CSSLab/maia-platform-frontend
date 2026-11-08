@@ -2,9 +2,13 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import { useMemo } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import { useMemo, useState } from 'react'
 
 import { StockfishEngineContextProvider } from 'src/contexts/StockfishEngineContext'
+import { MaiaEngineContextProvider } from 'src/contexts/MaiaEngineContext'
+import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
+import { MAIA_DOWNLOAD_MB } from 'src/lib/engine/maiaDownloadPrompt'
 import { PracticeSession } from 'src/components/Practice/PracticeSession'
 import { PracticeSource, usePracticeDay } from 'src/hooks/usePracticeDay'
 
@@ -30,7 +34,8 @@ const PracticePage: NextPage = () => {
     () => (router.isReady ? readSource(router.query) : undefined),
     [router.isReady, router.query],
   )
-  const state = usePracticeDay(source)
+  const { state, maia } = usePracticeDay(source)
+  const [askingForMaia, setAskingForMaia] = useState(false)
 
   return (
     <>
@@ -47,7 +52,8 @@ const PracticePage: NextPage = () => {
             Practice your mistakes
           </h1>
           <p className="text-sm text-white/60">
-            Three positions a day from your games, where you went wrong.
+            Three positions a day from your games, where you went wrong and
+            players at your level can find the fix.
           </p>
         </div>
         {state.status === 'preparing' && (
@@ -100,6 +106,32 @@ const PracticePage: NextPage = () => {
         {state.status === 'ready' && state.day.positions.length > 0 && (
           <PracticeSession day={state.day} />
         )}
+        {state.status === 'ready' &&
+          state.withoutMaia &&
+          maia.status === 'no-cache' && (
+            <p className="text-xs text-white/50">
+              Without Maia, positions come from all your mistakes.{' '}
+              <button
+                type="button"
+                onClick={() => setAskingForMaia(true)}
+                className="underline hover:text-white/80"
+              >
+                Download Maia ({MAIA_DOWNLOAD_MB} MB)
+              </button>{' '}
+              to keep to the ones players at your level can fix.
+            </p>
+          )}
+        <AnimatePresence>
+          {askingForMaia && maia.status !== 'ready' && (
+            <DownloadModelModal
+              maia={maia.maia}
+              progress={maia.progress}
+              download={maia.downloadModel}
+              downloading={maia.status === 'downloading'}
+              onNotNow={() => setAskingForMaia(false)}
+            />
+          )}
+        </AnimatePresence>
       </div>
     </>
   )
@@ -108,6 +140,11 @@ const PracticePage: NextPage = () => {
 const Page = PracticePage as NextPage & {
   providers?: React.FC<{ children: React.ReactNode }>[]
 }
-Page.providers = [StockfishEngineContextProvider]
+// Maia only loads a model already in this browser: nothing is downloaded
+// without the visitor's yes in the download dialog.
+const QuietMaia: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <MaiaEngineContextProvider quiet>{children}</MaiaEngineContextProvider>
+)
+Page.providers = [StockfishEngineContextProvider, QuietMaia]
 
 export default Page

@@ -30,7 +30,7 @@ interface Props {
 
 type Phase =
   | { kind: 'thinking'; attempt: number }
-  | { kind: 'checking'; attempt: number }
+  | { kind: 'checking'; attempt: number; answer: string }
   | { kind: 'wrong'; attempt: number }
   | { kind: 'revealed'; correct: boolean; answer: string }
 
@@ -115,7 +115,7 @@ export const PracticeSession = ({ day: initialDay }: Props) => {
     // A second try is made from the "Not quite" message.
     if (phase.kind !== 'thinking' && phase.kind !== 'wrong') return
     const attempt = phase.attempt
-    setPhase({ kind: 'checking', attempt })
+    setPhase({ kind: 'checking', attempt, answer: uci })
     abort.current?.abort()
     abort.current = new AbortController()
     let correct: boolean
@@ -170,9 +170,15 @@ export const PracticeSession = ({ day: initialDay }: Props) => {
   }
 
   const revealed = phase.kind === 'revealed'
-  const shapes: DrawShape[] = revealed
-    ? [arrow(position.playedMove, 'red'), arrow(position.bestMove, 'green')]
-    : []
+  const solved = revealed && phase.correct
+  // The answer stays on the board while it's checked, and when it's right.
+  const played = phase.kind === 'checking' || solved ? phase.answer : undefined
+  // A right answer stays on the board; after a miss, the game's move and
+  // the best one are drawn on the position.
+  const shapes: DrawShape[] =
+    revealed && !solved
+      ? [arrow(position.playedMove, 'red'), arrow(position.bestMove, 'green')]
+      : []
   const side = position.color === 'white' ? 'White' : 'Black'
   const about = [
     `Move ${position.moveLabel.replace(/[.…]$/, '')}`,
@@ -191,6 +197,8 @@ export const PracticeSession = ({ day: initialDay }: Props) => {
           onMove={answer}
           shapes={shapes}
           resetKey={resetKey}
+          played={played}
+          solved={solved}
         />
       </div>
       <div className="flex w-full flex-col gap-3 md:max-w-sm">

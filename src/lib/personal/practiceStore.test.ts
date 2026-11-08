@@ -4,6 +4,7 @@ import {
   isDayComplete,
   loadPracticeDay,
   loadStreak,
+  practicePool,
   recordAnswer,
 } from './practiceStore'
 
@@ -37,16 +38,31 @@ const answer = { correct: true, attempts: 1, answer: 'd2d4' }
 describe('practice days', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('picks the biggest mistakes, keeps them for the day', () => {
+  it("takes each game's biggest mistake in turn, keeps them for the day", () => {
     saveGameMoments(game('a', [moment(3, 0.06), moment(9, 0.3)]))
     saveGameMoments(game('b', [moment(5, 0.2), moment(7, 0.08)], 2))
     const day = loadPracticeDay(undefined, '2026-11-08')
-    expect(day.positions.map((p) => p.id)).toEqual(['a:9', 'b:5', 'b:7'])
+    // The most recent game first, then the next; then their second ones.
+    expect(day.positions.map((p) => p.id)).toEqual(['b:5', 'a:9', 'b:7'])
 
     saveGameMoments(game('c', [moment(4, 0.9)], 3))
     expect(
       loadPracticeDay(undefined, '2026-11-08').positions.map((p) => p.id),
-    ).toEqual(['a:9', 'b:5', 'b:7'])
+    ).toEqual(['b:5', 'a:9', 'b:7'])
+  })
+
+  it('leaves out mistakes Maia says players at that level miss', () => {
+    const seenBy = (bestShare: number) => ({
+      maia: { rating: 1500, bestShare, playedShare: 0.3 },
+    })
+    saveGameMoments(
+      game('a', [
+        { ...moment(3, 0.5), ...seenBy(0.04) },
+        { ...moment(5, 0.3), ...seenBy(0.1) },
+        moment(7, 0.2),
+      ]),
+    )
+    expect(practicePool().map((p) => p.id)).toEqual(['a:5', 'a:7'])
   })
 
   it("puts a just-played game's mistakes first, keeping answered ones", () => {

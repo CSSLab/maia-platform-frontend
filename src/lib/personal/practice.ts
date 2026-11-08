@@ -3,10 +3,22 @@ import { GameTree, StockfishEngine } from 'src/types'
 import { retrieveGameAnalysisCache } from 'src/api/analysis'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { parseLichessPgn } from 'src/lib/lichess'
-import { analysePosition } from './analyzeGame'
-import { findKeyMoments } from './keyMoments'
+import type Maia from 'src/lib/engine/maia'
+import { addMaiaAnalysis, analysePosition } from './analyzeGame'
+import {
+  MAX_KEPT_MISTAKES,
+  findKeyMoments,
+  nearestMaiaRating,
+  withMaiaShares,
+} from './keyMoments'
 import { fetchRecentLichessGames } from './lastLichessGame'
-import { GameMoments, loadGameMoments, saveGameMoments } from './momentStore'
+import {
+  GameMoments,
+  loadGameMoments,
+  saveGameMoments,
+  updateMomentMaia,
+} from './momentStore'
+import { POSITIONS_PER_DAY, practicePool } from './practiceStore'
 import { localDay, readJson, writeJson } from './storage'
 
 /**
@@ -86,7 +98,11 @@ export const gatherEarlierGames = async (lichessId: string) => {
     const stored = await retrieveGameAnalysisCache(game.id).catch(() => null)
     if (!stored?.positions?.length) continue
     applyEngineAnalysisData(parsed.tree, stored.positions)
-    const moments = findKeyMoments(parsed.tree, game.userColor)
+    const moments = findKeyMoments(
+      parsed.tree,
+      game.userColor,
+      MAX_KEPT_MISTAKES,
+    )
     if (!moments.length) continue
     const entry: GameMoments = {
       gameId: game.id,
@@ -95,6 +111,7 @@ export const gatherEarlierGames = async (lichessId: string) => {
       moments,
       usedMaia: false,
       opponentRating: game.opponentRating,
+      playerRating: game.userRating,
       savedAt: game.lastMoveAt || Date.now(),
     }
     saveGameMoments(entry)
@@ -105,4 +122,39 @@ export const gatherEarlierGames = async (lichessId: string) => {
     ids: Array.from(ids).slice(-100),
   })
   return added
+}
+
+// At most this many positions asked of Maia for one day's set.
+const MAX_MAIA_CHECKS = 15
+
+/**
+ * Asks Maia, at the visitor's rating in each game, how many players find the
+ * best move in the positions next in line for practice that it hasn't seen,
+ * until the day has enough fixable ones (or MAX_MAIA_CHECKS were asked).
+ * Kept with the moments, so a position is asked about once.
+ */
+export const addMaiaViews = async (
+  maia: Maia,
+  first?: GameMoments,
+  signal?: AbortSignal,
+) => {
+  let checks = 0
+  // Positions Maia couldn't read: let through, not asked again here.
+  const unread = new Set<string>()
+  for (;;) {
+    const fresh = first ? (loadGameMoments(first.gameId) ?? first) : undefined
+    const pool = practicePool(fresh).slice(0, POSITIONS_PER_DAY + unread.size)
+    const unknown = pool.find((p) => !p.maia && !unread.has(p.id))
+    if (!unknown || checks >= MAX_MAIA_CHECKS || signal?.aborted) return
+    checks += 1
+    const node = new GameTree(unknown.fen).getRoot()
+    await addMaiaAnalysis([node], maia)
+    const seen = withMaiaShares(
+      unknown,
+      node.analysis.maia,
+      nearestMaiaRating(unknown.playerRating),
+    ).maia
+    if (seen) updateMomentMaia(unknown.gameId, unknown.moveIndex, seen)
+    else unread.add(unknown.id)
+  }
 }

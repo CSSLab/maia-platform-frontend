@@ -12,13 +12,25 @@ export const ATTEMPTS_PER_POSITION = 2
 // The streak shows from this many days in a row.
 export const STREAK_SHOWN_FROM = 2
 
+/**
+ * A mistake is practised when players at the visitor's level can fix it:
+ * Maia gives the best move at least this share (10%: one player in ten at
+ * that rating finds it). Mistakes Maia hasn't looked at yet (its model not
+ * in this browser) aren't held back.
+ */
+export const MIN_FIXABLE_SHARE = 0.1
+
 export interface PracticePosition extends KeyMoment {
   id: string
   gameId: string
   gameType: string
   color: 'white' | 'black'
   opponentRating?: number
+  playerRating?: number
 }
+
+export const isFixable = (moment: KeyMoment) =>
+  !moment.maia || moment.maia.bestShare >= MIN_FIXABLE_SHARE
 
 export interface PracticeAnswer {
   correct: boolean
@@ -53,6 +65,7 @@ const toPositions = (game: GameMoments): PracticePosition[] =>
     gameType: game.gameType,
     color: game.color,
     opponentRating: game.opponentRating,
+    playerRating: game.playerRating,
   }))
 
 const seenIds = () => new Set(readJson<string[]>('local', SEEN_KEY) ?? [])
@@ -63,17 +76,29 @@ const markSeen = (ids: string[]) => {
 }
 
 /**
- * Positions not practised before, `first` (a game just played) first, then
- * the biggest mistakes of the most recent games.
+ * Positions not practised before, from as many games as there are: each
+ * game's biggest mistake, then each one's next, and so on, `first` (a game
+ * just played) leading and then the most recent games. Mistakes Maia says
+ * players at the visitor's level can't find are left out (isFixable).
  */
 export const practicePool = (first?: GameMoments): PracticePosition[] => {
   const seen = seenIds()
-  const games = allGameMoments().filter((g) => g.gameId !== first?.gameId)
-  const fromFirst = first ? toPositions(first) : []
-  const rest = games
-    .flatMap(toPositions)
-    .sort((a, b) => b.winrateLoss - a.winrateLoss)
-  return [...fromFirst, ...rest].filter((p) => !seen.has(p.id))
+  const games = [
+    ...(first ? [first] : []),
+    ...allGameMoments().filter((g) => g.gameId !== first?.gameId),
+  ]
+  const perGame = games.map((game) =>
+    toPositions(game)
+      .filter((p) => !seen.has(p.id) && isFixable(p))
+      .sort((a, b) => b.winrateLoss - a.winrateLoss),
+  )
+  const pool: PracticePosition[] = []
+  for (let round = 0; perGame.some((g) => g.length > round); round++) {
+    for (const positions of perGame) {
+      if (positions[round]) pool.push(positions[round])
+    }
+  }
+  return pool
 }
 
 export const loadStreak = (today = localDay()): PracticeStreak => {
