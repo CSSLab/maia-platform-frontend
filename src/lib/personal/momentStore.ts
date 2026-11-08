@@ -11,9 +11,12 @@ export interface GameMoments {
   /** Where the game opens in analysis: lichess, play, hand or brain. */
   gameType: string
   color: 'white' | 'black'
+  /** Its mistakes (up to MAX_KEPT_MISTAKES), in the order played. */
   moments: KeyMoment[]
   usedMaia: boolean
   opponentRating?: number
+  /** The visitor's rating in the game, for Maia's view of their level. */
+  playerRating?: number
   savedAt: number
 }
 
@@ -48,3 +51,18 @@ export const momentHref = (
   game: Pick<GameMoments, 'gameId' | 'gameType'>,
   moment: Pick<KeyMoment, 'moveIndex'>,
 ) => `/analysis/${game.gameId}/${game.gameType}?ply=${moment.moveIndex - 1}`
+
+/** Records Maia's view of one of a game's moments. */
+export const updateMomentMaia = (
+  gameId: string,
+  moveIndex: number,
+  maia: KeyMoment['maia'],
+) => {
+  const store = read()
+  const game = store[gameId]
+  if (!game) return
+  game.moments = game.moments.map((m) =>
+    m.moveIndex === moveIndex ? { ...m, maia } : m,
+  )
+  writeJson('local', KEY, store)
+}

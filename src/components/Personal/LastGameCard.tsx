@@ -5,10 +5,16 @@ import { createPortal } from 'react-dom'
 
 import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
 import { MAIA_DOWNLOAD_MB } from 'src/lib/engine/maiaDownloadPrompt'
-import { useLastGameMoments } from 'src/hooks/useLastGameMoments'
-import { momentHref } from 'src/lib/personal/momentStore'
-import { KeyMoment } from 'src/lib/personal/keyMoments'
-import { PersonalLocation, trackLastGameCardShown } from 'src/lib/analytics'
+import { useLastGame, useMomentFinder } from 'src/hooks/useLastGameMoments'
+import { GameMoments, momentHref } from 'src/lib/personal/momentStore'
+import { KeyMoment, topMoments } from 'src/lib/personal/keyMoments'
+import { LastLichessGame } from 'src/lib/personal/lastLichessGame'
+import {
+  PersonalLocation,
+  trackLastGameAnalyzeClicked,
+  trackLastGameCardShown,
+} from 'src/lib/analytics'
+import { PersonalEngines } from './PersonalEngines'
 
 interface Props {
   lichessId: string
@@ -18,6 +24,8 @@ interface Props {
 
 const cardClass =
   'flex flex-col gap-3 rounded-lg border border-glass-border bg-glass p-4 backdrop-blur-md'
+const buttonClass =
+  'flex items-center justify-center gap-1 rounded-md bg-human-4 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-human-4/90'
 
 const percent = (share: number) => `${Math.round(share * 100)}%`
 
@@ -68,28 +76,104 @@ const MomentRow = ({
 )
 
 /**
+ * Runs the analysis the visitor asked for (inside PersonalEngines, which only
+ * start then): the game's key moments, or Maia's view of moments found
+ * before. Shows how far it got, or the download dialog for Maia's model.
+ */
+const Finder = ({
+  game,
+  entry,
+  addMaia,
+  onDone,
+  onCancel,
+}: {
+  game: LastLichessGame
+  entry: GameMoments | null
+  addMaia: boolean
+  onDone: (entry: GameMoments) => void
+  onCancel: () => void
+}) => {
+  const { state, maia } = useMomentFinder(game, entry, addMaia, onDone)
+
+  if (state.status === 'engine_error') {
+    return (
+      <p className="text-sm text-white/60">
+        Stockfish couldn&apos;t start in this browser.{' '}
+        <Link
+          href={`/analysis/${game.id}/lichess`}
+          className="underline hover:text-white/90"
+        >
+          Open the game in analysis
+        </Link>
+      </p>
+    )
+  }
+
+  if (addMaia) {
+    return (
+      <>
+        <p className="text-xs text-white/60" aria-live="polite">
+          {maia.status === 'downloading'
+            ? 'Downloading Maia…'
+            : 'Asking Maia what players at your level play…'}
+        </p>
+        {/* On the page itself: the card's backdrop blur would hold the
+            dialog's fixed position inside the card. */}
+        {typeof document !== 'undefined' &&
+          createPortal(
+            <AnimatePresence>
+              {(state.status === 'needs_maia' ||
+                maia.status === 'downloading') && (
+                <DownloadModelModal
+                  maia={maia.maia}
+                  progress={maia.progress}
+                  download={maia.downloadModel}
+                  downloading={maia.status === 'downloading'}
+                  onNotNow={onCancel}
+                />
+              )}
+            </AnimatePresence>,
+            document.body,
+          )}
+      </>
+    )
+  }
+
+  const { done, total } =
+    state.status === 'analyzing' ? state.progress : { done: 0, total: 0 }
+  return (
+    <div className="flex flex-col gap-2" aria-busy="true">
+      <p className="text-sm text-white/80">Finding the key moments…</p>
+      <div className="h-1.5 w-full overflow-hidden rounded bg-white/10">
+        <div
+          className={`h-full rounded bg-human-4 transition-all duration-300 ${total ? '' : 'animate-pulse'}`}
+          style={{ width: `${total ? (100 * done) / total : 8}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/**
  * "Your last game": the key moments of the visitor's most recent Lichess
- * game, each opening analysis at that move. Must be inside PersonalEngines.
+ * game, each opening analysis at that move. Loading the page analyses
+ * nothing: moments found before (here, or saved with the backend) show at
+ * once, and a game not analysed yet has a button to find them.
  */
 export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
-  const { state, maia } = useLastGameMoments(lichessId)
-  const [askingForMaia, setAskingForMaia] = useState(false)
+  const { state, update } = useLastGame(lichessId)
+  const [finding, setFinding] = useState<'moments' | 'maia' | null>(null)
 
   // Once per page, when the card settles.
   const shown = useRef(false)
   useEffect(() => {
-    if (shown.current) return
-    if (state.status === 'done') {
-      shown.current = true
-      trackLastGameCardShown(true, state.entry.usedMaia, location)
-    } else if (
-      state.status === 'no_game' ||
-      state.status === 'error' ||
-      state.status === 'engine_error'
-    ) {
-      shown.current = true
-      trackLastGameCardShown(false, false, location)
-    }
+    if (shown.current || state.status === 'loading') return
+    shown.current = true
+    trackLastGameCardShown(
+      state.status === 'done',
+      state.status === 'done' && state.entry.usedMaia,
+      location,
+    )
   }, [state.status])
 
   if (state.status === 'loading') {
@@ -100,8 +184,7 @@ export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
         data-testid="last-game-loading"
       >
         <div className="h-4 w-48 animate-pulse rounded bg-white/10" />
-        <div className="h-10 w-full animate-pulse rounded bg-white/5" />
-        <div className="h-10 w-full animate-pulse rounded bg-white/5" />
+        <div className="h-4 w-32 animate-pulse rounded bg-white/5" />
       </section>
     )
   }
@@ -119,6 +202,7 @@ export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
   }
 
   const { game } = state
+  const entry = state.status === 'done' ? state.entry : null
   const about = [
     game.opponentRating ? `vs ${game.opponentRating}` : null,
     game.speed,
@@ -127,46 +211,58 @@ export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
     .filter(Boolean)
     .join(' · ')
 
-  if (state.status === 'analyzing' || state.status === 'engine_error') {
-    const { done, total } =
-      state.status === 'analyzing' ? state.progress : { done: 0, total: 0 }
+  const finder = finding && (
+    <PersonalEngines>
+      <Finder
+        game={game}
+        entry={entry}
+        addMaia={finding === 'maia'}
+        onDone={(found) => {
+          update(game, found)
+          setFinding(null)
+        }}
+        onCancel={() => setFinding(null)}
+      />
+    </PersonalEngines>
+  )
+
+  const start = (what: 'moments' | 'maia') => {
+    trackLastGameAnalyzeClicked(what, location)
+    setFinding(what)
+  }
+
+  if (!entry) {
     return (
-      <section className={cardClass} aria-busy={state.status === 'analyzing'}>
+      <section className={cardClass} data-testid="last-game-card">
         <div>
           <h2 className="text-base font-semibold text-white/95">
             Your last game
           </h2>
           <p className="text-xs text-white/60">{about}</p>
         </div>
-        {state.status === 'analyzing' ? (
-          <>
-            <p className="text-sm text-white/80">
-              Finding the key moments in your last game…
+        {finder || (
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <p className="text-sm text-white/70">
+              See where it turned: the moves that cost you the most.
             </p>
-            <div className="h-1.5 w-full overflow-hidden rounded bg-white/10">
-              <div
-                className="h-full rounded bg-human-4 transition-all duration-300"
-                style={{ width: `${total ? (100 * done) / total : 5}%` }}
-              />
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-white/60">
-            Stockfish couldn&apos;t start in this browser.{' '}
-            <Link
-              href={`/analysis/${game.id}/lichess`}
-              className="underline hover:text-white/90"
+            <button
+              type="button"
+              onClick={() => start('moments')}
+              className={buttonClass}
             >
-              Open the game in analysis
-            </Link>
-          </p>
+              <span className="material-symbols-outlined !text-base">
+                search
+              </span>
+              Find the key moments
+            </button>
+          </div>
         )}
       </section>
     )
   }
 
-  const { entry } = state
-  const count = entry.moments.length
+  const shownMoments = topMoments(entry.moments)
+  const count = shownMoments.length
   return (
     <section className={cardClass} data-testid="last-game-card">
       <div>
@@ -179,7 +275,7 @@ export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
       </div>
       {count > 0 && (
         <ol className="flex flex-col gap-2">
-          {entry.moments.map((moment, index) => (
+          {shownMoments.map((moment, index) => (
             <MomentRow
               key={moment.moveIndex}
               moment={moment}
@@ -191,10 +287,7 @@ export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
       )}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         {count > 0 ? (
-          <Link
-            href="/practice"
-            className="flex items-center justify-center gap-1 rounded-md bg-human-4 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-human-4/90"
-          >
+          <Link href="/practice" className={buttonClass}>
             <span className="material-symbols-outlined !text-base">target</span>
             Practice your mistakes
           </Link>
@@ -206,10 +299,10 @@ export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
             Open the game in analysis
           </Link>
         )}
-        {!entry.usedMaia && maia.status === 'no-cache' && (
+        {count > 0 && !entry.usedMaia && !finding && (
           <button
             type="button"
-            onClick={() => setAskingForMaia(true)}
+            onClick={() => start('maia')}
             className="text-left text-xs text-white/60 underline hover:text-white/90 md:text-right"
           >
             See what players at your level play here (Maia, {MAIA_DOWNLOAD_MB}{' '}
@@ -217,23 +310,7 @@ export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
           </button>
         )}
       </div>
-      {/* On the page itself: the card's backdrop blur would hold the
-          dialog's fixed position inside the card. */}
-      {typeof document !== 'undefined' &&
-        createPortal(
-          <AnimatePresence>
-            {askingForMaia && maia.status !== 'ready' && (
-              <DownloadModelModal
-                maia={maia.maia}
-                progress={maia.progress}
-                download={maia.downloadModel}
-                downloading={maia.status === 'downloading'}
-                onNotNow={() => setAskingForMaia(false)}
-              />
-            )}
-          </AnimatePresence>,
-          document.body,
-        )}
+      {finder}
     </section>
   )
 }

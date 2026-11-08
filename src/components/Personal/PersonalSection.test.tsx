@@ -1,25 +1,31 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { AuthContext } from 'src/contexts/AuthContext'
 import {
+  trackLastGameAnalyzeClicked,
   trackLastGameCardShown,
   trackLastGameMomentClicked,
   trackSigninTeaserClicked,
 } from 'src/lib/analytics'
-import { useLastGameMoments } from 'src/hooks/useLastGameMoments'
+import { useLastGame, useMomentFinder } from 'src/hooks/useLastGameMoments'
 import { PersonalSection } from './PersonalSection'
 
 jest.mock('src/lib/analytics', () => ({
   trackLastGameCardShown: jest.fn(),
+  trackLastGameAnalyzeClicked: jest.fn(),
   trackLastGameMomentClicked: jest.fn(),
   trackProgressStripShown: jest.fn(),
   trackSigninTeaserClicked: jest.fn(),
   trackDownloadModelModalShown: jest.fn(),
 }))
 jest.mock('src/hooks/useLastGameMoments', () => ({
-  useLastGameMoments: jest.fn(),
+  useLastGame: jest.fn(),
+  useMomentFinder: jest.fn(),
 }))
+// Engines start only inside it: the test sees when it's there.
 jest.mock('./PersonalEngines', () => ({
-  PersonalEngines: ({ children }: { children: React.ReactNode }) => children,
+  PersonalEngines: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="engines">{children}</div>
+  ),
 }))
 jest.mock('./ProgressStrip', () => ({ ProgressStrip: () => null }))
 jest.mock('next/link', () => ({
@@ -75,7 +81,8 @@ describe('PersonalSection', () => {
   })
 
   it('reports the card once when it settles, and a moment opened', () => {
-    ;(useLastGameMoments as jest.Mock).mockReturnValue({
+    ;(useLastGame as jest.Mock).mockReturnValue({
+      update: jest.fn(),
       state: {
         status: 'done',
         game: { id: 'g', opponentRating: 1800, speed: 'blitz', result: 'loss' },
@@ -88,7 +95,6 @@ describe('PersonalSection', () => {
           savedAt: 0,
         },
       },
-      maia: { status: 'ready' },
     })
     const { rerender } = withUser({
       clientId: 'c',
@@ -118,5 +124,28 @@ describe('PersonalSection', () => {
     expect(screen.getByText('Qg5??').closest('a')?.getAttribute('href')).toBe(
       '/analysis/g/lichess?ply=7',
     )
+  })
+
+  it('analyses nothing until asked, then starts the engines', () => {
+    ;(useLastGame as jest.Mock).mockReturnValue({
+      update: jest.fn(),
+      state: {
+        status: 'not_analysed',
+        game: { id: 'g', opponentRating: 1800, speed: 'blitz', result: 'win' },
+      },
+    })
+    ;(useMomentFinder as jest.Mock).mockReturnValue({
+      state: { status: 'analyzing', progress: { done: 3, total: 20 } },
+      maia: { status: 'no-cache' },
+    })
+    withUser({ clientId: 'c', displayName: 'alice', lichessId: 'alice' })
+    expect(screen.queryByTestId('engines')).toBeNull()
+    expect(useMomentFinder).not.toHaveBeenCalled()
+    expect(trackLastGameCardShown).toHaveBeenCalledWith(false, false, 'home')
+
+    fireEvent.click(screen.getByText('Find the key moments'))
+    expect(trackLastGameAnalyzeClicked).toHaveBeenCalledWith('moments', 'home')
+    expect(screen.getByTestId('engines')).toBeTruthy()
+    expect(screen.getByText('Finding the key moments…')).toBeTruthy()
   })
 })

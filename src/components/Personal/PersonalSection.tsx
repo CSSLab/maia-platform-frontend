@@ -5,7 +5,6 @@ import {
   trackSigninTeaserClicked,
 } from 'src/lib/analytics'
 import { AuthContext } from 'src/contexts/AuthContext'
-import { PersonalEngines } from './PersonalEngines'
 import { LastGameCard } from './LastGameCard'
 import { SignInTeaser } from './SignInTeaser'
 import { ProgressStrip } from './ProgressStrip'
@@ -44,13 +43,11 @@ export const PersonalSection = ({ location }: Props) => {
   return (
     <div className="flex flex-col gap-4">
       <ProgressStrip onShown={() => trackProgressStripShown(location)} />
-      <PersonalEngines>
-        <LastGameCard
-          lichessId={user.lichessId}
-          location={location}
-          onMomentClick={(index) => trackLastGameMomentClicked(index, location)}
-        />
-      </PersonalEngines>
+      <LastGameCard
+        lichessId={user.lichessId}
+        location={location}
+        onMomentClick={(index) => trackLastGameMomentClicked(index, location)}
+      />
     </div>
   )
 }

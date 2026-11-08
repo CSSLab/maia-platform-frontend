@@ -498,14 +498,10 @@ export type PlayGameType = 'play' | 'hand' | 'brain'
 
 /**
  * How the opponent was picked: kept as the setup dialog offered it (the last
- * one played, or its first), changed there, the Quick game's opponent, or
- * unknown (a link or a reloaded page).
+ * one played, or its first), changed there, or unknown (a link or a
+ * reloaded page).
  */
-export type OpponentChoice =
-  | 'preselected'
-  | 'changed'
-  | 'quick_default'
-  | 'unknown'
+export type OpponentChoice = 'preselected' | 'changed' | 'unknown'
 
 /**
  * Sent with every event of one game. The properties these events had before
@@ -696,7 +692,9 @@ export type PersonalLocation = 'home' | 'profile'
 
 /**
  * The last-game card settled, once per page: with its key moments
- * (`has_analysis`), or without (no game, Lichess unreachable, no engine).
+ * (`has_analysis`: analysed before, here or saved with the backend), or
+ * without (not analysed yet, no game, Lichess unreachable). The home page
+ * analyses nothing by itself.
  */
 export const trackLastGameCardShown = (
   hasAnalysis: boolean,
@@ -708,6 +706,17 @@ export const trackLastGameCardShown = (
     used_maia_model: usedMaiaModel,
     location,
   })
+}
+
+/**
+ * The card's button pressed: find the game's key moments (Stockfish, here),
+ * or add what players at the visitor's level play there (Maia).
+ */
+export const trackLastGameAnalyzeClicked = (
+  what: 'moments' | 'maia',
+  location: PersonalLocation,
+) => {
+  safeTrack('last_game_analyze_clicked', { what, location })
 }
 
 export const trackLastGameMomentClicked = (

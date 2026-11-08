@@ -11,7 +11,9 @@ import { MAIA_MODELS, MAIA_RATINGS } from 'src/constants/common'
  * analysis page doesn't classify those either.
  */
 export const MIN_DEPTH = 12
+// The card shows a game's biggest few; practice draws from more of them.
 export const MAX_MOMENTS = 3
+export const MAX_KEPT_MISTAKES = 10
 
 export interface KeyMoment {
   /** The mistake's index in the main line (its position is the one before). */
@@ -132,3 +134,10 @@ export const withMaiaShares = (
     },
   }
 }
+
+/** A game's biggest mistakes, in the order they were played. */
+export const topMoments = (moments: KeyMoment[], max = MAX_MOMENTS) =>
+  [...moments]
+    .sort((a, b) => b.winrateLoss - a.winrateLoss)
+    .slice(0, max)
+    .sort((a, b) => a.moveIndex - b.moveIndex)
