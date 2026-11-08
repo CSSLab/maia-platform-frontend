@@ -2,6 +2,11 @@ export interface User {
   clientId: string
   displayName: string
   lichessId?: string
+  /**
+   * When the backend made the account cookie (Unix seconds). For a guest, when
+   * the account was made; for a Lichess account, when it last signed in here.
+   */
+  cookieCreatedAt?: number
 }
 
 export interface PlayerStats {

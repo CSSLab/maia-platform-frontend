@@ -7,7 +7,11 @@ import {
   trackLichessSignInReturned,
   trackLoggedOut,
 } from 'src/lib/analytics'
-import { registerProperties } from 'src/lib/posthogClient'
+import {
+  identifyUser,
+  registerProperties,
+  resetUser,
+} from 'src/lib/posthogClient'
 
 interface IAuthContext {
   user: User | null
@@ -34,6 +38,28 @@ export const AuthContext = React.createContext<IAuthContext>({
 const SIGN_IN_KEY = 'maia.signInStarted'
 // Older than this, the visitor didn't come back from that sign-in.
 const SIGN_IN_MAX_MS = 30 * 60 * 1000
+
+/**
+ * Events from here on are this account's (its client_id). Its creation date
+ * is known only for a guest account: a Lichess sign-in issues a new cookie, so
+ * its date is that of the sign-in. Set once, so a guest who links Lichess
+ * keeps the date the account was made.
+ */
+const identifyAccount = (account: User) => {
+  if (!account.clientId) return
+  const linked = Boolean(account.lichessId)
+  identifyUser(
+    account.clientId,
+    { is_lichess_linked: linked },
+    !linked && account.cookieCreatedAt
+      ? {
+          account_created_at: new Date(
+            account.cookieCreatedAt * 1000,
+          ).toISOString(),
+        }
+      : undefined,
+  )
+}
 
 const takePendingSignIn = () => {
   try {
@@ -64,6 +90,7 @@ export const AuthContextProvider: React.FC<{ children: ReactNode }> = ({
       const signedIn = Boolean(response.lichessId)
       // On every event from now on, so that any of them can be split by it.
       registerProperties({ signed_in: signedIn })
+      identifyAccount(response)
       const pending = takePendingSignIn()
       if (pending) {
         trackLichessSignInReturned(signedIn, pending.source, pending.seconds)
@@ -96,9 +123,12 @@ export const AuthContextProvider: React.FC<{ children: ReactNode }> = ({
 
   const logout = useCallback(async () => {
     trackLoggedOut()
+    // The guest account the backend gives next is someone new.
+    resetUser()
     const response = await logoutAndFetchAccount()
     setUser(response)
     registerProperties({ signed_in: Boolean(response.lichessId) })
+    identifyAccount(response)
   }, [])
 
   return (

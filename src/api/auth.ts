@@ -5,11 +5,15 @@ const parseAccountInfo = (data: { [x: string]: string }) => {
   const clientId = data['client_id']
   const displayName = data['display_name']
   const lichessId = data['lichess_id']
+  // When the account cookie was made (Unix seconds): a guest's account was
+  // made with it, but a Lichess sign-in makes a new one.
+  const createdAt = Number(data['created_at'])
 
   return {
     clientId: clientId,
     displayName: displayName,
     lichessId: lichessId,
+    cookieCreatedAt: Number.isFinite(createdAt) ? createdAt : undefined,
   }
 }
 
