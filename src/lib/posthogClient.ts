@@ -23,8 +23,9 @@ export const registerProperties = (properties: Properties) => {
   client?.register(properties)
 }
 
-// With localStorage 'maia.analyticsDebug' set to '1', every capture is also
-// logged to the console, to check what a page sends.
+// With localStorage 'maia.analyticsDebug' set to '1', every capture (and
+// identify and reset) is also logged to the console, to check what a page
+// sends.
 let debugLogging: boolean | undefined
 const logCapture = (event: string, properties?: Properties) => {
   if (debugLogging === undefined) {
@@ -93,12 +94,14 @@ export const identifyUser = (
   set?: Properties,
   setOnce?: Properties,
 ) => {
+  logCapture('$identify', { distinct_id: id, $set: set, $set_once: setOnce })
   if (client) applyIdentify(client, id, set, setOnce)
   else queue({ kind: 'identify', id, set, setOnce })
 }
 
 /** Signed out: later events are no longer this person's. */
 export const resetUser = () => {
+  logCapture('$reset')
   if (client) client.reset()
   else queue({ kind: 'reset' })
 }
