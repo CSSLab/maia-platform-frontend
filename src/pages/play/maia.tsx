@@ -11,7 +11,9 @@ import { tourConfigs } from 'src/constants/tours'
 import { ModalContext, useTour } from 'src/contexts'
 import { Loading, PlayControls } from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
+import toast from 'react-hot-toast'
 import { normalizeTimeControl } from 'src/lib/timeControl'
+import { checkStartPosition } from 'src/lib/startPosition'
 import {
   UnfinishedGame,
   loadUnfinishedGame,
@@ -178,6 +180,17 @@ const PlayMaiaPage: NextPage = () => {
     return 'Back to Previous Page'
   }, [returnTo])
 
+  // A position from the address (a link, or one edited by hand) is checked
+  // as the setup dialog checks one: the game can't start from an impossible
+  // position, such as a board with no black king.
+  const startFenCheck = useMemo(
+    () =>
+      typeof startFen === 'string' && startFen.trim()
+        ? checkStartPosition(startFen)
+        : undefined,
+    [startFen],
+  )
+
   const playGameConfig: PlayGameConfig = useMemo(
     () => ({
       playType: 'againstMaia',
@@ -189,11 +202,11 @@ const PlayMaiaPage: NextPage = () => {
       isBrain: isBrain == 'true',
       sampleMoves: sampleMoves == 'true',
       simulateMaiaTime: simulateMaiaTime,
-      startFen: typeof startFen == 'string' ? startFen : undefined,
+      startFen: startFenCheck?.ok ? startFenCheck.fen : undefined,
       practice: practice === 'true',
     }),
     [
-      startFen,
+      startFenCheck,
       practice,
       isBrain,
       maiaVersion,
@@ -228,6 +241,24 @@ const PlayMaiaPage: NextPage = () => {
     // after the first render. Starting before then also started a game, with
     // the default settings, that was then abandoned.
     if (!router.isReady) return
+    if (startFenCheck && !startFenCheck.ok) {
+      // Back to the setup dialog, which shows what's wrong with the position.
+      toast.error(startFenCheck.error)
+      const query = Object.fromEntries(
+        Object.entries({
+          fen: startFen,
+          maiaVersion: playGameConfig.maiaVersion,
+          timeControl: playGameConfig.timeControl,
+          returnTo,
+          challengeId,
+          forcedColor,
+          modalTitle,
+          modalSubtitle,
+        }).filter(([, value]) => value),
+      )
+      router.replace({ pathname: '/play', query })
+      return
+    }
     if (id) {
       hadGame.current = true
       return
@@ -325,6 +356,8 @@ const PlayMaiaPage: NextPage = () => {
     playGameConfig,
     returnTo,
     router,
+    startFen,
+    startFenCheck,
   ])
 
   return (

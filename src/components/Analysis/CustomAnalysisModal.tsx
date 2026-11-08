@@ -4,6 +4,7 @@ import { Chess } from 'chess.ts'
 import toast from 'react-hot-toast'
 
 import { fetchLichessStudyPgn } from 'src/api/lichess'
+import { checkStartPosition } from 'src/lib/startPosition'
 import {
   LichessStudyChapter,
   lichessStudyChapterTitle,
@@ -166,13 +167,16 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
       return
     }
 
+    let submitted = trimmedInput
     if (mode === 'fen') {
-      const chess = new Chess()
-      const validation = chess.validateFen(trimmedInput)
-      if (!validation.valid) {
-        toast.error('Invalid FEN position: ' + validation.error)
+      // Analysis can look at a finished position, not an impossible one: the
+      // engines break on a board with no king, say.
+      const check = checkStartPosition(trimmedInput, { allowFinished: true })
+      if (!check.ok) {
+        toast.error(check.error)
         return
       }
+      submitted = check.fen
     } else if (!isValidPgn(trimmedInput)) {
       toast.error(
         'Invalid PGN format: Unable to parse PGN. If using [Tag "..."] headers, include a blank line before the moves.',
@@ -180,7 +184,7 @@ export const CustomAnalysisModal: React.FC<Props> = ({ onSubmit, onClose }) => {
       return
     }
 
-    onSubmit(mode, trimmedInput, name.trim() || undefined)
+    onSubmit(mode, submitted, name.trim() || undefined)
   }
 
   const examplePGN = `1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Bb7 10. d4 Re8`
