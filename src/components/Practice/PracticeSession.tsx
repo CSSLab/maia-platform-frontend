@@ -18,13 +18,13 @@ import { gradeAnswer } from 'src/lib/personal/practice'
 import { momentHref } from 'src/lib/personal/momentStore'
 import { Chess } from 'chess.ts'
 import { PracticeBoard } from './PracticeBoard'
+import {
+  trackPracticeCompleted,
+  trackPracticePositionAnswered,
+  trackPracticeStarted,
+} from 'src/lib/analytics'
 
-export interface PracticeEvents {
-  onAnswered?: (correct: boolean, attempt: number) => void
-  onCompleted?: (correctCount: number, streakDays: number) => void
-}
-
-interface Props extends PracticeEvents {
+interface Props {
   day: PracticeDay
 }
 
@@ -52,11 +52,7 @@ const StreakBadge = ({ streak }: { streak: PracticeStreak }) =>
   ) : null
 
 /** Today's positions, one at a time, then how it went. */
-export const PracticeSession = ({
-  day: initialDay,
-  onAnswered,
-  onCompleted,
-}: Props) => {
+export const PracticeSession = ({ day: initialDay }: Props) => {
   const stockfish = useContext(StockfishEngineContext)
   const [day, setDay] = useState(initialDay)
   const [streak, setStreak] = useState(() => loadStreak())
@@ -70,6 +66,16 @@ export const PracticeSession = ({
   const [resetKey, setResetKey] = useState(0)
   const abort = useRef<AbortController | null>(null)
   useEffect(() => () => abort.current?.abort(), [])
+
+  // Opened with positions left to answer today.
+  useEffect(() => {
+    const remaining = initialDay.positions.filter(
+      (p) => !initialDay.answers[p.id],
+    ).length
+    if (remaining > 0) {
+      trackPracticeStarted(initialDay.positions.length, remaining)
+    }
+  }, [])
 
   const total = day.positions.length
   const position: PracticePosition | undefined = day.positions[index]
@@ -132,7 +138,7 @@ export const PracticeSession = ({
       return
     }
     if (abort.current.signal.aborted) return
-    onAnswered?.(correct, attempt)
+    trackPracticePositionAnswered(correct, attempt)
     if (!correct && attempt < ATTEMPTS_PER_POSITION) {
       setResetKey((key) => key + 1)
       setPhase({ kind: 'wrong', attempt: attempt + 1 })
@@ -148,7 +154,7 @@ export const PracticeSession = ({
     setStreak(recorded.streak)
     setPhase({ kind: 'revealed', correct, answer: uci })
     if (recorded.completedNow) {
-      onCompleted?.(
+      trackPracticeCompleted(
         recorded.day.positions.filter(
           (p) => recorded.day.answers[p.id]?.correct,
         ).length,

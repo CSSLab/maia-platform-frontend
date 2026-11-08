@@ -1,15 +1,17 @@
 import Link from 'next/link'
 import { AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
 import { MAIA_DOWNLOAD_MB } from 'src/lib/engine/maiaDownloadPrompt'
 import { useLastGameMoments } from 'src/hooks/useLastGameMoments'
 import { momentHref } from 'src/lib/personal/momentStore'
 import { KeyMoment } from 'src/lib/personal/keyMoments'
+import { PersonalLocation, trackLastGameCardShown } from 'src/lib/analytics'
 
 interface Props {
   lichessId: string
+  location: PersonalLocation
   onMomentClick?: (index: number) => void
 }
 
@@ -68,9 +70,26 @@ const MomentRow = ({
  * "Your last game": the key moments of the visitor's most recent Lichess
  * game, each opening analysis at that move. Must be inside PersonalEngines.
  */
-export const LastGameCard = ({ lichessId, onMomentClick }: Props) => {
+export const LastGameCard = ({ lichessId, location, onMomentClick }: Props) => {
   const { state, maia } = useLastGameMoments(lichessId)
   const [askingForMaia, setAskingForMaia] = useState(false)
+
+  // Once per page, when the card settles.
+  const shown = useRef(false)
+  useEffect(() => {
+    if (shown.current) return
+    if (state.status === 'done') {
+      shown.current = true
+      trackLastGameCardShown(true, state.entry.usedMaia, location)
+    } else if (
+      state.status === 'no_game' ||
+      state.status === 'error' ||
+      state.status === 'engine_error'
+    ) {
+      shown.current = true
+      trackLastGameCardShown(false, false, location)
+    }
+  }, [state.status])
 
   if (state.status === 'loading') {
     return (

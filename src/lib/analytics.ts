@@ -665,6 +665,63 @@ export const trackSigninPromptClicked = (location: SignInPromptLocation) => {
   safeTrack('signin_prompt_clicked', { location })
 }
 
+// The visitor's own cards (home page and profile) and practice
+export type PersonalLocation = 'home' | 'profile'
+
+/**
+ * The last-game card settled, once per page: with its key moments
+ * (`has_analysis`), or without (no game, Lichess unreachable, no engine).
+ */
+export const trackLastGameCardShown = (
+  hasAnalysis: boolean,
+  usedMaiaModel: boolean,
+  location: PersonalLocation,
+) => {
+  safeTrack('last_game_card_shown', {
+    has_analysis: hasAnalysis,
+    used_maia_model: usedMaiaModel,
+    location,
+  })
+}
+
+export const trackLastGameMomentClicked = (
+  momentIndex: number,
+  location: PersonalLocation,
+) => {
+  safeTrack('last_game_moment_clicked', { moment_index: momentIndex, location })
+}
+
+/** A practice session opened with positions to answer. */
+export const trackPracticeStarted = (positions: number, remaining: number) => {
+  safeTrack('practice_started', { positions, remaining })
+}
+
+export const trackPracticePositionAnswered = (
+  correct: boolean,
+  attempt: number,
+) => {
+  safeTrack('practice_position_answered', { correct, attempt })
+}
+
+/** The day's last position answered. */
+export const trackPracticeCompleted = (
+  correctCount: number,
+  streakDays: number,
+) => {
+  safeTrack('practice_completed', {
+    correct_count: correctCount,
+    streak_days: streakDays,
+  })
+}
+
+export const trackProgressStripShown = (location: PersonalLocation) => {
+  safeTrack('progress_strip_shown', { location })
+}
+
+export const trackSigninTeaserClicked = (location: PersonalLocation) => {
+  safeTrack('signin_teaser_clicked', { location })
+}
+
 // Navigation & Feature Discovery Events
 export const trackHomepageFeatureClicked = (
   feature:

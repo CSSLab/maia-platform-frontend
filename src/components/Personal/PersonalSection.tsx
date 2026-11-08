@@ -1,4 +1,9 @@
 import { useContext } from 'react'
+import {
+  trackLastGameMomentClicked,
+  trackProgressStripShown,
+  trackSigninTeaserClicked,
+} from 'src/lib/analytics'
 import { AuthContext } from 'src/contexts/AuthContext'
 import { PersonalEngines } from './PersonalEngines'
 import { LastGameCard } from './LastGameCard'
@@ -27,13 +32,24 @@ export const PersonalSection = ({ location }: Props) => {
     )
   }
 
-  if (!user.lichessId) return <SignInTeaser location={location} />
+  if (!user.lichessId) {
+    return (
+      <SignInTeaser
+        location={location}
+        onClick={() => trackSigninTeaserClicked(location)}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <ProgressStrip />
+      <ProgressStrip onShown={() => trackProgressStripShown(location)} />
       <PersonalEngines>
-        <LastGameCard lichessId={user.lichessId} />
+        <LastGameCard
+          lichessId={user.lichessId}
+          location={location}
+          onMomentClick={(index) => trackLastGameMomentClicked(index, location)}
+        />
       </PersonalEngines>
     </div>
   )
