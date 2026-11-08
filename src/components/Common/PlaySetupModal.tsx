@@ -21,6 +21,14 @@ import {
 import { ModalContext } from 'src/contexts/ModalContext'
 import { startGameEarly } from 'src/api/play'
 import { noteOpponentChoice } from 'src/lib/opponentChoice'
+import {
+  QUICK_GAME_OPPONENT,
+  MAIA_VERSIONS as maiaOptions,
+  PlaySetupInitialState,
+  loadPlaySettings,
+  playSetupInitialState,
+  savePlaySettings,
+} from 'src/lib/playSettings'
 import { checkStartPosition } from 'src/lib/startPosition'
 import {
   INCREMENT_SECONDS_STEPS,
@@ -32,13 +40,6 @@ import {
   clearUnfinishedGame,
   loadUnfinishedGame,
 } from 'src/lib/unfinishedGame'
-import {
-  MAIA_VERSIONS as maiaOptions,
-  PlaySetupInitialState,
-  loadPlaySettings,
-  playSetupInitialState,
-  savePlaySettings,
-} from 'src/lib/playSettings'
 import { ModalContainer } from './ModalContainer'
 
 const subscribeToNothing = () => () => undefined
@@ -310,6 +311,34 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   )
   const isUnlimited = timeControl === 'unlimited'
 
+  // A game at once, without choosing anything: untimed, against the most
+  // played Maia, on a random side. Its settings aren't kept for next time
+  // (the visitor didn't choose them). Not offered for a challenge or a set
+  // position, which come with their own settings.
+  const offerQuickGame =
+    props.playType === 'againstMaia' &&
+    !props.challengeId &&
+    forcedPlayerColor === undefined &&
+    !props.startFen
+  const startQuickGame = useCallback(() => {
+    const player: Color = Math.random() < 0.5 ? 'white' : 'black'
+    setPlaySetupModalProps(undefined)
+    onClose?.()
+    clearUnfinishedGame()
+    noteOpponentChoice(QUICK_GAME_OPPONENT, 'quick_default')
+    startGameEarly(player, QUICK_GAME_OPPONENT, true, 'unlimited')
+    push({
+      pathname: '/play/maia',
+      query: {
+        player,
+        maiaVersion: QUICK_GAME_OPPONENT,
+        timeControl: 'unlimited',
+        sampleMoves: true,
+        simulateMaiaTime: true,
+      },
+    })
+  }, [setPlaySetupModalProps, onClose, push])
+
   const start = useCallback(
     (color: Color | undefined) => {
       if (
@@ -490,6 +519,28 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                     className="shrink-0 rounded-md bg-human-4 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-human-4/90"
                   >
                     Continue
+                  </button>
+                </div>
+              )}
+              {offerQuickGame && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-glass-border bg-glass px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-primary">
+                      Quick game
+                    </p>
+                    <p className="text-xs text-secondary">
+                      Untimed, against{' '}
+                      {QUICK_GAME_OPPONENT.replace('maia_kdd_', 'Maia-3 ')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={startQuickGame}
+                    className="flex shrink-0 items-center gap-1 rounded-md bg-human-4 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-human-4/90"
+                  >
+                    <span className="material-symbols-outlined !text-base">
+                      play_arrow
+                    </span>
+                    Play now
                   </button>
                 </div>
               )}
