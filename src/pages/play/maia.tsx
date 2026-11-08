@@ -1,11 +1,9 @@
 import Head from 'next/head'
 import {
   MoveRequestError,
-  startGameEarly,
   startGameWithRetry,
   takeEarlyGame,
 } from 'src/api/play'
-import { noteOpponentChoice } from 'src/lib/opponentChoice'
 import { trackGameStartFailed } from 'src/lib/analytics'
 import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
@@ -18,18 +16,10 @@ import { normalizeTimeControl } from 'src/lib/timeControl'
 import { checkStartPosition } from 'src/lib/startPosition'
 import {
   UnfinishedGame,
-  clearUnfinishedGame,
   loadUnfinishedGame,
   sameGameSettings,
 } from 'src/lib/unfinishedGame'
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
@@ -43,7 +33,6 @@ interface Props {
   id: string
   playGameConfig: PlayGameConfig
   playAgain: () => void
-  changeSettings: () => void
   returnToPath?: string
   returnToLabel?: string
   challengeId?: string
@@ -56,7 +45,6 @@ const PlayMaia: React.FC<Props> = ({
   id,
   playGameConfig,
   playAgain,
-  changeSettings,
   returnToPath,
   returnToLabel,
   challengeId,
@@ -146,7 +134,6 @@ const PlayMaia: React.FC<Props> = ({
               controller.setResigned(true)
             }}
             playAgain={playAgain}
-            changeSettings={changeSettings}
             practiceHref={practiceHref}
             returnTo={returnTo}
             returnToLabel={returnToLabel}
@@ -389,46 +376,6 @@ const PlayMaiaPage: NextPage = () => {
     startFenCheck,
   ])
 
-  // Play again: a new game with the same settings (and side), at once. Its
-  // start is asked for now, as the setup dialog does; without an id in the
-  // address, this page then starts it.
-  const rematch = useCallback(() => {
-    const config = playGameConfig
-    clearUnfinishedGame()
-    noteOpponentChoice(config.maiaVersion, 'rematch')
-    startGameEarly(
-      config.player,
-      config.maiaVersion,
-      config.sampleMoves,
-      config.timeControl,
-    )
-    const query = Object.fromEntries(
-      Object.entries({
-        player: config.player,
-        maiaVersion: config.maiaVersion,
-        timeControl: config.timeControl,
-        sampleMoves: config.sampleMoves,
-        simulateMaiaTime: config.simulateMaiaTime,
-        startFen: config.startFen,
-        practice: config.practice,
-        returnTo,
-        challengeId,
-        forcedColor,
-        modalTitle,
-        modalSubtitle,
-      }).filter(([, value]) => value !== undefined),
-    )
-    router.push({ pathname: '/play/maia', query })
-  }, [
-    playGameConfig,
-    returnTo,
-    challengeId,
-    forcedColor,
-    modalTitle,
-    modalSubtitle,
-    router,
-  ])
-
   return (
     <>
       <Head>
@@ -445,8 +392,7 @@ const PlayMaiaPage: NextPage = () => {
           id={typeof id === 'string' ? id : ''}
           playGameConfig={playGameConfig}
           resume={resumeGame}
-          playAgain={rematch}
-          changeSettings={() =>
+          playAgain={() =>
             setPlaySetupModalProps({
               ...playGameConfig,
               returnTo: typeof returnTo === 'string' ? returnTo : undefined,

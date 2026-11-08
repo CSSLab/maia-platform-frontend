@@ -68,10 +68,7 @@ interface Props {
   gameOver: boolean
   resign?: () => void
   offerDraw?: () => void
-  /** A rematch, with the same settings. */
   playAgain?: () => void
-  /** The setup dialog, with this game's settings. */
-  changeSettings?: () => void
   /** The practice of this game's mistakes (see PostGamePanel). */
   practiceHref?: string
   returnTo?: () => void
@@ -92,7 +89,6 @@ export const PlayControls: React.FC<Props> = ({
   resign,
   offerDraw,
   playAgain,
-  changeSettings,
   practiceHref,
   returnTo,
   returnToLabel = 'Return',
@@ -129,7 +125,6 @@ export const PlayControls: React.FC<Props> = ({
           gameId={game.id}
           gameType="play"
           playAgain={playAgain}
-          changeSettings={changeSettings}
           practiceHref={practiceHref}
           returnTo={returnTo}
           returnToLabel={returnToLabel}

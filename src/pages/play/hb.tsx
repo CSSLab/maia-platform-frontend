@@ -13,7 +13,6 @@ import { Color, PlayGameConfig, TimeControl } from 'src/types'
 import toast from 'react-hot-toast'
 import { normalizeTimeControl } from 'src/lib/timeControl'
 import { checkStartPosition } from 'src/lib/startPosition'
-import { noteOpponentChoice } from 'src/lib/opponentChoice'
 import { useHandBrainController } from 'src/hooks/usePlayController/useHandBrainController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 import { tourConfigs } from 'src/constants/tours'
@@ -22,7 +21,6 @@ interface Props {
   id: string
   playGameConfig: PlayGameConfig
   playAgain: () => void
-  changeSettings: () => void
   simulateMaiaTime: boolean
   setSimulateMaiaTime: (value: boolean) => void
 }
@@ -31,7 +29,6 @@ const PlayHandBrain: React.FC<Props> = ({
   id,
   playGameConfig,
   playAgain,
-  changeSettings,
   simulateMaiaTime,
   setSimulateMaiaTime,
 }: Props) => {
@@ -55,7 +52,6 @@ const PlayHandBrain: React.FC<Props> = ({
           selectPiece={controller.selectPiece}
           resign={() => controller.setResigned(true)}
           playAgain={playAgain}
-          changeSettings={changeSettings}
           simulateMaiaTime={simulateMaiaTime}
           setSimulateMaiaTime={setSimulateMaiaTime}
         />
@@ -134,18 +130,11 @@ const PlayHandBrainPage: NextPage = () => {
     ],
   )
 
-  // The next game's setup, from this game's settings (partner, opponent,
-  // role, time control), as against Maia.
-  const changeSettings = useCallback(() => {
+  // Start the next game's setup from this game's settings (partner,
+  // opponent, role, time control), as "Play again" does against Maia.
+  const playAgain = useCallback(() => {
     setPlaySetupModalProps({ ...playGameConfig })
   }, [setPlaySetupModalProps, playGameConfig])
-
-  // A rematch: the same settings, at once. Without an id, the page starts a
-  // new game.
-  const playAgain = useCallback(() => {
-    noteOpponentChoice(playGameConfig.maiaVersion, 'rematch')
-    router.push({ pathname: '/play/hb', query: { ...playGameConfig } })
-  }, [router, playGameConfig])
 
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
@@ -240,7 +229,6 @@ const PlayHandBrainPage: NextPage = () => {
             id={id as string}
             playGameConfig={playGameConfig}
             playAgain={playAgain}
-            changeSettings={changeSettings}
             simulateMaiaTime={simulateMaiaTime}
             setSimulateMaiaTime={setSimulateMaiaTime}
           />

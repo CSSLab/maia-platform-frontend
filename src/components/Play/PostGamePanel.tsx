@@ -14,10 +14,8 @@ import {
 interface Props {
   gameId: string
   gameType: PlayGameType
-  /** A rematch with the same settings. */
+  /** The setup dialog, starting from this game's settings. */
   playAgain?: () => void
-  /** The setup dialog, with this game's settings. */
-  changeSettings?: () => void
   /** The practice of this game's mistakes, once there is one to go to. */
   practiceHref?: string
   returnTo?: () => void
@@ -41,7 +39,6 @@ export const PostGamePanel: React.FC<Props> = ({
   gameId,
   gameType,
   playAgain,
-  changeSettings,
   practiceHref,
   returnTo,
   returnToLabel = 'Return',
@@ -125,18 +122,6 @@ export const PostGamePanel: React.FC<Props> = ({
             refresh
           </span>
           Play again
-        </button>
-      )}
-      {changeSettings && (
-        <button
-          type="button"
-          onClick={() => {
-            click('change_settings')
-            changeSettings()
-          }}
-          className="self-center rounded px-2 py-1 text-xs text-white/60 transition-colors duration-200 hover:text-white/90"
-        >
-          Change settings
         </button>
       )}
       {returnTo && (

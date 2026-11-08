@@ -35,10 +35,7 @@ interface Props {
   selectPiece: (selectedPiece: PieceSymbol) => void
   resign?: () => void
   offerDraw?: () => void
-  /** A rematch, with the same settings. */
   playAgain?: () => void
-  /** The setup dialog, with this game's settings. */
-  changeSettings?: () => void
   simulateMaiaTime?: boolean
   setSimulateMaiaTime?: (value: boolean) => void
 }
@@ -55,7 +52,6 @@ export const HandBrainPlayControls: React.FC<Props> = ({
   resign,
   offerDraw,
   playAgain,
-  changeSettings,
   simulateMaiaTime,
   setSimulateMaiaTime,
 }: Props) => {
@@ -88,7 +84,6 @@ export const HandBrainPlayControls: React.FC<Props> = ({
             gameId={game.id}
             gameType={isBrain ? 'brain' : 'hand'}
             playAgain={playAgain}
-            changeSettings={changeSettings}
           />
         ) : (
           <>
