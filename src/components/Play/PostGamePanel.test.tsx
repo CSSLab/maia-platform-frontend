@@ -3,6 +3,8 @@ import { AuthContext } from 'src/contexts/AuthContext'
 import {
   trackPostGameCtaClicked,
   trackPostGameCtaShown,
+  trackSigninPromptClicked,
+  trackSigninPromptShown,
 } from 'src/lib/analytics'
 import { PostGamePanel } from './PostGamePanel'
 
@@ -74,8 +76,19 @@ describe('PostGamePanel', () => {
     expect(open).toHaveBeenCalledWith('/analysis/g1/brain', '_blank')
   })
 
-  it('asks guests only to sign in', () => {
+  it('asks guests only to sign in, and reports it', () => {
+    renderPanel({}, linked)
+    expect(screen.queryByText('Sign in with Lichess')).toBeNull()
+    expect(trackSigninPromptShown).not.toHaveBeenCalled()
+
     renderPanel({}, guest)
-    expect(screen.getByText('Sign in with Lichess')).toBeTruthy()
+    expect(
+      screen.getByText('Sign in with Lichess to keep your rating and games.'),
+    ).toBeTruthy()
+    expect(trackSigninPromptShown).toHaveBeenCalledTimes(1)
+    expect(trackSigninPromptShown).toHaveBeenCalledWith('post_game')
+
+    fireEvent.click(screen.getByText('Sign in with Lichess'))
+    expect(trackSigninPromptClicked).toHaveBeenCalledWith('post_game')
   })
 })

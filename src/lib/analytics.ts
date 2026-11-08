@@ -654,6 +654,17 @@ export const trackPostGameCtaClicked = (
   })
 }
 
+/** Where a guest was asked to sign in with Lichess. */
+export type SignInPromptLocation = 'post_game'
+
+export const trackSigninPromptShown = (location: SignInPromptLocation) => {
+  safeTrack('signin_prompt_shown', { location })
+}
+
+export const trackSigninPromptClicked = (location: SignInPromptLocation) => {
+  safeTrack('signin_prompt_clicked', { location })
+}
+
 // Navigation & Feature Discovery Events
 export const trackHomepageFeatureClicked = (
   feature:

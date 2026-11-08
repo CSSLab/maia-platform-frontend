@@ -7,6 +7,8 @@ import {
   PostGameCta,
   trackPostGameCtaClicked,
   trackPostGameCtaShown,
+  trackSigninPromptClicked,
+  trackSigninPromptShown,
 } from 'src/lib/analytics'
 
 interface Props {
@@ -68,6 +70,13 @@ export const PostGamePanel: React.FC<Props> = ({
       trackPostGameCtaShown(cta, gameId, gameType)
     }
   }, [gameId, ctaKey])
+
+  const promptReported = useRef('')
+  useEffect(() => {
+    if (!isGuest || !gameId || promptReported.current === gameId) return
+    promptReported.current = gameId
+    trackSigninPromptShown('post_game')
+  }, [isGuest, gameId])
 
   const click = (cta: PostGameCta) =>
     trackPostGameCtaClicked(cta, gameId, gameType)
@@ -136,10 +145,12 @@ export const PostGamePanel: React.FC<Props> = ({
           It comes back to /play: this page, without its game, would start a
           new one. */}
       {isGuest && (
-        <div className="mt-1 flex flex-col gap-2 border-t border-glass-border pt-3">
+        <div
+          className="mt-1 flex flex-col gap-2 border-t border-glass-border pt-3"
+          onClickCapture={() => trackSigninPromptClicked('post_game')}
+        >
           <p className="text-center text-xs leading-relaxed text-white/70">
-            Sign in to keep your rating and games on any device, and to appear
-            on the leaderboard.
+            Sign in with Lichess to keep your rating and games.
           </p>
           <LichessSignInButton
             source="game_over"
