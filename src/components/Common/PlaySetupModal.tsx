@@ -1,5 +1,4 @@
 import Image from 'next/image'
-import { Chess } from 'chess.ts'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/router'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -21,6 +20,7 @@ import {
 } from 'src/types'
 import { ModalContext } from 'src/contexts/ModalContext'
 import { startGameEarly } from 'src/api/play'
+import { checkStartPosition } from 'src/lib/startPosition'
 import {
   INCREMENT_SECONDS_STEPS,
   TIME_MINUTES_STEPS,
@@ -231,7 +231,19 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   )
   const [maiaVersion, setMaiaVersion] = useState<string>(initial.maiaVersion)
   const [fen, setFen] = useState<string | undefined>(initial.fen)
-  const startFen = fen
+  // An empty box starts from the usual position.
+  const fenCheck = fen?.trim() ? checkStartPosition(fen) : undefined
+  const startFen = fenCheck?.ok ? fenCheck.fen : undefined
+
+  // Opened with a position that can't be played (from a link, say): the
+  // box and what's wrong with it are below the fold, so show them.
+  const fenInputRef = useRef<HTMLInputElement>(null)
+  const openedWithBadFen = useRef(fenCheck !== undefined && !fenCheck.ok)
+  useEffect(() => {
+    if (openedWithBadFen.current) {
+      fenInputRef.current?.scrollIntoView({ block: 'center' })
+    }
+  }, [])
 
   // After hydrating /play's server HTML (see above), the saved settings.
   const savedSettingsLoaded = useRef(!hydrating)
@@ -310,8 +322,8 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       const player = color ?? ['white', 'black'][Math.floor(Math.random() * 2)]
       const resolvedPlayer = forcedPlayerColor ?? player
 
-      if (startFen && !new Chess().validateFen(startFen).valid) {
-        toast.error('Invalid Starting FEN provided')
+      if (fenCheck && !fenCheck.ok) {
+        toast.error(fenCheck.error)
         return
       }
 
@@ -390,6 +402,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       simulateMaiaTime,
       practice,
       startFen,
+      fenCheck,
       timeMinutes,
       incrementSeconds,
       forcedPlayerColor,
@@ -725,10 +738,15 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   </label>
                   <input
                     id="fen-input"
+                    ref={fenInputRef}
                     type="text"
                     value={fen}
                     placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
                     readOnly={positionLocked}
+                    aria-invalid={fenCheck ? !fenCheck.ok : undefined}
+                    aria-describedby={
+                      fenCheck && !fenCheck.ok ? 'fen-input-error' : undefined
+                    }
                     onChange={(e) => setFen(e.target.value)}
                     className={`w-full rounded border border-glass-border px-3 py-2 font-mono text-xs placeholder-white/60 focus:outline-none ${
                       positionLocked
@@ -736,11 +754,21 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                         : 'bg-glass text-white/90'
                     }`}
                   />
-                  <p className="mt-1 text-xs text-secondary">
-                    {positionLocked
-                      ? 'This challenge uses a fixed starting position.'
-                      : 'Enter a valid FEN string to start from a specific position'}
-                  </p>
+                  {fenCheck && !fenCheck.ok ? (
+                    <p
+                      id="fen-input-error"
+                      className="mt-1 text-xs text-red-400"
+                      aria-live="polite"
+                    >
+                      {fenCheck.error}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-secondary">
+                      {positionLocked
+                        ? 'This challenge uses a fixed starting position.'
+                        : 'Enter a valid FEN string to start from a specific position'}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

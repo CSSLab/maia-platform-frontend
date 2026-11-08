@@ -10,7 +10,9 @@ import { GameplayInterface } from 'src/components/Board'
 import { HandBrainPlayControls } from 'src/components/Play'
 import { ModalContext, useTour } from 'src/contexts'
 import { Color, PlayGameConfig, TimeControl } from 'src/types'
+import toast from 'react-hot-toast'
 import { normalizeTimeControl } from 'src/lib/timeControl'
+import { checkStartPosition } from 'src/lib/startPosition'
 import { useHandBrainController } from 'src/hooks/usePlayController/useHandBrainController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 import { tourConfigs } from 'src/constants/tours'
@@ -93,6 +95,15 @@ const PlayHandBrainPage: NextPage = () => {
       : false,
   )
 
+  // A position from the address is checked as the setup dialog checks one.
+  const startFenCheck = useMemo(
+    () =>
+      typeof startFen === 'string' && startFen.trim()
+        ? checkStartPosition(startFen)
+        : undefined,
+    [startFen],
+  )
+
   const playGameConfig: PlayGameConfig = useMemo(
     () => ({
       playType: 'handAndBrain',
@@ -105,10 +116,10 @@ const PlayHandBrainPage: NextPage = () => {
       isBrain: isBrain == 'true',
       sampleMoves: sampleMoves == 'true',
       simulateMaiaTime: simulateMaiaTime,
-      startFen: typeof startFen == 'string' ? startFen : undefined,
+      startFen: startFenCheck?.ok ? startFenCheck.fen : undefined,
     }),
     [
-      startFen,
+      startFenCheck,
       isBrain,
       maiaVersion,
       maiaPartnerVersion,
@@ -130,6 +141,15 @@ const PlayHandBrainPage: NextPage = () => {
     // after the first render. Starting before then also started a game, with
     // the default settings, that was then abandoned.
     if (!router.isReady) return
+    if (startFenCheck && !startFenCheck.ok) {
+      // No game: the setup dialog again, showing what's wrong.
+      toast.error(startFenCheck.error)
+      setPlaySetupModalProps({
+        ...playGameConfig,
+        startFen: typeof startFen === 'string' ? startFen : undefined,
+      })
+      return
+    }
 
     let canceled = false
 
@@ -185,7 +205,14 @@ const PlayHandBrainPage: NextPage = () => {
         canceled = true
       }
     }
-  }, [id, playGameConfig, router])
+  }, [
+    id,
+    playGameConfig,
+    router,
+    setPlaySetupModalProps,
+    startFen,
+    startFenCheck,
+  ])
 
   return (
     <>
