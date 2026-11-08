@@ -1,9 +1,8 @@
-import { useContext, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { PlayedGame } from 'src/types'
 import { ResignationConfirmModal } from 'src/components'
-import { AuthContext } from 'src/contexts/AuthContext'
-import { LichessSignInButton } from 'src/components/Common/LichessSignInButton'
+import { PostGamePanel } from './PostGamePanel'
 
 type PracticeAction = 'takeBack' | 'addTime'
 
@@ -69,7 +68,12 @@ interface Props {
   gameOver: boolean
   resign?: () => void
   offerDraw?: () => void
+  /** A rematch, with the same settings. */
   playAgain?: () => void
+  /** The setup dialog, with this game's settings. */
+  changeSettings?: () => void
+  /** The practice of this game's mistakes (see PostGamePanel). */
+  practiceHref?: string
   returnTo?: () => void
   returnToLabel?: string
   simulateMaiaTime?: boolean
@@ -88,15 +92,16 @@ export const PlayControls: React.FC<Props> = ({
   resign,
   offerDraw,
   playAgain,
+  changeSettings,
+  practiceHref,
   returnTo,
-  returnToLabel = 'RETURN',
+  returnToLabel = 'Return',
   simulateMaiaTime,
   setSimulateMaiaTime,
   practice = false,
   takeBack,
   addTime,
 }: Props) => {
-  const { user } = useContext(AuthContext)
   const [showResignConfirm, setShowResignConfirm] = useState(false)
   // Practice actions ask first, so a stray tap doesn't undo a move: the
   // first tap turns the button into a confirm button, the second acts.
@@ -120,51 +125,15 @@ export const PlayControls: React.FC<Props> = ({
   return (
     <div className="flex w-full flex-col">
       {gameOver ? (
-        <div className="flex flex-col gap-3 p-4">
-          {game.id ? (
-            <button
-              onClick={() => {
-                window.open(`/analysis/${game.id}/play`, '_blank')
-              }}
-              className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
-            >
-              ANALYZE GAME
-            </button>
-          ) : null}
-          {playAgain ? (
-            <button
-              onClick={playAgain}
-              className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
-            >
-              PLAY AGAIN
-            </button>
-          ) : null}
-          {returnTo ? (
-            <button
-              onClick={returnTo}
-              className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
-            >
-              {returnToLabel}
-            </button>
-          ) : null}
-          {/* Guests only (`user` is null until the account has loaded). A
-              first sign-in keeps the guest's rating and games, and only
-              signed-in players are on the leaderboard. It comes back to
-              /play: this page, without its game, would start a new one. */}
-          {user && !user.lichessId ? (
-            <div className="mt-1 flex flex-col gap-2 border-t border-glass-border pt-3">
-              <p className="text-center text-xs leading-relaxed text-white/70">
-                Sign in to keep your rating and games on any device, and to
-                appear on the leaderboard.
-              </p>
-              <LichessSignInButton
-                source="game_over"
-                returnTo="/play"
-                className="whitespace-nowrap px-2 md:text-[13px]"
-              />
-            </div>
-          ) : null}
-        </div>
+        <PostGamePanel
+          gameId={game.id}
+          gameType="play"
+          playAgain={playAgain}
+          changeSettings={changeSettings}
+          practiceHref={practiceHref}
+          returnTo={returnTo}
+          returnToLabel={returnToLabel}
+        />
       ) : (
         <>
           <div className="bg-transparent px-4 py-3">

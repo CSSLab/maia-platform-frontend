@@ -5,6 +5,7 @@ import { PieceSymbol } from 'chess.ts'
 
 import { BaseGame, Color } from 'src/types'
 import { ResignationConfirmModal } from 'src/components'
+import { PostGamePanel } from './PostGamePanel'
 
 const pieceTypes: PieceSymbol[] = ['k', 'q', 'r', 'b', 'n', 'p']
 
@@ -34,7 +35,10 @@ interface Props {
   selectPiece: (selectedPiece: PieceSymbol) => void
   resign?: () => void
   offerDraw?: () => void
+  /** A rematch, with the same settings. */
   playAgain?: () => void
+  /** The setup dialog, with this game's settings. */
+  changeSettings?: () => void
   simulateMaiaTime?: boolean
   setSimulateMaiaTime?: (value: boolean) => void
 }
@@ -51,6 +55,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
   resign,
   offerDraw,
   playAgain,
+  changeSettings,
   simulateMaiaTime,
   setSimulateMaiaTime,
 }: Props) => {
@@ -79,29 +84,12 @@ export const HandBrainPlayControls: React.FC<Props> = ({
     <div className="flex w-full flex-col">
       <div id="play-controls" className="flex h-full flex-col">
         {gameOver ? (
-          <div className="flex flex-col gap-3 p-4">
-            {game.id ? (
-              <button
-                onClick={() => {
-                  window.open(
-                    `/analysis/${game.id}/${isBrain ? 'brain' : 'hand'}`,
-                    '_blank',
-                  )
-                }}
-                className="flex items-center justify-center rounded border border-glass-border bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
-              >
-                ANALYZE GAME
-              </button>
-            ) : null}
-            {playAgain ? (
-              <button
-                onClick={playAgain}
-                className="flex w-full items-center justify-center rounded border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
-              >
-                PLAY AGAIN
-              </button>
-            ) : null}
-          </div>
+          <PostGamePanel
+            gameId={game.id}
+            gameType={isBrain ? 'brain' : 'hand'}
+            playAgain={playAgain}
+            changeSettings={changeSettings}
+          />
         ) : (
           <>
             <div className="bg-transparent px-4 py-3">

@@ -505,6 +505,7 @@ export type OpponentChoice =
   | 'changed'
   | 'quick_default'
   | 'quick_closest_rating'
+  | 'rematch'
   | 'unknown'
 
 /** Sent with every event of one game. */
@@ -620,6 +621,37 @@ export const trackPlayGameAbandoned = (
   } catch (error) {
     console.error('Failed to track event play_game_abandoned:', error)
   }
+}
+
+// The panel shown when a game against Maia ends.
+export type PostGameCta =
+  | 'analyze'
+  | 'practice'
+  | 'play_again'
+  | 'change_settings'
+
+export const trackPostGameCtaShown = (
+  cta: PostGameCta,
+  gameId: string,
+  gameType: PlayGameType,
+) => {
+  safeTrack('post_game_cta_shown', {
+    cta,
+    game_id: gameId,
+    game_type: gameType,
+  })
+}
+
+export const trackPostGameCtaClicked = (
+  cta: PostGameCta,
+  gameId: string,
+  gameType: PlayGameType,
+) => {
+  safeTrack('post_game_cta_clicked', {
+    cta,
+    game_id: gameId,
+    game_type: gameType,
+  })
 }
 
 // Navigation & Feature Discovery Events
