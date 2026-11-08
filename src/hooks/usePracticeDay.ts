@@ -36,7 +36,12 @@ export interface PracticeSource {
 
 export type PracticeDayState =
   | { status: 'preparing'; progress?: AnalysisProgress }
-  | { status: 'ready'; day: PracticeDay }
+  | {
+      status: 'ready'
+      day: PracticeDay
+      /** The game named in the address, once analysed. */
+      source?: GameMoments
+    }
   | { status: 'error' }
 
 const loadTree = async (source: PracticeSource): Promise<GameTree | null> => {
@@ -116,7 +121,7 @@ export const usePracticeDay = (source: PracticeSource | null | undefined) => {
         )
         if (signal.aborted) return
       }
-      setState({ status: 'ready', day: loadPracticeDay(first) })
+      setState({ status: 'ready', day: loadPracticeDay(first), source: first })
     }
 
     run().catch((error) => {
