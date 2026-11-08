@@ -2,7 +2,7 @@ import type { OpponentChoice } from 'src/lib/analytics'
 
 /**
  * How the opponent of the next game was picked, noted by whatever starts it
- * (the setup dialog, Quick game) and taken by the game's tracking when it
+ * (the setup dialog) and taken by the game's tracking when it
  * starts. Kept in memory only: a game opened from a link or a reloaded page
  * has no note, and its choice is 'unknown'.
  */
@@ -22,6 +22,6 @@ export const takeOpponentChoice = (
   noted = null
   return {
     choice,
-    wasDefault: choice === 'preselected' || choice === 'quick_default',
+    wasDefault: choice === 'preselected',
   }
 }

@@ -25,12 +25,6 @@ export const MAIA_VERSIONS = [
 ]
 
 /**
- * Quick game's opponent: the most played (and the /play/maia default). No
- * API gives the bots' own ratings, so it isn't matched to the player's.
- */
-export const QUICK_GAME_OPPONENT = 'maia_kdd_1100'
-
-/**
  * The play setup dialog's choices from the last game the visitor started in
  * this browser, which the dialog starts from next time (instead of the first
  * option each time). Kept apart for vs Maia and Hand & Brain, which are set
