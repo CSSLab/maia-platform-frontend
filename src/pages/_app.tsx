@@ -51,6 +51,21 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
   // before then wait for it (src/lib/posthogClient).
   useEffect(() => whenPageIsIdle(loadPostHog, 5000), [])
 
+  // The service worker (public/sw.js) only shows an offline page when a page
+  // can't load, which also makes the site installable as an app. Not in
+  // development, where it would outlive the dev server.
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      !('serviceWorker' in navigator)
+    ) {
+      return
+    }
+    return whenPageIsIdle(() => {
+      navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+    }, 5000)
+  }, [])
+
   useEffect(() => {
     const root = document.documentElement
     const markMaterialSymbolsReady = () => {

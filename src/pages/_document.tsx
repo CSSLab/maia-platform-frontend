@@ -59,6 +59,9 @@ export default function Document() {
             white. */}
         <meta name="color-scheme" content="dark" />
         <meta name="darkreader-lock" />
+        {/* Installable as an app (public/manifest.webmanifest). */}
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#171214" />
         <script dangerouslySetInnerHTML={{ __html: EARLY_REQUESTS }} />
       </Head>
       <body>
