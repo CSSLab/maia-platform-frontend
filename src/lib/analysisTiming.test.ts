@@ -170,6 +170,22 @@ describe('analysisTiming', () => {
     expect(ended).toMatchObject({ was_visible: false })
   })
 
+  it('says when the browser discarded the tab itself', () => {
+    setVisibility('hidden')
+    const mark = sessionStorage.getItem('maia.analysisPageAlive') as string
+    stop()
+    sessionStorage.setItem('maia.analysisPageAlive', mark)
+    Object.defineProperty(document, 'wasDiscarded', {
+      configurable: true,
+      get: () => true,
+    })
+    stop = startAnalysisTiming({ isPhone: true })
+    delete (document as Document & { wasDiscarded?: boolean }).wasDiscarded
+
+    const [ended] = events('analysis_page_ended_unexpectedly')
+    expect(ended).toMatchObject({ was_visible: false, was_discarded: true })
+  })
+
   it('does nothing when no analysis page is mounted', () => {
     stop()
     analysisPositionShown(A)

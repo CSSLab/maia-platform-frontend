@@ -163,10 +163,21 @@ const reportEarlierPage = () => {
     const earlier = sessionStorage.getItem(ALIVE_KEY)
     if (!earlier) return
     const { at, visible } = JSON.parse(earlier)
+    const navigation = performance.getEntriesByType?.('navigation')[0] as
+      | PerformanceNavigationTiming
+      | undefined
     trackAnalysisPageEndedUnexpectedly({
       ...device(),
       was_visible: !!visible,
       seconds_since_it_started: Math.round((Date.now() - at) / 1000),
+      // Chrome says when it closed the tab itself to free memory: a tab kept
+      // in the background, not a crash. Other browsers leave it unset.
+      was_discarded:
+        (document as Document & { wasDiscarded?: boolean }).wasDiscarded ??
+        null,
+      // "reload" for a reload or a tab opened again; "navigate" for a tab
+      // opened with a copy of this one's session (a duplicated tab).
+      navigation_type: navigation?.type ?? null,
     })
   } catch {
     // As above.
