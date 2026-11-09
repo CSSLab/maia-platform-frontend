@@ -39,10 +39,31 @@ export const isPhone = () =>
   window.matchMedia('(pointer: coarse)').matches &&
   Math.min(window.screen.width, window.screen.height) <= PHONE_BREAKPOINT_PX
 
+// Browsers driven by a program say so (navigator.webdriver) or name
+// themselves; one seen on the site pads its name with spaces.
+const AUTOMATED_AGENT =
+  /headless|bot\/|crawl|spider|slurp|lighthouse|phantomjs|puppeteer|playwright|selenium/i
+
+/**
+ * A browser run by a program, such as a crawler or a scanner trying every
+ * page. A real browser that hides this isn't caught, which is fine: this is
+ * only to keep them from downloading the model.
+ */
+export const looksAutomated = () => {
+  if (typeof navigator === 'undefined') return false
+  const agent = navigator.userAgent ?? ''
+  return (
+    navigator.webdriver === true ||
+    AUTOMATED_AGENT.test(agent) ||
+    agent !== agent.trim()
+  )
+}
+
 /**
  * The model is large. Phones may be on mobile data, and iPhones don't say
  * whether they are, so phones are asked. So is anyone whose browser asks to
- * save data or reports a very slow connection.
+ * save data or reports a very slow connection, and a browser run by a
+ * program, which would otherwise download it on every page it opens.
  */
 export const downloadsWithoutAsking = () => {
   const connection = (
@@ -52,6 +73,7 @@ export const downloadsWithoutAsking = () => {
   ).connection
   return (
     !isPhone() &&
+    !looksAutomated() &&
     !connection?.saveData &&
     !connection?.effectiveType?.includes('2g')
   )

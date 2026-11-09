@@ -77,6 +77,38 @@ describe('maiaDownloadPrompt', () => {
       expect(load().downloadsWithoutAsking()).toBe(true)
     })
 
+    it('is false in a browser run by a program', () => {
+      const agent = navigator.userAgent
+      const setAgent = (value: string) =>
+        Object.defineProperty(navigator, 'userAgent', {
+          value,
+          configurable: true,
+        })
+      const setWebdriver = (value: boolean) =>
+        Object.defineProperty(navigator, 'webdriver', {
+          value,
+          configurable: true,
+        })
+      const chrome =
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36'
+      try {
+        setAgent(chrome)
+        expect(load().downloadsWithoutAsking()).toBe(true)
+        setWebdriver(true)
+        expect(load().downloadsWithoutAsking()).toBe(false)
+        setWebdriver(false)
+        setAgent(chrome.replace('Chrome/', 'HeadlessChrome/'))
+        expect(load().downloadsWithoutAsking()).toBe(false)
+        setAgent(`  ${chrome}  `)
+        expect(load().downloadsWithoutAsking()).toBe(false)
+        setAgent('Mozilla/5.0 (compatible; Googlebot/2.1)')
+        expect(load().downloadsWithoutAsking()).toBe(false)
+      } finally {
+        setAgent(agent)
+        setWebdriver(false)
+      }
+    })
+
     it('is false on a phone', () => {
       setPhone(true)
       expect(load().downloadsWithoutAsking()).toBe(false)
