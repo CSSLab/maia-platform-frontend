@@ -4,14 +4,38 @@ import {
   type PostHogConfig,
 } from 'posthog-js'
 
-const dropAutocaptureEvents = (event: CaptureResult | null) => {
+const EXTENSION_URL =
+  /^(chrome|moz|safari|safari-web|ms-browser)-extension:\/\//
+
+type ExceptionList = {
+  stacktrace?: { frames?: { filename?: string }[] }
+}[]
+
+/**
+ * An error thrown only by browser extensions' code, not the site's. Extensions
+ * run on the page, so PostHog catches their errors too: one extension sent
+ * 2,000 a week ("Cannot read properties of undefined (reading 'M_ID')"), each
+ * a request through /ingest. An error with any frame from the site is kept.
+ */
+const isExtensionError = (event: CaptureResult) => {
+  if (event.event !== '$exception') return false
+  const list = event.properties?.$exception_list as ExceptionList | undefined
+  const frames = list?.flatMap((e) => e.stacktrace?.frames ?? []) ?? []
+  return (
+    frames.length > 0 &&
+    frames.every((f) => !!f.filename && EXTENSION_URL.test(f.filename))
+  )
+}
+
+export const dropUnwantedEvents = (event: CaptureResult | null) => {
   if (!event) {
     return event
   }
 
   if (
     event.event === '$autocapture' ||
-    event.event === COPY_AUTOCAPTURE_EVENT
+    event.event === COPY_AUTOCAPTURE_EVENT ||
+    isExtensionError(event)
   ) {
     return null
   }
@@ -58,5 +82,5 @@ export const browserPostHogConfig: Pick<
     web_vitals_allowed_metrics: ['FCP', 'CLS', 'INP'],
     network_timing: false,
   },
-  before_send: dropAutocaptureEvents,
+  before_send: dropUnwantedEvents,
 }
