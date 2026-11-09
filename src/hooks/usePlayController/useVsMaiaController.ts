@@ -12,6 +12,7 @@ import {
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
 import { initialClockSeconds } from 'src/lib/timeControl'
+import { useGameLog } from './useGameLog'
 import {
   UnfinishedGame,
   canResume,
@@ -229,56 +230,47 @@ export const useVsMaiaPlayController = (
     maiaMoveAttempt,
   ])
 
-  useEffect(() => {
-    const gameOverState = controller.game.termination?.type || 'not_over'
+  const gameOverState = controller.game.termination?.type || 'not_over'
+  useGameLog({
+    // Until start_game has answered (a resignation in that moment), nothing
+    // is sent; it is once the game has its id.
+    gameId: controller.game.id,
+    plies: controller.moveList.length,
+    state: gameOverState,
+    send: (leaving) => {
+      const winner = controller.game.termination?.winner
+      const log = (keepalive: boolean) =>
+        logGameMove(
+          controller.game.id,
+          controller.moveList,
+          controller.moveTimes,
+          gameOverState,
+          'play',
+          playGameConfig.startFen ||
+            (playGameConfig.practice ? STANDARD_START_FEN : undefined),
+          winner,
+          [],
+          { keepalive },
+        )
 
-    if (controller.moveList.length == 0 && gameOverState == 'not_over') {
-      return
-    }
-    // Until start_game has answered (a resignation in that moment); this
-    // runs again once the game has its id.
-    if (!controller.game.id) return
-
-    const winner = controller.game.termination?.winner
-
-    const submitFn = async () => {
-      const response = await backOff(
-        () =>
-          logGameMove(
-            controller.game.id,
-            controller.moveList,
-            controller.moveTimes,
-            gameOverState,
-            'play',
-            playGameConfig.startFen ||
-              (playGameConfig.practice ? STANDARD_START_FEN : undefined),
-            winner,
-          ),
-        {
-          jitter: 'full',
-        },
-      )
-
-      if (controller.game.termination) {
-        const winner = controller.game.termination?.winner
-        if (!playGameConfig.practice) {
-          safeUpdateRating(response.player_elo, updateRating)
-        }
-        incrementStats(1, winner == playGameConfig.player ? 1 : 0)
+      if (leaving) {
+        log(true).catch(() => undefined)
+        return
       }
-    }
-    submitFn()
-  }, [
-    controller.game.id,
-    controller.moveList,
-    controller.game.termination,
-    controller.moveTimes,
-    playGameConfig.startFen,
-    playGameConfig.practice,
-    incrementStats,
-    updateRating,
-    playGameConfig.player,
-  ])
+
+      const submitFn = async () => {
+        const response = await backOff(() => log(false), { jitter: 'full' })
+
+        if (controller.game.termination) {
+          if (!playGameConfig.practice) {
+            safeUpdateRating(response.player_elo, updateRating)
+          }
+          incrementStats(1, winner == playGameConfig.player ? 1 : 0)
+        }
+      }
+      submitFn()
+    },
+  })
 
   // Unlimited and practice games are kept in this browser after each move,
   // so they can be continued if the tab is closed; forgotten once over.

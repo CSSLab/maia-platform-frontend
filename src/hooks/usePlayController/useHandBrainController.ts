@@ -15,6 +15,7 @@ import {
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
 import { initialClockSeconds } from 'src/lib/timeControl'
+import { useGameLog } from './useGameLog'
 
 const brainStatsLoader = async () => {
   const stats = await fetchPlayPlayerStats()
@@ -276,53 +277,42 @@ export const useHandBrainController = (
     controller.reset()
   }
 
-  useEffect(() => {
-    const gameOverState = controller.game.termination?.type || 'not_over'
+  const gameOverState = controller.game.termination?.type || 'not_over'
+  useGameLog({
+    gameId: controller.game.id,
+    plies: controller.moveList.length,
+    state: gameOverState,
+    send: (leaving) => {
+      const winner = controller.game.termination?.winner
+      const log = (keepalive: boolean) =>
+        logGameMove(
+          controller.game.id,
+          controller.moveList,
+          controller.moveTimes,
+          gameOverState,
+          playGameConfig.isBrain ? 'brain' : 'hand',
+          playGameConfig.startFen || undefined,
+          winner,
+          brainMoves,
+          { keepalive },
+        )
 
-    if (controller.moveList.length == 0 && gameOverState == 'not_over') {
-      return
-    }
-
-    const winner = controller.game.termination?.winner
-
-    const submitFn = async () => {
-      const response = await backOff(
-        () =>
-          logGameMove(
-            controller.game.id,
-            controller.moveList,
-            controller.moveTimes,
-            gameOverState,
-            playGameConfig.isBrain ? 'brain' : 'hand',
-            playGameConfig.startFen || undefined,
-            winner,
-            brainMoves,
-          ),
-        {
-          jitter: 'full',
-        },
-      )
-      if (controller.game.termination) {
-        const winner = controller.game.termination?.winner
-
-        // Safely update rating - only if the response contains a valid rating
-        safeUpdateRating(response.player_elo, updateRating)
-        incrementStats(1, winner == playGameConfig.player ? 1 : 0)
+      if (leaving) {
+        log(true).catch(() => undefined)
+        return
       }
-    }
-    submitFn()
-  }, [
-    controller.game.id,
-    controller.moveList,
-    controller.game.termination,
-    controller.moveTimes,
-    playGameConfig.startFen,
-    playGameConfig.isBrain,
-    brainMoves,
-    playGameConfig.player,
-    incrementStats,
-    updateRating,
-  ])
+
+      const submitFn = async () => {
+        const response = await backOff(() => log(false), { jitter: 'full' })
+        if (controller.game.termination) {
+          // Safely update rating - only if the response contains a valid rating
+          safeUpdateRating(response.player_elo, updateRating)
+          incrementStats(1, winner == playGameConfig.player ? 1 : 0)
+        }
+      }
+      submitFn()
+    },
+  })
 
   return {
     ...controller,

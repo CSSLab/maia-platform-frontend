@@ -29,6 +29,8 @@ export const browserPostHogConfig: Pick<
   | 'capture_pageview'
   | 'capture_performance'
   | 'defaults'
+  | 'disable_session_recording'
+  | 'enable_heatmaps'
   | 'ui_host'
 > = {
   // Through the rewrites in next.config.js, so ad blockers don't drop events.
@@ -39,6 +41,15 @@ export const browserPostHogConfig: Pick<
   // Also records navigation within the app, not just full page loads.
   capture_pageview: 'history_change',
   capture_pageleave: false,
+  // Both are switched on in PostHog's project settings, and each sends data
+  // through /ingest every few seconds while a page is in use, which the
+  // site's host counts as a request each time. Heatmaps sent about 500,000
+  // points a day, most of the 200,000 /ingest requests. Replays stopped on
+  // Oct 30 when the month's free recordings ran out, but would start again
+  // with the next month's. Neither is used; turn one on here if it is needed,
+  // for a sample of visits.
+  enable_heatmaps: false,
+  disable_session_recording: true,
   capture_exceptions: true,
   capture_performance: {
     web_vitals: true,
