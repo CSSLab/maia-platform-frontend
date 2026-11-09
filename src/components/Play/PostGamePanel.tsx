@@ -18,6 +18,8 @@ interface Props {
   playAgain?: () => void
   /** The practice of this game's mistakes, once there is one to go to. */
   practiceHref?: string
+  /** A drill of the opening the game was, when it was one the site drills. */
+  drill?: { href: string; name: string }
   returnTo?: () => void
   returnToLabel?: string
 }
@@ -31,7 +33,8 @@ const secondaryClass = `${actionClass} border border-white/10 text-white/80 hove
 
 /**
  * What to do next when a game against Maia ends: analyze it, practice the
- * moment it went wrong (once that exists for it), or play again; and, for a
+ * moment it went wrong (once that exists for it), drill its opening (when
+ * the site drills it), or play again; and, for a
  * guest, a line to sign in. Each action is reported once as shown, and when
  * pressed.
  */
@@ -40,6 +43,7 @@ export const PostGamePanel: React.FC<Props> = ({
   gameType,
   playAgain,
   practiceHref,
+  drill,
   returnTo,
   returnToLabel = 'Return',
 }: Props) => {
@@ -50,6 +54,7 @@ export const PostGamePanel: React.FC<Props> = ({
   const ctas: PostGameCta[] = [
     ...(gameId ? (['analyze'] as const) : []),
     ...(gameId && practiceHref ? (['practice'] as const) : []),
+    ...(gameId && drill ? (['drill_opening'] as const) : []),
     ...(playAgain ? (['play_again'] as const) : []),
   ]
   const ctaKey = ctas.join()
@@ -107,6 +112,21 @@ export const PostGamePanel: React.FC<Props> = ({
             target
           </span>
           Practice mistakes
+        </a>
+      )}
+      {ctas.includes('drill_opening') && drill && (
+        <a
+          href={drill.href}
+          onClick={() => click('drill_opening')}
+          title={`Drill the ${drill.name} against Maia`}
+          className={secondaryClass}
+        >
+          <span className="material-symbols-outlined shrink-0 !text-sm">
+            school
+          </span>
+          <span className="min-w-0 whitespace-normal leading-tight">
+            Drill the {drill.name}
+          </span>
         </a>
       )}
       {ctas.includes('play_again') && playAgain && (

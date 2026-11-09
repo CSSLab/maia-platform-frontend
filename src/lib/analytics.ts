@@ -272,6 +272,8 @@ export const trackDrillConfigurationCompleted = (
   averageTargetMoves: number,
   maiaVersionsUsed: string[],
   colorDistribution: { white: number; black: number },
+  /** Set only for a drill a link started (the dialog's drills have none). */
+  source?: 'linked_game',
 ) => {
   safeTrack('drill_configuration_completed', {
     total_openings_selected: totalOpeningsSelected,
@@ -280,6 +282,7 @@ export const trackDrillConfigurationCompleted = (
     average_target_moves: averageTargetMoves,
     maia_versions_used: maiaVersionsUsed,
     color_distribution: colorDistribution,
+    ...(source ? { source } : {}),
   })
 }
 
@@ -646,7 +649,11 @@ export const trackPlayGameAbandoned = (
 }
 
 // The panel shown when a game against Maia ends.
-export type PostGameCta = 'analyze' | 'practice' | 'play_again'
+export type PostGameCta =
+  | 'analyze'
+  | 'practice'
+  | 'drill_opening'
+  | 'play_again'
 
 export const trackPostGameCtaShown = (
   cta: PostGameCta,

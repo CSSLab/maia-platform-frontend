@@ -67,6 +67,8 @@ import { MAIA_MODELS } from 'src/constants/common'
 import { cpToWinrate } from 'src/lib/analysis'
 import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
 import { loadDrillQueue, saveDrillQueue } from 'src/lib/drillQueue'
+import { linkedDrillSelection } from 'src/lib/openingDrillLink'
+import { trackDrillConfigurationCompleted } from 'src/lib/analytics'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
 import {
@@ -160,6 +162,30 @@ const OpeningsPage: NextPage = () => {
     const queue = loadDrillQueue()
     if (queue.length) setRestoredQueue(queue)
   }, [])
+
+  // A link to one opening's drill (the end of a game against Maia) starts
+  // it at once, then leaves the address as the page's own, so a refresh
+  // doesn't start it again.
+  useEffect(() => {
+    if (!router.isReady) return
+    const selection = linkedDrillSelection(router.query)
+    if (!selection) return
+    setDrillConfiguration({ selections: [selection] })
+    setShowSelectionModal(false)
+    trackDrillConfigurationCompleted(
+      1,
+      1,
+      1,
+      selection.targetMoveNumber ?? 0,
+      [selection.maiaVersion],
+      {
+        white: selection.playerColor === 'white' ? 1 : 0,
+        black: selection.playerColor === 'black' ? 1 : 0,
+      },
+      'linked_game',
+    )
+    router.replace(router.pathname, undefined, { shallow: true })
+  }, [router.isReady])
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)

@@ -59,6 +59,30 @@ describe('PostGamePanel', () => {
     expect(trackPostGameCtaShown).toHaveBeenCalledWith('practice', 'g1', 'play')
   })
 
+  it("offers a drill of the game's opening, after practice", () => {
+    renderPanel({ playAgain: jest.fn() })
+    expect(screen.queryByText(/^Drill the/)).toBeNull()
+
+    jest.clearAllMocks()
+    renderPanel({
+      practiceHref: '/practice?game=g1',
+      drill: { href: '/drills?opening=italian-game', name: 'Italian Game' },
+      playAgain: jest.fn(),
+    })
+    const link = screen.getByText('Drill the Italian Game').closest('a')!
+    expect(link.getAttribute('href')).toBe('/drills?opening=italian-game')
+    expect(
+      (trackPostGameCtaShown as jest.Mock).mock.calls.map(([cta]) => cta),
+    ).toEqual(['analyze', 'practice', 'drill_opening', 'play_again'])
+
+    fireEvent.click(link)
+    expect(trackPostGameCtaClicked).toHaveBeenCalledWith(
+      'drill_opening',
+      'g1',
+      'play',
+    )
+  })
+
   it('reports a press and acts on it', () => {
     const playAgain = jest.fn()
     const open = jest.spyOn(window, 'open').mockImplementation(() => null)

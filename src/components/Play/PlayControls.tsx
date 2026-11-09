@@ -71,6 +71,8 @@ interface Props {
   playAgain?: () => void
   /** The practice of this game's mistakes (see PostGamePanel). */
   practiceHref?: string
+  /** A drill of the game's opening (see PostGamePanel). */
+  drill?: { href: string; name: string }
   returnTo?: () => void
   returnToLabel?: string
   simulateMaiaTime?: boolean
@@ -90,6 +92,7 @@ export const PlayControls: React.FC<Props> = ({
   offerDraw,
   playAgain,
   practiceHref,
+  drill,
   returnTo,
   returnToLabel = 'Return',
   simulateMaiaTime,
@@ -126,6 +129,7 @@ export const PlayControls: React.FC<Props> = ({
           gameType="play"
           playAgain={playAgain}
           practiceHref={practiceHref}
+          drill={drill}
           returnTo={returnTo}
           returnToLabel={returnToLabel}
         />

@@ -15,6 +15,11 @@ import toast from 'react-hot-toast'
 import { normalizeTimeControl } from 'src/lib/timeControl'
 import { checkStartPosition } from 'src/lib/startPosition'
 import {
+  matchOpening,
+  openingDrillHref,
+  openingLabel,
+} from 'src/lib/openingDrillLink'
+import {
   UnfinishedGame,
   loadUnfinishedGame,
   sameGameSettings,
@@ -101,6 +106,25 @@ const PlayMaia: React.FC<Props> = ({
         })}`
       : undefined
 
+  // A drill of the game's opening, once it's over: the most specific one the
+  // openings page has that the game reached (not from a set-up position).
+  const gameOver = !!controller.game.termination
+  const drill = useMemo(() => {
+    if (!gameOver || playGameConfig.startFen) return undefined
+    const match = matchOpening(
+      controller.game.tree.getMainLine().map((node) => node.fen),
+    )
+    if (!match) return undefined
+    return {
+      href: openingDrillHref(
+        match,
+        playGameConfig.player,
+        playGameConfig.maiaVersion,
+      ),
+      name: openingLabel(match),
+    }
+  }, [gameOver, controller.game.id])
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!controller.playerActive || controller.game.termination) return
@@ -135,6 +159,7 @@ const PlayMaia: React.FC<Props> = ({
             }}
             playAgain={playAgain}
             practiceHref={practiceHref}
+            drill={drill}
             returnTo={returnTo}
             returnToLabel={returnToLabel}
             simulateMaiaTime={simulateMaiaTime}
