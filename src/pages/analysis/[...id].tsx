@@ -93,9 +93,18 @@ import {
   applyImportedVariations,
   saveImportedVariations,
 } from 'src/lib/customGameVariations'
+import {
+  openedByPageLoad,
+  placeKey,
+  restoreAnalysisPlace,
+  saveAnalysisPlace,
+} from 'src/lib/analysisPlace'
 import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
+// Whether the first game since the page loaded has been opened (see
+// analysisPlace).
+let placeChecked = false
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
   'maia_custom_pgn_result_overrides'
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -718,15 +727,49 @@ const Analysis: React.FC<Props> = ({
   useEffect(() => {
     if (analyzedGame?.tree) {
       try {
+        // The first game after the page loads opens where you were, if the
+        // browser closed this tab in the background (see analysisPlace).
+        let restored: GameNode | null = null
+        if (!placeChecked) {
+          placeChecked = true
+          if (openedByPageLoad(window.location.pathname)) {
+            restored = restoreAnalysisPlace(
+              placeKey(analyzedGame),
+              analyzedGame.tree,
+            )
+          }
+        }
         const rootNode = analyzedGame.tree.getRoot()
-        if (rootNode) {
-          controller.setCurrentNode(rootNode)
+        if (restored || rootNode) {
+          controller.setCurrentNode(restored ?? rootNode)
         }
       } catch (error) {
         console.error('Error setting current node:', error)
       }
     }
   }, [analyzedGame])
+
+  // Kept whenever the page goes into the background or is left: a browser
+  // closes background tabs without warning.
+  const placeRef = useRef({ game: analyzedGame, node: controller.currentNode })
+  placeRef.current = { game: analyzedGame, node: controller.currentNode }
+  useEffect(() => {
+    const save = () => {
+      const { game, node } = placeRef.current
+      if (game?.id && game.tree && node) {
+        saveAnalysisPlace(placeKey(game), game.tree, node)
+      }
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') save()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', save)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pagehide', save)
+    }
+  }, [])
 
   useEffect(() => {
     if (!userGamePovOrientation) return

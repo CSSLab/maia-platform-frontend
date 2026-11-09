@@ -337,7 +337,8 @@ export const hasVariations = (tree: GameTree): boolean => {
 /**
  * Adds the moves of `source` that `target` lacks to `target`, as variations.
  * The trees are matched move by move from the start, so `target` gets the
- * variations of a game whose main line it already has. Returns the number of
+ * variations of a game whose main line it already has. A main line that goes
+ * on past the end of `target`'s stays the main line. Returns the number of
  * moves added (0 when the games start from different positions).
  */
 export const graftVariations = (target: GameTree, source: GameTree): number => {
@@ -355,7 +356,10 @@ export const graftVariations = (target: GameTree, source: GameTree): number => {
       )
       if (!match) {
         if (!child.move || !child.san) continue
-        match = target.addVariationNode(into, child.fen, child.move, child.san)
+        match =
+          child.isMainline && into.isMainline && !into.mainChild
+            ? target.addMainlineNode(into, child.fen, child.move, child.san)
+            : target.addVariationNode(into, child.fen, child.move, child.san)
         added++
       }
       visit(match, child)
