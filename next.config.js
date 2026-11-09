@@ -51,11 +51,34 @@ module.exports = withTM({
         // for each before using its cached copy. A returning visitor now uses
         // the cached copy at once and the browser refreshes it in the
         // background, so a changed file is used from the following visit.
-        source: '/:dir(ort|stockfish|assets)/:path*',
+        source: '/:dir(ort|stockfish)/:path*',
+        headers: [
+          {
+            // For ten minutes a visit uses its copy without asking: the
+            // Stockfish script was asked for three times on each page.
+            key: 'Cache-Control',
+            value: 'public, max-age=600, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
+        // Icons, pieces and sounds, which hardly ever change, are used for a
+        // day without asking: every request counts towards the host's bill,
+        // even one answered "not modified".
+        source: '/assets/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=0, stale-while-revalidate=604800',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
+        source: '/:file(favicon.png|maia-ios-icon.png|maia.png|maia-no-bg.png)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
           },
         ],
       },

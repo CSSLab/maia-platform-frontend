@@ -251,9 +251,12 @@ export const logGameMove = async (
   fen: string | undefined = undefined,
   winner: string | undefined = undefined,
   brainMoves: string[] = [],
+  // For a page being hidden or left: the request outlives the page.
+  { keepalive = false }: { keepalive?: boolean } = {},
 ) => {
   const res = await fetch(buildUrl('play/submit_move'), {
     method: 'POST',
+    keepalive,
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
