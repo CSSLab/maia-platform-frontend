@@ -45,11 +45,39 @@ const arrow = (uci: string, brush: string): DrawShape => ({
 
 const StreakBadge = ({ streak }: { streak: PracticeStreak }) =>
   streak.days >= STREAK_SHOWN_FROM ? (
-    <span className="flex items-center gap-1 rounded-full border border-human-4/50 bg-human-4/10 px-2 py-0.5 text-xs text-white/90">
-      <span className="material-symbols-outlined !text-sm">star</span>
+    <span className="flex items-center gap-1 text-xs text-white/60">
+      <span className="material-symbols-outlined !text-sm text-human-2">
+        star
+      </span>
       {streak.days}-day streak
     </span>
   ) : null
+
+/** Today's positions as dots: found, missed, this one, to come. */
+const Dots = ({ day, index }: { day: PracticeDay; index: number }) => (
+  <span
+    className="flex items-center gap-1.5"
+    role="img"
+    aria-label={`Position ${Math.min(index + 1, day.positions.length)} of ${day.positions.length}`}
+  >
+    {day.positions.map((p, i) => {
+      const answer = day.answers[p.id]
+      const tone = answer
+        ? answer.correct
+          ? 'bg-emerald-400'
+          : 'bg-white/35'
+        : i === index
+          ? 'bg-human-2 ring-2 ring-human-2/30'
+          : 'bg-white/15'
+      return <span key={p.id} className={`h-2 w-2 rounded-full ${tone}`} />
+    })}
+  </span>
+)
+
+const pillClass =
+  'flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-colors duration-200'
+const primaryPillClass = `${pillClass} bg-human-4 text-white hover:bg-human-3`
+const quietPillClass = `${pillClass} border border-white/15 text-white/85 hover:border-white/30 hover:bg-white/5`
 
 /** Today's positions, one at a time, then how it went. */
 export const PracticeSession = ({ day: initialDay }: Props) => {
@@ -85,25 +113,20 @@ export const PracticeSession = ({ day: initialDay }: Props) => {
       (p) => day.answers[p.id]?.correct,
     ).length
     return (
-      <section className="flex flex-col items-center gap-4 rounded-lg border border-glass-border bg-glass p-6 text-center backdrop-blur-md">
-        <h2 className="text-lg font-semibold text-white/95">
+      <section className="flex flex-col items-center gap-3 py-10 text-center">
+        <Dots day={day} index={total} />
+        <h2 className="text-2xl font-semibold tabular-nums text-white/95">
           {correct} of {total} found today
         </h2>
         <StreakBadge streak={streak} />
-        <p className="text-sm text-white/70">
+        <p className="text-sm text-white/55">
           Three new positions from your games tomorrow.
         </p>
-        <div className="flex flex-col gap-2 md:flex-row">
-          <Link
-            href="/play"
-            className="rounded-md bg-human-4 px-4 py-2 text-sm font-medium text-white hover:bg-human-4/90"
-          >
+        <div className="mt-2 flex gap-2">
+          <Link href="/play" className={primaryPillClass}>
             Play Maia
           </Link>
-          <Link
-            href="/"
-            className="rounded-md border border-glass-border bg-glass px-4 py-2 text-sm text-white/90 hover:bg-glass-stronger"
-          >
+          <Link href="/" className={quietPillClass}>
             Home
           </Link>
         </div>
@@ -201,60 +224,59 @@ export const PracticeSession = ({ day: initialDay }: Props) => {
           solved={solved}
         />
       </div>
-      <div className="flex w-full flex-col gap-3 md:max-w-sm">
+      <div className="flex w-full flex-col gap-3 md:max-w-xs md:pt-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs uppercase tracking-wider text-white/60">
-            Position {index + 1} of {total}
-          </p>
+          <Dots day={day} index={index} />
           <StreakBadge streak={streak} />
         </div>
-        <div className="flex flex-col gap-2 rounded-lg border border-glass-border bg-glass p-4 backdrop-blur-md">
-          <p className="text-xs text-white/60">{about}</p>
+        <p className="text-xs text-white/45">{about}</p>
+        <div className="flex min-h-[3.25rem] flex-col gap-1" aria-live="polite">
           {phase.kind === 'thinking' && (
-            <p className="text-sm text-white/90">
-              You went wrong here in your game. Find a better move for {side}.
-            </p>
+            <>
+              <p className="text-base text-white/95">
+                Find a better move for {side}.
+              </p>
+              <p className="text-sm text-white/55">
+                You went wrong here in your game.
+              </p>
+            </>
           )}
           {phase.kind === 'checking' && (
-            <p className="text-sm text-white/70" aria-live="polite">
-              Checking your move…
-            </p>
+            <p className="text-base text-white/60">Checking your move…</p>
           )}
           {phase.kind === 'wrong' && (
-            <p className="text-sm text-amber-200" aria-live="polite">
-              Not quite. One more try.
-            </p>
+            <p className="text-base text-amber-200">Not quite. One more try.</p>
           )}
           {revealed && (
-            <div className="flex flex-col gap-1" aria-live="polite">
+            <>
               <p
-                className={`text-sm font-medium ${phase.correct ? 'text-emerald-300' : 'text-white/90'}`}
+                className={`text-base font-medium ${phase.correct ? 'text-emerald-300' : 'text-white/95'}`}
               >
                 {phase.correct
                   ? `Good move: ${sanOf(position.fen, phase.answer)}`
                   : `The best move was ${position.bestSan}`}
               </p>
-              <p className="text-sm text-white/70">
-                In the game you played {position.playedSan}. Best:{' '}
-                {position.bestSan}.
+              <p className="text-sm text-white/55">
+                In the game you played {position.playedSan}.
               </p>
-              <Link
-                href={momentHref(position, position)}
-                className="text-xs text-white/60 underline hover:text-white/90"
-              >
-                Open in analysis
-              </Link>
-            </div>
+            </>
           )}
         </div>
         {revealed && (
-          <button
-            type="button"
-            onClick={next}
-            className="rounded-md bg-human-4 px-4 py-2 text-sm font-medium text-white hover:bg-human-4/90"
-          >
-            {index + 1 < total ? 'Next position' : 'See how it went'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={next} className={primaryPillClass}>
+              {index + 1 < total ? 'Next position' : 'See how it went'}
+              <span className="material-symbols-outlined !text-base">
+                arrow_forward
+              </span>
+            </button>
+            <Link
+              href={momentHref(position, position)}
+              className={quietPillClass}
+            >
+              Analysis
+            </Link>
+          </div>
         )}
       </div>
     </section>

@@ -51,11 +51,11 @@ describe('PostGamePanel', () => {
 
   it('hides practice until there is one to go to', () => {
     renderPanel({ playAgain: jest.fn() })
-    expect(screen.queryByText('Practice the moment you went wrong')).toBeNull()
+    expect(screen.queryByText('Practice mistakes')).toBeNull()
 
     jest.clearAllMocks()
     renderPanel({ practiceHref: '/practice?game=g1' })
-    expect(screen.getByText('Practice the moment you went wrong')).toBeTruthy()
+    expect(screen.getByText('Practice mistakes')).toBeTruthy()
     expect(trackPostGameCtaShown).toHaveBeenCalledWith('practice', 'g1', 'play')
   })
 
@@ -72,7 +72,7 @@ describe('PostGamePanel', () => {
       'brain',
     )
 
-    fireEvent.click(screen.getByText('Analyze this game'))
+    fireEvent.click(screen.getByText('Analyze'))
     expect(open).toHaveBeenCalledWith('/analysis/g1/brain', '_blank')
   })
 
@@ -82,9 +82,7 @@ describe('PostGamePanel', () => {
     expect(trackSigninPromptShown).not.toHaveBeenCalled()
 
     renderPanel({}, guest)
-    expect(
-      screen.getByText('Sign in with Lichess to keep your rating and games.'),
-    ).toBeTruthy()
+    expect(screen.getByText('Keep your rating and games')).toBeTruthy()
     expect(trackSigninPromptShown).toHaveBeenCalledTimes(1)
     expect(trackSigninPromptShown).toHaveBeenCalledWith('post_game')
 

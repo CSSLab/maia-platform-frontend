@@ -23,11 +23,11 @@ interface Props {
 }
 
 // The panel sits in the game page's narrow side column on desktops (inside
-// its padding): labels may wrap, so they're small and tight.
+// its padding): one short line a button.
 const actionClass =
-  'flex w-full items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-center text-xs font-semibold leading-tight transition-colors duration-200 md:text-[13px]'
-const primaryClass = `${actionClass} border-human-4 bg-human-4 text-white hover:bg-human-4/90`
-const secondaryClass = `${actionClass} border-glass-border bg-glass text-white/90 hover:bg-glass-stronger`
+  'flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors duration-200 md:text-[13px]'
+const primaryClass = `${actionClass} bg-human-4 text-white hover:bg-human-3`
+const secondaryClass = `${actionClass} border border-white/10 text-white/80 hover:border-white/20 hover:bg-white/5 hover:text-white`
 
 /**
  * What to do next when a game against Maia ends: analyze it, practice the
@@ -94,7 +94,7 @@ export const PostGamePanel: React.FC<Props> = ({
           <span className="material-symbols-outlined shrink-0 !text-sm">
             analytics
           </span>
-          Analyze this game
+          Analyze
         </button>
       )}
       {ctas.includes('practice') && practiceHref && (
@@ -106,7 +106,7 @@ export const PostGamePanel: React.FC<Props> = ({
           <span className="material-symbols-outlined shrink-0 !text-sm">
             target
           </span>
-          Practice the moment you went wrong
+          Practice mistakes
         </a>
       )}
       {ctas.includes('play_again') && playAgain && (
@@ -134,16 +134,16 @@ export const PostGamePanel: React.FC<Props> = ({
           new one. */}
       {isGuest && (
         <div
-          className="mt-1 flex flex-col gap-2 border-t border-glass-border pt-2"
+          className="mt-2 flex flex-col gap-1.5"
           onClickCapture={() => trackSigninPromptClicked('post_game')}
         >
-          <p className="text-center text-xs leading-snug text-white/70">
-            Sign in with Lichess to keep your rating and games.
+          <p className="text-center text-[11px] leading-snug text-white/50">
+            Keep your rating and games
           </p>
           <LichessSignInButton
             source="game_over"
             returnTo="/play"
-            className="px-2 text-xs md:text-[13px]"
+            className="whitespace-nowrap px-2 text-xs md:text-[13px]"
           />
         </div>
       )}

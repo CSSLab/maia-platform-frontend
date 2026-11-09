@@ -47,8 +47,8 @@ const weekday = (day: string) => {
 const WeekBars = ({ days }: { days: DayGames[] }) => {
   const most = Math.max(1, ...days.map((d) => d.games))
   return (
-    <div
-      className="flex h-6 items-end gap-[3px]"
+    <span
+      className="inline-flex h-3.5 items-end gap-[2px]"
       role="img"
       aria-label={days.map((d) => `${weekday(d.day)}: ${d.games}`).join(', ')}
     >
@@ -56,19 +56,20 @@ const WeekBars = ({ days }: { days: DayGames[] }) => {
         <span
           key={d.day}
           title={`${weekday(d.day)}: ${d.games} game${d.games === 1 ? '' : 's'}`}
-          className={`w-1.5 rounded-sm ${d.games ? 'bg-human-4' : 'bg-white/15'}`}
+          className={`w-[3px] rounded-full ${d.games ? 'bg-human-2' : 'bg-white/20'}`}
           style={{
-            height: d.games ? `${30 + (70 * d.games) / most}%` : '3px',
+            height: d.games ? `${35 + (65 * d.games) / most}%` : '2px',
           }}
         />
       ))}
-    </div>
+    </span>
   )
 }
 
 /**
- * "Your progress", in one slim line: games against Maia over the last week
- * as small daily bars, and the visitor's Maia rating in each mode played.
+ * "Your progress", in one quiet line under the site's stats: games against
+ * Maia over the last week as small daily bars, and the visitor's Maia rating
+ * in each mode played.
  */
 export const ProgressStrip = ({ onShown }: Props) => {
   const [progress, setProgress] = useState<Progress | null>(null)
@@ -95,7 +96,7 @@ export const ProgressStrip = ({ onShown }: Props) => {
   if (!progress) {
     return (
       <div
-        className="h-[52px] w-full animate-pulse rounded-lg border border-glass-border bg-glass"
+        className="mx-auto h-5 w-64 max-w-full animate-pulse rounded bg-white/5"
         aria-busy="true"
         data-testid="progress-loading"
       />
@@ -104,7 +105,10 @@ export const ProgressStrip = ({ onShown }: Props) => {
 
   if (progress.ratings.length === 0 && progress.gamesThisWeek === 0) {
     return (
-      <p className="px-1 text-sm text-white/50" data-testid="progress-strip">
+      <p
+        className="text-center text-sm text-white/50"
+        data-testid="progress-strip"
+      >
         Play Maia, solve puzzles or try Bot or Not, and your ratings show up
         here.
       </p>
@@ -114,39 +118,28 @@ export const ProgressStrip = ({ onShown }: Props) => {
   const week = `${progress.gamesThisWeek}${progress.gamesThisWeekAtLeast ? '+' : ''}`
   return (
     <section
-      className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-glass-border bg-glass px-4 py-2.5 backdrop-blur-md"
+      className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-sm text-white/55"
       data-testid="progress-strip"
       aria-label="Your progress"
     >
-      <div className="flex items-end gap-2.5">
+      <span className="inline-flex items-center gap-2">
         <WeekBars days={progress.days} />
-        <p className="text-xs leading-tight text-white/60">
-          <span className="text-sm font-semibold tabular-nums text-white/90">
+        <span>
+          <span className="font-semibold tabular-nums text-white/90">
             {week}
           </span>{' '}
           game{week === '1' ? '' : 's'} this week
-        </p>
-      </div>
-      {progress.ratings.length > 0 && (
-        <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          {progress.ratings.map((rating) => (
-            <div key={rating.mode} className="flex items-baseline gap-1.5">
-              <dt className="text-[11px] uppercase tracking-wider text-white/50">
-                {rating.label}
-              </dt>
-              <dd className="text-sm font-semibold tabular-nums text-white/90">
-                {rating.rating}
-                {RATING_TREND_ENABLED ? (
-                  <>
-                    {' '}
-                    <RatingTrend mode={rating.mode} />
-                  </>
-                ) : null}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
+        </span>
+      </span>
+      {progress.ratings.map((rating) => (
+        <span key={rating.mode} className="inline-flex items-baseline gap-1.5">
+          {rating.label}
+          <span className="font-semibold tabular-nums text-white/90">
+            {rating.rating}
+          </span>
+          {RATING_TREND_ENABLED ? <RatingTrend mode={rating.mode} /> : null}
+        </span>
+      ))}
     </section>
   )
 }

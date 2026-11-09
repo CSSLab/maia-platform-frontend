@@ -28,6 +28,10 @@ jest.mock('./PersonalEngines', () => ({
   ),
 }))
 jest.mock('./ProgressStrip', () => ({ ProgressStrip: () => null }))
+jest.mock('@react-chess/chessground', () => ({
+  __esModule: true,
+  default: () => null,
+}))
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({
@@ -112,9 +116,8 @@ describe('PersonalSection', () => {
         <PersonalSection location="home" />
       </AuthContext.Provider>,
     )
-    expect(
-      screen.getByText('Maia found 1 key moment in your last game'),
-    ).toBeTruthy()
+    expect(screen.getByText('Your last game')).toBeTruthy()
+    expect(screen.getAllByTestId('moment-board')).toHaveLength(1)
     expect(screen.getByText('vs 1800 · blitz · You lost')).toBeTruthy()
     expect(trackLastGameCardShown).toHaveBeenCalledTimes(1)
     expect(trackLastGameCardShown).toHaveBeenCalledWith(true, false, 'home')
@@ -143,9 +146,10 @@ describe('PersonalSection', () => {
     expect(useMomentFinder).not.toHaveBeenCalled()
     expect(trackLastGameCardShown).toHaveBeenCalledWith(false, false, 'home')
 
-    fireEvent.click(screen.getByText('Find the key moments'))
+    fireEvent.click(screen.getByText('Find key moments'))
     expect(trackLastGameAnalyzeClicked).toHaveBeenCalledWith('moments', 'home')
     expect(screen.getByTestId('engines')).toBeTruthy()
     expect(screen.getByText('Finding the key moments…')).toBeTruthy()
+    expect(screen.queryByText('Find key moments')).toBeNull()
   })
 })
