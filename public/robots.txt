@@ -1,0 +1,4 @@
+# The site's pages are welcome in search engines. /api/ is the app's own
+# backend: its answers change by the second and aren't pages.
+User-agent: *
+Disallow: /api/
