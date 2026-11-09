@@ -61,6 +61,7 @@ import {
   requiresPromotion,
 } from 'src/lib/puzzle'
 import { cpToWinrate } from 'src/lib/analysis'
+import { readPuzzleClock, startPuzzleClock } from 'src/lib/puzzleClock'
 import { tourConfigs } from 'src/constants/tours'
 import { LATE_STOCKFISH_PROVIDERS } from 'src/contexts/pageProviders'
 
@@ -277,7 +278,7 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
           gameId,
           'forfeit',
           newGuesses.length,
-          0, // No time tracking for forfeit
+          readPuzzleClock(gameId),
           response.puzzle_elo,
           response.puzzle_elo - rating,
         )
@@ -320,7 +321,7 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
           gameId,
           result ? 'correct' : 'forfeit',
           newGuesses.length,
-          0, // No time tracking implemented yet
+          readPuzzleClock(gameId),
           response.puzzle_elo,
           response.puzzle_elo - rating,
         )
@@ -350,6 +351,15 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
   useLayoutEffect(() => {
     onPuzzleShown(puzzleShown || showingError)
   }, [puzzleShown, showingError, onPuzzleShown])
+
+  // The clock for puzzle_completed starts when the newest puzzle is drawn.
+  const shownPuzzleId =
+    puzzleShown && currentIndex === trainingGames.length - 1
+      ? trainingGames[currentIndex].id
+      : null
+  useLayoutEffect(() => {
+    if (shownPuzzleId) startPuzzleClock(shownPuzzleId)
+  }, [shownPuzzleId])
 
   if (showingError && puzzleError) {
     return (

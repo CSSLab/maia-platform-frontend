@@ -424,7 +424,8 @@ export const trackPuzzleCompleted = (
   puzzleId: string,
   result: 'correct' | 'forfeit',
   attemptsMade: number,
-  timeTakenSeconds: number,
+  // Since the puzzle came on show, and how much of it the page was hidden.
+  time: { seconds: number; hiddenSeconds: number } | null,
   puzzleRating: number,
   ratingChange: number,
 ) => {
@@ -432,7 +433,8 @@ export const trackPuzzleCompleted = (
     puzzle_id: puzzleId,
     result,
     attempts_made: attemptsMade,
-    time_taken_seconds: timeTakenSeconds,
+    time_taken_seconds: time?.seconds ?? null,
+    time_hidden_seconds: time?.hiddenSeconds ?? null,
     puzzle_rating: puzzleRating,
     rating_change: ratingChange,
   })
