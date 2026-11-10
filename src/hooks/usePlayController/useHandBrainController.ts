@@ -23,6 +23,7 @@ const brainStatsLoader = async () => {
     gamesPlayed: stats.brainGamesPlayed,
     gamesWon: stats.brainWon,
     rating: stats.brainElo,
+    provisional: stats.brainProvisional,
   }
 }
 
@@ -32,6 +33,7 @@ const handStatsLoader = async () => {
     gamesPlayed: stats.handGamesPlayed,
     gamesWon: stats.handWon,
     rating: stats.handElo,
+    provisional: stats.handProvisional,
   }
 }
 
@@ -306,7 +308,9 @@ export const useHandBrainController = (
         const response = await backOff(() => log(false), { jitter: 'full' })
         if (controller.game.termination) {
           // Safely update rating - only if the response contains a valid rating
-          safeUpdateRating(response.player_elo, updateRating)
+          safeUpdateRating(response.player_elo, (rating) =>
+            updateRating(rating, response.player_provisional),
+          )
           incrementStats(1, winner == playGameConfig.player ? 1 : 0)
         }
       }

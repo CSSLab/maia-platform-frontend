@@ -28,6 +28,7 @@ const ProfilePage: NextPage = () => {
     regularMax: 0,
     regularMin: 0,
     regularHours: 0,
+    regularCertainty: { provisional: false },
 
     handRating: 0,
     handWins: 0,
@@ -36,6 +37,7 @@ const ProfilePage: NextPage = () => {
     handMax: 0,
     handMin: 0,
     handHours: 0,
+    handCertainty: { provisional: false },
 
     brainRating: 0,
     brainWins: 0,
@@ -44,6 +46,7 @@ const ProfilePage: NextPage = () => {
     brainMax: 0,
     brainMin: 0,
     brainHours: 0,
+    brainCertainty: { provisional: false },
 
     trainRating: 0,
     trainCorrect: 0,
@@ -51,6 +54,7 @@ const ProfilePage: NextPage = () => {
     trainMax: 0,
     trainMin: 0,
     trainHours: 0,
+    trainCertainty: { provisional: false },
 
     botNotRating: 0,
     botNotCorrect: 0,
@@ -59,6 +63,7 @@ const ProfilePage: NextPage = () => {
     botNotMax: 0,
     botNotMin: 0,
     botNotHours: 0,
+    botNotCertainty: { provisional: false },
   })
 
   useEffect(() => {
@@ -102,8 +107,11 @@ const Profile: React.FC<Props> = (props: Props) => {
   const { isMobile } = useContext(WindowSizeContext)
 
   // Get leaderboard status for the current user
-  const { status: leaderboardStatus, loading: leaderboardLoading } =
-    useLeaderboardStatus(user?.displayName)
+  const {
+    status: leaderboardStatus,
+    windowDays,
+    loading: leaderboardLoading,
+  } = useLeaderboardStatus(user?.displayName)
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -190,7 +198,11 @@ const Profile: React.FC<Props> = (props: Props) => {
         className="flex flex-col items-start gap-4 md:flex-row"
       >
         <GameList />
-        <UserProfile stats={props.stats} />
+        <UserProfile
+          stats={props.stats}
+          leaderboardStatus={leaderboardStatus}
+          windowDays={windowDays}
+        />
       </motion.div>
     </motion.div>
   )
@@ -243,7 +255,11 @@ const Profile: React.FC<Props> = (props: Props) => {
         className="flex w-full flex-col gap-3"
       >
         <GameList />
-        <UserProfile stats={props.stats} />
+        <UserProfile
+          stats={props.stats}
+          leaderboardStatus={leaderboardStatus}
+          windowDays={windowDays}
+        />
       </motion.div>
     </motion.div>
   )

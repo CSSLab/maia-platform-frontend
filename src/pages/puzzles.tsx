@@ -79,6 +79,7 @@ const statsLoader = async () => {
     gamesPlayed: Math.max(0, stats.totalPuzzles),
     gamesWon: stats.puzzlesSolved,
     rating: stats.rating,
+    provisional: stats.provisional,
   }
 }
 
@@ -285,7 +286,7 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
 
         // If the user forfeits, update their stats
         if (userGuesses.length === 0) {
-          updateRating(response.puzzle_elo)
+          updateRating(response.puzzle_elo, response.puzzle_provisional)
           incrementStats(1, 0)
         }
         return
@@ -326,7 +327,7 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
           response.puzzle_elo - rating,
         )
 
-        updateRating(response.puzzle_elo)
+        updateRating(response.puzzle_elo, response.puzzle_provisional)
         incrementStats(1, result ? 1 : 0)
       }
     },

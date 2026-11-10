@@ -1,5 +1,6 @@
 import { buildUrl } from './utils'
 import { PlayerStats } from 'src/types'
+import { parseRatingCertainty } from 'src/lib/ratingUtils'
 
 export const fetchPlayerStats = async (name?: string): Promise<PlayerStats> => {
   const res = await fetch(
@@ -14,6 +15,7 @@ export const fetchPlayerStats = async (name?: string): Promise<PlayerStats> => {
     regularMax: data.play_elo_max as number,
     regularMin: data.play_elo_min as number,
     regularHours: data.play_game_time as number,
+    regularCertainty: parseRatingCertainty(data, 'play'),
 
     handRating: data.hand_elo as number,
     handWins: data.hand_won as number,
@@ -22,6 +24,7 @@ export const fetchPlayerStats = async (name?: string): Promise<PlayerStats> => {
     handMax: data.hand_elo_max as number,
     handMin: data.hand_elo_min as number,
     handHours: data.hand_game_time as number,
+    handCertainty: parseRatingCertainty(data, 'hand'),
 
     brainRating: data.brain_elo as number,
     brainWins: data.brain_won as number,
@@ -30,6 +33,7 @@ export const fetchPlayerStats = async (name?: string): Promise<PlayerStats> => {
     brainMax: data.brain_elo_max as number,
     brainMin: data.brain_elo_min as number,
     brainHours: data.brain_game_time as number,
+    brainCertainty: parseRatingCertainty(data, 'brain'),
 
     trainRating: data.puzzles_elo as number,
     trainCorrect: data.puzzles_correct as number,
@@ -37,6 +41,7 @@ export const fetchPlayerStats = async (name?: string): Promise<PlayerStats> => {
     trainMax: data.puzzles_elo_max as number,
     trainMin: data.puzzles_elo_min as number,
     trainHours: data.puzzle_game_time as number,
+    trainCertainty: parseRatingCertainty(data, 'puzzles'),
 
     botNotRating: data.turing_elo as number,
     botNotCorrect: data.turing_guesses_correct as number,
@@ -46,5 +51,6 @@ export const fetchPlayerStats = async (name?: string): Promise<PlayerStats> => {
     botNotMax: data.turing_elo_max as number,
     botNotMin: data.turing_elo_min as number,
     botNotHours: data.turing_game_time as number,
+    botNotCertainty: parseRatingCertainty(data, 'turing'),
   }
 }

@@ -2,17 +2,18 @@ import Head from 'next/head'
 import React, { useCallback, useEffect, useState } from 'react'
 
 import { fetchLeaderboard } from 'src/api'
+import { LeaderboardData } from 'src/types'
 import { LeaderboardColumn } from 'src/components'
 import { LeaderboardProvider } from 'src/components/Leaderboard/LeaderboardContext'
 
 type Ranking = { display_name: string; elo: number }[]
 
 const COLUMNS = [
-  { id: 'regular', name: 'Regular', key: 'play_leaders' },
-  { id: 'puzzles', name: 'Puzzles', key: 'puzzles_leaders' },
-  { id: 'turing', name: 'Bot/Not', key: 'turing_leaders' },
-  { id: 'hand', name: 'Hand', key: 'hand_leaders' },
-  { id: 'brain', name: 'Brain', key: 'brain_leaders' },
+  { id: 'regular', name: 'Regular', key: 'play_leaders', mode: 'play' },
+  { id: 'puzzles', name: 'Puzzles', key: 'puzzles_leaders', mode: 'puzzles' },
+  { id: 'turing', name: 'Bot/Not', key: 'turing_leaders', mode: 'turing' },
+  { id: 'hand', name: 'Hand', key: 'hand_leaders', mode: 'hand' },
+  { id: 'brain', name: 'Brain', key: 'brain_leaders', mode: 'brain' },
 ] as const
 
 const getTimeAgo = (date: Date) => {
@@ -39,6 +40,10 @@ const Leaderboard: React.FC = () => {
   const [error, setError] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [rankings, setRankings] = useState<Record<string, Ranking> | null>(null)
+  // Days within which each board's players last played, by backend mode.
+  const [windowDays, setWindowDays] = useState<LeaderboardData['window_days']>(
+    {},
+  )
 
   const load = useCallback(async () => {
     setError(false)
@@ -50,6 +55,7 @@ const Leaderboard: React.FC = () => {
           COLUMNS.map((column) => [column.id, lb[column.key]]),
         ),
       )
+      setWindowDays(lb.window_days ?? {})
     } catch (err) {
       console.error('Error fetching leaderboard:', err)
       setError(true)
@@ -92,6 +98,7 @@ const Leaderboard: React.FC = () => {
                 id={column.id}
                 name={column.name}
                 ranking={rankings?.[column.id]}
+                windowDays={windowDays?.[column.mode]}
               />
             ))}
           </div>
@@ -99,8 +106,10 @@ const Leaderboard: React.FC = () => {
         <div className="mt-3 w-full">
           <p className="text-xs text-white/60">
             <span className="font-medium text-white/80">Note:</span> Each
-            leaderboard column only features players who have played at least
-            one game of the corresponding type within the last 7 days.
+            leaderboard lists the top players who are linked to Lichess, have a
+            settled rating, and played that mode recently (the period is shown
+            on each board). A provisional rating, shown with a &ldquo;?&rdquo;,
+            doesn&apos;t qualify: it settles with more rated results.
           </p>
         </div>
       </div>

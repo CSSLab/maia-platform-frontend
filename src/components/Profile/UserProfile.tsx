@@ -1,13 +1,44 @@
 import React from 'react'
 
 import { ProfileColumn } from 'src/components'
-import { PlayerStats } from 'src/types'
+import { leaderboardEligibility } from 'src/lib/ratingUtils'
+import {
+  GameType,
+  LeaderboardStatus,
+  PlayerStats,
+  RatedMode,
+  RatingCertainty,
+} from 'src/types'
 
 interface Props {
   stats: PlayerStats
+  // The player's places on the leaderboards, and the days within which each
+  // board's players last played. Both come with the leaderboard.
+  leaderboardStatus?: LeaderboardStatus
+  windowDays?: Partial<Record<RatedMode, number>>
 }
 
-export const UserProfile = ({ stats }: Props) => {
+export const UserProfile = ({
+  stats,
+  leaderboardStatus,
+  windowDays,
+}: Props) => {
+  const ratingDetails = (
+    certainty: RatingCertainty,
+    gameType: GameType,
+    mode: RatedMode,
+  ) => ({
+    certainty,
+    windowDays: windowDays?.[mode],
+    eligibility: leaderboardEligibility({
+      certainty,
+      position: leaderboardStatus?.positions.find(
+        (position) => position.gameType === gameType,
+      )?.position,
+      windowDays: windowDays?.[mode],
+    }),
+  })
+
   return (
     <div className="grid h-full w-full grid-cols-1 gap-2 md:gap-4 lg:grid-cols-2 2xl:grid-cols-3">
       <ProfileColumn
@@ -21,6 +52,7 @@ export const UserProfile = ({ stats }: Props) => {
           wins: stats.regularWins,
           draws: stats.regularDraws,
         }}
+        {...ratingDetails(stats.regularCertainty, 'regular', 'play')}
       />
       <ProfileColumn
         icon="back_hand"
@@ -33,6 +65,7 @@ export const UserProfile = ({ stats }: Props) => {
           wins: stats.handWins,
           draws: stats.handDraws,
         }}
+        {...ratingDetails(stats.handCertainty, 'hand', 'hand')}
       />
       <ProfileColumn
         icon="network_intelligence"
@@ -45,6 +78,7 @@ export const UserProfile = ({ stats }: Props) => {
           wins: stats.brainWins,
           draws: stats.brainDraws,
         }}
+        {...ratingDetails(stats.brainCertainty, 'brain', 'brain')}
       />
       <ProfileColumn
         icon="toys_and_games"
@@ -56,6 +90,7 @@ export const UserProfile = ({ stats }: Props) => {
           games: stats.trainGames,
           wins: stats.trainCorrect,
         }}
+        {...ratingDetails(stats.trainCertainty, 'train', 'puzzles')}
       />
       <ProfileColumn
         icon="mystery"
@@ -68,6 +103,7 @@ export const UserProfile = ({ stats }: Props) => {
           wins: stats.botNotCorrect,
           losses: stats.botNotWrong,
         }}
+        {...ratingDetails(stats.botNotCertainty, 'turing', 'turing')}
       />
     </div>
   )

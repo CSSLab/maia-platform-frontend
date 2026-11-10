@@ -9,6 +9,8 @@ interface Props {
     display_name: string
     elo: number
   }[]
+  // Days within which the board's players last played.
+  windowDays?: number
 }
 
 const ROWS = 10
@@ -34,6 +36,7 @@ export const LeaderboardColumn: React.FC<Props> = ({
   id,
   name,
   ranking,
+  windowDays,
 }: Props) => {
   return (
     <div className="from-white/8 to-white/4 relative flex flex-col rounded-md border border-glass-border bg-gradient-to-br backdrop-blur-md">
@@ -42,6 +45,11 @@ export const LeaderboardColumn: React.FC<Props> = ({
           {getIconForType(id)}
         </span>
         <h2 className="text-base font-bold uppercase text-white/95">{name}</h2>
+        {windowDays !== undefined && (
+          <p className="ml-auto text-xs text-white/50">
+            Last {windowDays} days
+          </p>
+        )}
       </div>
       <div className="flex w-full flex-col">
         {ranking

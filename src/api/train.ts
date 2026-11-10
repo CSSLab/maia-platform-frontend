@@ -228,5 +228,6 @@ export const fetchTrainingPlayerStats = async () => {
     totalPuzzles: data.total_puzzles as number,
     puzzlesSolved: data.puzzles_solved as number,
     rating: data.puzzle_elo as number,
+    provisional: data.puzzle_provisional === true,
   }
 }
