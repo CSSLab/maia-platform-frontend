@@ -1,52 +1,81 @@
 import React from 'react'
 
-import { Rating } from 'src/components/Common/Rating'
+import {
+  Rating,
+  RatedUnit,
+  Tooltip,
+  settleAdvice,
+} from 'src/components/Common/Rating'
 import { TimeAgo } from 'src/components/Common/TimeAgo'
 import { LeaderboardEligibility } from 'src/lib/ratingUtils'
 import { RatingCertainty } from 'src/types'
 
-// The leaderboard row's value, and a sentence saying why.
+// The leaderboard row's value, and a line saying why. `own`: the reader is
+// the player.
 const describeEligibility = (
   eligibility: LeaderboardEligibility,
-  windowDays?: number,
+  { windowDays, own, unit }: Pick<Props, 'windowDays' | 'own' | 'unit'>,
 ): { value: string; note?: string } => {
-  const window =
-    windowDays === undefined ? 'recently' : `in the last ${windowDays} days`
   switch (eligibility.state) {
     case 'listed':
       return { value: `#${eligibility.position}` }
     case 'eligible':
       return {
         value: 'Eligible',
-        note: 'Not in the top ten right now.',
+        note: own
+          ? 'You\u2019re not in the top 10 right now.'
+          : 'Not in the top 10 right now.',
       }
     case 'provisional':
       return {
         value: 'Not eligible',
-        note: 'Provisional ratings aren\u2019t listed. A rating settles with more rated results.',
+        note: own
+          ? settleAdvice(unit)
+          : 'Provisional ratings aren\u2019t ranked.',
       }
     case 'inactive':
       return {
         value: 'Not eligible',
-        note: `The board lists players with a rated result ${window}.`,
+        note: `${own ? 'You haven\u2019t' : 'Hasn\u2019t'} played in the last ${windowDays} days.`,
       }
     case 'settled':
       return {
-        value: 'Eligible while active',
-        note: `The board lists the top ten players with a rated result ${window}.`,
+        value: 'Eligible',
+        note:
+          windowDays === undefined
+            ? 'Only recently active players are ranked.'
+            : `Only players active in the last ${windowDays} days are ranked.`,
       }
   }
 }
 
+const DEVIATION_HINT =
+  'How uncertain the rating is. It drops with every result and creeps up during time away. Above 110, the rating is provisional.'
+const VOLATILITY_HINT =
+  'How much results swing. Steady results keep it low; surprising wins and losses raise it.'
+
 const DetailRow = ({
   label,
+  hint,
   children,
 }: {
   label: string
+  // Shown in a tooltip on the label.
+  hint?: string
   children: React.ReactNode
 }) => (
   <div className="flex items-baseline justify-between gap-3">
-    <span className="text-white/60">{label}</span>
+    {hint ? (
+      <Tooltip
+        text={hint}
+        label={`${label}: ${hint}`}
+        className="text-white/60 underline decoration-white/30 decoration-dotted underline-offset-2"
+      >
+        {label}
+      </Tooltip>
+    ) : (
+      <span className="text-white/60">{label}</span>
+    )}
     <span className="text-right font-medium text-white/90">{children}</span>
   </div>
 )
@@ -70,6 +99,10 @@ interface Props {
   eligibility?: LeaderboardEligibility
   // Days within which the leaderboard's players last played.
   windowDays?: number
+  /** Whether the reader is the player: the notes then speak to them. */
+  own?: boolean
+  /** What a rated result in this mode is; games unless given. */
+  unit?: RatedUnit
 }
 
 export const ProfileColumn: React.FC<Props> = ({
@@ -80,12 +113,14 @@ export const ProfileColumn: React.FC<Props> = ({
   certainty,
   eligibility,
   windowDays,
+  own,
+  unit = 'games',
 }: Props) => {
   const wins = data.wins
   const draws = data.draws ?? 0
   const losses = data.losses ?? data.games - data.wins - (data?.draws || 0)
   const leaderboard = eligibility
-    ? describeEligibility(eligibility, windowDays)
+    ? describeEligibility(eligibility, { windowDays, own, unit })
     : undefined
 
   return (
@@ -109,6 +144,8 @@ export const ProfileColumn: React.FC<Props> = ({
               <Rating
                 rating={data.rating}
                 provisional={certainty?.provisional}
+                own={own}
+                unit={unit}
               />
             </b>
           </div>
@@ -193,12 +230,12 @@ export const ProfileColumn: React.FC<Props> = ({
               </span>
             </DetailRow>
             {certainty.deviation !== undefined && (
-              <DetailRow label="Deviation">
+              <DetailRow label="Deviation" hint={DEVIATION_HINT}>
                 {Math.round(certainty.deviation)}
               </DetailRow>
             )}
             {certainty.volatility !== undefined && (
-              <DetailRow label="Volatility">
+              <DetailRow label="Volatility" hint={VOLATILITY_HINT}>
                 {certainty.volatility.toFixed(3)}
               </DetailRow>
             )}

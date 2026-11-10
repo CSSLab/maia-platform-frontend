@@ -89,11 +89,9 @@ const Leaderboard: React.FC = () => {
         )}
         <div className="mt-3 w-full">
           <p className="text-xs text-white/60">
-            <span className="font-medium text-white/80">Note:</span> Each
-            leaderboard lists the top players who are linked to Lichess, have a
-            settled rating, and played that mode recently (the period is shown
-            on each board). A provisional rating, shown with a &ldquo;?&rdquo;,
-            doesn&apos;t qualify: it settles with more rated results.
+            <span className="font-medium text-white/80">Note:</span> To be
+            listed, sign in with Lichess, play enough to settle your rating (no
+            &ldquo;?&rdquo; after it), and keep playing that mode.
           </p>
         </div>
       </div>

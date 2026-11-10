@@ -100,7 +100,9 @@ export const StatsDisplay: React.FC<Props> = ({
           className={`flex flex-row items-center text-2xl font-bold ${cachedRating === undefined && 'opacity-0'} ${stats.rating === undefined && 'opacity-50'}`}
         >
           {cachedRating || 0}
-          {stats.provisional ? <ProvisionalMark /> : null}
+          {stats.provisional ? (
+            <ProvisionalMark own unit={isGame ? 'games' : undefined} />
+          ) : null}
           {stats.rating != undefined && stats.lastRating != undefined ? (
             <RatingDiffDisplay diff={stats.rating - stats.lastRating} />
           ) : null}
