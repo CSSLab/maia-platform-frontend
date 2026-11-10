@@ -4,7 +4,7 @@ import {
   Rating,
   RatedUnit,
   Tooltip,
-  settleAdvice,
+  rankAdvice,
 } from 'src/components/Common/Rating'
 import { TimeAgo } from 'src/components/Common/TimeAgo'
 import { LeaderboardEligibility } from 'src/lib/ratingUtils'
@@ -30,7 +30,7 @@ const describeEligibility = (
       return {
         value: 'Not eligible',
         note: own
-          ? settleAdvice(unit)
+          ? rankAdvice(unit)
           : 'Provisional ratings aren\u2019t ranked.',
       }
     case 'inactive':
@@ -226,7 +226,7 @@ export const ProfileColumn: React.FC<Props> = ({
                   certainty.provisional ? 'text-yellow-500' : 'text-green-500'
                 }
               >
-                {certainty.provisional ? 'Provisional' : 'Settled'}
+                {certainty.provisional ? 'Provisional' : 'Established'}
               </span>
             </DetailRow>
             {certainty.deviation !== undefined && (

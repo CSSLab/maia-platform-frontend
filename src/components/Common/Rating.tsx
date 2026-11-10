@@ -4,22 +4,25 @@ import { createPortal } from 'react-dom'
 /** What a rated result is called in a mode: a game, or a puzzle. */
 export type RatedUnit = 'games' | 'puzzles'
 
-const playMore = (unit?: RatedUnit) =>
-  unit === 'puzzles'
-    ? 'Solve more puzzles'
-    : unit === 'games'
-      ? 'Play more games'
-      : 'Play more'
+const isPuzzles = (unit?: RatedUnit) => unit === 'puzzles'
 
-/** How a rating gets settled, said to the player whose rating it is. */
-export const settleAdvice = (unit?: RatedUnit) =>
-  `${playMore(unit)} to settle your rating.`
+/** How a provisional rating gets onto the leaderboard, said to its owner. */
+export const rankAdvice = (unit?: RatedUnit) =>
+  `${isPuzzles(unit) ? 'Solve more puzzles' : 'Play more games'} to get ranked.`
 
 /** What the "?" after a rating means, to its owner (`own`) or to a visitor. */
-export const provisionalExplanation = (own?: boolean, unit?: RatedUnit) =>
-  own
-    ? `Your rating is provisional. ${playMore(unit)} to settle it.`
-    : 'This rating is provisional. It hasn’t settled yet.'
+export const provisionalExplanation = (own?: boolean, unit?: RatedUnit) => {
+  if (!own) {
+    return `This rating is provisional: too few recent ${unit ?? 'results'}.`
+  }
+  // A rating is provisional for a new player, and again after a long break.
+  const reason = isPuzzles(unit)
+    ? 'you haven\u2019t solved many puzzles recently. Solve more'
+    : unit === 'games'
+      ? 'you haven\u2019t played many games recently. Play more'
+      : 'you haven\u2019t played much recently. Play more'
+  return `Your rating is provisional because ${reason} to remove the \u201c?\u201d.`
+}
 
 const TOOLTIP_WIDTH = 224
 const EDGE_MARGIN = 8
