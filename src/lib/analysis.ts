@@ -85,13 +85,14 @@ export function convertBackendEvalToStockfishEval(
     Object.entries(winrate_loss_vec).sort(([, a], [, b]) => b - a),
   )
 
+  // The backend's scores are the side to move's. cp_vec is White's, as the
+  // engine's are, but mate_vec stays the side to move's (see
+  // sortStockfishMoves): flipping it made a move that gets Black mated show as
+  // Black mating (-M1) and rank first.
   if (turn === 'b') {
     model_optimal_cp *= -1
     for (const move in cp_vec_sorted) {
       cp_vec_sorted[move] *= -1
-    }
-    for (const move in mate_vec) {
-      mate_vec[move] *= -1
     }
   }
 
