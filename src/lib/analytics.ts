@@ -593,22 +593,37 @@ export type SignInSource =
   | 'analysis_lichess_tab'
   | 'auth_prompt'
 
-export const trackLichessConnectionInitiated = (source: SignInSource) => {
-  safeTrack('lichess_connection_initiated', { source })
+/**
+ * `signedInHereBefore`: whether this browser has been signed in before, which
+ * tells a returning account (signing in again, or on another page) from what
+ * is most likely a new one. Only browsers seen signed in since this was added
+ * (Nov 10, 2026) are known, so for a while some returning accounts count as
+ * new.
+ */
+export const trackLichessConnectionInitiated = (
+  source: SignInSource,
+  signedInHereBefore: boolean,
+) => {
+  safeTrack('lichess_connection_initiated', {
+    source,
+    signed_in_here_before: signedInHereBefore,
+  })
 }
 
 /**
  * The visitor came back from Lichess's sign-in page (to the page they
  * started from), signed in or not. `seconds`: since the button was pressed.
+ * `signedInHereBefore`: as above, before this sign-in.
  */
 export const trackLichessSignInReturned = (
   completed: boolean,
   source: SignInSource,
   seconds: number,
+  signedInHereBefore: boolean,
 ) => {
   safeTrack(
     completed ? 'lichess_sign_in_completed' : 'lichess_sign_in_not_completed',
-    { source, seconds },
+    { source, seconds, signed_in_here_before: signedInHereBefore },
   )
 }
 
