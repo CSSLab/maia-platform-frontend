@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import Script from 'next/script'
 import { useEffect } from 'react'
 import type { AppProps } from 'next/app'
+import { Analytics } from '@vercel/analytics/react'
 import { SoundProvider } from 'src/contexts/SoundContext'
 
 import { AuthContextProvider } from 'src/contexts/AuthContext'
@@ -180,6 +181,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <FeedbackButton />
           </div>
           <Toaster position="bottom-right" />
+          <Analytics />
           {/* Google Analytics loads once the page has loaded and the browser
               is idle, so it doesn't run while the page is being drawn. */}
           <Script
