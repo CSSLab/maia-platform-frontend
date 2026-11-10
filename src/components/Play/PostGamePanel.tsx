@@ -30,13 +30,16 @@ const actionClass =
   'flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors duration-200 md:text-[13px]'
 const primaryClass = `${actionClass} bg-human-4 text-white hover:bg-human-3`
 const secondaryClass = `${actionClass} border border-white/10 text-white/80 hover:border-white/20 hover:bg-white/5 hover:text-white`
+// The further options under the two buttons: quiet text links.
+const optionClass =
+  'block text-center text-[11px] leading-snug text-white/55 underline decoration-white/20 underline-offset-2 transition-colors duration-200 hover:text-white/90 hover:decoration-white/50 md:text-xs'
 
 /**
- * What to do next when a game against Maia ends: analyze it, practice the
- * moment it went wrong (once that exists for it), drill its opening (when
- * the site drills it), or play again; and, for a
- * guest, a line to sign in. Each action is reported once as shown, and when
- * pressed.
+ * What to do next when a game against Maia ends: analyze it or play again,
+ * and, as quieter links under those, practice the moments it went wrong
+ * (once that exists for it) or drill its opening (when the site drills it);
+ * for a guest, a line to sign in. Each action is reported once as shown,
+ * and when pressed.
  */
 export const PostGamePanel: React.FC<Props> = ({
   gameId,
@@ -53,9 +56,9 @@ export const PostGamePanel: React.FC<Props> = ({
 
   const ctas: PostGameCta[] = [
     ...(gameId ? (['analyze'] as const) : []),
+    ...(playAgain ? (['play_again'] as const) : []),
     ...(gameId && practiceHref ? (['practice'] as const) : []),
     ...(gameId && drill ? (['drill_opening'] as const) : []),
-    ...(playAgain ? (['play_again'] as const) : []),
   ]
   const ctaKey = ctas.join()
 
@@ -102,33 +105,6 @@ export const PostGamePanel: React.FC<Props> = ({
           Analyze
         </button>
       )}
-      {ctas.includes('practice') && practiceHref && (
-        <a
-          href={practiceHref}
-          onClick={() => click('practice')}
-          className={secondaryClass}
-        >
-          <span className="material-symbols-outlined shrink-0 !text-sm">
-            target
-          </span>
-          Practice mistakes
-        </a>
-      )}
-      {ctas.includes('drill_opening') && drill && (
-        <a
-          href={drill.href}
-          onClick={() => click('drill_opening')}
-          title={`Drill the ${drill.name} against Maia`}
-          className={secondaryClass}
-        >
-          <span className="material-symbols-outlined shrink-0 !text-sm">
-            school
-          </span>
-          <span className="min-w-0 whitespace-normal leading-tight">
-            Drill the {drill.name}
-          </span>
-        </a>
-      )}
       {ctas.includes('play_again') && playAgain && (
         <button
           type="button"
@@ -148,6 +124,29 @@ export const PostGamePanel: React.FC<Props> = ({
         <button type="button" onClick={returnTo} className={secondaryClass}>
           {returnToLabel}
         </button>
+      )}
+      {(ctas.includes('practice') || ctas.includes('drill_opening')) && (
+        <div className="mt-1 flex flex-col gap-1">
+          {ctas.includes('practice') && practiceHref && (
+            <a
+              href={practiceHref}
+              onClick={() => click('practice')}
+              className={optionClass}
+            >
+              Practice your mistakes
+            </a>
+          )}
+          {ctas.includes('drill_opening') && drill && (
+            <a
+              href={drill.href}
+              onClick={() => click('drill_opening')}
+              title={`Drill the ${drill.name} against Maia`}
+              className={optionClass}
+            >
+              Drill the {drill.name}
+            </a>
+          )}
+        </div>
       )}
       {/* Guests only. A first sign-in keeps the guest's rating and games.
           It comes back to /play: this page, without its game, would start a

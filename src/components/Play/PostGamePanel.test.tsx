@@ -51,15 +51,15 @@ describe('PostGamePanel', () => {
 
   it('hides practice until there is one to go to', () => {
     renderPanel({ playAgain: jest.fn() })
-    expect(screen.queryByText('Practice mistakes')).toBeNull()
+    expect(screen.queryByText('Practice your mistakes')).toBeNull()
 
     jest.clearAllMocks()
     renderPanel({ practiceHref: '/practice?game=g1' })
-    expect(screen.getByText('Practice mistakes')).toBeTruthy()
+    expect(screen.getByText('Practice your mistakes')).toBeTruthy()
     expect(trackPostGameCtaShown).toHaveBeenCalledWith('practice', 'g1', 'play')
   })
 
-  it("offers a drill of the game's opening, after practice", () => {
+  it("offers practice and a drill of the game's opening as quieter links", () => {
     renderPanel({ playAgain: jest.fn() })
     expect(screen.queryByText(/^Drill the/)).toBeNull()
 
@@ -73,7 +73,7 @@ describe('PostGamePanel', () => {
     expect(link.getAttribute('href')).toBe('/drills?opening=italian-game')
     expect(
       (trackPostGameCtaShown as jest.Mock).mock.calls.map(([cta]) => cta),
-    ).toEqual(['analyze', 'practice', 'drill_opening', 'play_again'])
+    ).toEqual(['analyze', 'play_again', 'practice', 'drill_opening'])
 
     fireEvent.click(link)
     expect(trackPostGameCtaClicked).toHaveBeenCalledWith(
