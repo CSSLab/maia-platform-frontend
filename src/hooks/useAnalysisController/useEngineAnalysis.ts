@@ -34,6 +34,9 @@ const STOCKFISH_RENDER_INTERVAL_MS = 150
  * inference, and the last position's moves came later.
  */
 const ANALYSIS_DELAY_MS = 50
+// Longest wait for the opening book before showing Maia's own moves. The
+// book usually answers in 0.1-0.3s, sooner than Maia itself.
+const OPENING_BOOK_TIMEOUT_MS = 2500
 
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
@@ -122,10 +125,26 @@ export const useEngineAnalysis = (
     return maiaEvaluations
   }
 
+  // The book only reorders Maia's moves in the opening: if it fails (offline,
+  // or the server down) or is slow, Maia's own moves are shown instead of
+  // none at all.
   async function fetchOpeningBook(board: Chess) {
-    const bookMoves = await fetchOpeningBookMoves(board.fen())
-
-    return bookMoves
+    let timer: number | undefined
+    try {
+      return await Promise.race([
+        fetchOpeningBookMoves(board.fen()),
+        new Promise<null>((resolve) => {
+          timer = window.setTimeout(
+            () => resolve(null),
+            OPENING_BOOK_TIMEOUT_MS,
+          )
+        }),
+      ])
+    } catch {
+      return null
+    } finally {
+      window.clearTimeout(timer)
+    }
   }
 
   useEffect(() => {
