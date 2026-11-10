@@ -12,9 +12,11 @@ import {
   buildGameTreeFromMoveList,
   buildMovesListFromGameStates,
   insertBackendStockfishEvalToGameTree,
+  readPgnTime,
 } from 'src/lib'
 import { buildUrl } from './utils'
 import { formatMaiaName } from 'src/lib/maiaNames'
+import { parseTimeMs } from 'src/lib/relativeTime'
 import { AvailableMoves } from 'src/types/puzzle'
 import { Chess } from 'chess.ts'
 
@@ -256,6 +258,8 @@ export const fetchAnalyzedPgnGame = async (id: string, pgn: string) => {
     gameType,
     termination,
     tree,
+    // The reply doesn't say when the game was played; its PGN does.
+    createdAt: readPgnTime(pgn),
   } as AnalyzedGame
 }
 
@@ -359,6 +363,10 @@ export const fetchAnalyzedMaiaGame = async (
     // is saved. (A reply without is_owner, from before the backend sent it,
     // counts as the owner's, as every game opened then was.)
     isOwner: data['is_owner'] !== false,
+    // UTC, with or without a zone; `ended_time` only on games finished since
+    // the backend began keeping it.
+    createdAt: parseTimeMs(data['created_time']),
+    endedAt: parseTimeMs(data['ended_time']),
   } as AnalyzedGame
 }
 

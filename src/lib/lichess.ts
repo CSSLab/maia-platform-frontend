@@ -8,6 +8,7 @@ import {
   type AvailableMoves,
   type Termination,
 } from 'src/types'
+import { parsePgnTime } from './relativeTime'
 
 /**
  * A FEN as python-chess writes it (and so as the backend stores positions):
@@ -101,6 +102,15 @@ const readPgnHeaders = (pgn: string) => {
   return headers
 }
 
+/**
+ * When a PGN's game was started, in epoch milliseconds, from the `UTCDate`
+ * and `UTCTime` headers Lichess writes; null without them.
+ */
+export const readPgnTime = (pgn: string): number | null => {
+  const headers = readPgnHeaders(pgn)
+  return parsePgnTime(headers.UTCDate, headers.UTCTime)?.getTime() ?? null
+}
+
 /** The SAN moves of a PGN's main line, without comments, variations or NAGs. */
 const readPgnMoves = (pgn: string) => {
   let text = pgn
@@ -174,6 +184,7 @@ export const parseLichessPgn = (
     gameType: 'blitz',
     termination,
     tree,
+    createdAt: readPgnTime(pgn),
   }
 }
 

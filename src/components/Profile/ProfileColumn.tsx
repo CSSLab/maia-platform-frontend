@@ -1,8 +1,12 @@
 import React from 'react'
 
+import { TimeAgo } from 'src/components/Common/TimeAgo'
+
 interface Props {
   icon: string
   name: string
+  /** When the player's last rated result in this mode was, if known. */
+  lastPlayed?: number | null
   data: {
     rating: number
     highest: number
@@ -14,7 +18,12 @@ interface Props {
   }
 }
 
-export const ProfileColumn: React.FC<Props> = ({ icon, name, data }: Props) => {
+export const ProfileColumn: React.FC<Props> = ({
+  icon,
+  name,
+  lastPlayed,
+  data,
+}: Props) => {
   const wins = data.wins
   const draws = data.draws ?? 0
   const losses = data.losses ?? data.games - data.wins - (data?.draws || 0)
@@ -26,6 +35,11 @@ export const ProfileColumn: React.FC<Props> = ({ icon, name, data }: Props) => {
           {icon}
         </span>
         <p className="text-xl font-bold text-white/95 md:text-2xl">{name}</p>
+        <TimeAgo
+          time={lastPlayed}
+          prefix="Last played "
+          className="ml-auto whitespace-nowrap text-xs text-white/50"
+        />
       </div>
       <div className="flex flex-col gap-3 px-4 pb-4">
         <div className="flex items-center justify-between">

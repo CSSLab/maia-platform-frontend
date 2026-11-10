@@ -11,6 +11,7 @@ import React, {
 import { motion } from 'framer-motion'
 import { Tournament } from 'src/components'
 import { FavoriteModal } from 'src/components/Common/FavoriteModal'
+import { TimeAgo } from 'src/components/Common/TimeAgo'
 import { AnalysisListContext, AuthContext } from 'src/contexts'
 import { fetchMaiaGameList, deleteCustomGame } from 'src/api'
 import { forgetImportedVariations } from 'src/lib/customGameVariations'
@@ -22,6 +23,7 @@ import {
 } from 'src/lib/favorites'
 import { MaiaGameListEntry } from 'src/types'
 import { formatMaiaName, formatSavedName } from 'src/lib/maiaNames'
+import { parseTimeMs } from 'src/lib/relativeTime'
 import { useRouter } from 'next/router'
 import { AnalysisGameListName } from 'src/constants/analysis'
 
@@ -31,9 +33,20 @@ interface GameData {
   result: string
   player_color: 'white' | 'black'
   created_time?: string
+  ended_time?: string | null
   is_favorited?: boolean
   custom_name?: string
 }
+
+// When a listed game was started (a custom game: imported) and, where the
+// backend kept it, ended.
+const gameTimes = (game: {
+  created_time?: string | null
+  ended_time?: string | null
+}) => ({
+  createdAt: parseTimeMs(game.created_time),
+  endedAt: parseTimeMs(game.ended_time),
+})
 
 type CachedGameEntry = MaiaGameListEntry & {
   is_favorited?: boolean
@@ -243,6 +256,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                   pgn: game.pgn,
                   is_favorited: true, // All games in favorites are favorited
                   custom_name: customName,
+                  ...gameTimes(game),
                 }
               })
             } else {
@@ -254,6 +268,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                   result: game.result || '*',
                   is_favorited: game.is_favorited,
                   custom_name: game.custom_name,
+                  ...gameTimes(game),
                 }))
               } else {
                 const parse = (
@@ -263,6 +278,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                     result: string
                     player_color: 'white' | 'black'
                     created_time?: string
+                    ended_time?: string | null
                     is_favorited?: boolean
                     custom_name?: string
                   },
@@ -287,6 +303,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                     type,
                     is_favorited: game.is_favorited || false,
                     custom_name: customName,
+                    ...gameTimes(game),
                   }
                 }
 
@@ -356,6 +373,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                 result: string
                 player_color: 'white' | 'black'
                 created_time?: string
+                ended_time?: string | null
                 is_favorited?: boolean
                 custom_name?: string
               },
@@ -380,6 +398,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                 type,
                 is_favorited: game.is_favorited || false,
                 custom_name: customName,
+                ...gameTimes(game),
               }
             }
 
@@ -941,13 +960,24 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                         <div
                           className={`flex h-full w-10 items-center justify-center ${selectedGame ? 'bg-glass-strong' : 'group-hover:bg-glass-stronger'}`}
                         >
-                          <p className="text-sm text-white/70">
-                            {selected === 'play' ||
-                            selected === 'hb' ||
-                            selected === 'favorites'
-                              ? (currentPage - 1) * 25 + index + 1
-                              : index + 1}
-                          </p>
+                          {/* When the game was played ("3d"), in place of
+                              the row's number: this column is all the room
+                              the desktop list has beside the name. */}
+                          <TimeAgo
+                            time={game.createdAt}
+                            end={game.endedAt}
+                            format="compact"
+                            className="whitespace-nowrap text-xs text-white/60"
+                            fallback={
+                              <p className="text-sm text-white/70">
+                                {selected === 'play' ||
+                                selected === 'hb' ||
+                                selected === 'favorites'
+                                  ? (currentPage - 1) * 25 + index + 1
+                                  : index + 1}
+                              </p>
+                            }
+                          />
                         </div>
                         <button
                           onClick={() => {

@@ -18,6 +18,14 @@ export interface AnalyzedGame extends BaseGame {
    * else's, opened by its link. Its analysis can be viewed but isn't saved.
    */
   isOwner?: boolean
+  /**
+   * When the game was started, in epoch milliseconds: a stored game's
+   * `created_time` (a custom game: when it was imported), a Lichess game's
+   * PGN date. Absent or null when it isn't known.
+   */
+  createdAt?: number | null
+  /** When it ended; only stored games that finished since the backend kept it. */
+  endedAt?: number | null
 }
 
 export interface MaiaEvaluation {
@@ -116,6 +124,10 @@ export interface MaiaGameListEntry {
   label: string
   result: string
   pgn?: string
+  /** When the game was started (a custom game: imported), epoch milliseconds. */
+  createdAt?: number | null
+  /** When it ended, where that is known. */
+  endedAt?: number | null
 }
 
 export interface Termination {

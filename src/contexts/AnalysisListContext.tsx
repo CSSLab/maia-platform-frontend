@@ -7,6 +7,7 @@ import {
   fetchMaiaGameList,
 } from 'src/api'
 import { formatMaiaName } from 'src/lib/maiaNames'
+import { parseTimeMs } from 'src/lib/relativeTime'
 import { backOff } from 'exponential-backoff'
 
 interface IAnalysisListContext {
@@ -92,6 +93,9 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
           label: `${data.players.white.user?.id || 'Unknown'} vs. ${data.players.black.user?.id || 'Unknown'}`,
           result: result,
           pgn: data.pgn,
+          // Lichess sends both in epoch milliseconds.
+          createdAt: parseTimeMs(data.createdAt),
+          endedAt: parseTimeMs(data.lastMoveAt),
         }
 
         setAnalysisLichessList((x) => [...x, game])
@@ -117,6 +121,7 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
               result: string
               player_color: 'white' | 'black'
               created_time?: string
+              ended_time?: string | null
             },
             type: 'play' | 'hand' | 'brain' | 'custom',
           ) => {
@@ -130,6 +135,8 @@ export const AnalysisListContextProvider: React.FC<{ children: ReactNode }> = ({
                   : `${maia} vs. You`,
               result: game.result,
               type,
+              createdAt: parseTimeMs(game.created_time),
+              endedAt: parseTimeMs(game.ended_time),
             }
           }
 

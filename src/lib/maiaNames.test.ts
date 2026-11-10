@@ -24,6 +24,9 @@ describe('formatMaiaName', () => {
     expect(getMaiaModelVersion('2026-02-09T09:41:00')).toBe('Maia-2')
     expect(getMaiaModelVersion('2026-02-09T09:43:00')).toBe('Maia-3')
     expect(getMaiaModelVersion('2026-02-09T04:43:00-05:00')).toBe('Maia-3')
+    // As newer backends send them, with a zone.
+    expect(getMaiaModelVersion('2025-07-12T16:30:00.000Z')).toBe('Maia-1')
+    expect(getMaiaModelVersion('2025-07-12T16:40:00.000000Z')).toBe('Maia-2')
   })
 
   it('takes a game without a time to be a current one', () => {

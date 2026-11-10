@@ -1,4 +1,4 @@
-import { parseLichessPgn } from './lichess'
+import { parseLichessPgn, readPgnTime } from './lichess'
 
 const HEADERS = `[Event "rated blitz game"]
 [Site "https://lichess.org/game/AAAAAAAA"]
@@ -28,6 +28,29 @@ describe('parseLichessPgn', () => {
       winner: 'none',
       condition: 'Normal',
     })
+  })
+
+  it('reads when the game was played from the UTC date and time', () => {
+    const played = `[UTCDate "2026.11.10"]\n[UTCTime "07:53:30"]\n`
+    expect(
+      parseLichessPgn('AAAAAAAA', `${HEADERS}${played}\n1. e4 e5 1/2-1/2`)
+        ?.createdAt,
+    ).toBe(Date.UTC(2026, 10, 10, 7, 53, 30))
+    expect(readPgnTime(`${HEADERS}${played}\n1. e4 *`)).toBe(
+      Date.UTC(2026, 10, 10, 7, 53, 30),
+    )
+  })
+
+  it('has no time for a PGN that doesn’t say when it was played', () => {
+    expect(
+      parseLichessPgn('AAAAAAAA', `${HEADERS}\n1. e4 e5 1/2-1/2`)?.createdAt,
+    ).toBeNull()
+    // The day alone isn't enough to say how long ago.
+    expect(readPgnTime(`[Date "2026.11.10"]\n\n1. e4 *`)).toBeNull()
+    expect(readPgnTime(`[UTCDate "2026.11.10"]\n\n1. e4 *`)).toBeNull()
+    expect(
+      readPgnTime(`[UTCDate "????.??.??"]\n[UTCTime "07:53:30"]\n\n1. e4 *`),
+    ).toBeNull()
   })
 
   it('gives a game without a result no ending', () => {
