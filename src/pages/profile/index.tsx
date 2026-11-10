@@ -204,6 +204,7 @@ const Profile: React.FC<Props> = (props: Props) => {
         <GameList />
         <UserProfile
           stats={props.stats}
+          own
           leaderboardStatus={leaderboardStatus}
           windowDays={windowDays}
         />
@@ -264,6 +265,7 @@ const Profile: React.FC<Props> = (props: Props) => {
         <GameList />
         <UserProfile
           stats={props.stats}
+          own
           leaderboardStatus={leaderboardStatus}
           windowDays={windowDays}
         />

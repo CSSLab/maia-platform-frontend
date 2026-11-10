@@ -16,18 +16,22 @@ interface Props {
   // board's players last played. Both come with the leaderboard.
   leaderboardStatus?: LeaderboardStatus
   windowDays?: Partial<Record<RatedMode, number>>
+  /** Whether the profile is the reader's own. */
+  own?: boolean
 }
 
 export const UserProfile = ({
   stats,
   leaderboardStatus,
   windowDays,
+  own,
 }: Props) => {
   const ratingDetails = (
     certainty: RatingCertainty,
     gameType: GameType,
     mode: RatedMode,
   ) => ({
+    own,
     certainty,
     windowDays: windowDays?.[mode],
     eligibility: leaderboardEligibility({
@@ -94,6 +98,7 @@ export const UserProfile = ({
           games: stats.trainGames,
           wins: stats.trainCorrect,
         }}
+        unit="puzzles"
         {...ratingDetails(stats.trainCertainty, 'train', 'puzzles')}
       />
       <ProfileColumn
