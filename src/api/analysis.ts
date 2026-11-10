@@ -152,8 +152,7 @@ export const fetchAnalyzedWorldChampionshipGame = async (
   const stockfishEvaluations: MoveValueMapping[] = data['stockfish_evals']
   // How far the mates are, where the stored analysis recorded it (absent from
   // older backends).
-  const stockfishMates: MoveValueMapping[] | undefined =
-    data['stockfish_mates']
+  const stockfishMates: MoveValueMapping[] | undefined = data['stockfish_mates']
 
   const availableMoves: AvailableMoves[] = []
 
