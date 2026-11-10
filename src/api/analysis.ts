@@ -150,6 +150,10 @@ export const fetchAnalyzedWorldChampionshipGame = async (
     [model: string]: MoveValueMapping[]
   } = {}
   const stockfishEvaluations: MoveValueMapping[] = data['stockfish_evals']
+  // How far the mates are, where the stored analysis recorded it (absent from
+  // older backends).
+  const stockfishMates: MoveValueMapping[] | undefined =
+    data['stockfish_mates']
 
   const availableMoves: AvailableMoves[] = []
 
@@ -178,7 +182,12 @@ export const fetchAnalyzedWorldChampionshipGame = async (
 
   const moves = buildMovesListFromGameStates(gameStates)
   const tree = buildGameTreeFromMoveList(moves, moves[0].board)
-  insertBackendStockfishEvalToGameTree(tree, moves, stockfishEvaluations)
+  insertBackendStockfishEvalToGameTree(
+    tree,
+    moves,
+    stockfishEvaluations,
+    stockfishMates,
+  )
 
   return {
     id,

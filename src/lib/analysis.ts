@@ -10,9 +10,16 @@ import {
 } from 'src/types'
 import { MAIA_MODELS } from 'src/constants/common'
 
+/**
+ * possibleMoves: the backend's centipawns, from the side to move, with every
+ * mate scored +-10000. mates: how far those mates are, when the analysis
+ * recorded it (the backend's stockfish_mates; also the side to move's: N > 0
+ * mates in N, N < 0 gets mated in N).
+ */
 export function convertBackendEvalToStockfishEval(
   possibleMoves: MoveValueMapping,
   turn: 'w' | 'b',
+  mates?: MoveValueMapping,
 ): StockfishEvaluation {
   const cp_vec: { [key: string]: number } = {}
   const cp_relative_vec: { [key: string]: number } = {}
@@ -27,18 +34,29 @@ export function convertBackendEvalToStockfishEval(
     // Detect mate patterns (±10000 indicates mate)
     let mateIn: number | undefined = undefined
     if (Math.abs(cp) >= 10000) {
-      // Estimate mate in moves based on how close to 10000 it is
-      // The closer to 10000, the faster the mate
-      const mateDistance = Math.abs(10000 - Math.abs(cp))
-      mateIn =
-        cp > 0
-          ? Math.max(1, Math.floor(mateDistance / 100) + 1)
-          : -Math.max(1, Math.floor(mateDistance / 100) + 1)
+      const known = mates?.[move]
+      if (known && Math.sign(known) === Math.sign(cp)) {
+        mateIn = known
+      } else {
+        // Estimate mate in moves based on how close to 10000 it is
+        // The closer to 10000, the faster the mate
+        const mateDistance = Math.abs(10000 - Math.abs(cp))
+        mateIn =
+          cp > 0
+            ? Math.max(1, Math.floor(mateDistance / 100) + 1)
+            : -Math.max(1, Math.floor(mateDistance / 100) + 1)
+      }
       mate_vec[move] = mateIn
     }
 
     cp_vec[move] = cp
-    if (cp > model_optimal_cp) {
+    // Between mates (all scored 10000), the fastest is the best move.
+    const fasterMate =
+      cp === model_optimal_cp &&
+      mateIn !== undefined &&
+      mateIn > 0 &&
+      mateIn < (mate_vec[model_move] ?? Infinity)
+    if (cp > model_optimal_cp || fasterMate) {
       model_optimal_cp = cp
       model_move = move
     }
@@ -125,6 +143,7 @@ export function insertBackendStockfishEvalToGameTree(
   tree: GameTree,
   moves: RawMove[],
   stockfishEvaluations: MoveValueMapping[],
+  stockfishMates?: MoveValueMapping[],
 ) {
   let currentNode: GameNode | null = tree.getRoot()
 
@@ -137,6 +156,7 @@ export function insertBackendStockfishEvalToGameTree(
       ? convertBackendEvalToStockfishEval(
           stockfishEvaluations[i],
           moves[i].board.split(' ')[1] as 'w' | 'b',
+          stockfishMates?.[i],
         )
       : undefined
 
