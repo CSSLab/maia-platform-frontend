@@ -3,7 +3,8 @@ import React, { useCallback, useEffect, useState } from 'react'
 
 import { fetchLeaderboard } from 'src/api'
 import { LeaderboardData } from 'src/types'
-import { LeaderboardColumn } from 'src/components'
+import { LeaderboardColumn, TimeAgo } from 'src/components'
+import { parseTimeMs } from 'src/lib/relativeTime'
 import { LeaderboardProvider } from 'src/components/Leaderboard/LeaderboardContext'
 
 type Ranking = { display_name: string; elo: number }[]
@@ -16,29 +17,11 @@ const COLUMNS = [
   { id: 'brain', name: 'Brain', key: 'brain_leaders', mode: 'brain' },
 ] as const
 
-const getTimeAgo = (date: Date) => {
-  const now = new Date()
-  const diffInMinutes = Math.floor(
-    (now.getTime() - date.getTime()) / (1000 * 60),
-  )
-
-  if (diffInMinutes < 1) return 'Just now'
-  if (diffInMinutes < 60)
-    return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`
-
-  const diffInHours = Math.floor(diffInMinutes / 60)
-  if (diffInHours < 24)
-    return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`
-
-  const diffInDays = Math.floor(diffInHours / 24)
-  return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`
-}
-
 // The heading and the columns render at once (and on the server); each
 // column shows placeholder rows until the rankings arrive.
 const Leaderboard: React.FC = () => {
   const [error, setError] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null)
   const [rankings, setRankings] = useState<Record<string, Ranking> | null>(null)
   // Days within which each board's players last played, by backend mode.
   const [windowDays, setWindowDays] = useState<LeaderboardData['window_days']>(
@@ -49,7 +32,8 @@ const Leaderboard: React.FC = () => {
     setError(false)
     try {
       const lb = await fetchLeaderboard()
-      setLastUpdated(new Date(lb.last_updated + 'Z'))
+      // UTC, sent with or without a zone.
+      setLastUpdated(parseTimeMs(lb.last_updated))
       setRankings(
         Object.fromEntries(
           COLUMNS.map((column) => [column.id, lb[column.key]]),
@@ -75,7 +59,7 @@ const Leaderboard: React.FC = () => {
           </h1>
 
           <p className="mt-4 text-sm text-white/60 md:mt-0">
-            Last updated: {lastUpdated ? getTimeAgo(lastUpdated) : '...'}
+            Last updated: {lastUpdated ? <TimeAgo time={lastUpdated} /> : '...'}
           </p>
         </div>
         {error ? (

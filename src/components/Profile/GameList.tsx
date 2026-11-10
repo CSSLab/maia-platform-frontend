@@ -5,6 +5,8 @@ import { AuthContext } from 'src/contexts'
 import { MaiaGameListEntry } from 'src/types'
 import { streamLichessGames, fetchMaiaGameList } from 'src/api'
 import { formatMaiaName, formatSavedName } from 'src/lib/maiaNames'
+import { parseTimeMs } from 'src/lib/relativeTime'
+import { TimeAgo } from 'src/components/Common/TimeAgo'
 
 interface GameData {
   game_id: string
@@ -12,7 +14,17 @@ interface GameData {
   result: string
   player_color: 'white' | 'black'
   created_time?: string
+  ended_time?: string | null
 }
+
+// When a listed game was started and, where the backend kept it, ended.
+const gameTimes = (game: {
+  created_time?: string | null
+  ended_time?: string | null
+}) => ({
+  createdAt: parseTimeMs(game.created_time),
+  endedAt: parseTimeMs(game.ended_time),
+})
 
 interface GameListProps {
   showCustom?: boolean
@@ -96,6 +108,9 @@ export const GameList = ({
           label: `${data.players.white.user?.id || 'Unknown'} vs. ${data.players.black.user?.id || 'Unknown'}`,
           result: result,
           type: 'lichess',
+          // Lichess sends both in epoch milliseconds.
+          createdAt: parseTimeMs(data.createdAt),
+          endedAt: parseTimeMs(data.lastMoveAt),
         }
 
         setGames((x) => [...x, game])
@@ -138,6 +153,7 @@ export const GameList = ({
                   pgn: game.pgn,
                   is_favorited: true, // All games in favorites are favorited
                   custom_name: customName,
+                  ...gameTimes(game),
                 }
               })
             } else {
@@ -149,6 +165,7 @@ export const GameList = ({
                   result: string
                   player_color: 'white' | 'black'
                   created_time?: string
+                  ended_time?: string | null
                   is_favorited?: boolean
                   custom_name?: string
                 },
@@ -176,6 +193,7 @@ export const GameList = ({
                   type,
                   is_favorited: game.is_favorited || false,
                   custom_name: customName,
+                  ...gameTimes(game),
                 }
               }
 
@@ -433,7 +451,13 @@ export const GameList = ({
                           </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
+                      <TimeAgo
+                        time={game.createdAt}
+                        end={game.endedAt}
+                        format="responsive"
+                        className="whitespace-nowrap text-xs text-white/50"
+                      />
                       <p className="whitespace-nowrap text-sm text-white/70">
                         {game.result.replace('1/2', '½').replace('1/2', '½')}
                       </p>

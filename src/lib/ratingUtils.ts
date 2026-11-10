@@ -2,6 +2,7 @@
  * Utility functions for handling chess ratings
  */
 
+import { parseTime } from 'src/lib/relativeTime'
 import { RatedMode, RatingCertainty } from 'src/types'
 
 /**
@@ -54,18 +55,14 @@ const positiveNumber = (value: unknown): number | undefined =>
     ? value
     : undefined
 
-// The backend's times are UTC, written without a zone ("2026-11-01 18:22:36").
-const parseUtcTime = (value: unknown): Date | undefined => {
-  if (typeof value !== 'string' || !value) return undefined
-  const iso = value.replace(' ', 'T')
-  const date = new Date(/(Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : `${iso}Z`)
-  return Number.isNaN(date.getTime()) ? undefined : date
-}
+// UTC, with or without a zone (see parseTime).
+const lastPlayedOf = (value: unknown): Date | undefined =>
+  typeof value === 'string' ? (parseTime(value) ?? undefined) : undefined
 
 /**
  * How certain a player's rating in `mode` is, from a get_player_stats
- * response. Today the backend sends only <mode>_provisional; the deviation,
- * volatility and time of the last rated result are read when present.
+ * response. The deviation, volatility and time of the last rated result are
+ * read when the backend sends them.
  */
 export const parseRatingCertainty = (
   data: Record<string, unknown>,
@@ -74,7 +71,7 @@ export const parseRatingCertainty = (
   provisional: data[`${mode}_provisional`] === true,
   deviation: positiveNumber(data[`${mode}_elo_deviation`]),
   volatility: positiveNumber(data[`${mode}_elo_volatility`]),
-  lastPlayed: parseUtcTime(data[`${mode}_last_played`]),
+  lastPlayed: lastPlayedOf(data[`${mode}_last_played`]),
 })
 
 export const daysSince = (date: Date, now: Date = new Date()): number =>

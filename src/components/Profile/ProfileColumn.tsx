@@ -1,15 +1,9 @@
 import React from 'react'
 
 import { Rating } from 'src/components/Common/Rating'
-import { LeaderboardEligibility, daysSince } from 'src/lib/ratingUtils'
+import { TimeAgo } from 'src/components/Common/TimeAgo'
+import { LeaderboardEligibility } from 'src/lib/ratingUtils'
 import { RatingCertainty } from 'src/types'
-
-const formatLastPlayed = (lastPlayed: Date) => {
-  const days = Math.floor(daysSince(lastPlayed))
-  if (days === 0) return 'Today'
-  if (days === 1) return 'Yesterday'
-  return `${days} days ago`
-}
 
 // The leaderboard row's value, and a sentence saying why.
 const describeEligibility = (
@@ -60,6 +54,8 @@ const DetailRow = ({
 interface Props {
   icon: string
   name: string
+  /** When the player's last rated result in this mode was, if known. */
+  lastPlayed?: number | null
   data: {
     rating: number
     highest: number
@@ -79,6 +75,7 @@ interface Props {
 export const ProfileColumn: React.FC<Props> = ({
   icon,
   name,
+  lastPlayed,
   data,
   certainty,
   eligibility,
@@ -98,6 +95,11 @@ export const ProfileColumn: React.FC<Props> = ({
           {icon}
         </span>
         <p className="text-xl font-bold text-white/95 md:text-2xl">{name}</p>
+        <TimeAgo
+          time={lastPlayed}
+          prefix="Last played "
+          className="ml-auto whitespace-nowrap text-xs text-white/50"
+        />
       </div>
       <div className="flex flex-col gap-3 px-4 pb-4">
         <div className="flex items-center justify-between">
@@ -198,11 +200,6 @@ export const ProfileColumn: React.FC<Props> = ({
             {certainty.volatility !== undefined && (
               <DetailRow label="Volatility">
                 {certainty.volatility.toFixed(3)}
-              </DetailRow>
-            )}
-            {certainty.lastPlayed && (
-              <DetailRow label="Last rated result">
-                {formatLastPlayed(certainty.lastPlayed)}
               </DetailRow>
             )}
             {leaderboard && (

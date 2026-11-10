@@ -59,6 +59,7 @@ import { MovesContainer } from 'src/components/Board/MovesContainer'
 import { BoardController } from 'src/components/Board/BoardController'
 import { PromotionOverlay } from 'src/components/Board/PromotionOverlay'
 import { GameInfo } from 'src/components/Common/GameInfo'
+import { TimeAgo } from 'src/components/Common/TimeAgo'
 import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import Head from 'next/head'
 import toast from 'react-hot-toast'
@@ -1665,6 +1666,13 @@ const Analysis: React.FC<Props> = ({
             </div>
           ),
         )}
+        {/* When the game was played (a custom game: imported), if known. */}
+        <TimeAgo
+          time={analyzedGame.createdAt}
+          end={analyzedGame.endedAt}
+          prefix={analyzedGame.type === 'custom' ? 'Imported ' : 'Played '}
+          className="mt-0.5 block text-xs text-secondary"
+        />
       </div>
       {/* Phones: one line, each name cut short rather than wrapped, and the
           result between them only if the game has one. */}
@@ -1691,6 +1699,12 @@ const Analysis: React.FC<Props> = ({
                 : '½-½'}
           </span>
         )}
+        <TimeAgo
+          time={analyzedGame.createdAt}
+          end={analyzedGame.endedAt}
+          format="compact"
+          className="shrink-0 text-primary/50"
+        />
         <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
           <span className="inline-flex w-4 shrink-0 items-center justify-center">
             <div className="h-2 w-2 rounded-full border-[0.5px] bg-black" />

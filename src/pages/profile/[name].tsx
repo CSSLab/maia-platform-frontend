@@ -11,6 +11,7 @@ import {
   AuthenticatedWrapper,
   UserProfile,
   GameList,
+  JoinedDate,
   Loading,
   ProfileLeaderboardBadges,
 } from 'src/components'
@@ -181,19 +182,22 @@ const Profile: React.FC<Props> = (props: Props) => {
               loading={leaderboardLoading}
             />
           </div>
-          <a
-            target="_blank"
-            rel="noreferrer"
-            href={`https://lichess.org/@/${props.name}`}
-            className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
-          >
-            <img
-              src="/assets/icons/lichess.svg"
-              className="h-3 w-3"
-              alt="Lichess"
-            />
-            <span className="text-xs text-white/70">{props.name}</span>
-          </a>
+          <div className="flex flex-wrap items-center gap-x-2">
+            <a
+              target="_blank"
+              rel="noreferrer"
+              href={`https://lichess.org/@/${props.name}`}
+              className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
+            >
+              <img
+                src="/assets/icons/lichess.svg"
+                className="h-3 w-3"
+                alt="Lichess"
+              />
+              <span className="text-xs text-white/70">{props.name}</span>
+            </a>
+            <JoinedDate time={props.stats.joinedAt} />
+          </div>
         </div>
       </motion.div>
       <motion.div
@@ -241,19 +245,22 @@ const Profile: React.FC<Props> = (props: Props) => {
               loading={leaderboardLoading}
             />
           </div>
-          <a
-            target="_blank"
-            rel="noreferrer"
-            href={`https://lichess.org/@/${props.name}`}
-            className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
-          >
-            <img
-              src="/assets/icons/lichess.svg"
-              className="h-3 w-3"
-              alt="Lichess"
-            />
-            <span className="text-xs text-white/70">{props.name}</span>
-          </a>
+          <div className="flex flex-wrap items-center gap-x-2">
+            <a
+              target="_blank"
+              rel="noreferrer"
+              href={`https://lichess.org/@/${props.name}`}
+              className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
+            >
+              <img
+                src="/assets/icons/lichess.svg"
+                className="h-3 w-3"
+                alt="Lichess"
+              />
+              <span className="text-xs text-white/70">{props.name}</span>
+            </a>
+            <JoinedDate time={props.stats.joinedAt} />
+          </div>
         </div>
       </motion.div>
       <motion.div
