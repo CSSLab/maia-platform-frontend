@@ -55,6 +55,7 @@ export const browserPostHogConfig: Pick<
   | 'defaults'
   | 'disable_session_recording'
   | 'enable_heatmaps'
+  | 'request_queue_config'
   | 'ui_host'
 > = {
   // Through the rewrites in next.config.js, so ad blockers don't drop events.
@@ -75,6 +76,11 @@ export const browserPostHogConfig: Pick<
   enable_heatmaps: false,
   disable_session_recording: true,
   capture_exceptions: true,
+  // Events are sent together in one request each time this passes, and each
+  // request through /ingest is billed: at the default 3 s, about 65,000 a day
+  // for 67,000 events. 5 s is the most PostHog allows; what is waiting is
+  // still sent when the page is left.
+  request_queue_config: { flush_interval_ms: 5000 },
   capture_performance: {
     web_vitals: true,
     // LCP is sent by src/lib/largestContentfulPaint, which starts before

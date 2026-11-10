@@ -150,8 +150,13 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
         ? window.setTimeout(fetchGlobalStats, 800)
         : undefined
 
-    // Update every 5 minutes
-    const interval = setInterval(fetchGlobalStats, 5 * 60 * 1000)
+    // Every 5 minutes, while the page is on screen.
+    const interval = setInterval(
+      () => {
+        if (document.visibilityState === 'visible') fetchGlobalStats()
+      },
+      5 * 60 * 1000,
+    )
 
     return () => {
       if (idleHandle !== undefined) {
