@@ -1,4 +1,5 @@
 import type { PostHog } from 'posthog-js'
+import { looksAutomated } from 'src/lib/looksAutomated'
 
 type Properties = Record<string, unknown>
 
@@ -27,6 +28,9 @@ export const capture = (event: string, properties?: Properties) => {
 }
 
 export const loadPostHog = () => {
+  // Crawlers, link scanners and test scripts aren't visitors: without
+  // PostHog their events stay in `pending` and are never sent.
+  if (looksAutomated()) return Promise.resolve()
   loading ??= Promise.all([
     import('posthog-js'),
     import('src/lib/posthog-browser-config'),
