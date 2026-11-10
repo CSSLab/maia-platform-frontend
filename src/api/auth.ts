@@ -1,5 +1,6 @@
 import { buildUrl } from './utils'
 import { requestAccount } from './guest'
+import { savedResponses } from 'src/lib/savedResponses'
 
 const parseAccountInfo = (data: { [x: string]: string }) => {
   const clientId = data['client_id']
@@ -22,13 +23,24 @@ export const logoutAndFetchAccount = async () => {
 }
 
 // The header's leaderboard badge and the leaderboard page ask at the same
-// time; they share a request while it is in flight.
+// time; they share a request while it is in flight. An answer from the last
+// five minutes, in any tab, is used without asking again.
 let leaderboardRequest: Promise<any> | null = null
+const savedLeaderboard = savedResponses<any>({
+  name: 'leaderboard',
+  maxAgeMs: 5 * 60 * 1000,
+})
 
 export const fetchLeaderboard = async () => {
+  const saved = savedLeaderboard.get('all')
+  if (saved !== undefined) return saved
   if (!leaderboardRequest) {
     leaderboardRequest = fetch(buildUrl('auth/leaderboard'))
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json()
+        if (res.ok) savedLeaderboard.set('all', data)
+        return data
+      })
       .finally(() => {
         leaderboardRequest = null
       })

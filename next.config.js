@@ -74,7 +74,7 @@ module.exports = withTM({
         ],
       },
       {
-        source: '/:file(favicon.png|maia-ios-icon.png|maia.png|maia-no-bg.png)',
+        source: '/icons/:path*',
         headers: [
           {
             key: 'Cache-Control',
@@ -83,7 +83,26 @@ module.exports = withTM({
         ],
       },
       {
-        source: '/:file(maia-worker.js|analytics.js)',
+        // The app manifest and the Google Analytics script were asked for on
+        // every page load.
+        source:
+          '/:file(favicon.png|maia-ios-icon.png|maia.png|maia-no-bg.png|manifest.webmanifest|analytics.js)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
+        // So was the service worker. It is now checked for an update from the
+        // browser's cache (registered with updateViaCache: 'all'), so a
+        // changed one is picked up within a day.
+        source: '/sw.js',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400' }],
+      },
+      {
+        source: '/:file(maia-worker.js)',
         headers: [
           {
             key: 'Cache-Control',

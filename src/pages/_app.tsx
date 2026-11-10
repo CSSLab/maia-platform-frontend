@@ -3,7 +3,6 @@ import { Toaster } from 'react-hot-toast'
 import Script from 'next/script'
 import { useEffect } from 'react'
 import type { AppProps } from 'next/app'
-import { Analytics } from '@vercel/analytics/react'
 import { SoundProvider } from 'src/contexts/SoundContext'
 
 import { AuthContextProvider } from 'src/contexts/AuthContext'
@@ -62,7 +61,11 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
       return
     }
     return whenPageIsIdle(() => {
-      navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+      // Checked for an update from the browser's cache (a day, as set in
+      // next.config.js) rather than from the server on every page load.
+      navigator.serviceWorker
+        .register('/sw.js', { updateViaCache: 'all' })
+        .catch(() => undefined)
     }, 5000)
   }, [])
 
@@ -177,7 +180,6 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <FeedbackButton />
           </div>
           <Toaster position="bottom-right" />
-          <Analytics />
           {/* Google Analytics loads once the page has loaded and the browser
               is idle, so it doesn't run while the page is being drawn. */}
           <Script

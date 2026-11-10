@@ -104,11 +104,14 @@ export const Footer: React.FC = () => {
         <div className="flex w-full max-w-4xl flex-col items-start justify-start gap-4 md:flex-row md:items-center md:justify-center md:gap-8">
           <div className="mb-2 flex flex-col items-start gap-1 md:mb-0 md:items-center md:gap-0.5">
             <div className="flex items-center gap-2">
+              {/* Asked for at the header's size, so both use one image
+                  (each size is a separate download). */}
               <Image
                 src="/maia-ios-icon.png"
                 alt="Maia Chess"
-                width={26}
-                height={26}
+                width={40}
+                height={40}
+                className="h-[26px] w-[26px]"
               />
               <p className="text-xl font-bold text-primary">Maia Chess</p>
             </div>
