@@ -60,11 +60,9 @@ export function convertBackendEvalToStockfishEval(
   let max_winrate = -Infinity
 
   for (const move in cp_vec_sorted) {
-    const cp = cp_vec_sorted[move]
-    // For mate positions, set winrate to 1.0 or 0.0
-    const isMate = Math.abs(cp) >= 10000
-    const winrate = isMate ? (cp > 0 ? 1.0 : 0.0) : cpToWinrate(cp, false)
-    winrate_vec[move] = winrate
+    // Mate sentinels (±10000) clamp to the table's ±10 pawn ends, matching
+    // the client-side Stockfish path. See cpToWinrate.
+    winrate_vec[move] = cpToWinrate(cp_vec_sorted[move], false)
 
     if (winrate_vec[move] > max_winrate) {
       max_winrate = winrate_vec[move]
@@ -599,6 +597,11 @@ export const cpToWinrate = (cp: number | string, allowNaN = false): number => {
 
     // Linearly interpolate between the 0.1-pawn bins so the curve is
     // continuous: a 1cp difference must not jump a whole bin step.
+    //
+    // Mate scores (encoded as ±10000cp) deliberately clamp to the ±10 pawn
+    // ends rather than 1.0/0.0. Mapping mate to 1.0 would put a cliff between
+    // "+25" and "mate in 14" in won positions, where the difference is mostly
+    // search horizon, and flag such moves as blunders.
     const clampedCp = Math.max(-10.0, Math.min(10.0, numCp))
     const pos = (clampedCp + 10) * 10
     const i = Math.min(199, Math.floor(pos))
