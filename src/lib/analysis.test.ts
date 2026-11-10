@@ -90,4 +90,31 @@ describe('convertBackendEvalToStockfishEval', () => {
       'f2f3',
     ])
   })
+
+  it('uses how far a mate is when the analysis recorded it', () => {
+    // 32...Qxa2 gets Black mated in 6, 32...Kh8 in 1 (33. Rxf8#).
+    const known = convertBackendEvalToStockfishEval(
+      { b2d3: 254, c4a2: -10000, g8h8: -10000 },
+      'b',
+      { c4a2: -6, g8h8: -1 },
+    )
+    expect(known.mate_vec).toEqual({ c4a2: -6, g8h8: -1 })
+    // Without it, the distance is still a guess.
+    expect(
+      convertBackendEvalToStockfishEval({ b2d3: 254, c4a2: -10000 }, 'b')
+        .mate_vec,
+    ).toEqual({ c4a2: -1 })
+  })
+
+  it('makes the fastest of several mates the best move', () => {
+    const mating = convertBackendEvalToStockfishEval(
+      { a1a8: 10000, h1h8: 10000, e2e4: 30 },
+      'w',
+      { a1a8: 4, h1h8: 2 },
+    )
+    expect(mating.model_move).toBe('h1h8')
+    expect(sortStockfishMoves(mating, Object.keys(mating.cp_vec))[0]).toBe(
+      'h1h8',
+    )
+  })
 })
