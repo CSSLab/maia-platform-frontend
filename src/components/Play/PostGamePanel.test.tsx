@@ -51,15 +51,15 @@ describe('PostGamePanel', () => {
 
   it('hides practice until there is one to go to', () => {
     renderPanel({ playAgain: jest.fn() })
-    expect(screen.queryByText('Practice your mistakes')).toBeNull()
+    expect(screen.queryByText('Practice mistakes')).toBeNull()
 
     jest.clearAllMocks()
     renderPanel({ practiceHref: '/practice?game=g1' })
-    expect(screen.getByText('Practice your mistakes')).toBeTruthy()
+    expect(screen.getByText('Practice mistakes')).toBeTruthy()
     expect(trackPostGameCtaShown).toHaveBeenCalledWith('practice', 'g1', 'play')
   })
 
-  it("offers practice and a drill of the game's opening as quieter links", () => {
+  it("offers practice and a drill of the game's opening as smaller buttons", () => {
     renderPanel({ playAgain: jest.fn() })
     expect(screen.queryByText(/^Drill the/)).toBeNull()
 

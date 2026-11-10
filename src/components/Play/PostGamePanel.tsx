@@ -30,13 +30,14 @@ const actionClass =
   'flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1.5 text-center text-xs font-medium transition-colors duration-200 md:text-[13px]'
 const primaryClass = `${actionClass} bg-human-4 text-white hover:bg-human-3`
 const secondaryClass = `${actionClass} border border-white/10 text-white/80 hover:border-white/20 hover:bg-white/5 hover:text-white`
-// The further options under the two buttons: quiet text links.
+// The further options under the two buttons: small, quieter buttons.
 const optionClass =
-  'block text-center text-[11px] leading-snug text-white/55 underline decoration-white/20 underline-offset-2 transition-colors duration-200 hover:text-white/90 hover:decoration-white/50 md:text-xs'
+  'inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md border border-white/10 px-2 py-1 text-center text-[11px] leading-tight text-white/60 transition-colors duration-200 hover:border-white/20 hover:bg-white/5 hover:text-white md:w-full'
+const optionIconClass = 'material-symbols-outlined shrink-0 !text-[13px]'
 
 /**
  * What to do next when a game against Maia ends: analyze it or play again,
- * and, as quieter links under those, practice the moments it went wrong
+ * and, as smaller buttons under those, practice the moments it went wrong
  * (once that exists for it) or drill its opening (when the site drills it);
  * for a guest, a line to sign in. Each action is reported once as shown,
  * and when pressed.
@@ -126,14 +127,15 @@ export const PostGamePanel: React.FC<Props> = ({
         </button>
       )}
       {(ctas.includes('practice') || ctas.includes('drill_opening')) && (
-        <div className="mt-1 flex flex-col gap-1">
+        <div className="mt-0.5 flex flex-wrap justify-center gap-1.5">
           {ctas.includes('practice') && practiceHref && (
             <a
               href={practiceHref}
               onClick={() => click('practice')}
               className={optionClass}
             >
-              Practice your mistakes
+              <span className={optionIconClass}>target</span>
+              Practice mistakes
             </a>
           )}
           {ctas.includes('drill_opening') && drill && (
@@ -143,7 +145,10 @@ export const PostGamePanel: React.FC<Props> = ({
               title={`Drill the ${drill.name} against Maia`}
               className={optionClass}
             >
-              Drill the {drill.name}
+              <span className={optionIconClass}>school</span>
+              {/* The desktop side column is too narrow for the name. */}
+              <span className="md:hidden">Drill the {drill.name}</span>
+              <span className="hidden md:inline">Drill this opening</span>
             </a>
           )}
         </div>
