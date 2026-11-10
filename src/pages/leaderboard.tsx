@@ -90,8 +90,8 @@ const Leaderboard: React.FC = () => {
         <div className="mt-3 w-full">
           <p className="text-xs text-white/60">
             <span className="font-medium text-white/80">Note:</span> To be
-            listed, sign in with Lichess, play enough to settle your rating (no
-            &ldquo;?&rdquo; after it), and keep playing that mode.
+            listed, sign in with Lichess, play enough games to establish your
+            rating, and keep playing that mode.
           </p>
         </div>
       </div>
