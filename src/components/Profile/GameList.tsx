@@ -436,7 +436,7 @@ export const GameList = ({
                   </div>
                   <a
                     href={`/analysis/${game.id}/${game.type}`}
-                    className="flex flex-1 cursor-pointer items-center justify-between overflow-hidden py-1.5"
+                    className="flex flex-1 cursor-pointer items-center justify-between gap-2 overflow-hidden py-1.5 pr-3"
                   >
                     <div className="flex items-center gap-2 overflow-hidden">
                       <p className="overflow-hidden text-ellipsis whitespace-nowrap text-sm text-white/90">
