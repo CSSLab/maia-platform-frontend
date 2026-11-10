@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 export interface ApiResult {
   rating: number
+  provisional?: boolean
   gamesPlayed: number
   gamesWon: number
 }
@@ -14,12 +15,15 @@ export interface SingleStats {
 export interface AllStats {
   lastRating: number | undefined
   rating: number | undefined
+  provisional?: boolean
   session: SingleStats
   lifetime: SingleStats | undefined
 }
 
 type IncrementStatsFunction = (gamesPlayed: number, gamesWon: number) => void
-type UpdateStatsFunction = (newRating: number) => void
+// `provisional` comes with the result when the backend sends it; otherwise the
+// flag from the page's load stands.
+type UpdateStatsFunction = (newRating: number, provisional?: unknown) => void
 
 export const useStats = (
   apiCall: () => Promise<ApiResult>,
@@ -41,6 +45,7 @@ export const useStats = (
       setStats((s) => ({
         ...stats,
         rating: loadedStats.rating,
+        provisional: loadedStats.provisional,
         lastRating: stats.rating,
         lifetime: {
           gamesPlayed: loadedStats.gamesPlayed,
@@ -74,13 +79,18 @@ export const useStats = (
     [],
   )
 
-  const updateRating = useCallback((newRating: number) => {
-    setStats((s) => ({
-      ...s,
-      rating: newRating,
-      lastRating: s.rating,
-    }))
-  }, [])
+  const updateRating: UpdateStatsFunction = useCallback(
+    (newRating, provisional) => {
+      setStats((s) => ({
+        ...s,
+        rating: newRating,
+        lastRating: s.rating,
+        provisional:
+          typeof provisional === 'boolean' ? provisional : s.provisional,
+      }))
+    },
+    [],
+  )
 
   return [stats, incrementStats, updateRating]
 }

@@ -293,6 +293,9 @@ export const fetchPlayPlayerStats = async () => {
     playElo: data.play_elo as number,
     handElo: data.hand_elo as number,
     brainElo: data.brain_elo as number,
+    playProvisional: data.play_provisional === true,
+    handProvisional: data.hand_provisional === true,
+    brainProvisional: data.brain_provisional === true,
   }
 }
 

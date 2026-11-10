@@ -2,6 +2,9 @@
  * Utility functions for handling chess ratings
  */
 
+import { parseTime } from 'src/lib/relativeTime'
+import { RatedMode, RatingCertainty } from 'src/types'
+
 /**
  * Validates if a rating value is reasonable for chess
  * Chess ratings typically range from around 400 to 3000+
@@ -43,4 +46,70 @@ export const safeUpdateRating = (
   // Log invalid rating attempts for debugging
   console.warn('Attempted to update rating with invalid value:', newRating)
   return false
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+const positiveNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined
+
+// UTC, with or without a zone (see parseTime).
+const lastPlayedOf = (value: unknown): Date | undefined =>
+  typeof value === 'string' ? (parseTime(value) ?? undefined) : undefined
+
+/**
+ * How certain a player's rating in `mode` is, from a get_player_stats
+ * response. The deviation, volatility and time of the last rated result are
+ * read when the backend sends them.
+ */
+export const parseRatingCertainty = (
+  data: Record<string, unknown>,
+  mode: RatedMode,
+): RatingCertainty => ({
+  provisional: data[`${mode}_provisional`] === true,
+  deviation: positiveNumber(data[`${mode}_elo_deviation`]),
+  volatility: positiveNumber(data[`${mode}_elo_volatility`]),
+  lastPlayed: lastPlayedOf(data[`${mode}_last_played`]),
+})
+
+export const daysSince = (date: Date, now: Date = new Date()): number =>
+  Math.max(0, (now.getTime() - date.getTime()) / DAY_MS)
+
+export type LeaderboardEligibility =
+  // In the board's top ten.
+  | { state: 'listed'; position: number }
+  // Qualifies, but ten players are rated higher.
+  | { state: 'eligible' }
+  | { state: 'provisional' }
+  // Settled, but no rated result within the board's window.
+  | { state: 'inactive' }
+  // Settled; whether they played within the window isn't known.
+  | { state: 'settled' }
+
+/**
+ * Where a Lichess-linked player stands for a mode's leaderboard. The backend
+ * lists players whose rating isn't provisional and who played the mode within
+ * `windowDays` (maia_api/ratings.py).
+ */
+export const leaderboardEligibility = ({
+  certainty,
+  position,
+  windowDays,
+  now,
+}: {
+  certainty: RatingCertainty
+  position?: number
+  windowDays?: number
+  now?: Date
+}): LeaderboardEligibility => {
+  if (position !== undefined) return { state: 'listed', position }
+  if (certainty.provisional) return { state: 'provisional' }
+  if (certainty.lastPlayed && windowDays !== undefined) {
+    return daysSince(certainty.lastPlayed, now) <= windowDays
+      ? { state: 'eligible' }
+      : { state: 'inactive' }
+  }
+  return { state: 'settled' }
 }

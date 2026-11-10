@@ -4,6 +4,18 @@ export interface User {
   lichessId?: string
 }
 
+// How sure the rating system (Glicko-2) is of a rating.
+export interface RatingCertainty {
+  // New to the mode, or away from it for months. Shown as "1650?".
+  provisional: boolean
+  // The three below are shown when the backend sends them.
+  // Rating deviation now, grown by the time since the last rated result.
+  deviation?: number
+  volatility?: number
+  // The last rated result in the mode.
+  lastPlayed?: Date
+}
+
 export interface PlayerStats {
   regularRating: number
   regularWins: number
@@ -12,6 +24,7 @@ export interface PlayerStats {
   regularMax: number
   regularMin: number
   regularHours: number
+  regularCertainty: RatingCertainty
 
   handRating: number
   handWins: number
@@ -20,6 +33,7 @@ export interface PlayerStats {
   handMax: number
   handMin: number
   handHours: number
+  handCertainty: RatingCertainty
 
   brainRating: number
   brainWins: number
@@ -28,6 +42,7 @@ export interface PlayerStats {
   brainMax: number
   brainMin: number
   brainHours: number
+  brainCertainty: RatingCertainty
 
   trainRating: number
   trainCorrect: number
@@ -35,6 +50,7 @@ export interface PlayerStats {
   trainMax: number
   trainMin: number
   trainHours: number
+  trainCertainty: RatingCertainty
 
   botNotRating: number
   botNotCorrect: number
@@ -43,6 +59,7 @@ export interface PlayerStats {
   botNotMax: number
   botNotMin: number
   botNotHours: number
+  botNotCertainty: RatingCertainty
 
   /** When the account was created, epoch milliseconds; null if not known. */
   joinedAt?: number | null

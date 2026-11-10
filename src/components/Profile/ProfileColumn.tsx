@@ -1,6 +1,55 @@
 import React from 'react'
 
+import { Rating } from 'src/components/Common/Rating'
 import { TimeAgo } from 'src/components/Common/TimeAgo'
+import { LeaderboardEligibility } from 'src/lib/ratingUtils'
+import { RatingCertainty } from 'src/types'
+
+// The leaderboard row's value, and a sentence saying why.
+const describeEligibility = (
+  eligibility: LeaderboardEligibility,
+  windowDays?: number,
+): { value: string; note?: string } => {
+  const window =
+    windowDays === undefined ? 'recently' : `in the last ${windowDays} days`
+  switch (eligibility.state) {
+    case 'listed':
+      return { value: `#${eligibility.position}` }
+    case 'eligible':
+      return {
+        value: 'Eligible',
+        note: 'Not in the top ten right now.',
+      }
+    case 'provisional':
+      return {
+        value: 'Not eligible',
+        note: 'Provisional ratings aren\u2019t listed. A rating settles with more rated results.',
+      }
+    case 'inactive':
+      return {
+        value: 'Not eligible',
+        note: `The board lists players with a rated result ${window}.`,
+      }
+    case 'settled':
+      return {
+        value: 'Eligible while active',
+        note: `The board lists the top ten players with a rated result ${window}.`,
+      }
+  }
+}
+
+const DetailRow = ({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) => (
+  <div className="flex items-baseline justify-between gap-3">
+    <span className="text-white/60">{label}</span>
+    <span className="text-right font-medium text-white/90">{children}</span>
+  </div>
+)
 
 interface Props {
   icon: string
@@ -16,6 +65,11 @@ interface Props {
     draws?: number
     losses?: number
   }
+  // How certain the rating is, and where it stands for the mode's leaderboard.
+  certainty?: RatingCertainty
+  eligibility?: LeaderboardEligibility
+  // Days within which the leaderboard's players last played.
+  windowDays?: number
 }
 
 export const ProfileColumn: React.FC<Props> = ({
@@ -23,10 +77,16 @@ export const ProfileColumn: React.FC<Props> = ({
   name,
   lastPlayed,
   data,
+  certainty,
+  eligibility,
+  windowDays,
 }: Props) => {
   const wins = data.wins
   const draws = data.draws ?? 0
   const losses = data.losses ?? data.games - data.wins - (data?.draws || 0)
+  const leaderboard = eligibility
+    ? describeEligibility(eligibility, windowDays)
+    : undefined
 
   return (
     <div className="flex w-full flex-col gap-3 overflow-hidden rounded-md border border-glass-border bg-glass">
@@ -45,7 +105,12 @@ export const ProfileColumn: React.FC<Props> = ({
         <div className="flex items-center justify-between">
           <div className="flex flex-col items-center justify-center gap-1">
             <p className="text-sm text-white/70 xl:text-base">Rating</p>
-            <b className="text-xl text-white/95 xl:text-2xl">{data.rating}</b>
+            <b className="text-xl text-white/95 xl:text-2xl">
+              <Rating
+                rating={data.rating}
+                provisional={certainty?.provisional}
+              />
+            </b>
           </div>
           <div className="flex flex-col items-center justify-center gap-1">
             <p className="text-sm text-white/70 xl:text-base">Highest</p>
@@ -116,6 +181,37 @@ export const ProfileColumn: React.FC<Props> = ({
             )}
           </div>
         </div>
+        {certainty && (
+          <div className="flex flex-col gap-1 border-t border-glass-border pt-3 text-xs">
+            <DetailRow label="Rating status">
+              <span
+                className={
+                  certainty.provisional ? 'text-yellow-500' : 'text-green-500'
+                }
+              >
+                {certainty.provisional ? 'Provisional' : 'Settled'}
+              </span>
+            </DetailRow>
+            {certainty.deviation !== undefined && (
+              <DetailRow label="Deviation">
+                {Math.round(certainty.deviation)}
+              </DetailRow>
+            )}
+            {certainty.volatility !== undefined && (
+              <DetailRow label="Volatility">
+                {certainty.volatility.toFixed(3)}
+              </DetailRow>
+            )}
+            {leaderboard && (
+              <>
+                <DetailRow label="Leaderboard">{leaderboard.value}</DetailRow>
+                {leaderboard.note && (
+                  <p className="text-white/50">{leaderboard.note}</p>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -19,6 +19,7 @@ const statsLoader = async () => {
     gamesPlayed: stats.correctGuesses + stats.wrongGuesses,
     gamesWon: stats.correctGuesses,
     rating: stats.rating,
+    provisional: stats.provisional,
   }
 }
 
@@ -92,7 +93,7 @@ export const useTuringController = () => {
         )
         commentController[1]('')
 
-        updateRating(result.turingElo)
+        updateRating(result.turingElo, result.turingProvisional)
         incrementStats(1, result.correct ? 1 : 0)
       }
     },

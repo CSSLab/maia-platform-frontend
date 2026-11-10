@@ -26,6 +26,7 @@ const playStatsLoader = async () => {
     gamesPlayed: stats.playGamesPlayed,
     gamesWon: stats.playWon,
     rating: stats.playElo,
+    provisional: stats.playProvisional,
   }
 }
 
@@ -263,7 +264,9 @@ export const useVsMaiaPlayController = (
 
         if (controller.game.termination) {
           if (!playGameConfig.practice) {
-            safeUpdateRating(response.player_elo, updateRating)
+            safeUpdateRating(response.player_elo, (rating) =>
+              updateRating(rating, response.player_provisional),
+            )
           }
           incrementStats(1, winner == playGameConfig.player ? 1 : 0)
         }

@@ -14,5 +14,7 @@ export interface TuringSubmissionResult {
   gameType: string
   timeControl: string
   turingElo: number
+  // Whether the new rating is provisional, when the backend says.
+  turingProvisional?: boolean
   ratingDiff: number
 }

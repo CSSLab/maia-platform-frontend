@@ -5,6 +5,7 @@ import {
   LeaderboardStatus,
   LeaderboardPosition,
   GameType,
+  RatedMode,
 } from 'src/types'
 
 interface LeaderboardCache {
@@ -20,6 +21,10 @@ export const useLeaderboardStatus = (displayName?: string) => {
     positions: [],
     totalLeaderboards: 0,
   })
+  // Days within which each board's players last played, by backend mode.
+  const [windowDays, setWindowDays] = useState<
+    Partial<Record<RatedMode, number>>
+  >({})
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -99,6 +104,7 @@ export const useLeaderboardStatus = (displayName?: string) => {
           displayName,
         )
         setStatus(leaderboardStatus)
+        setWindowDays(cacheRef.current.data.window_days ?? {})
         setLoading(false)
         return
       }
@@ -117,6 +123,7 @@ export const useLeaderboardStatus = (displayName?: string) => {
         displayName,
       )
       setStatus(leaderboardStatus)
+      setWindowDays(leaderboardData.window_days ?? {})
     } catch (err) {
       console.error('Error fetching leaderboard status:', err)
       setError('Failed to fetch leaderboard data')
@@ -142,6 +149,7 @@ export const useLeaderboardStatus = (displayName?: string) => {
 
   return {
     status,
+    windowDays,
     loading,
     error,
     refreshStatus,

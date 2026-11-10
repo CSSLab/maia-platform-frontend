@@ -100,6 +100,7 @@ export const submitTuringGuess = async (
   const baseTimeInMinutes = parseInt(split[0], 10) / 60
   const timeControl = `${baseTimeInMinutes}+${split[1]}`
   const turingElo = data['turing_elo']
+  const turingProvisional = data['turing_provisional']
 
   return {
     bot,
@@ -109,6 +110,7 @@ export const submitTuringGuess = async (
     gameType,
     timeControl,
     turingElo,
+    turingProvisional,
   } as TuringSubmissionResult
 }
 
@@ -119,5 +121,6 @@ export const fetchTuringPlayerStats = async () => {
     correctGuesses: data.correct_guesses as number,
     wrongGuesses: data.wrong_guesses as number,
     rating: data.turing_elo as number,
+    provisional: data.turing_provisional === true,
   }
 }
