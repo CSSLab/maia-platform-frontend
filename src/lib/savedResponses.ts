@@ -2,7 +2,8 @@
  * Answers from the backend kept for a while in this browser, so that asking
  * again soon doesn't make another request. Every request through the site's
  * host (Vercel) is billed, and some answers hardly change: the site's game
- * counts, the leaderboard, an opening position's book moves.
+ * counts and the leaderboard. Not for answers that are drawn at random each
+ * time, such as the opening book's moves.
  *
  * Kept in memory and in localStorage, so they last across reloads and are
  * shared by tabs. Without localStorage (a private window, blocked storage),

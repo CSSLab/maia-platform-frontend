@@ -1,7 +1,6 @@
 import { backOff } from 'exponential-backoff'
 import { buildUrl } from './utils'
 import { fetchAsGuest } from './guest'
-import { savedResponses } from 'src/lib/savedResponses'
 import { Color, TimeControl } from 'src/types'
 
 const normalizeOpeningBookFen = (fen: string) => {
@@ -208,18 +207,8 @@ export const retryUnlessRejected = (error: unknown) =>
     error.status < 500
   )
 
-// An opening position's book moves don't change, and the same positions come
-// up in game after game, so answers are kept for a week (the most recent 200).
-const savedBookMoves = savedResponses<any>({
-  name: 'bookMoves',
-  maxAgeMs: 7 * 24 * 60 * 60 * 1000,
-  maxEntries: 200,
-})
-
 export const fetchOpeningBookMoves = async (fen: string) => {
   const normalizedFen = normalizeOpeningBookFen(fen)
-  const saved = savedBookMoves.get(normalizedFen)
-  if (saved !== undefined) return saved
   const res = await fetch(
     buildUrl(
       'play/get_book_moves?' +
@@ -250,9 +239,7 @@ export const fetchOpeningBookMoves = async (fen: string) => {
     },
   )
 
-  const data = await res.json()
-  if (res.ok) savedBookMoves.set(normalizedFen, data)
-  return data
+  return res.json()
 }
 
 export const logGameMove = async (
