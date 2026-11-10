@@ -45,6 +45,7 @@ const load = async () => {
 beforeEach(() => {
   jest.clearAllMocks()
   window.sessionStorage.clear()
+  window.localStorage.clear()
 })
 
 describe('sign-in measurement', () => {
@@ -67,7 +68,10 @@ describe('sign-in measurement', () => {
       JSON.parse(window.sessionStorage.getItem('maia.signInStarted') ?? '{}'),
     ).toMatchObject({ source: 'header' })
     expect(events()).toEqual([
-      ['lichess_connection_initiated', { source: 'header' }],
+      [
+        'lichess_connection_initiated',
+        { source: 'header', signed_in_here_before: false },
+      ],
     ])
 
     // Back from Lichess: the page loads again, signed in.
@@ -75,7 +79,10 @@ describe('sign-in measurement', () => {
     api.fetchAccount.mockResolvedValue(signedIn)
     await load()
     expect(events()).toEqual([
-      ['lichess_sign_in_completed', { source: 'header', seconds: 0 }],
+      [
+        'lichess_sign_in_completed',
+        { source: 'header', seconds: 0, signed_in_here_before: false },
+      ],
     ])
 
     // Only once.
@@ -92,7 +99,10 @@ describe('sign-in measurement', () => {
     api.fetchAccount.mockResolvedValue(signedOut)
     await load()
     expect(events()).toEqual([
-      ['lichess_sign_in_not_completed', { source: 'homepage', seconds: 42 }],
+      [
+        'lichess_sign_in_not_completed',
+        { source: 'homepage', seconds: 42, signed_in_here_before: false },
+      ],
     ])
   })
 
@@ -104,5 +114,29 @@ describe('sign-in measurement', () => {
     api.fetchAccount.mockResolvedValue(signedIn)
     await load()
     expect(events()).toEqual([])
+  })
+
+  it('tells a browser signed in before from a first sign-in', async () => {
+    // Signed in once, then signed out: the browser remembers.
+    api.fetchAccount.mockResolvedValue(signedIn)
+    await load()
+    api.fetchAccount.mockResolvedValue(signedOut)
+    await load()
+    jest.clearAllMocks()
+
+    jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    connect?.('header')
+    api.fetchAccount.mockResolvedValue(signedIn)
+    await load()
+    expect(events()).toEqual([
+      [
+        'lichess_connection_initiated',
+        { source: 'header', signed_in_here_before: true },
+      ],
+      [
+        'lichess_sign_in_completed',
+        { source: 'header', seconds: 0, signed_in_here_before: true },
+      ],
+    ])
   })
 })

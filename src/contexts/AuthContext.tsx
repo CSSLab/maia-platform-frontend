@@ -35,6 +35,25 @@ const SIGN_IN_KEY = 'maia.signInStarted'
 // Older than this, the visitor didn't come back from that sign-in.
 const SIGN_IN_MAX_MS = 30 * 60 * 1000
 
+// Set once this browser has been signed in, and kept after signing out.
+const SIGNED_IN_HERE_KEY = 'maia.signedInHere'
+
+const wasSignedInHere = () => {
+  try {
+    return window.localStorage.getItem(SIGNED_IN_HERE_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const markSignedInHere = () => {
+  try {
+    window.localStorage.setItem(SIGNED_IN_HERE_KEY, '1')
+  } catch {
+    // Not measured, as above.
+  }
+}
+
 const takePendingSignIn = () => {
   try {
     const raw = window.sessionStorage.getItem(SIGN_IN_KEY)
@@ -64,9 +83,16 @@ export const AuthContextProvider: React.FC<{ children: ReactNode }> = ({
       const signedIn = Boolean(response.lichessId)
       // On every event from now on, so that any of them can be split by it.
       registerProperties({ signed_in: signedIn })
+      const signedInBefore = wasSignedInHere()
+      if (signedIn) markSignedInHere()
       const pending = takePendingSignIn()
       if (pending) {
-        trackLichessSignInReturned(signedIn, pending.source, pending.seconds)
+        trackLichessSignInReturned(
+          signedIn,
+          pending.source,
+          pending.seconds,
+          signedInBefore,
+        )
       }
     }
 
@@ -75,7 +101,7 @@ export const AuthContextProvider: React.FC<{ children: ReactNode }> = ({
 
   const connectLichess = useCallback(
     (source: SignInSource, returnTo?: string) => {
-      trackLichessConnectionInitiated(source)
+      trackLichessConnectionInitiated(source, wasSignedInHere())
       try {
         window.sessionStorage.setItem(
           SIGN_IN_KEY,
