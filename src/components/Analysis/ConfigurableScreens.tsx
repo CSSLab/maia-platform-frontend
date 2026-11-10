@@ -3,7 +3,7 @@ import { UnderlineTabs } from 'src/components/Common/UnderlineTabs'
 import { ConfigureAnalysis } from 'src/components/Analysis/ConfigureAnalysis'
 import { LearnFromMistakes } from 'src/components/Analysis/LearnFromMistakes'
 import { ExportGame } from 'src/components/Common/ExportGame'
-import { pgnNameOr } from 'src/lib/pgn'
+import { formatPgnDate, pgnNameOr } from 'src/lib/pgn'
 import {
   AnalyzedGame,
   GameNode,
@@ -169,6 +169,12 @@ export const ConfigurableScreens: React.FC<Props> = ({
               blackPlayer={pgnNameOr(game.blackPlayer.name, unnamedPlayer)}
               whiteElo={game.whitePlayer.rating}
               blackElo={game.blackPlayer.rating}
+              // A custom game's time is when it was imported, not played.
+              date={
+                game.createdAt && game.type !== 'custom'
+                  ? formatPgnDate(new Date(game.createdAt))
+                  : undefined
+              }
               event="Analysis"
               type="analysis"
             />

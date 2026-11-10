@@ -1,3 +1,5 @@
+import { parseTimeMs } from './relativeTime'
+
 // Games against Maia are stored with the opponent as "maia_kdd_<rating>" and
 // no reliable model (the backend records every game as maia1), so the model
 // is told by when the game was played: the play pages moved from Maia-1 to
@@ -5,15 +7,9 @@
 const MAIA_2_FROM = Date.parse('2025-07-12T16:35:00Z')
 const MAIA_3_FROM = Date.parse('2026-02-09T09:42:00Z')
 
-// The backend sends times in UTC without a zone, with microseconds.
-const parseUtc = (time: string) => {
-  const iso = time.replace(/(\.\d{3})\d+/, '$1')
-  return Date.parse(/(Z|[+-]\d\d:?\d\d)$/i.test(iso) ? iso : `${iso}Z`)
-}
-
 export const getMaiaModelVersion = (createdTime?: string | null) => {
-  const time = createdTime ? parseUtc(createdTime) : NaN
-  if (Number.isNaN(time) || time >= MAIA_3_FROM) return 'Maia-3'
+  const time = parseTimeMs(createdTime)
+  if (time === null || time >= MAIA_3_FROM) return 'Maia-3'
   return time >= MAIA_2_FROM ? 'Maia-2' : 'Maia-1'
 }
 

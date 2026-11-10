@@ -1,5 +1,6 @@
 import { buildUrl } from './utils'
 import { PlayerStats } from 'src/types'
+import { parseTimeMs } from 'src/lib/relativeTime'
 
 export const fetchPlayerStats = async (name?: string): Promise<PlayerStats> => {
   const res = await fetch(
@@ -46,5 +47,14 @@ export const fetchPlayerStats = async (name?: string): Promise<PlayerStats> => {
     botNotMax: data.turing_elo_max as number,
     botNotMin: data.turing_elo_min as number,
     botNotHours: data.turing_game_time as number,
+
+    // Times are UTC; older backends send `created_at` without a zone (or
+    // empty) and none of the others.
+    joinedAt: parseTimeMs(data.created_at),
+    regularLastPlayed: parseTimeMs(data.play_last_played),
+    handLastPlayed: parseTimeMs(data.hand_last_played),
+    brainLastPlayed: parseTimeMs(data.brain_last_played),
+    trainLastPlayed: parseTimeMs(data.puzzles_last_played),
+    botNotLastPlayed: parseTimeMs(data.turing_last_played),
   }
 }

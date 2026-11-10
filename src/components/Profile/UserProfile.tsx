@@ -13,6 +13,7 @@ export const UserProfile = ({ stats }: Props) => {
       <ProfileColumn
         icon="chess_knight"
         name="Regular"
+        lastPlayed={stats.regularLastPlayed}
         data={{
           rating: stats.regularRating,
           highest: stats.regularMax,
@@ -25,6 +26,7 @@ export const UserProfile = ({ stats }: Props) => {
       <ProfileColumn
         icon="back_hand"
         name="Hand"
+        lastPlayed={stats.handLastPlayed}
         data={{
           rating: stats.handRating,
           highest: stats.handMax,
@@ -37,6 +39,7 @@ export const UserProfile = ({ stats }: Props) => {
       <ProfileColumn
         icon="network_intelligence"
         name="Brain"
+        lastPlayed={stats.brainLastPlayed}
         data={{
           rating: stats.brainRating,
           highest: stats.brainMax,
@@ -49,6 +52,7 @@ export const UserProfile = ({ stats }: Props) => {
       <ProfileColumn
         icon="toys_and_games"
         name="Puzzles"
+        lastPlayed={stats.trainLastPlayed}
         data={{
           rating: stats.trainRating,
           highest: stats.trainMax,
@@ -60,6 +64,7 @@ export const UserProfile = ({ stats }: Props) => {
       <ProfileColumn
         icon="mystery"
         name="Bot / Not"
+        lastPlayed={stats.botNotLastPlayed}
         data={{
           rating: stats.botNotRating,
           highest: stats.botNotMax,

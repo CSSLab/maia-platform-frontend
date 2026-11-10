@@ -166,6 +166,61 @@ describe('game requests to the Maia server', () => {
     })
   })
 
+  describe('when a stored game was played', () => {
+    const storedGame = (extra: object) =>
+      JSON.stringify({
+        termination: { result: '1-0', winner: 'white', type: 'resign' },
+        white_player: { name: 'alice' },
+        black_player: { name: 'maia_kdd_1100' },
+        maia_versions: [],
+        maia_evals: {},
+        move_maps: [],
+        game_states: [
+          {
+            fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            last_move: null,
+            last_move_san: null,
+            check: false,
+          },
+        ],
+        ...extra,
+      })
+    const load = async (extra: object) => {
+      fetchMock.mockReturnValueOnce(reply(storedGame(extra)))
+      return fetchAnalyzedMaiaGame('a1b2c3d4-e5f', 'play')
+    }
+
+    it('reads a time without a zone, as older servers send it, as UTC', async () => {
+      const game = await load({ created_time: '2026-11-01T12:00:00.051000' })
+      expect(game.createdAt).toBe(Date.UTC(2026, 10, 1, 12, 0, 0, 51))
+      expect(game.endedAt).toBeNull()
+    })
+
+    it('reads the start and the end a newer server sends', async () => {
+      const game = await load({
+        created_time: '2026-11-01T12:00:00.051Z',
+        ended_time: '2026-11-01T12:07:30Z',
+      })
+      expect(game.createdAt).toBe(Date.UTC(2026, 10, 1, 12, 0, 0, 51))
+      expect(game.endedAt).toBe(Date.UTC(2026, 10, 1, 12, 7, 30))
+    })
+
+    it('has no time for a game stored without one', async () => {
+      for (const extra of [
+        {},
+        { created_time: null, ended_time: null },
+        { created_time: '????.??.??' },
+        { created_time: '' },
+      ]) {
+        const game = await load(extra)
+        expect(game.createdAt).toBeNull()
+        expect(game.endedAt).toBeNull()
+        // And its Maia is still named, as a current one.
+        expect(game.blackPlayer.name).toBe('Maia-3 1100')
+      }
+    })
+  })
+
   it('treats a network failure as not a missing game', () => {
     expect(isGameNotFound(new TypeError('Failed to fetch'))).toBe(false)
   })

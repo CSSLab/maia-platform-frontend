@@ -43,4 +43,14 @@ export interface PlayerStats {
   botNotMax: number
   botNotMin: number
   botNotHours: number
+
+  /** When the account was created, epoch milliseconds; null if not known. */
+  joinedAt?: number | null
+  // When the player's last rated result in each mode was, epoch milliseconds;
+  // null for a mode never played (and from a backend that doesn't send it).
+  regularLastPlayed?: number | null
+  handLastPlayed?: number | null
+  brainLastPlayed?: number | null
+  trainLastPlayed?: number | null
+  botNotLastPlayed?: number | null
 }
