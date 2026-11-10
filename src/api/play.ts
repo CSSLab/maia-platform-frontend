@@ -239,6 +239,7 @@ export const fetchOpeningBookMoves = async (fen: string) => {
     },
   )
 
+  if (!res.ok) throw new Error(`get_book_moves: HTTP ${res.status}`)
   return res.json()
 }
 
