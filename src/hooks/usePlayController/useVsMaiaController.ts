@@ -4,9 +4,21 @@ import { PlayGameConfig, QueuedPremove } from 'src/types'
 import { backOff } from 'exponential-backoff'
 import { useStats } from 'src/hooks/useStats'
 import { usePlayController } from 'src/hooks/usePlayController'
-import { fetchGameMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
+import { fetchMaiaMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
+import {
+  dismissMaiaMoveFailedToast,
+  reportMaiaMoveFailed,
+} from 'src/components/Common/maiaMoveFailedToast'
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
+import { initialClockSeconds } from 'src/lib/timeControl'
+import { useGameLog } from './useGameLog'
+import {
+  UnfinishedGame,
+  canResume,
+  clearUnfinishedGame,
+  saveUnfinishedGame,
+} from 'src/lib/unfinishedGame'
 
 const playStatsLoader = async () => {
   const stats = await fetchPlayPlayerStats()
@@ -19,17 +31,25 @@ const playStatsLoader = async () => {
 
 const PREMOVE_SOUND_DELAY_MS = 120
 
+// The backend updates ratings only for games sent without a starting
+// position, so a practice game from the usual start sends it explicitly to
+// stay unrated. (Its win, draw or loss still counts in the player's stats.)
+const STANDARD_START_FEN = new Chess().fen()
+
 export const useVsMaiaPlayController = (
   id: string,
   playGameConfig: PlayGameConfig,
   simulateMaiaTime: boolean,
+  resume?: UnfinishedGame,
 ) => {
-  const controller = usePlayController(id, playGameConfig)
+  const controller = usePlayController(id, playGameConfig, resume)
   const [stats, incrementStats, updateRating] = useStats(playStatsLoader)
   const { playMoveSound } = useSound()
   const [queuedPremove, setQueuedPremove] = useState<QueuedPremove | null>(null)
   const queuedPremoveRef = useRef<QueuedPremove | null>(null)
   const [premoveResetKey, setPremoveResetKey] = useState(0)
+  // Asks for Maia's move again after a request that failed.
+  const [maiaMoveAttempt, setMaiaMoveAttempt] = useState(0)
 
   const clearPremove = useCallback(() => {
     if (!queuedPremoveRef.current) {
@@ -90,25 +110,25 @@ export const useVsMaiaPlayController = (
           (controller.player == 'white'
             ? controller.blackClock
             : controller.whiteClock) / 1000
-        const initialClock = controller.timeControl.includes('+')
-          ? parseInt(controller.timeControl.split('+')[0]) * 60
-          : 0
+        const initialClock = initialClockSeconds(controller.timeControl)
 
-        const maiaMoves = await backOff(
-          () =>
-            fetchGameMove(
-              controller.moveList,
-              playGameConfig.maiaVersion,
-              playGameConfig.startFen,
-              null,
-              simulateMaiaTime ? initialClock : 0,
-              simulateMaiaTime ? maiaClock : 0,
-            ),
-          {
-            jitter: 'full',
-          },
-        )
-        const nextMove = maiaMoves['top_move']
+        let maiaMoves
+        try {
+          maiaMoves = await fetchMaiaMove(
+            controller.moveList,
+            playGameConfig.maiaVersion,
+            playGameConfig.startFen,
+            null,
+            simulateMaiaTime ? initialClock : 0,
+            simulateMaiaTime ? maiaClock : 0,
+          )
+        } catch (error) {
+          if (canceled) return
+          reportMaiaMoveFailed(error, () => setMaiaMoveAttempt((n) => n + 1))
+          return
+        }
+        dismissMaiaMoveFailedToast()
+        const nextMove: string = maiaMoves['top_move']
         const moveDelay = maiaMoves['move_delay']
 
         if (canceled) {
@@ -207,54 +227,87 @@ export const useVsMaiaPlayController = (
     simulateMaiaTime,
     clearPremove,
     getLegalPremoveUci,
+    maiaMoveAttempt,
   ])
 
-  useEffect(() => {
-    const gameOverState = controller.game.termination?.type || 'not_over'
+  const gameOverState = controller.game.termination?.type || 'not_over'
+  useGameLog({
+    // Until start_game has answered (a resignation in that moment), nothing
+    // is sent; it is once the game has its id.
+    gameId: controller.game.id,
+    plies: controller.moveList.length,
+    state: gameOverState,
+    send: (leaving) => {
+      const winner = controller.game.termination?.winner
+      const log = (keepalive: boolean) =>
+        logGameMove(
+          controller.game.id,
+          controller.moveList,
+          controller.moveTimes,
+          gameOverState,
+          'play',
+          playGameConfig.startFen ||
+            (playGameConfig.practice ? STANDARD_START_FEN : undefined),
+          winner,
+          [],
+          { keepalive },
+        )
 
-    if (controller.moveList.length == 0 && gameOverState == 'not_over') {
+      if (leaving) {
+        log(true).catch(() => undefined)
+        return
+      }
+
+      const submitFn = async () => {
+        const response = await backOff(() => log(false), { jitter: 'full' })
+
+        if (controller.game.termination) {
+          if (!playGameConfig.practice) {
+            safeUpdateRating(response.player_elo, updateRating)
+          }
+          incrementStats(1, winner == playGameConfig.player ? 1 : 0)
+        }
+      }
+      submitFn()
+    },
+  })
+
+  // Unlimited and practice games are kept in this browser after each move,
+  // so they can be continued if the tab is closed; forgotten once over.
+  useEffect(() => {
+    if (!controller.game.id || !canResume(playGameConfig)) return
+    if (controller.game.termination) {
+      clearUnfinishedGame(controller.game.id)
       return
     }
-
-    const winner = controller.game.termination?.winner
-
-    const submitFn = async () => {
-      const response = await backOff(
-        () =>
-          logGameMove(
-            controller.game.id,
-            controller.moveList,
-            controller.moveTimes,
-            gameOverState,
-            'play',
-            playGameConfig.startFen || undefined,
-            winner,
-          ),
-        {
-          jitter: 'full',
-        },
-      )
-
-      if (controller.game.termination) {
-        const winner = controller.game.termination?.winner
-        safeUpdateRating(response.player_elo, updateRating)
-        incrementStats(1, winner == playGameConfig.player ? 1 : 0)
-      }
-    }
-    submitFn()
+    if (controller.moveList.length === 0) return
+    saveUnfinishedGame({
+      id: controller.game.id,
+      config: playGameConfig,
+      moves: controller.moveList,
+      moveTimes: controller.moveTimes,
+      whiteClock: controller.whiteClock,
+      blackClock: controller.blackClock,
+      savedAt: Date.now(),
+    })
   }, [
     controller.game.id,
-    controller.moveList,
     controller.game.termination,
+    controller.moveList,
     controller.moveTimes,
-    playGameConfig.startFen,
-    incrementStats,
-    updateRating,
-    playGameConfig.player,
+    controller.whiteClock,
+    controller.blackClock,
+    playGameConfig,
   ])
+
+  const takeBack = useCallback(() => {
+    clearPremove()
+    controller.takeBack()
+  }, [clearPremove, controller.takeBack])
 
   return {
     ...controller,
+    takeBack,
     makePlayerMove,
     premovesEnabled: true,
     queuedPremove,

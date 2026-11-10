@@ -1,6 +1,7 @@
 'use client'
 
-import posthog from 'posthog-js'
+import { capture } from 'src/lib/posthogClient'
+import { STOCKFISH_ENGINE } from 'src/constants/analysis'
 
 type EventProperties = Record<string, unknown>
 
@@ -9,7 +10,7 @@ type EventProperties = Record<string, unknown>
  */
 const safeTrack = (eventName: string, properties?: EventProperties) => {
   try {
-    posthog.capture(eventName, properties)
+    capture(eventName, properties)
   } catch (error) {
     console.error(`Failed to track event ${eventName}:`, error)
   }
@@ -23,12 +24,44 @@ export const trackDownloadModelModalShown = (
   safeTrack('download_model_modal_shown', { trigger, page })
 }
 
-export const trackDownloadModelInitiated = (page: string) => {
+export const trackDownloadModelInitiated = (
+  page: string,
+  trigger: 'wall' | 'auto' | 'tap' | 'panel',
+) => {
   safeTrack('download_model_initiated', {
     model_type: 'maia2',
     model_size_mb: 90,
     page,
+    trigger,
   })
+}
+
+/** The model has been saved, and whether the browser promises to keep it. */
+export const trackMaiaModelProtected = (granted: boolean) => {
+  safeTrack('maia_model_protected', { granted })
+}
+
+/** Downloaded, but the browser wouldn't save it: it's needed again next time. */
+export const trackMaiaModelStoreFailed = (
+  message: string,
+  storage: { quota_mb?: number; usage_mb?: number },
+) => {
+  safeTrack('maia_model_store_failed', { message, ...storage })
+}
+
+/** Saved, but as plain bytes: the browser refused it as a Blob. */
+export const trackMaiaModelStoredAsBytes = (blobError: string) => {
+  safeTrack('maia_model_stored_as_bytes', { blob_error: blobError })
+}
+
+/** The browser no longer has a model it had saved. */
+export const trackMaiaModelLost = (daysSinceSaved: number) => {
+  safeTrack('maia_model_lost', { days_since_saved: daysSinceSaved })
+}
+
+/** "Continue without Maia" on the download prompt. */
+export const trackDownloadModelDismissed = (page: string) => {
+  safeTrack('download_model_dismissed', { page })
 }
 
 export const trackDownloadModelCompleted = (
@@ -54,6 +87,33 @@ export const trackDownloadModelFailed = (
   })
 }
 
+/** Maia's move in a game couldn't be fetched, even after retrying. */
+export const trackMaiaMoveFailed = (message: string, status?: number) => {
+  safeTrack('maia_move_failed', { message: message.slice(0, 300), status })
+}
+
+/**
+ * A game couldn't be started (the visitor is then sent to /401). `status`:
+ * the server's reply, if there was one.
+ */
+export const trackGameStartFailed = (
+  gameType: 'play' | 'hand' | 'brain',
+  error: unknown,
+  status?: number,
+) => {
+  safeTrack('game_start_failed', {
+    game_type: gameType,
+    message: (error instanceof Error ? error.message : String(error)).slice(
+      0,
+      300,
+    ),
+    status,
+    online: typeof navigator !== 'undefined' ? navigator.onLine : undefined,
+    cookies_enabled:
+      typeof navigator !== 'undefined' ? navigator.cookieEnabled : undefined,
+  })
+}
+
 export const trackStockfishEngineLoading = (page: string) => {
   safeTrack('stockfish_engine_loading', { page })
 }
@@ -61,10 +121,28 @@ export const trackStockfishEngineLoading = (page: string) => {
 export const trackStockfishEngineReady = (
   loadTimeSeconds: number,
   page: string,
+  memoryRetries = 0,
 ) => {
   safeTrack('stockfish_engine_ready', {
     load_time_seconds: loadTimeSeconds,
     page,
+    engine: STOCKFISH_ENGINE,
+    memory_retries: memoryRetries,
+  })
+}
+
+export const trackStockfishEngineFailed = (
+  error: string,
+  loadTimeSeconds: number,
+  page: string,
+  memoryRetries = 0,
+) => {
+  safeTrack('stockfish_engine_failed', {
+    error: error.slice(0, 500),
+    load_time_seconds: loadTimeSeconds,
+    page,
+    engine: STOCKFISH_ENGINE,
+    memory_retries: memoryRetries,
   })
 }
 
@@ -72,11 +150,47 @@ export const trackMaiaEngineLoading = (page: string) => {
   safeTrack('maia_engine_loading', { page })
 }
 
-export const trackMaiaEngineReady = (loadTimeSeconds: number, page: string) => {
-  safeTrack('maia_engine_ready', { load_time_seconds: loadTimeSeconds, page })
+export const trackMaiaEngineReady = (
+  loadTimeSeconds: number,
+  page: string,
+  restarts = 0,
+) => {
+  safeTrack('maia_engine_ready', {
+    load_time_seconds: loadTimeSeconds,
+    page,
+    restarts,
+  })
 }
 
-// Opening Selection & Drill Events
+export const trackMaiaEngineFailed = (
+  error: string,
+  loadTimeSeconds: number,
+  page: string,
+  restarts = 0,
+) => {
+  safeTrack('maia_engine_failed', {
+    error: error.slice(0, 500),
+    load_time_seconds: loadTimeSeconds,
+    page,
+    restarts,
+  })
+}
+
+// The analysis page's timings: see src/lib/analysisTiming.ts
+export const trackAnalysisEngineLoad = (properties: EventProperties) => {
+  safeTrack('analysis_engine_load', properties)
+}
+
+export const trackAnalysisEngineSteps = (properties: EventProperties) => {
+  safeTrack('analysis_engine_steps', properties)
+}
+
+export const trackAnalysisPageEndedUnexpectedly = (
+  properties: EventProperties,
+) => {
+  safeTrack('analysis_page_ended_unexpectedly', properties)
+}
+
 export const trackOpeningSelectionModalOpened = (
   source: 'page_load' | 'change_selections_button',
   existingSelectionsCount: number,
@@ -196,20 +310,22 @@ export const trackDrillMoveMade = (
 }
 
 export const trackDrillCompleted = (
-  drillIndex: number,
   openingName: string,
+  maiaVersion: string,
+  playerColor: 'white' | 'black',
   playerMovesMade: number,
-  targetMoves: number,
-  completionPercentage: number,
-  timeTakenSeconds: number,
+  targetMoves: number | null,
+  endReason: string | null,
+  accuracy: number,
 ) => {
   safeTrack('drill_completed', {
-    drill_index: drillIndex,
     opening_name: openingName,
+    maia_version: maiaVersion,
+    player_color: playerColor,
     player_moves_made: playerMovesMade,
     target_moves: targetMoves,
-    completion_percentage: completionPercentage,
-    time_taken_seconds: timeTakenSeconds,
+    end_reason: endReason,
+    accuracy,
   })
 }
 
@@ -227,7 +343,7 @@ export const trackDrillSessionCompleted = (
 
 // Analysis Page Events
 export const trackAnalysisGameLoaded = (
-  gameSource: 'lichess' | 'custom_pgn' | 'custom_fen' | 'url_import',
+  gameSource: 'tournament' | 'lichess' | 'play' | 'hand' | 'brain' | 'custom',
 ) => {
   safeTrack('analysis_game_loaded', {
     game_source: gameSource,
@@ -308,7 +424,8 @@ export const trackPuzzleCompleted = (
   puzzleId: string,
   result: 'correct' | 'forfeit',
   attemptsMade: number,
-  timeTakenSeconds: number,
+  // Since the puzzle came on show, and how much of it the page was hidden.
+  time: { seconds: number; hiddenSeconds: number } | null,
   puzzleRating: number,
   ratingChange: number,
 ) => {
@@ -316,7 +433,8 @@ export const trackPuzzleCompleted = (
     puzzle_id: puzzleId,
     result,
     attempts_made: attemptsMade,
-    time_taken_seconds: timeTakenSeconds,
+    time_taken_seconds: time?.seconds ?? null,
+    time_hidden_seconds: time?.hiddenSeconds ?? null,
     puzzle_rating: puzzleRating,
     rating_change: ratingChange,
   })
@@ -362,32 +480,55 @@ export const trackTuringMoveNavigated = (
 
 export const trackTuringSubmissionMade = (
   gameId: string,
-  whiteGuess: 'human' | 'bot',
-  blackGuess: 'human' | 'bot',
-  timeSpentSeconds: number,
-  confidenceLevel?: number,
+  guessedBot: 'white' | 'black',
+  correct: boolean,
+  newRating: number,
+  hasComment: boolean,
 ) => {
   safeTrack('turing_submission_made', {
     game_id: gameId,
-    white_guess: whiteGuess,
-    black_guess: blackGuess,
-    confidence_level: confidenceLevel,
-    time_spent_seconds: timeSpentSeconds,
+    guessed_bot: guessedBot,
+    correct,
+    new_rating: newRating,
+    has_comment: hasComment,
   })
 }
 
 // Play vs Maia Events
+export type PlayGameType = 'vs_maia' | 'hand_and_brain'
+
 export const trackPlayGameStarted = (
-  gameType: 'vs_maia' | 'hand_and_brain',
+  gameId: string,
+  gameType: PlayGameType,
   maiaVersion: string,
   playerColor: 'white' | 'black',
-  timeControl?: string,
+  timeControl: string,
+  customPosition: boolean,
+  isBrain: boolean,
+  loggedIn: boolean,
 ) => {
   safeTrack('play_game_started', {
+    game_id: gameId,
     game_type: gameType,
     maia_version: maiaVersion,
     player_color: playerColor,
     time_control: timeControl,
+    custom_position: customPosition,
+    is_brain: isBrain,
+    logged_in: loggedIn,
+  })
+}
+
+// Both sides have moved, as opposed to a game opened and left untouched.
+export const trackPlayGameFirstMoves = (
+  gameId: string,
+  gameType: PlayGameType,
+  maiaVersion: string,
+) => {
+  safeTrack('play_game_first_moves', {
+    game_id: gameId,
+    game_type: gameType,
+    maia_version: maiaVersion,
   })
 }
 
@@ -407,6 +548,8 @@ export const trackPlayMoveMade = (
 
 export const trackPlayGameEnded = (
   gameId: string,
+  gameType: PlayGameType,
+  maiaVersion: string,
   result: 'win' | 'loss' | 'draw',
   terminationReason: string,
   totalMoves: number,
@@ -414,6 +557,8 @@ export const trackPlayGameEnded = (
 ) => {
   safeTrack('play_game_ended', {
     game_id: gameId,
+    game_type: gameType,
+    maia_version: maiaVersion,
     result,
     termination_reason: terminationReason,
     total_moves: totalMoves,
@@ -438,10 +583,52 @@ export const trackHomepageFeatureClicked = (
   })
 }
 
+/** Where a "Sign in with Lichess" button was pressed. */
+export type SignInSource =
+  | 'homepage'
+  | 'header'
+  | 'header_menu'
+  | 'error_page'
+  | 'game_over'
+  | 'analysis_lichess_tab'
+  | 'auth_prompt'
+
+/**
+ * `signedInHereBefore`: whether this browser has been signed in before, which
+ * tells a returning account (signing in again, or on another page) from what
+ * is most likely a new one. Only browsers seen signed in since this was added
+ * (Nov 10, 2026) are known, so for a while some returning accounts count as
+ * new.
+ */
 export const trackLichessConnectionInitiated = (
-  source: 'homepage' | 'auth_prompt',
+  source: SignInSource,
+  signedInHereBefore: boolean,
 ) => {
-  safeTrack('lichess_connection_initiated', { source })
+  safeTrack('lichess_connection_initiated', {
+    source,
+    signed_in_here_before: signedInHereBefore,
+  })
+}
+
+/**
+ * The visitor came back from Lichess's sign-in page (to the page they
+ * started from), signed in or not. `seconds`: since the button was pressed.
+ * `signedInHereBefore`: as above, before this sign-in.
+ */
+export const trackLichessSignInReturned = (
+  completed: boolean,
+  source: SignInSource,
+  seconds: number,
+  signedInHereBefore: boolean,
+) => {
+  safeTrack(
+    completed ? 'lichess_sign_in_completed' : 'lichess_sign_in_not_completed',
+    { source, seconds, signed_in_here_before: signedInHereBefore },
+  )
+}
+
+export const trackLoggedOut = () => {
+  safeTrack('logged_out')
 }
 
 export const trackTourStarted = (

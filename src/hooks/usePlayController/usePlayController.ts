@@ -3,7 +3,10 @@ import { AllStats } from '../useStats'
 import { PlayedGame, QueuedPremove } from 'src/types/play'
 import { Chess, Piece, SQUARES } from 'chess.ts'
 import { useTreeController } from '../useTreeController'
+import { usePlayGameTracking } from './usePlayGameTracking'
 import { useMemo, useState, useCallback, useEffect } from 'react'
+import { initialClockSeconds } from 'src/lib/timeControl'
+import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 const nullFen = new Chess().fen()
 
@@ -52,26 +55,48 @@ const computeTimeTermination = (
   }
 }
 
-export const usePlayController = (id: string, config: PlayGameConfig) => {
-  const [gameTree, setGameTree] = useState<GameTree>(
-    () => new GameTree(config.startFen || nullFen),
-  )
+export const usePlayController = (
+  id: string,
+  config: PlayGameConfig,
+  // A game continued from where it was left (src/lib/unfinishedGame.ts).
+  resume?: UnfinishedGame,
+) => {
+  const [gameTree, setGameTree] = useState<GameTree>(() => {
+    const tree = new GameTree(config.startFen || nullFen)
+    if (resume) tree.addMovesToMainLine(resume.moves, resume.moveTimes)
+    return tree
+  })
 
   const controller = useTreeController(gameTree, config.player)
+
+  // A continued game opens on its last position (the tree controller starts
+  // at the root).
+  useEffect(() => {
+    if (resume) controller.setCurrentNode(gameTree.getLastMainlineNode())
+  }, [])
 
   const [treeVersion, setTreeVersion] = useState<number>(0)
   const [resigned, setResigned] = useState<boolean>(false)
   const [timeExpired, setTimeExpired] = useState<Color | null>(null)
 
-  const [baseMinutes, incrementSeconds] =
+  const incrementSeconds =
     config.timeControl == 'unlimited'
-      ? [0, 0]
-      : config.timeControl.split('+').map(Number)
-  const initialClockValue = baseMinutes * 60 * 1000
+      ? 0
+      : Number(config.timeControl.split('+')[1]) || 0
+  // "0+N" starts at 3 seconds (see initialClockSeconds).
+  const initialClockValue = initialClockSeconds(config.timeControl) * 1000
 
-  const [whiteClock, setWhiteClock] = useState<number>(initialClockValue)
-  const [blackClock, setBlackClock] = useState<number>(initialClockValue)
-  const [lastMoveTime, setLastMoveTime] = useState<number>(0)
+  // A continued game's clocks were paused while it was away: they run again
+  // from now.
+  const [whiteClock, setWhiteClock] = useState<number>(
+    resume?.whiteClock ?? initialClockValue,
+  )
+  const [blackClock, setBlackClock] = useState<number>(
+    resume?.blackClock ?? initialClockValue,
+  )
+  const [lastMoveTime, setLastMoveTime] = useState<number>(() =>
+    resume && resume.moves.length >= 2 ? Date.now() : 0,
+  )
 
   const moveList = useMemo(
     () => gameTree.toMoveArray(),
@@ -90,15 +115,19 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     const turn = lastNode.turn
     const chess = gameTree.toChess()
 
-    const termination = timeExpired
-      ? computeTimeTermination(chess, timeExpired)
-      : resigned
-        ? ({
-            result: turn == 'w' ? '0-1' : '1-0',
-            winner: turn == 'w' ? 'black' : 'white',
-            type: 'resign',
-          } as Termination)
-        : computeTermination(chess)
+    // A mating move that was registered stands even if the clock ran out
+    // at the same moment, so checkmate takes precedence over the flag.
+    const termination = chess.inCheckmate()
+      ? computeTermination(chess)
+      : timeExpired
+        ? computeTimeTermination(chess, timeExpired)
+        : resigned
+          ? ({
+              result: turn == 'w' ? '0-1' : '1-0',
+              winner: turn == 'w' ? 'black' : 'white',
+              type: 'resign',
+            } as Termination)
+          : computeTermination(chess)
 
     const moves = []
     const rootNode = gameTree.getRoot()
@@ -134,6 +163,8 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     }
   }, [gameTree, treeVersion, resigned, timeExpired, whiteClock, blackClock, id])
 
+  usePlayGameTracking(id, config, moveList.length, game.termination)
+
   const toPlay: Color | null = game.termination ? null : game.turn
   const playerActive = toPlay == config.player
 
@@ -143,7 +174,9 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     const chess = new Chess(controller.currentNode.fen)
     const verboseMoves = chess.moves({ verbose: true })
 
-    const cantMove = !playerActive || game.termination
+    // No moves until the game has its id (/play/maia shows the game while
+    // start_game answers): a move needs it to be logged.
+    const cantMove = !playerActive || game.termination || !id
 
     const availableMoves = cantMove
       ? []
@@ -163,7 +196,7 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     }
 
     return { availableMoves, pieces }
-  }, [controller.currentNode, playerActive, game.termination, treeVersion])
+  }, [controller.currentNode, playerActive, game.termination, treeVersion, id])
 
   const updateClockForColor = useCallback(
     (
@@ -272,6 +305,76 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     [gameTree, controller.setCurrentNode],
   )
 
+  // The player's last move, and Maia's reply to it if there is one, so
+  // that it is the player's turn again (practice games). The clocks keep
+  // their times: the side whose clock was running is charged up to now, and
+  // the player's clock runs from here.
+  const playerMovesPlayed = useMemo(() => {
+    const mainLine = gameTree.getMainLine()
+    const playerTurn = config.player === 'white' ? 'w' : 'b'
+    // A node's mover is the side not to move in it.
+    return mainLine.slice(1).filter((node) => node.turn !== playerTurn).length
+  }, [gameTree, treeVersion, config.player])
+  const canTakeBack =
+    !!config.practice && !game.termination && playerMovesPlayed > 0
+
+  // Charges the running clock (the side to move's) with the time since the
+  // last move, without increment, and restarts the count from now, so a
+  // clock change mid-move keeps the running time.
+  const chargeRunningClock = useCallback(() => {
+    if (moveList.length < 2 || lastMoveTime <= 0 || !toPlay) return
+    const elapsed = Date.now() - lastMoveTime
+    if (toPlay === 'white') {
+      setWhiteClock((clock) => Math.max(clock - elapsed, 0))
+    } else {
+      setBlackClock((clock) => Math.max(clock - elapsed, 0))
+    }
+    setLastMoveTime(Date.now())
+  }, [moveList.length, lastMoveTime, toPlay])
+
+  const takeBack = useCallback(() => {
+    if (!canTakeBack) return
+
+    const tip = gameTree.getLastMainlineNode()
+    const plies = playerActive ? 2 : 1
+    let target = tip
+    for (let i = 0; i < plies && target.parent; i++) {
+      target = target.parent
+    }
+
+    chargeRunningClock()
+    // Clocks only run from the second move on: back before it, they wait
+    // to start again.
+    if (moveList.length - plies < 2) setLastMoveTime(0)
+
+    target.removeAllChildren()
+    setTreeVersion((prev) => prev + 1)
+    controller.setCurrentNode(target)
+  }, [
+    canTakeBack,
+    gameTree,
+    playerActive,
+    moveList.length,
+    chargeRunningClock,
+    controller.setCurrentNode,
+  ])
+
+  // Extra time on the player's clock, on request (practice games).
+  const canAddTime =
+    !!config.practice && !game.termination && config.timeControl != 'unlimited'
+  const addTime = useCallback(
+    (ms: number) => {
+      if (!canAddTime) return
+      chargeRunningClock()
+      if (config.player === 'white') {
+        setWhiteClock((clock) => clock + ms)
+      } else {
+        setBlackClock((clock) => clock + ms)
+      }
+    },
+    [canAddTime, config.player, chargeRunningClock],
+  )
+
   const reset = () => {
     const newTree = new GameTree(config.startFen || nullFen)
     setGameTree(newTree)
@@ -339,6 +442,11 @@ export const usePlayController = (id: string, config: PlayGameConfig) => {
     addMoveWithTime,
     setResigned,
     reset,
+    practice: !!config.practice,
+    canTakeBack,
+    takeBack,
+    canAddTime,
+    addTime,
     makePlayerMove,
     updateClock,
     updateClockForColor,

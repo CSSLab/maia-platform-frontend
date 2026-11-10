@@ -5,10 +5,16 @@ import { useMemo, useCallback, useEffect } from 'react'
 import { useTreeController } from '../useTreeController'
 
 export const useTrainingController = (game: PuzzleGame) => {
+  // Orient the board for the side to move in the puzzle's starting position.
+  // Not the main line's last node: a guess is added to the main line, so when
+  // a past puzzle is reopened that node is one move later, with the other
+  // side to move (Black's puzzles then showed from White's side).
   const initialOrientation = useMemo(() => {
-    const chess = new Chess(game.tree.getLastMainlineNode().fen)
+    const mainLine = game.tree.getMainLine()
+    const start = mainLine[Math.min(game.targetIndex, mainLine.length - 1)]
+    const chess = new Chess(start.fen)
     return chess.turn() === 'w' ? 'white' : 'black'
-  }, [game.targetIndex])
+  }, [game.tree, game.targetIndex])
   const controller = useTreeController(game.tree, initialOrientation)
 
   const puzzleStartingNode = useMemo(() => {

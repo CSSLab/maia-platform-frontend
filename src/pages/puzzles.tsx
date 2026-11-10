@@ -9,10 +9,10 @@ import {
   useCallback,
   SetStateAction,
   useRef,
+  useLayoutEffect,
+  memo,
 } from 'react'
 import Head from 'next/head'
-import type { NextPage } from 'next'
-import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import { Chess, PieceSymbol } from 'chess.ts'
@@ -21,6 +21,8 @@ import {
   fetchPuzzle,
   logPuzzleGuesses,
   fetchTrainingPlayerStats,
+  PuzzleUnavailableError,
+  PuzzleUnavailableReason,
 } from 'src/api'
 import {
   trackPuzzleStarted,
@@ -28,7 +30,7 @@ import {
   trackPuzzleCompleted,
 } from 'src/lib/analytics'
 import {
-  Loading,
+  PuzzlesShell,
   GameInfo,
   Feedback,
   PuzzleLog,
@@ -37,7 +39,7 @@ import {
   AuthenticatedWrapper,
   GameBoard,
   PromotionOverlay,
-  DownloadModelModal,
+  MaiaDownloadPrompt,
   AnalysisSidebar,
   AnalysisArrowLegend,
   AnalysisCompactBlunderMeter,
@@ -59,7 +61,9 @@ import {
   requiresPromotion,
 } from 'src/lib/puzzle'
 import { cpToWinrate } from 'src/lib/analysis'
+import { readPuzzleClock, startPuzzleClock } from 'src/lib/puzzleClock'
 import { tourConfigs } from 'src/constants/tours'
+import { LATE_STOCKFISH_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -78,8 +82,74 @@ const statsLoader = async () => {
   }
 }
 
-const TrainPage: NextPage = () => {
-  const router = useRouter()
+interface PuzzleUnavailableProps {
+  reason: PuzzleUnavailableReason
+  onRetry: () => void
+  // Back to the puzzles of this visit, when there are some.
+  onBack?: () => void
+}
+
+// In place of the puzzle when none could be loaded. This used to be /401,
+// whose "Try again" came back here to fail again: a player who has attempted
+// every puzzle would never get out of it.
+const PuzzleUnavailable: React.FC<PuzzleUnavailableProps> = ({
+  reason,
+  onRetry,
+  onBack,
+}) => (
+  <div className="flex min-h-[60vh] w-full items-center justify-center px-4 py-16">
+    <div className="flex max-w-md flex-col items-center gap-3 rounded-md border border-glass-border bg-glass p-6 text-center backdrop-blur-md">
+      <span className="material-symbols-outlined text-4xl text-human-3">
+        {reason === 'exhausted' ? 'check_circle' : 'error'}
+      </span>
+      {reason === 'exhausted' ? (
+        <>
+          <h1 className="text-xl font-bold">
+            You&apos;ve attempted every puzzle we have
+          </h1>
+          <p className="text-sm text-secondary">
+            There are no new puzzles for you right now. More are coming, so
+            check back soon. In the meantime, try the openings drills or play
+            against Maia.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 className="text-xl font-bold">We couldn&apos;t load a puzzle</h1>
+          <p className="text-sm text-secondary">
+            Something went wrong while getting your next puzzle. Please try
+            again in a moment.
+          </p>
+        </>
+      )}
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded bg-human-4 px-4 py-2 text-sm text-white transition hover:bg-human-4/80"
+        >
+          Try again
+        </button>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded bg-glass-strong px-4 py-2 text-sm text-primary transition hover:bg-glass-stronger"
+          >
+            Back to my puzzles
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+)
+
+interface TrainPageProps {
+  // Called with whether a puzzle is on screen, before that frame is painted.
+  onPuzzleShown: (shown: boolean) => void
+}
+
+const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
   const { startTour, tourState } = useTour()
 
   const [trainingGames, setTrainingGames] = useState<PuzzleGame[]>([])
@@ -92,6 +162,9 @@ const TrainPage: NextPage = () => {
   >([])
   const [initialTourCheck, setInitialTourCheck] = useState(false)
   const [loadingGame, setLoadingGame] = useState(false)
+  // Why the latest puzzle couldn't be loaded, while that is shown.
+  const [puzzleError, setPuzzleError] =
+    useState<PuzzleUnavailableReason | null>(null)
   const [lastAttemptedMove, setLastAttemptedMove] = useState<string | null>(
     null,
   )
@@ -105,13 +178,25 @@ const TrainPage: NextPage = () => {
     }
   }, [initialTourCheck, startTour, tourState.ready])
 
+  // new_puzzle takes ~1.6 s on the backend, so the next puzzle is requested
+  // as soon as the current one's result is logged (its first answer, or
+  // giving up), and is usually ready by the time the user asks for it.
+  const nextPuzzle = useRef<ReturnType<typeof fetchPuzzle> | null>(null)
+
   const getNewGame = useCallback(async () => {
     setLoadingGame(true)
+    setPuzzleError(null)
     let game
     try {
-      game = await fetchPuzzle()
+      const prefetched = nextPuzzle.current
+      nextPuzzle.current = null
+      game = await (prefetched
+        ? prefetched.catch(() => fetchPuzzle())
+        : fetchPuzzle())
     } catch (e) {
-      router.push('/401')
+      console.error('Could not load a puzzle:', e)
+      setPuzzleError(e instanceof PuzzleUnavailableError ? e.reason : 'error')
+      setLoadingGame(false)
       return
     }
 
@@ -126,7 +211,7 @@ const TrainPage: NextPage = () => {
     setTrainingGames(trainingGames.concat([game]))
     setPreviousGameResults(previousGameResults.concat([{ ...game }]))
     setLoadingGame(false)
-  }, [trainingGames, previousGameResults, router, stats?.rating])
+  }, [trainingGames, previousGameResults, stats?.rating])
 
   const logGuess = useCallback(
     async (
@@ -159,6 +244,11 @@ const TrainPage: NextPage = () => {
         newGuesses,
         status === 'forfeit',
       )
+      if (userGuesses.length === 0) {
+        const request = fetchPuzzle()
+        request.catch(() => undefined)
+        nextPuzzle.current = request
+      }
       const solutionMoveUci = response.correct_moves?.[0]
       const solutionSan =
         solutionMoveUci && trainingGames[puzzleIdx]
@@ -188,7 +278,7 @@ const TrainPage: NextPage = () => {
           gameId,
           'forfeit',
           newGuesses.length,
-          0, // No time tracking for forfeit
+          readPuzzleClock(gameId),
           response.puzzle_elo,
           response.puzzle_elo - rating,
         )
@@ -231,7 +321,7 @@ const TrainPage: NextPage = () => {
           gameId,
           result ? 'correct' : 'forfeit',
           newGuesses.length,
-          0, // No time tracking implemented yet
+          readPuzzleClock(gameId),
           response.puzzle_elo,
           response.puzzle_elo - rating,
         )
@@ -243,16 +333,48 @@ const TrainPage: NextPage = () => {
     [currentIndex, trainingGames.length, userGuesses, incrementStats],
   )
 
+  // The first puzzle. After a failure, only the page's "Try again" asks
+  // again, or this would ask over and over.
   useEffect(() => {
-    if (trainingGames.length === 0 && !loadingGame) getNewGame()
-  }, [getNewGame, trainingGames.length, loadingGame])
+    if (trainingGames.length === 0 && !loadingGame && !puzzleError) getNewGame()
+  }, [getNewGame, trainingGames.length, loadingGame, puzzleError])
+
+  const showingError = !loadingGame && puzzleError !== null
+  const puzzleShown =
+    !loadingGame &&
+    !showingError &&
+    trainingGames.length > 0 &&
+    !!trainingGames[currentIndex]
+  // TrainPage renders only in the browser (it waits for the session). The
+  // loading shell goes once there is something to show: a puzzle, or why
+  // there isn't one.
+  useLayoutEffect(() => {
+    onPuzzleShown(puzzleShown || showingError)
+  }, [puzzleShown, showingError, onPuzzleShown])
+
+  // The clock for puzzle_completed starts when the newest puzzle is drawn.
+  const shownPuzzleId =
+    puzzleShown && currentIndex === trainingGames.length - 1
+      ? trainingGames[currentIndex].id
+      : null
+  useLayoutEffect(() => {
+    if (shownPuzzleId) startPuzzleClock(shownPuzzleId)
+  }, [shownPuzzleId])
+
+  if (showingError && puzzleError) {
+    return (
+      <PuzzleUnavailable
+        reason={puzzleError}
+        onRetry={getNewGame}
+        onBack={
+          trainingGames.length > 0 ? () => setPuzzleError(null) : undefined
+        }
+      />
+    )
+  }
 
   if (loadingGame || trainingGames.length === 0) {
-    return (
-      <Loading isLoading={true}>
-        <div></div>
-      </Loading>
-    )
+    return null
   }
 
   if (trainingGames.length && trainingGames[currentIndex])
@@ -288,11 +410,7 @@ const TrainPage: NextPage = () => {
       />
     )
 
-  return (
-    <Loading isLoading={true}>
-      <div></div>
-    </Loading>
-  )
+  return null
 }
 
 interface Props {
@@ -1740,24 +1858,14 @@ const Train: React.FC<Props> = ({
 
   return (
     <>
-      <Head>
-        <title>Chess Puzzles – Maia Chess</title>
-        <meta
-          name="description"
-          content="Train with Maia as your coach using human-centered puzzles. Curated based on how millions of players improve, with data showing how different ratings approach each position."
-        />
-      </Head>
-      <AnimatePresence>
-        {analysisController.maia.status === 'no-cache' ||
-        analysisController.maia.status === 'downloading' ? (
-          <DownloadModelModal
-            progress={analysisController.maia.progress}
-            download={analysisController.maia.downloadModel}
-          />
-        ) : null}
-      </AnimatePresence>
+      <MaiaDownloadPrompt
+        engine={analysisController.maia}
+        wanted={analysisEnabled}
+      />
       <TrainingControllerContext.Provider value={controller}>
-        <AnimatePresence mode="wait">
+        {/* No fade-in when the puzzle replaces the shell, which already shows
+            the panels and board. */}
+        <AnimatePresence mode="wait" initial={false}>
           {trainingGame && (
             <motion.div key={trainingGame.id}>
               {isMobile ? mobileLayout : desktopLayout}
@@ -1769,10 +1877,30 @@ const Train: React.FC<Props> = ({
   )
 }
 
+// Memoized so that removing the shell, beside it, doesn't render the page
+// again.
+const MemoizedTrainPage = memo(TrainPage)
+
 export default function AuthenticatedTrainPage() {
+  // One shell from the first paint until a puzzle is on screen, while the
+  // visitor's session and then the puzzle load (and between puzzles).
+  const [puzzleShown, setPuzzleShown] = useState(false)
+
   return (
-    <AuthenticatedWrapper>
-      <TrainPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Chess Puzzles – Maia Chess</title>
+        <meta
+          name="description"
+          content="Train with Maia as your coach using human-centered puzzles. Curated based on how millions of players improve, with data showing how different ratings approach each position."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <MemoizedTrainPage onPuzzleShown={setPuzzleShown} />
+      </AuthenticatedWrapper>
+      {!puzzleShown && <PuzzlesShell />}
+    </>
   )
 }
+
+AuthenticatedTrainPage.providers = LATE_STOCKFISH_PROVIDERS

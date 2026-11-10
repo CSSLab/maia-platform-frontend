@@ -3,12 +3,16 @@ import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
-import { startGame } from 'src/api'
+import { MoveRequestError, startGameWithRetry } from 'src/api/play'
+import { trackGameStartFailed } from 'src/lib/analytics'
 import { Loading } from 'src/components/Common'
 import { GameplayInterface } from 'src/components/Board'
 import { HandBrainPlayControls } from 'src/components/Play'
 import { ModalContext, useTour } from 'src/contexts'
 import { Color, PlayGameConfig, TimeControl } from 'src/types'
+import toast from 'react-hot-toast'
+import { normalizeTimeControl } from 'src/lib/timeControl'
+import { checkStartPosition } from 'src/lib/startPosition'
 import { useHandBrainController } from 'src/hooks/usePlayController/useHandBrainController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 import { tourConfigs } from 'src/constants/tours'
@@ -91,20 +95,31 @@ const PlayHandBrainPage: NextPage = () => {
       : false,
   )
 
+  // A position from the address is checked as the setup dialog checks one.
+  const startFenCheck = useMemo(
+    () =>
+      typeof startFen === 'string' && startFen.trim()
+        ? checkStartPosition(startFen)
+        : undefined,
+    [startFen],
+  )
+
   const playGameConfig: PlayGameConfig = useMemo(
     () => ({
       playType: 'handAndBrain',
       player: (player || 'white') as Color,
       maiaPartnerVersion: (maiaPartnerVersion || 'maia_kdd_1100') as string,
       maiaVersion: (maiaVersion || 'maia_kdd_1100') as string,
-      timeControl: (timeControl || 'unlimited') as TimeControl,
+      timeControl: normalizeTimeControl(
+        typeof timeControl === 'string' ? timeControl : undefined,
+      ),
       isBrain: isBrain == 'true',
       sampleMoves: sampleMoves == 'true',
       simulateMaiaTime: simulateMaiaTime,
-      startFen: typeof startFen == 'string' ? startFen : undefined,
+      startFen: startFenCheck?.ok ? startFenCheck.fen : undefined,
     }),
     [
-      startFen,
+      startFenCheck,
       isBrain,
       maiaVersion,
       maiaPartnerVersion,
@@ -115,17 +130,33 @@ const PlayHandBrainPage: NextPage = () => {
     ],
   )
 
+  // Start the next game's setup from this game's settings (partner,
+  // opponent, role, time control), as "Play again" does against Maia.
   const playAgain = useCallback(() => {
-    setPlaySetupModalProps({ playType: 'handAndBrain' })
-  }, [setPlaySetupModalProps])
+    setPlaySetupModalProps({ ...playGameConfig })
+  }, [setPlaySetupModalProps, playGameConfig])
 
   useEffect(() => {
+    // The game's settings come from the URL's query, which Next fills in
+    // after the first render. Starting before then also started a game, with
+    // the default settings, that was then abandoned.
+    if (!router.isReady) return
+    if (startFenCheck && !startFenCheck.ok) {
+      // No game: the setup dialog again, showing what's wrong.
+      toast.error(startFenCheck.error)
+      setPlaySetupModalProps({
+        ...playGameConfig,
+        startFen: typeof startFen === 'string' ? startFen : undefined,
+      })
+      return
+    }
+
     let canceled = false
 
     async function fetchGameId() {
       let response
       try {
-        response = await startGame(
+        response = await startGameWithRetry(
           playGameConfig.player,
           playGameConfig.maiaVersion,
           playGameConfig.isBrain ? 'brain' : 'hand',
@@ -134,6 +165,12 @@ const PlayHandBrainPage: NextPage = () => {
           playGameConfig.maiaPartnerVersion,
         )
       } catch (e) {
+        console.error(e)
+        trackGameStartFailed(
+          playGameConfig.isBrain ? 'brain' : 'hand',
+          e,
+          e instanceof MoveRequestError ? e.status : undefined,
+        )
         router.push('/401')
         return
       }
@@ -168,7 +205,14 @@ const PlayHandBrainPage: NextPage = () => {
         canceled = true
       }
     }
-  }, [id, playGameConfig, router])
+  }, [
+    id,
+    playGameConfig,
+    router,
+    setPlaySetupModalProps,
+    startFen,
+    startFenCheck,
+  ])
 
   return (
     <>

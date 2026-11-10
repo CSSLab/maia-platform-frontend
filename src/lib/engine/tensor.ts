@@ -364,7 +364,34 @@ function boardToMaia3Tokens(fen: string): Float32Array {
  * Returns (64, 12) board tokens and a legal moves mask over 4352 moves.
  * ELO is passed as a raw float (maia3 uses continuous interpolation, not categories).
  */
+const MAIA3_MOVE_COUNT = Object.keys(allPossibleMovesMaia3).length
+
+/**
+ * Maia's inputs for a position. The analysis page asks for the same position
+ * once per rating (21 times), and generating the legal moves each time was
+ * ~40 ms of main-thread work per position (~170 ms on a phone), so the last
+ * few positions' inputs are kept. Callers must not modify them.
+ */
+const recentMaia3Inputs = new Map<
+  string,
+  { boardTokens: Float32Array; legalMoves: Float32Array }
+>()
+
 function preprocessMaia3(fen: string): {
+  boardTokens: Float32Array
+  legalMoves: Float32Array
+} {
+  const recent = recentMaia3Inputs.get(fen)
+  if (recent) return recent
+  const inputs = computeMaia3Inputs(fen)
+  recentMaia3Inputs.set(fen, inputs)
+  if (recentMaia3Inputs.size > 8) {
+    recentMaia3Inputs.delete(recentMaia3Inputs.keys().next().value as string)
+  }
+  return inputs
+}
+
+function computeMaia3Inputs(fen: string): {
   boardTokens: Float32Array
   legalMoves: Float32Array
 } {
@@ -377,7 +404,7 @@ function preprocessMaia3(fen: string): {
 
   const boardTokens = boardToMaia3Tokens(board.fen())
 
-  const legalMoves = new Float32Array(Object.keys(allPossibleMovesMaia3).length)
+  const legalMoves = new Float32Array(MAIA3_MOVE_COUNT)
   for (const move of board.moves({ verbose: true }) as Move[]) {
     const promotion = move.promotion ? move.promotion : ''
     const moveIndex = allPossibleMovesMaia3[move.from + move.to + promotion]

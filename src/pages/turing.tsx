@@ -10,13 +10,13 @@ import {
   useTour,
 } from 'src/contexts'
 import {
-  Loading,
   GameInfo,
   GameBoard,
   TuringLog,
   StatsDisplay,
   MovesContainer,
   BoardController,
+  TuringShell,
   TuringSubmission,
 } from 'src/components'
 import { MaterialBalance } from 'src/components/Common/MaterialBalance'
@@ -46,18 +46,23 @@ const TuringPage: NextPage = () => {
     }
   }, [controller.game, controller.stats?.rating])
 
-  if (controller.loading || !controller.game) {
-    return (
-      <Loading isLoading={true}>
-        <div></div>
-      </Loading>
-    )
-  }
-
   return (
-    <TuringControllerContext.Provider value={controller}>
-      <Turing game={controller.game} stats={controller.stats} />
-    </TuringControllerContext.Provider>
+    <>
+      <Head>
+        <title>Bot or Not – Maia Chess</title>
+        <meta
+          name="description"
+          content="Test your ability to distinguish between human and AI chess play. This Turing Test for chess is a fun way to see if you understand the differences between human and engine moves."
+        />
+      </Head>
+      {controller.loading || !controller.game ? (
+        <TuringShell />
+      ) : (
+        <TuringControllerContext.Provider value={controller}>
+          <Turing game={controller.game} stats={controller.stats} />
+        </TuringControllerContext.Provider>
+      )}
+    </>
   )
 }
 
@@ -330,16 +335,11 @@ const Turing: React.FC<Props> = (props: Props) => {
 
   return (
     <>
-      <Head>
-        <title>Bot or Not – Maia Chess</title>
-        <meta
-          name="description"
-          content="Test your ability to distinguish between human and AI chess play. This Turing Test for chess is a fun way to see if you understand the differences between human and engine moves."
-        />
-      </Head>
       <TuringControllerContext.Provider value={controller}>
         <TreeControllerContext.Provider value={controller}>
-          <AnimatePresence mode="wait">
+          {/* No fade-in when the game replaces the shell, which already shows
+              the panels and board. */}
+          <AnimatePresence mode="wait" initial={false}>
             {isMobile ? mobileLayout : desktopLayout}
           </AnimatePresence>
         </TreeControllerContext.Provider>

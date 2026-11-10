@@ -6,26 +6,26 @@ tags:
   - maia
   - human-ai
 excerpt: >-
-  We release MaiaChess v1, a major update to our platform for human-aligned chess analysis. Powered by the new Maia 2 model, the platform combines neural predictions with engine insights to provide detailed, rating-aware feedback on games, drills, and puzzles.
+  We release MaiaChess v1, a major update to our platform for human-aligned chess analysis. Powered by the new Maia-2 model, the platform combines neural predictions with engine insights to provide detailed, rating-aware feedback on games, drills, and puzzles.
 github: https://github.com/CSSLab/maia-platform-frontend
 image: all_lineplot.png
 ---
 
 We are thrilled to announce the beta launch of Maia Chess v1. This release represents a significant step forward in our goal of providing a more human-centered chess analysis experience, combining insights from neural models trained on human games with traditional engine-based evaluation.
 
-Version 1.0 includes major changes across all core functionalities, beginning with the introduction of the Maia 2 model. These updates affect every part of the user experience and introduce new tools for analysis, training, and gameplay exploration.
+Version 1.0 includes major changes across all core functionalities, beginning with the introduction of the Maia-2 model. These updates affect every part of the user experience and introduce new tools for analysis, training, and gameplay exploration.
 
-## Introducing the Maia 2 Model
+## Introducing the Maia-2 Model
 
-The most substantial change in v1 is the adoption of the new Maia 2 model, a new version of our neural network trained to predict human moves at various rating levels. As a unified model, Maia 2 has improved predictive accuracy and generalization, as well as consistent coherence across all rating levels. You can read more about the model in our [research paper](https://arxiv.org/abs/2409.20553).
+The most substantial change in v1 is the adoption of the new Maia-2 model, a new version of our neural network trained to predict human moves at various rating levels. As a unified model, Maia-2 has improved predictive accuracy and generalization, as well as consistent coherence across all rating levels. You can read more about the model in our [research paper](https://arxiv.org/abs/2409.20553).
 
 This model underpins nearly every page of the platform and enables tighter integration with Stockfish evaluations. You can now see each move through two lenses: one rooted in traditional engine evaluation and one informed by how humans are likely to play. This dual perspective provides more contextually grounded feedback, helping you understand not only what was wrong with a move but also how it compares to the decisions typical of players at different skill levels.
 
 ## New Analysis Page
 
-![Maia 2 Analysis](/blog/platform-v1/analysis.png)
+![Maia-2 Analysis](/blog/platform-v1/analysis.png)
 
-The analysis page has been restructured to make use of Maia 2 and expose deeper feedback mechanisms highlighting the relationship between engine accuracy and human-like play. New components and functionalities include:
+The analysis page has been restructured to make use of Maia-2 and expose deeper feedback mechanisms highlighting the relationship between engine accuracy and human-like play. New components and functionalities include:
 
 1. **Insight Panel**: Presents a combined Maia and Stockfish breakdown of move quality and intention. This helps you understand the relationship between engine accuracy and human-like play.
 2. **Moves by Rating Graph**: Displays the likelihood of each candidate move being played by humans at different rating levels. This helps you understand which moves are typical at different skill levels, and how moves improve as players get stronger.
@@ -38,7 +38,7 @@ Finally, we have made additional quality-of-life improvements across the analysi
 
 ## Opening Drill Page
 
-![Maia 2 Opening Drill](/blog/platform-v1/opening-drill.png)
+![Maia-2 Opening Drill](/blog/platform-v1/opening-drill.png)
 
 We also introduce a brand new opening drill page, which provides a structured way to rehearse post-opening decision-making. This page is designed to promote deeper pattern recognition and decision-making practice in positions that arise frequently in practical play:
 
@@ -50,7 +50,7 @@ We also introduce a brand new opening drill page, which provides a structured wa
 
 ## New Training Page
 
-![Maia 2 Training Page](/blog/platform-v1/training.png)
+![Maia-2 Training Page](/blog/platform-v1/training.png)
 
 We overhauled the training page to provide a more structured and engaging way to practice chess skills. This page is designed to help you practice your chess skills in a more structured and engaging way:
 

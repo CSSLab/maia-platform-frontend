@@ -1,6 +1,42 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { readLichessStream } from 'src/lib'
 import { StreamedGame, StreamedMove } from 'src/types'
+import {
+  LichessStudyRef,
+  lichessStudyErrorMessage,
+  lichessStudyPgnUrl,
+} from 'src/lib/lichessStudy'
+
+/**
+ * The PGN of a Lichess study, or of one of its chapters. Throws an Error whose
+ * message can be shown to the user (a private study, a wrong link).
+ */
+export const fetchLichessStudyPgn = async (
+  ref: LichessStudyRef,
+  signal?: AbortSignal,
+): Promise<string> => {
+  let res: Response
+  try {
+    // Comments and variations come with the PGN by default; clocks aren't
+    // needed for analysis.
+    res = await fetch(`${lichessStudyPgnUrl(ref)}?clocks=false`, { signal })
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new Error(
+      "Couldn't reach Lichess. Check your connection and try again.",
+    )
+  }
+
+  if (!res.ok) {
+    throw new Error(lichessStudyErrorMessage(res.status, ref))
+  }
+
+  const text = (await res.text()).trim()
+  if (!text) {
+    throw new Error('This study has no chapters to import.')
+  }
+  return text
+}
 
 export const fetchLichessTVGame = async () => {
   const res = await fetch('https://lichess.org/api/tv/channels')
@@ -55,7 +91,6 @@ export const streamLichessGameMoves = async (
         bc: message.bc,
       })
     } else {
-      console.log('Unknown message format:', message)
     }
   }
 
@@ -73,7 +108,6 @@ export const streamLichessGameMoves = async (
     await readLichessStream(onMessage)(response).then(onComplete)
   } catch (error) {
     if (abortSignal?.aborted) {
-      console.log('Stream aborted')
     } else {
       console.error('Stream error:', error)
       throw error

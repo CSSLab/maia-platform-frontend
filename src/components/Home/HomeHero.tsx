@@ -1,10 +1,7 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Fragment, useCallback, useContext, useEffect, useState } from 'react'
-import {
-  trackHomepageFeatureClicked,
-  trackLichessConnectionInitiated,
-} from 'src/lib/analytics'
+import { trackHomepageFeatureClicked } from 'src/lib/analytics'
 
 import { PlayType } from 'src/types'
 import { getGlobalStats } from 'src/api'
@@ -153,8 +150,13 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
         ? window.setTimeout(fetchGlobalStats, 800)
         : undefined
 
-    // Update every 5 minutes
-    const interval = setInterval(fetchGlobalStats, 5 * 60 * 1000)
+    // Every 5 minutes, while the page is on screen.
+    const interval = setInterval(
+      () => {
+        if (document.visibilityState === 'visible') fetchGlobalStats()
+      },
+      5 * 60 * 1000,
+    )
 
     return () => {
       if (idleHandle !== undefined) {
@@ -173,8 +175,10 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
         <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">
           <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[45%] md:gap-8">
             <div className="flex flex-col gap-3 md:gap-4">
-              <motion.h1 className="whitespace-nowrap text-4xl font-bold leading-tight text-white md:text-5xl">
-                Human-like chess AI
+              {/* One line on phones (sized to fit) and wide screens; two
+                  balanced lines beside the feature grid on tablets. */}
+              <motion.h1 className="whitespace-nowrap text-[length:min(2.25rem,calc((100vw_-_2rem)/11.6))] font-bold leading-tight text-white md:whitespace-normal md:text-balance md:text-5xl xl:whitespace-nowrap">
+                <span className="whitespace-nowrap">Human-like</span> chess AI
               </motion.h1>
               <motion.p className="text-xl text-white/80 md:text-2xl">
                 Maia is a neural network chess model that captures human style.
@@ -190,8 +194,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                 <motion.button
                   className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
                   onClick={() => {
-                    trackLichessConnectionInitiated('homepage')
-                    connectLichess()
+                    connectLichess('homepage')
                   }}
                 >
                   <img
@@ -206,8 +209,7 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                 {/* <motion.button
                   className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
                   onClick={() => {
-                    trackLichessConnectionInitiated('homepage')
-                    connectLichess()
+                    connectLichess('homepage')
                   }}
                 >
                   <img

@@ -140,6 +140,8 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
     >
       <button
         onClick={disableFlip ? undefined : toggleBoardOrientation}
+        aria-label="Flip board"
+        title="Flip board"
         disabled={disableFlip}
         className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-stronger disabled:bg-black/5"
       >
@@ -147,6 +149,7 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
       </button>
       <button
         onClick={disableNavigation ? undefined : getFirst}
+        aria-label="First move"
         disabled={!hasPrevious || disablePrevious || disableNavigation}
         className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-stronger disabled:bg-black/5"
       >
@@ -154,6 +157,7 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
       </button>
       <button
         onClick={disableNavigation ? undefined : getPrevious}
+        aria-label="Previous move"
         disabled={!hasPrevious || disablePrevious || disableNavigation}
         className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-stronger disabled:bg-black/5"
       >
@@ -161,6 +165,7 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
       </button>
       <button
         onClick={disableNavigation ? undefined : getNext}
+        aria-label="Next move"
         disabled={!hasNext || disableNavigation}
         className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-stronger disabled:bg-black/5"
       >
@@ -168,6 +173,7 @@ export const BoardController: React.FC<Props & { embedded?: boolean }> = ({
       </button>
       <button
         onClick={disableNavigation ? undefined : getLast}
+        aria-label="Last move"
         disabled={!hasNext || disableNavigation}
         className="flex h-7 flex-1 items-center justify-center rounded-sm bg-glass transition duration-200 hover:bg-glass-stronger disabled:bg-black/5"
       >

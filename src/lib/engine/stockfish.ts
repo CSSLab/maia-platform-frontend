@@ -1,6 +1,7 @@
 import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
-import StockfishWeb from 'lila-stockfish-web'
+import { hasRelaxedSimd } from './relaxedSimd'
+import StockfishWeb from '@lichess-org/stockfish-web'
 import {
   StockfishDiagnostics,
   StockfishEvaluation,
@@ -8,17 +9,18 @@ import {
   StockfishMoveMapStrategy,
   StockfishStreamOptions,
 } from 'src/types'
-import { StockfishModelStorage } from './stockfishStorage'
+export const NNUE_DOWNLOAD_FAILED_MESSAGE =
+  'the download failed. Check your connection.'
 
 const DEFAULT_NNUE_FETCH_TIMEOUT_MS = 30000
-const DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS = 15000
-const STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS = 1500
-const STOCKFISH_CACHE_WRITE_TIMEOUT_MS = 5000
+// How long one start of the engine's module (fetching and compiling its
+// wasm, starting its threads) may take. Slow phones took more than the 15 s
+// this used to be, so the engine starts a second time before giving up (see
+// startModuleWithRetry): at worst 2 x 20 s before the error shows.
+const DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS = 20000
 type StockfishInitPhase =
   | 'idle'
   | 'loading-module'
-  | 'checking-cache'
-  | 'downloading-nnue'
   | 'loading-nnue'
   | 'ready'
   | 'error'
@@ -37,12 +39,16 @@ type RootSearchResult = {
 }
 
 type RootProbePlan = {
+  // Every move is searched this deep first, so that the page has them all.
   screeningDepth: number
+  // ...and this deep once the lines on show have reached the target depth.
+  restDepth: number
 }
 
 type RootMovePhase = 'multipv' | 'screen' | 'deep' | 'ground-truth'
 type CandidateSelectionSource = 'sf-top' | 'maia-95' | 'both'
 const MAX_MAIA_DEEPEN_MOVES = 4
+const SCREENING_DEPTH = 6
 const MAIA_MID_DEPTH = 14
 
 type AnalysisRunContext = {
@@ -53,6 +59,7 @@ type AnalysisRunContext = {
   maiaCandidateMoves: string[]
   forcedCandidateMoves: string[]
   maiaPolicy: Record<string, number>
+  getMaiaCandidates?: StockfishStreamOptions['getMaiaCandidates']
   kSf: number
   targetDepth: number
   analysisStartedAtMs: number
@@ -77,6 +84,7 @@ class Engine {
   private evaluationPromise: Promise<StockfishEvaluation> | null
   private evaluationGenerator: AsyncGenerator<StockfishEvaluation> | null
   private initError: string | null
+  private initErrorDetail: string | null = null
   private initInFlight: boolean
   private initPhase: StockfishInitPhase
   private currentTargetDepth: number
@@ -129,10 +137,18 @@ class Engine {
       })
       .catch((error) => {
         console.error('Failed to initialize Stockfish:', error)
+        this.initErrorDetail =
+          error instanceof StartupError
+            ? error.detail
+            : error instanceof Error
+              ? error.message
+              : String(error)
         this.initError =
-          error instanceof Error
-            ? error.message
-            : 'Unknown initialization error'
+          error instanceof StockfishFileError
+            ? NNUE_DOWNLOAD_FAILED_MESSAGE
+            : error instanceof Error
+              ? error.message
+              : 'Unknown initialization error'
         this.isReady = false
         this.nnueLoaded = false
         this.initPhase = 'error'
@@ -158,6 +174,11 @@ class Engine {
     return this.initPhase
   }
 
+  /** The underlying error, for logs and analytics. */
+  get initializationErrorDetail(): string | null {
+    return this.initErrorDetail
+  }
+
   async *streamEvaluations(
     fen: string,
     legalMoveCount: number,
@@ -169,8 +190,11 @@ class Engine {
         global.gc()
       }
 
-      // Stop any previous evaluation
-      this.stopEvaluation()
+      // Stop any previous evaluation. `stop` goes out even if the previous
+      // run is already closed: its last search may still be running, and the
+      // `ucinewgame` below would wait for it to finish.
+      this.isEvaluating = false
+      this.sendMessage('stop')
       this.store = {}
       this.legalMoveCount = legalMoveCount
       const board = new Chess(fen)
@@ -187,17 +211,13 @@ class Engine {
       const moveMapStrategy = this.resolveMoveMapStrategy(options)
       this.currentMoveMapStrategy = moveMapStrategy
       this.currentDiagnosticsToConsole = this.resolveDiagnosticsToConsole()
-      const maiaCandidateMoves = Array.from(
-        new Set(options?.maiaCandidateMoves || []),
-      ).filter((move) => this.moves.includes(move))
+      const { maiaCandidateMoves, maiaPolicy } = legalMaiaCandidates(
+        options,
+        this.moves,
+      )
       const forcedCandidateMoves = Array.from(
         new Set(options?.forcedCandidateMoves || []),
       ).filter((move) => this.moves.includes(move))
-      const maiaPolicy = Object.fromEntries(
-        Object.entries(options?.maiaPolicy || {}).filter(
-          ([move, prob]) => this.moves.includes(move) && Number.isFinite(prob),
-        ),
-      )
       const kSfFromOptions = Number.isFinite(options?.kSf)
         ? Math.max(1, Math.floor(options?.kSf || 1))
         : undefined
@@ -209,6 +229,7 @@ class Engine {
         maiaCandidateMoves,
         forcedCandidateMoves,
         maiaPolicy,
+        getMaiaCandidates: options?.getMaiaCandidates,
         kSf: kSfFromOptions || 0,
         targetDepth,
         analysisStartedAtMs: this.currentAnalysisStartedAtMs,
@@ -293,6 +314,31 @@ class Engine {
     return this.isEvaluating && this.currentPositionId === positionId
   }
 
+  /** Takes up Maia's moves if they have arrived since the run started. */
+  private refreshMaiaCandidates(runContext: AnalysisRunContext) {
+    if (!runContext.getMaiaCandidates) return
+    const latest = legalMaiaCandidates(
+      runContext.getMaiaCandidates(),
+      runContext.legalMoves,
+    )
+    if (latest.maiaCandidateMoves.length === 0) return
+    runContext.maiaCandidateMoves = latest.maiaCandidateMoves
+    runContext.maiaPolicy = latest.maiaPolicy
+  }
+
+  /**
+   * Hands the engine's output back to `onMessage`, but only if `listener` is
+   * still the one installed. A run that was superseded finishes after the
+   * next run has installed its own listener; restoring the listener it
+   * replaced would detach the new run, which then waits forever for a
+   * `readyok` or `bestmove` it never sees.
+   */
+  private releaseListener(listener: (msg: string) => void): boolean {
+    if (!this.stockfish || this.stockfish.listen !== listener) return false
+    this.stockfish.listen = this.onMessage
+    return true
+  }
+
   private async waitForReady(): Promise<void> {
     if (!this.stockfish) return
 
@@ -308,9 +354,7 @@ class Engine {
       const tempListener = (msg: string) => {
         if (msg.includes('readyok') && !resolved) {
           resolved = true
-          if (this.stockfish) {
-            this.stockfish.listen = originalListen
-          }
+          this.releaseListener(tempListener)
           resolve()
         } else {
           // Forward all other messages to the original listener
@@ -376,13 +420,12 @@ class Engine {
     targetDepth: number,
     _legalMoveCount: number,
   ): RootProbePlan {
-    let screeningDepth = Math.max(4, Math.min(10, targetDepth - 6))
-    if (screeningDepth >= targetDepth) {
-      screeningDepth = Math.max(1, targetDepth - 2)
-    }
+    const restDepth = Math.max(4, Math.min(10, targetDepth - 6))
 
     return {
-      screeningDepth,
+      screeningDepth: Math.min(restDepth, SCREENING_DEPTH),
+      restDepth:
+        restDepth >= targetDepth ? Math.max(1, targetDepth - 2) : restDepth,
     }
   }
 
@@ -390,12 +433,19 @@ class Engine {
     runContext: AnalysisRunContext,
     targetDepth: number,
     requestedMultiPv: number,
+    searchMoves?: string[],
   ): AsyncGenerator<{
     depth: number
     elapsedMs: number
     moves: RootSearchResult[]
   }> {
-    if (!this.stockfish || requestedMultiPv <= 0) {
+    // A superseded run must not reach waitForReady: its listener would take
+    // the new run's `readyok` and then detach the new run's listener.
+    if (
+      !this.stockfish ||
+      requestedMultiPv <= 0 ||
+      !this.isActiveRun(runContext.positionId)
+    ) {
       return
     }
 
@@ -404,7 +454,6 @@ class Engine {
       Math.min(requestedMultiPv, runContext.legalMoveCount),
     )
     const engine = this.stockfish
-    const originalListen = engine.listen
 
     await this.waitForReady()
     if (!this.isActiveRun(runContext.positionId)) {
@@ -569,36 +618,41 @@ class Engine {
       emitDepthIfReady(depth)
     }
 
-    try {
-      engine.listen = (msg: string) => {
-        if (!this.isActiveRun(runContext.positionId)) {
+    const listener = (msg: string) => {
+      if (!this.isActiveRun(runContext.positionId)) {
+        finish()
+        return
+      }
+
+      const lines = msg
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+
+      for (const line of lines) {
+        parseInfoLine(line)
+        if (line.startsWith('bestmove ')) {
+          const knownDepths = Object.keys(depthBuckets)
+            .map((d) => Number.parseInt(d, 10))
+            .filter((d) => Number.isFinite(d))
+            .sort((a, b) => a - b)
+          for (const depth of knownDepths) {
+            emitDepthIfReady(depth)
+          }
           finish()
           return
         }
-
-        const lines = msg
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean)
-
-        for (const line of lines) {
-          parseInfoLine(line)
-          if (line.startsWith('bestmove ')) {
-            const knownDepths = Object.keys(depthBuckets)
-              .map((d) => Number.parseInt(d, 10))
-              .filter((d) => Number.isFinite(d))
-              .sort((a, b) => a - b)
-            for (const depth of knownDepths) {
-              emitDepthIfReady(depth)
-            }
-            finish()
-            return
-          }
-        }
       }
+    }
 
+    try {
+      engine.listen = listener
       engine.uci(`position fen ${runContext.fen}`)
-      engine.uci(`go depth ${targetDepth}`)
+      engine.uci(
+        searchMoves
+          ? `go depth ${targetDepth} searchmoves ${searchMoves.join(' ')}`
+          : `go depth ${targetDepth}`,
+      )
 
       while (true) {
         if (!this.isActiveRun(runContext.positionId)) {
@@ -627,9 +681,14 @@ class Engine {
         yield next
       }
     } finally {
-      if (this.stockfish) {
-        this.stockfish.listen = originalListen
-        this.stockfish.uci('setoption name MultiPV value 100')
+      // A superseded run leaves the engine (and its MultiPV) to the new run.
+      if (this.releaseListener(listener)) {
+        // Leaving before `bestmove` (the caller stopped reading): stop the
+        // search first. Stockfish runs `setoption` only once the search is
+        // over, so on its own it would hold every later command (the next
+        // position's included) until this search reached its full depth.
+        if (!finished) engine.uci('stop')
+        engine.uci('setoption name MultiPV value 100')
       }
     }
   }
@@ -723,6 +782,7 @@ class Engine {
             rootScores,
             runContext.fen,
           )
+          screeningEval.partial = true
           this.attachDiagnostics(screeningEval, {
             runContext,
             strategy: 'staged-root-probe',
@@ -765,13 +825,118 @@ class Engine {
           runContext.kSf > 0 ? runContext.kSf : 4,
         ),
       )
-      const maiaTopMoves = runContext.maiaCandidateMoves.slice(
-        0,
-        MAX_MAIA_DEEPEN_MOVES,
-      )
-      const targetDeepeningMoves = Array.from(
-        new Set([...maiaTopMoves, ...runContext.forcedCandidateMoves]),
-      )
+      const isBlackTurn = new Chess(runContext.fen).turn() === 'b'
+      const isBetter = (a: number, b: number) => (isBlackTurn ? a < b : a > b)
+      // The depth on show only rises: the later stages restart from depth 1.
+      let shownDepth = plan.screeningDepth
+
+      // The best line alone reaches the target depth first (~1 s on a desktop,
+      // where the four lines below take ~4.8 s), and leaves the other stages
+      // its hash. Until they report, the screening score of a move it
+      // has passed over must not outrank it: Stockfish found no better move at
+      // this depth.
+      // Scores for mate are +-10000, the limit of the range.
+      const justWorseThan = (cp: number) =>
+        Math.max(-10000, Math.min(10000, cp + (isBlackTurn ? 1 : -1)))
+      let bestLine: RootSearchResult | null = null
+      const capAtBestLine = (move: string) => {
+        const score = rootScores[move]
+        if (!bestLine || move === bestLine.move || !score) return
+        if (isBetter(score.cp, bestLine.cp)) {
+          rootScores[move] = {
+            depth: score.depth,
+            cp: justWorseThan(bestLine.cp),
+          }
+        }
+      }
+      // Once lines have reached the target depth, a move still at a shallower
+      // depth must not outrank the best of them, here or in the final answer.
+      const capShallowMoves = () => {
+        const deepest = Object.values(rootScores).filter(
+          (score) => score.depth >= targetDepth,
+        )
+        if (deepest.length === 0) return
+        const best = deepest.reduce((a, b) => (isBetter(b.cp, a.cp) ? b : a))
+        for (const [move, score] of Object.entries(rootScores)) {
+          if (score.depth < targetDepth && isBetter(score.cp, best.cp)) {
+            rootScores[move] = {
+              depth: score.depth,
+              cp: justWorseThan(best.cp),
+            }
+          }
+        }
+      }
+
+      if (targetDepth > plan.screeningDepth) {
+        for await (const snapshot of this.streamMultiPvSnapshots(
+          runContext,
+          targetDepth,
+          1,
+        )) {
+          if (!this.isActiveRun(runContext.positionId)) {
+            return
+          }
+
+          const line = snapshot.moves[0]
+          phaseTimesMs.multipv = snapshot.elapsedMs
+          // Below the screening depth a line knows less than the screening.
+          if (!line || snapshot.depth <= plan.screeningDepth) continue
+
+          bestLine = line
+          rootScores[line.move] = {
+            cp: line.cp,
+            depth: Math.max(rootScores[line.move]?.depth || 0, line.depth),
+            mateIn: line.mateIn,
+          }
+          movePhases[line.move] = 'multipv'
+          deepenedMoves.add(line.move)
+          markSelectionSource(line.move, 'sf-top')
+          Object.keys(rootScores).forEach(capAtBestLine)
+
+          shownDepth = Math.max(shownDepth, snapshot.depth)
+          const bestLineEval = this.buildEvaluationFromRootScores(
+            shownDepth,
+            rootScores,
+            runContext.fen,
+          )
+          bestLineEval.partial = true
+          this.attachDiagnostics(bestLineEval, {
+            runContext,
+            strategy: 'staged-root-probe',
+            targetDepth,
+            legalMoveCount: runContext.legalMoveCount,
+            phaseTimesMs,
+            rootScores,
+            movePhases,
+            moveSelectionSources,
+            moveCounts: {
+              screened: runContext.legalMoveCount,
+              deepened: deepenedMoves.size,
+              finalAtTargetDepth: Object.values(rootScores).filter(
+                (score) => score.depth >= targetDepth,
+              ).length,
+            },
+          })
+          this.maybePublishDiagnostics(
+            bestLineEval,
+            false,
+            runContext.diagnosticsToConsole,
+          )
+          yield bestLineEval
+        }
+      }
+
+      // Maia's policy often arrives during the screening search (the page
+      // asks for it at the same time); it is used from here on.
+      this.refreshMaiaCandidates(runContext)
+      const getTargetDeepeningMoves = () =>
+        Array.from(
+          new Set([
+            ...runContext.maiaCandidateMoves.slice(0, MAX_MAIA_DEEPEN_MOVES),
+            ...runContext.forcedCandidateMoves,
+          ]),
+        )
+      let targetDeepeningMoves = getTargetDeepeningMoves()
       const maiaMidDepth = Math.min(MAIA_MID_DEPTH, targetDepth)
 
       if (maiaMidDepth > plan.screeningDepth) {
@@ -808,12 +973,15 @@ class Engine {
           }
           movePhases[move] = 'deep'
           deepenedMoves.add(move)
+          capAtBestLine(move)
 
+          shownDepth = Math.max(shownDepth, maiaMidDepth)
           const maiaMidEval = this.buildEvaluationFromRootScores(
-            maiaMidDepth,
+            shownDepth,
             rootScores,
             runContext.fen,
           )
+          maiaMidEval.partial = true
           this.attachDiagnostics(maiaMidEval, {
             runContext,
             strategy: 'staged-root-probe',
@@ -840,58 +1008,143 @@ class Engine {
         }
       }
 
-      for await (const multipvSnapshot of this.streamMultiPvSnapshots(
-        runContext,
-        targetDepth,
-        stagedMultiPv,
-      )) {
-        if (!this.isActiveRun(runContext.positionId)) {
-          return
-        }
-
-        phaseTimesMs.multipv = multipvSnapshot.elapsedMs
-        for (const score of multipvSnapshot.moves) {
-          const existing = rootScores[score.move]
-          rootScores[score.move] = {
-            cp: score.cp,
-            depth: Math.max(existing?.depth || 0, score.depth),
-            mateIn: score.mateIn,
-          }
-          movePhases[score.move] = 'multipv'
-          deepenedMoves.add(score.move)
-          markSelectionSource(score.move, 'sf-top')
-        }
-
-        const streamingEval = this.buildEvaluationFromRootScores(
-          Math.max(plan.screeningDepth, multipvSnapshot.depth),
-          rootScores,
-          runContext.fen,
+      // The other lines on show, one at a time among the moves not yet shown:
+      // ~17% sooner than searching them together, and as good. Each one's score
+      // is exact at the target depth, unlike a move passed over by the search.
+      const linesDone = new Set<string>(bestLine ? [bestLine.move] : [])
+      while (linesDone.size < stagedMultiPv) {
+        const remaining = runContext.legalMoves.filter(
+          (move) => !linesDone.has(move),
         )
-        this.attachDiagnostics(streamingEval, {
+        if (remaining.length === 0) break
+        let lineMove: string | null = null
+
+        for await (const multipvSnapshot of this.streamMultiPvSnapshots(
           runContext,
-          strategy: 'staged-root-probe',
           targetDepth,
-          legalMoveCount: runContext.legalMoveCount,
-          phaseTimesMs,
-          rootScores,
-          movePhases,
-          moveSelectionSources,
-          moveCounts: {
-            screened: runContext.legalMoveCount,
-            deepened: deepenedMoves.size,
-            finalAtTargetDepth: Object.values(rootScores).filter(
-              (score) => score.depth >= targetDepth,
-            ).length,
-          },
-        })
-        this.maybePublishDiagnostics(
-          streamingEval,
-          false,
-          runContext.diagnosticsToConsole,
-        )
-        yield streamingEval
+          1,
+          remaining,
+        )) {
+          lineMove = multipvSnapshot.moves[0]?.move ?? lineMove
+          if (!this.isActiveRun(runContext.positionId)) {
+            return
+          }
+
+          phaseTimesMs.multipv = multipvSnapshot.elapsedMs
+          for (const score of multipvSnapshot.moves) {
+            const existing = rootScores[score.move]
+            // This search restarts at depth 1; until it catches up, what the
+            // earlier stages found for this move stands.
+            if (existing && score.depth < existing.depth) continue
+            rootScores[score.move] = {
+              cp: score.cp,
+              depth: Math.max(existing?.depth || 0, score.depth),
+              mateIn: score.mateIn,
+            }
+            movePhases[score.move] = 'multipv'
+            deepenedMoves.add(score.move)
+            markSelectionSource(score.move, 'sf-top')
+          }
+
+          capShallowMoves()
+          shownDepth = Math.max(shownDepth, multipvSnapshot.depth)
+          const streamingEval = this.buildEvaluationFromRootScores(
+            shownDepth,
+            rootScores,
+            runContext.fen,
+          )
+          streamingEval.partial = true
+          this.attachDiagnostics(streamingEval, {
+            runContext,
+            strategy: 'staged-root-probe',
+            targetDepth,
+            legalMoveCount: runContext.legalMoveCount,
+            phaseTimesMs,
+            rootScores,
+            movePhases,
+            moveSelectionSources,
+            moveCounts: {
+              screened: runContext.legalMoveCount,
+              deepened: deepenedMoves.size,
+              finalAtTargetDepth: Object.values(rootScores).filter(
+                (score) => score.depth >= targetDepth,
+              ).length,
+            },
+          })
+          this.maybePublishDiagnostics(
+            streamingEval,
+            false,
+            runContext.diagnosticsToConsole,
+          )
+          yield streamingEval
+        }
+
+        if (!lineMove) break
+        linesDone.add(lineMove)
       }
 
+      // Every other move, deeper, once the lines on show are done.
+      if (plan.restDepth > plan.screeningDepth) {
+        for await (const snapshot of this.streamMultiPvSnapshots(
+          runContext,
+          plan.restDepth,
+          runContext.legalMoveCount,
+        )) {
+          if (!this.isActiveRun(runContext.positionId)) {
+            return
+          }
+
+          phaseTimesMs.screening += snapshot.elapsedMs
+          for (const score of snapshot.moves) {
+            const existing = rootScores[score.move]
+            if (existing && score.depth < existing.depth) continue
+            rootScores[score.move] = {
+              cp: score.cp,
+              depth: score.depth,
+              mateIn: score.mateIn,
+            }
+            movePhases[score.move] = 'screen'
+            capAtBestLine(score.move)
+          }
+
+          if (snapshot.depth <= plan.screeningDepth) continue
+          const restEval = this.buildEvaluationFromRootScores(
+            shownDepth,
+            rootScores,
+            runContext.fen,
+          )
+          restEval.partial = true
+          restEval.lines_done = true
+          this.attachDiagnostics(restEval, {
+            runContext,
+            strategy: 'staged-root-probe',
+            targetDepth,
+            legalMoveCount: runContext.legalMoveCount,
+            phaseTimesMs,
+            rootScores,
+            movePhases,
+            moveSelectionSources,
+            moveCounts: {
+              screened: runContext.legalMoveCount,
+              deepened: deepenedMoves.size,
+              finalAtTargetDepth: Object.values(rootScores).filter(
+                (score) => score.depth >= targetDepth,
+              ).length,
+            },
+          })
+          this.maybePublishDiagnostics(
+            restEval,
+            false,
+            runContext.diagnosticsToConsole,
+          )
+          yield restEval
+        }
+      }
+
+      // Maia's moves that arrived after the screening search still get
+      // deepened to the target depth.
+      this.refreshMaiaCandidates(runContext)
+      targetDeepeningMoves = getTargetDeepeningMoves()
       for (const move of targetDeepeningMoves) {
         if (!this.isActiveRun(runContext.positionId)) {
           return
@@ -931,6 +1184,8 @@ class Engine {
           rootScores,
           runContext.fen,
         )
+        maiaDeepenedEval.partial = true
+        maiaDeepenedEval.lines_done = true
         this.attachDiagnostics(maiaDeepenedEval, {
           runContext,
           strategy: 'staged-root-probe',
@@ -960,11 +1215,13 @@ class Engine {
         return
       }
 
+      capShallowMoves()
       const finalEval = this.buildEvaluationFromRootScores(
         targetDepth,
         rootScores,
         runContext.fen,
       )
+      finalEval.lines_done = true
       this.attachDiagnostics(finalEval, {
         runContext,
         strategy: 'staged-root-probe',
@@ -989,8 +1246,10 @@ class Engine {
       )
       yield finalEval
     } finally {
+      // Also ends the search of a run its caller stopped reading (the user
+      // moved on), which would otherwise keep the engine busy.
       if (this.currentPositionId === runContext.positionId) {
-        this.isEvaluating = false
+        this.stopEvaluation()
       }
     }
   }
@@ -1067,8 +1326,10 @@ class Engine {
       )
       yield finalEval
     } finally {
+      // Also ends the search of a run its caller stopped reading (the user
+      // moved on), which would otherwise keep the engine busy.
       if (this.currentPositionId === runContext.positionId) {
-        this.isEvaluating = false
+        this.stopEvaluation()
       }
     }
   }
@@ -1376,7 +1637,6 @@ class Engine {
     }
 
     const engine = this.stockfish
-    const originalListen = engine.listen
     const expectedMove = searchMove
     const isBlackTurn = new Chess(runContext.fen).turn() === 'b'
 
@@ -1479,13 +1739,11 @@ class Engine {
       const finish = (result: RootSearchResult | null) => {
         if (resolved) return
         resolved = true
-        if (this.stockfish) {
-          this.stockfish.listen = originalListen
-        }
+        this.releaseListener(listener)
         resolve(result)
       }
 
-      engine.listen = (msg: string) => {
+      const listener = (msg: string) => {
         const lines = msg
           .split(/\r?\n/)
           .map((line) => line.trim())
@@ -1535,6 +1793,7 @@ class Engine {
         }
       }
 
+      engine.listen = listener
       engine.uci(`position fen ${runContext.fen}`)
       engine.uci(
         searchMove
@@ -1742,8 +2001,41 @@ class Engine {
   }
 }
 
-const sharedWasmMemory = (lo: number, hi = 32767): WebAssembly.Memory => {
-  let shrink = 4 // 32767 -> 24576 -> 16384 -> 12288 -> 8192 -> 6144 -> etc
+/** Maia's candidate moves and policy, keeping only legal moves. */
+const legalMaiaCandidates = (
+  options:
+    | Pick<StockfishStreamOptions, 'maiaCandidateMoves' | 'maiaPolicy'>
+    | undefined,
+  legalMoves: string[],
+) => ({
+  maiaCandidateMoves: Array.from(
+    new Set(options?.maiaCandidateMoves || []),
+  ).filter((move) => legalMoves.includes(move)),
+  maiaPolicy: Object.fromEntries(
+    Object.entries(options?.maiaPolicy || {}).filter(
+      ([move, prob]) => legalMoves.includes(move) && Number.isFinite(prob),
+    ),
+  ),
+})
+
+/**
+ * Stockfish's memory may grow to 134 MB (in 64 KiB pages). A shared memory's
+ * maximum is reserved when it is created, and iOS limits how much a tab can
+ * reserve, so after several reloads on an iPhone the engines ran out
+ * ("RangeError: Out of memory") while earlier pages' reservations were still
+ * held. Stockfish uses 81 MB here (the hash stays at its 16 MB default), which
+ * the initial size covers, so memory that is short cannot fail it later.
+ */
+export const STOCKFISH_MAX_MEMORY_PAGES = 2048
+const STOCKFISH_INITIAL_MEMORY_PAGES = 1280
+// Earlier pages' reservations are released some time after they have gone.
+export const STOCKFISH_MEMORY_RETRY_DELAYS_MS = [1000, 3000, 8000, 15000]
+
+export const sharedWasmMemory = (
+  lo: number,
+  hi = STOCKFISH_MAX_MEMORY_PAGES,
+): WebAssembly.Memory => {
+  let shrink = 4 // 16384 -> 12288 -> 8192 -> 6144 -> etc
   while (true) {
     try {
       return new WebAssembly.Memory({ shared: true, initial: lo, maximum: hi })
@@ -1751,6 +2043,25 @@ const sharedWasmMemory = (lo: number, hi = 32767): WebAssembly.Memory => {
       if (hi <= lo || !(e instanceof RangeError)) throw e
       hi = Math.max(lo, Math.ceil(hi - hi / shrink))
       shrink = shrink === 4 ? 3 : 4
+    }
+  }
+}
+
+let memoryRetries = 0
+/** How many times this page has waited for memory to start Stockfish. */
+export const stockfishMemoryRetries = () => memoryRetries
+
+export const reserveWasmMemory = async (
+  lo: number,
+  delaysMs = STOCKFISH_MEMORY_RETRY_DELAYS_MS,
+): Promise<WebAssembly.Memory> => {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return sharedWasmMemory(lo)
+    } catch (e) {
+      if (!(e instanceof RangeError) || attempt >= delaysMs.length) throw e
+      memoryRetries += 1
+      await new Promise((resolve) => setTimeout(resolve, delaysMs[attempt]))
     }
   }
 }
@@ -1763,29 +2074,8 @@ const getNnueFetchTimeoutMs = (): number => {
     : DEFAULT_NNUE_FETCH_TIMEOUT_MS
 }
 
-const fetchWithTimeout = async (
-  url: string,
-  timeoutMs: number,
-): Promise<Response> => {
-  if (typeof AbortController === 'undefined' || timeoutMs <= 0) {
-    return fetch(url)
-  }
-
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await fetch(url, { signal: controller.signal })
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw new Error(
-        `Stockfish NNUE fetch timed out after ${timeoutMs}ms: ${url}`,
-      )
-    }
-    throw error
-  } finally {
-    clearTimeout(timeoutId)
-  }
-}
+/** A wait that ran out of time, as opposed to a failure. */
+class TimeoutError extends Error {}
 
 const withTimeout = async <T>(
   promise: Promise<T>,
@@ -1802,7 +2092,10 @@ const withTimeout = async <T>(
     return await Promise.race([
       promise,
       new Promise<T>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
+        timeoutId = setTimeout(
+          () => reject(new TimeoutError(message)),
+          timeoutMs,
+        )
       }),
     ])
   } finally {
@@ -1810,6 +2103,41 @@ const withTimeout = async <T>(
       clearTimeout(timeoutId)
     }
   }
+}
+
+/**
+ * Starts the engine's module, and once more if the first start runs out of
+ * time. On a slow device the first start can be slow for reasons a second
+ * one doesn't share: the wasm is downloaded and compiled then, and the
+ * second start finds both in the browser's cache. The first start isn't
+ * abandoned: whichever of the two finishes first is used, so a first start
+ * that was merely slow still counts. A start that fails outright (rather than
+ * running out of time) is not retried, as it would most likely fail again.
+ */
+export const startModuleWithRetry = async <T>(
+  start: () => Promise<T>,
+  timeoutMs: number,
+): Promise<T> => {
+  const first = start()
+  try {
+    return await withTimeout(first, timeoutMs, 'timed out')
+  } catch (error) {
+    if (!(error instanceof TimeoutError)) throw error
+  }
+
+  // Ignore the first start's failure if it comes while the second runs: the
+  // second start then decides.
+  first.catch(() => undefined)
+  const second = start()
+  const eitherStart = new Promise<T>((resolve, reject) => {
+    first.then(resolve, () => undefined)
+    second.then(resolve, reject)
+  })
+  return withTimeout(
+    eitherStart,
+    timeoutMs,
+    `Stockfish module initialization timed out after ${2 * timeoutMs}ms (started twice)`,
+  )
 }
 
 const getStockfishModuleInitTimeoutMs = (): number => {
@@ -1820,165 +2148,134 @@ const getStockfishModuleInitTimeoutMs = (): number => {
     : DEFAULT_STOCKFISH_MODULE_INIT_TIMEOUT_MS
 }
 
-const loadNnueModel = async (
-  modelUrl: string,
-  storage: StockfishModelStorage,
-  timeoutMs: number,
-  onNetworkFetchStart?: () => void,
-  forceRefresh = false,
-): Promise<ArrayBuffer> => {
-  if (!forceRefresh) {
-    const cachedModel = await withTimeout(
-      storage.getModel(modelUrl),
-      STOCKFISH_CACHE_LOOKUP_TIMEOUT_MS,
-      `Timed out while checking cached Stockfish model: ${modelUrl}`,
-    ).catch((error) => {
-      console.warn(error)
-      return null
-    })
-    if (cachedModel) {
-      return cachedModel
-    }
+/**
+ * Stockfish copies its net into the engine through `Module.HEAPU8`, a view of
+ * the shared WASM memory that may be out of date if the engine's own threads
+ * have grown the memory while starting: the copy then fails with "offset is
+ * out of bounds". Renewing the view before the copy avoids that.
+ */
+const setNnueBuffer = (
+  instance: StockfishWeb,
+  buffer: ArrayBuffer,
+  index: number,
+) => {
+  const emscriptenModule = instance as StockfishWeb & {
+    HEAPU8?: Uint8Array
+    wasmMemory?: WebAssembly.Memory
   }
-
-  onNetworkFetchStart?.()
-  const response = await fetchWithTimeout(modelUrl, timeoutMs)
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch Stockfish NNUE model (${response.status}) from ${modelUrl}`,
-    )
+  const memory = emscriptenModule.wasmMemory
+  const view = emscriptenModule.HEAPU8
+  if (memory && view && view.buffer.byteLength !== memory.buffer.byteLength) {
+    emscriptenModule.HEAPU8 = new Uint8Array(memory.buffer)
   }
-
-  const buffer = await response.arrayBuffer()
-  void withTimeout(
-    storage.storeModel(modelUrl, buffer),
-    STOCKFISH_CACHE_WRITE_TIMEOUT_MS,
-    `Timed out while caching Stockfish model: ${modelUrl}`,
-  ).catch((error) => {
-    console.warn(error)
-  })
-  return buffer
+  instance.setNnueBuffer(new Uint8Array(buffer), index)
 }
 
-const shouldRetryNnueLoad = (error: unknown): boolean => {
-  if (error instanceof RangeError) {
-    return true
-  }
+/** Stockfish's script or its net could not be fetched. */
+class StockfishFileError extends Error {}
 
-  if (!(error instanceof Error)) {
-    return false
+/** The engine failed to start; `detail` adds what it reported, for analytics. */
+class StartupError extends Error {
+  constructor(
+    message: string,
+    readonly detail: string,
+  ) {
+    super(message)
   }
+}
 
-  return (
-    /offset is out of bounds/i.test(error.message) ||
-    /could not allocate/i.test(error.message) ||
-    /bytes\?/i.test(error.message)
+export const withStartupLog = (error: unknown, log: string[]): StartupError => {
+  const message = error instanceof Error ? error.message : String(error)
+  const reported = log.filter((line) => !message.includes(line))
+  return new StartupError(
+    message,
+    reported.length ? `${message} [${reported.join(' | ')}]` : message,
   )
 }
+
+/**
+ * Stockfish 19 with its single 1.2 MB net (@lichess-org/stockfish-web's
+ * smallnet build). Stockfish 17's nets were 78 MB, which took minutes to
+ * download on a phone, ~8 s to read and unpack at each visit, and 517 MB of
+ * memory; at the same depth this build picks moves about as well against a
+ * deep search (see LOADING.md). The files are in public/stockfish: webpack cannot bundle the
+ * package's scripts, which import Node's modules when run under Node.
+ */
+const STOCKFISH_BASE = '/stockfish'
 
 const setupStockfish = async (
   onPhaseChange?: (phase: StockfishInitPhase) => void,
 ): Promise<StockfishWeb> => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const makeModule: any = await import('lila-stockfish-web/sf17-79.js')
-
-  // NNUE weights served via raw.githubusercontent.com permalink (CORS + COEP compatible).
-  // Override with NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL for self-hosted deployments.
-  const nnueBaseUrl =
-    process.env.NEXT_PUBLIC_STOCKFISH_NNUE_BASE_URL ??
-    'https://raw.githubusercontent.com/CSSLab/maia-platform-frontend/e23a50e/public/stockfish'
-  const storage = new StockfishModelStorage()
   const timeoutMs = getNnueFetchTimeoutMs()
   const moduleInitTimeoutMs = getStockfishModuleInitTimeoutMs()
-  let nnueUrls: [string, string] | null = null
+  const build = hasRelaxedSimd()
+    ? 'sf_19_smallnet_relaxed-simd'
+    : 'sf_19_smallnet'
 
-  void storage.requestPersistentStorage().catch((error) => {
-    console.warn('Failed to request persistent storage for Stockfish:', error)
+  onPhaseChange?.('loading-module')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const makeModule: any = await import(
+    /* webpackIgnore: true */ `${STOCKFISH_BASE}/${build}.js`
+  ).catch((error) => {
+    throw new StockfishFileError(String(error))
+  })
+  // The engine's own reports of why it failed to start, such as why its
+  // wasm couldn't be fetched: its error says only "both async and sync
+  // fetching of the wasm failed". Its stderr goes to `onError`, which the
+  // engine takes over once started.
+  const startupLog: string[] = []
+  // The first start's memory is reserved before its time starts: waiting
+  // for memory to be released has its own delays. A second start, while the
+  // first still holds its memory, needs memory of its own.
+  let memoryForNextStart: WebAssembly.Memory | null = await reserveWasmMemory(
+    STOCKFISH_INITIAL_MEMORY_PAGES,
+  )
+  const startModule = async (): Promise<StockfishWeb> => {
+    const wasmMemory =
+      memoryForNextStart ??
+      (await reserveWasmMemory(STOCKFISH_INITIAL_MEMORY_PAGES))
+    memoryForNextStart = null
+    return makeModule.default({
+      wasmMemory,
+      locateFile: (name: string) => `${STOCKFISH_BASE}/${name}`,
+      onError: (message: string) => {
+        console.error(message)
+        startupLog.push(String(message))
+        if (startupLog.length > 5) startupLog.shift()
+      },
+    })
+  }
+  const instance: StockfishWeb = await startModuleWithRetry(
+    startModule,
+    moduleInitTimeoutMs,
+  ).catch((error) => {
+    throw withStartupLog(error, startupLog)
   })
 
-  const createInstance = async (): Promise<StockfishWeb> => {
-    onPhaseChange?.('loading-module')
-    return withTimeout(
-      makeModule.default({
-        wasmMemory: sharedWasmMemory(2560),
-        locateFile: (name: string) => `/stockfish/${name}`,
-      }),
-      moduleInitTimeoutMs,
-      `Stockfish module initialization timed out after ${moduleInitTimeoutMs}ms`,
-    )
-  }
+  onPhaseChange?.('loading-nnue')
+  const net = instance.getRecommendedNnue(0)
+  const buffer = await withTimeout(
+    fetch(`${STOCKFISH_BASE}/${net}`).then((response) => {
+      if (!response.ok) throw new Error(`${net}: HTTP ${response.status}`)
+      return response.arrayBuffer()
+    }),
+    timeoutMs,
+    `Timed out fetching Stockfish's net ${net}`,
+  ).catch((error) => {
+    throw new StockfishFileError(String(error))
+  })
+  setNnueBuffer(instance, buffer, 0)
 
-  const loadWeightsIntoInstance = async (
-    instance: StockfishWeb,
-    forceRefresh = false,
-  ): Promise<void> => {
-    if (!nnueUrls) {
-      throw new Error('Stockfish recommended NNUE URLs were not initialized')
-    }
+  removeOldNets()
+  return instance
+}
 
-    let downloadStarted = false
-
-    onPhaseChange?.('checking-cache')
-    const buffers = await Promise.all([
-      loadNnueModel(
-        nnueUrls[0],
-        storage,
-        timeoutMs,
-        () => {
-          if (!downloadStarted) {
-            downloadStarted = true
-            onPhaseChange?.('downloading-nnue')
-          }
-        },
-        forceRefresh,
-      ),
-      loadNnueModel(
-        nnueUrls[1],
-        storage,
-        timeoutMs,
-        () => {
-          if (!downloadStarted) {
-            downloadStarted = true
-            onPhaseChange?.('downloading-nnue')
-          }
-        },
-        forceRefresh,
-      ),
-    ])
-
-    onPhaseChange?.('loading-nnue')
-    instance.setNnueBuffer(new Uint8Array(buffers[0]), 0)
-    instance.setNnueBuffer(new Uint8Array(buffers[1]), 1)
-  }
-
+// Stockfish 17's nets, 78 MB of a returning visitor's storage.
+const removeOldNets = () => {
   try {
-    let instance = await createInstance()
-    nnueUrls = [
-      `${nnueBaseUrl}/${instance.getRecommendedNnue(0)}`,
-      `${nnueBaseUrl}/${instance.getRecommendedNnue(1)}`,
-    ]
-
-    try {
-      await loadWeightsIntoInstance(instance)
-    } catch (error) {
-      if (!shouldRetryNnueLoad(error)) {
-        throw error
-      }
-
-      console.warn(
-        'Stockfish NNUE load failed; clearing cached weights and retrying once.',
-        error,
-      )
-      await Promise.all(nnueUrls.map((url) => storage.deleteModel(url)))
-
-      instance = await createInstance()
-      await loadWeightsIntoInstance(instance, true)
-    }
-
-    return instance
-  } catch (error) {
-    console.error('Failed to load NNUE models:', error)
-    throw error
+    indexedDB.deleteDatabase('StockfishModels')
+  } catch {
+    // Without IndexedDB there is nothing to remove.
   }
 }
 

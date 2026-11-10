@@ -185,7 +185,6 @@ export const GameCarousel: React.FC = () => {
   const [shouldLoadLiveGames, setShouldLoadLiveGames] = useState(false)
   const abortController = useRef<AbortController | null>(null)
   const sectionRef = useRef<HTMLElement>(null)
-  const carouselRef = useRef<HTMLDivElement>(null)
 
   const handleGameStart = useCallback((gameData: StreamedGame) => {
     setGames((prevGames) => {
@@ -303,26 +302,6 @@ export const GameCarousel: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (isPaused || !isCarouselVisible || !carouselRef.current) return
-
-    const scroll = () => {
-      if (carouselRef.current) {
-        const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current
-        const halfWidth = scrollWidth / 2
-
-        if (scrollLeft >= halfWidth - 10) {
-          carouselRef.current.scrollTo({ left: 0, behavior: 'auto' })
-        } else {
-          carouselRef.current.scrollBy({ left: 0.5, behavior: 'auto' })
-        }
-      }
-    }
-
-    const interval = setInterval(scroll, 20)
-    return () => clearInterval(interval)
-  }, [isPaused, isCarouselVisible])
-
-  useEffect(() => {
     const section = sectionRef.current
 
     if (!section || typeof IntersectionObserver === 'undefined') {
@@ -405,8 +384,7 @@ export const GameCarousel: React.FC = () => {
     >
       <div className="relative mb-10 w-full overflow-y-visible">
         <motion.div
-          ref={carouselRef}
-          className="flex gap-10 overflow-x-hidden overflow-y-visible py-2 pl-4"
+          className="overflow-x-hidden overflow-y-visible py-2 pl-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
@@ -417,13 +395,26 @@ export const GameCarousel: React.FC = () => {
             msOverflowStyle: 'none',
           }}
         >
-          {[...games, ...games].map((game, index) => (
-            <GameChip
-              key={`${game.id}-${index}`}
-              game={game}
-              onClick={() => handleGameClick(game)}
-            />
-          ))}
+          {/* The list is shown twice and slides left one copy's width (chips
+              are 12rem wide with 2.5rem gaps) at 25 px/s, then starts over.
+              A CSS animation runs on the compositor; scrolling from a 20 ms
+              timer made the page draw ~50 frames a second. */}
+          <div
+            className="flex w-max gap-10"
+            style={{
+              animation: `game-carousel-scroll ${(games.length * 14.5 * 16) / 25}s linear infinite`,
+              animationPlayState:
+                isPaused || !isCarouselVisible ? 'paused' : 'running',
+            }}
+          >
+            {[...games, ...games].map((game, index) => (
+              <GameChip
+                key={`${game.id}-${index}`}
+                game={game}
+                onClick={() => handleGameClick(game)}
+              />
+            ))}
+          </div>
         </motion.div>
       </div>
     </section>

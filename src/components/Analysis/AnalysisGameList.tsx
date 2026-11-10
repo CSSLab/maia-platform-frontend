@@ -1,4 +1,5 @@
 import React, {
+  memo,
   useRef,
   useMemo,
   Dispatch,
@@ -10,8 +11,9 @@ import React, {
 import { motion } from 'framer-motion'
 import { Tournament } from 'src/components'
 import { FavoriteModal } from 'src/components/Common/FavoriteModal'
-import { AnalysisListContext } from 'src/contexts'
+import { AnalysisListContext, AuthContext } from 'src/contexts'
 import { fetchMaiaGameList, deleteCustomGame } from 'src/api'
+import { forgetImportedVariations } from 'src/lib/customGameVariations'
 import {
   getFavoritesAsWebGames,
   addFavoriteGame,
@@ -19,13 +21,16 @@ import {
   updateFavoriteName,
 } from 'src/lib/favorites'
 import { MaiaGameListEntry } from 'src/types'
+import { formatMaiaName, formatSavedName } from 'src/lib/maiaNames'
 import { useRouter } from 'next/router'
+import { AnalysisGameListName } from 'src/constants/analysis'
 
 interface GameData {
   game_id: string
   maia_name: string
   result: string
   player_color: 'white' | 'black'
+  created_time?: string
   is_favorited?: boolean
   custom_name?: string
 }
@@ -55,6 +60,9 @@ interface AnalysisGameListProps {
   onGameSelected?: () => void // Called when a game is selected (for mobile popup closing)
   refreshTrigger?: number // Used to trigger refresh when custom analysis is added
   embedded?: boolean // Render without outer card container
+  // Switches to this list; a new nonce switches again (the site's Analysis
+  // menu asks for a list each time it's used).
+  requestedList?: { list: AnalysisGameListName; nonce: number } | null
 }
 
 export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
@@ -64,10 +72,12 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   refreshTrigger,
   loadNewWorldChampionshipGame,
   embedded = false,
+  requestedList,
 }) => {
   const router = useRouter()
   const { analysisLichessList, analysisTournamentList } =
     useContext(AnalysisListContext)
+  const { user, connectLichess } = useContext(AuthContext)
 
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -161,9 +171,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
     }
   }, [analysisTournamentList, currentId, listKeys])
 
-  const [selected, setSelected] = useState<
-    'tournament' | 'lichess' | 'play' | 'hb' | 'custom' | 'favorites'
-  >(() => {
+  const [selected, setSelected] = useState<AnalysisGameListName>(() => {
     if (currentId?.[1] === 'custom') {
       return 'custom'
     } else if (currentId?.[1] === 'lichess') {
@@ -177,6 +185,9 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
     }
     return 'tournament'
   })
+  useEffect(() => {
+    if (requestedList) setSelected(requestedList.list)
+  }, [requestedList])
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null)
   const [openIndex, setOpenIndex] = useState<number | null>(initialOpenIndex)
 
@@ -214,19 +225,26 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
 
         fetchMaiaGameList(selected, currentPage)
           .then((data) => {
-            console.log(data)
             let parsedGames: CachedGameEntry[] = []
 
             if (selected === 'favorites') {
-              parsedGames = data.games.map((game: any) => ({
-                id: game.game_id || game.id,
-                type: game.game_type || game.type,
-                label: game.custom_name || game.label || 'Untitled',
-                result: game.result || '*',
-                pgn: game.pgn,
-                is_favorited: true, // All games in favorites are favorited
-                custom_name: game.custom_name,
-              }))
+              parsedGames = data.games.map((game: any) => {
+                const type = game.game_type || game.type
+                const customName = formatSavedName(
+                  game.custom_name,
+                  type,
+                  game.created_time,
+                )
+                return {
+                  id: game.game_id || game.id,
+                  type,
+                  label: customName || game.label || 'Untitled',
+                  result: game.result || '*',
+                  pgn: game.pgn,
+                  is_favorited: true, // All games in favorites are favorited
+                  custom_name: customName,
+                }
+              })
             } else {
               if (selected === 'custom') {
                 parsedGames = data.games.map((game: any) => ({
@@ -244,13 +262,18 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                     maia_name: string
                     result: string
                     player_color: 'white' | 'black'
+                    created_time?: string
                     is_favorited?: boolean
                     custom_name?: string
                   },
                   type: string,
                 ) => {
-                  const raw = game.maia_name.replace('_kdd_', ' ')
-                  const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+                  const maia = formatMaiaName(game.maia_name, game.created_time)
+                  const customName = formatSavedName(
+                    game.custom_name,
+                    type,
+                    game.created_time,
+                  )
 
                   const defaultLabel =
                     game.player_color === 'white'
@@ -259,11 +282,11 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
 
                   return {
                     id: game.game_id,
-                    label: game.custom_name || defaultLabel,
+                    label: customName || defaultLabel,
                     result: game.result,
                     type,
                     is_favorited: game.is_favorited || false,
-                    custom_name: game.custom_name,
+                    custom_name: customName,
                   }
                 }
 
@@ -332,13 +355,18 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
                 maia_name: string
                 result: string
                 player_color: 'white' | 'black'
+                created_time?: string
                 is_favorited?: boolean
                 custom_name?: string
               },
               type: string,
             ) => {
-              const raw = game.maia_name.replace('_kdd_', ' ')
-              const maia = raw.charAt(0).toUpperCase() + raw.slice(1)
+              const maia = formatMaiaName(game.maia_name, game.created_time)
+              const customName = formatSavedName(
+                game.custom_name,
+                type,
+                game.created_time,
+              )
 
               const defaultLabel =
                 game.player_color === 'white'
@@ -347,11 +375,11 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
 
               return {
                 id: game.game_id,
-                label: game.custom_name || defaultLabel,
+                label: customName || defaultLabel,
                 result: game.result,
                 type,
                 is_favorited: game.is_favorited || false,
-                custom_name: game.custom_name,
+                custom_name: customName,
               }
             }
 
@@ -437,12 +465,6 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
         }))
       }
     }
-  }
-
-  const handleTabChange = (
-    newTab: 'tournament' | 'play' | 'hb' | 'custom' | 'lichess' | 'favorites',
-  ) => {
-    setSelected(newTab)
   }
 
   const getDisplayName = (game: CachedGameEntry) => {
@@ -684,6 +706,7 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
       console.error('Failed to delete custom game', error)
       return
     }
+    forgetImportedVariations(deletedGameId)
 
     setGamesByPage((prev) => {
       const next = { ...prev }
@@ -784,38 +807,38 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
             label="★"
             name="favorites"
             selected={selected}
-            setSelected={handleTabChange}
+            setSelected={setSelected}
           />
-          <div className="grid flex-1 grid-cols-5">
+          <div className="flex flex-1">
             <Header
               label="Play"
               name="play"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
             <Header
               label="H&B"
               name="hb"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
             <Header
               label="Custom"
               name="custom"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
             <Header
               label="Lichess"
               name="lichess"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
             <Header
               label="WC"
               name="tournament"
               selected={selected}
-              setSelected={handleTabChange}
+              setSelected={setSelected}
             />
           </div>
         </div>
@@ -1050,17 +1073,43 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
               )}
             </>
           )}
-          {!((selected === 'play' || selected === 'hb') && totalPages > 1) &&
+          {selected === 'lichess' && user && !user.lichessId ? (
+            // A guest's Lichess games can't be listed until they sign in.
+            <div className="flex flex-1 flex-col items-center justify-start gap-3 px-4 py-4 text-center md:justify-center">
+              <p className="text-xs text-white/80">
+                Sign in with Lichess to see your recent Lichess games here and
+                analyze them with Maia.
+              </p>
+              <button
+                onClick={() => connectLichess('analysis_lichess_tab')}
+                className="flex items-center gap-2 rounded-md bg-human-4 px-3 py-1.5 text-xs font-medium text-white transition-colors duration-200 hover:bg-human-4/80"
+              >
+                <img
+                  src="/assets/icons/lichess.svg"
+                  className="h-3.5 w-3.5"
+                  alt=""
+                />
+                Sign in with Lichess
+              </button>
+            </div>
+          ) : (
+            selected !== 'tournament' &&
+            !((selected === 'play' || selected === 'hb') && totalPages > 1) &&
             getCurrentGames().length === 0 &&
             !loading && (
               <div className="flex flex-1 items-start justify-center gap-1 py-2 md:items-center">
                 <p className="text-center text-xs text-white/70">
                   {selected === 'favorites'
-                    ? ' ⭐ Hit the star to favourite games...'
-                    : 'Play more games... ^. .^₎⟆'}
+                    ? '⭐ Hit the star to favourite games...'
+                    : selected === 'lichess'
+                      ? 'No Lichess games yet'
+                      : selected === 'custom'
+                        ? 'No custom games yet'
+                        : 'Play more games... ^. .^₎⟆'}
                 </p>
               </div>
-            )}
+            )
+          )}
         </div>
         {/* Removed bottom "Analyze Custom" button; now shown only under Custom tab */}
       </div>
@@ -1080,7 +1129,12 @@ export const AnalysisGameList: React.FC<AnalysisGameListProps> = ({
   ) : null
 }
 
-function Header({
+/**
+ * A tab of the game list. Memoized (with a stable setSelected): the analysis
+ * page re-renders this list on every engine update, and each render of the
+ * underline (a framer-motion layoutId) made framer-motion measure the page.
+ */
+const Header = memo(function Header({
   name,
   label,
   selected,
@@ -1096,7 +1150,7 @@ function Header({
   return (
     <button
       onClick={() => setSelected(name)}
-      className={`relative flex items-center justify-center py-1 ${selected === name ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'} ${name === 'favorites' ? 'px-3' : ''}`}
+      className={`relative flex items-center justify-center whitespace-nowrap py-1 ${name === 'favorites' ? 'flex-none px-2' : 'flex-auto px-1'} ${selected === name ? 'bg-white/10' : 'bg-white/5 hover:bg-white/10'}`}
     >
       <div className="flex items-center justify-start">
         <p
@@ -1113,4 +1167,4 @@ function Header({
       )}
     </button>
   )
-}
+})

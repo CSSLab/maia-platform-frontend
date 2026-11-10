@@ -90,7 +90,7 @@ export const useFeatureController = () => {
 
 ### Stockfish Engine
 
-- WebAssembly integration via `lila-stockfish-web`
+- WebAssembly integration via `@lichess-org/stockfish-web` (Stockfish 19, small net)
 - Files in `public/stockfish/`
 - Managed through `useStockfishEngine` hook
 

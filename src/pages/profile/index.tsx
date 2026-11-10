@@ -69,21 +69,28 @@ const ProfilePage: NextPage = () => {
       setLoading(false)
     }
 
-    if (!user?.lichessId) router.push('/')
+    // `user` is null until the account has loaded.
+    if (!user) return
+    if (!user.lichessId) {
+      router.push('/')
+      return
+    }
 
     fetchStats()
   }, [user])
 
   return (
-    <AuthenticatedWrapper>
+    <>
       <Head>
         <title>Profile – Maia Chess</title>
         <meta name="description" content="User profile and statistics" />
       </Head>
-      <Loading isLoading={loading}>
-        <Profile stats={stats} />
-      </Loading>
-    </AuthenticatedWrapper>
+      <AuthenticatedWrapper>
+        <Loading isLoading={loading}>
+          <Profile stats={stats} />
+        </Loading>
+      </AuthenticatedWrapper>
+    </>
   )
 }
 
@@ -164,6 +171,7 @@ const Profile: React.FC<Props> = (props: Props) => {
           {user?.lichessId && (
             <a
               target="_blank"
+              rel="noreferrer"
               href={`https://lichess.org/@/${user.lichessId}`}
               className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
             >
@@ -216,6 +224,7 @@ const Profile: React.FC<Props> = (props: Props) => {
           {user?.lichessId && (
             <a
               target="_blank"
+              rel="noreferrer"
               href={`https://lichess.org/@/${user.lichessId}`}
               className="flex items-center gap-1.5 transition-opacity duration-200 hover:opacity-80"
             >

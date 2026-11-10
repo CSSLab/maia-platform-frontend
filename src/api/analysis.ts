@@ -14,6 +14,7 @@ import {
   insertBackendStockfishEvalToGameTree,
 } from 'src/lib'
 import { buildUrl } from './utils'
+import { formatMaiaName } from 'src/lib/maiaNames'
 import { AvailableMoves } from 'src/types/puzzle'
 import { Chess } from 'chess.ts'
 
@@ -21,6 +22,7 @@ export const fetchWorldChampionshipGameList = async (): Promise<
   Map<string, WorldChampionshipGameListEntry[]>
 > => {
   const res = await fetch(buildUrl('analysis/list'))
+  if (!res.ok) throw new Error(`Game list request failed (HTTP ${res.status})`)
   const data = await res.json()
 
   return data
@@ -63,13 +65,66 @@ export const streamLichessGames = async (
   stream.then(readLichessStream(onMessage))
 }
 
-export const fetchPgnOfLichessGame = async (id: string): Promise<string> => {
-  const res = await fetch(`https://lichess.org/game/export/${id}`, {
-    headers: {
-      Accept: 'application/x-chess-pgn',
+const looksLikePgn = (text: string) => /^\s*\[\w+\s+"/.test(text)
+
+/**
+ * A game for the analysis page couldn't be loaded. `status`: the HTTP status
+ * of the reply (404 for a Lichess game that doesn't exist).
+ */
+export class GameLoadError extends Error {
+  constructor(readonly status: number) {
+    super(`Game request failed (HTTP ${status})`)
+    this.name = 'GameLoadError'
+  }
+}
+
+/** No game behind the link: a 4xx reply, rather than a server failure. */
+export const isGameNotFound = (error: unknown) =>
+  error instanceof GameLoadError && error.status >= 400 && error.status < 500
+
+const readGameReply = async (res: Response) => {
+  if (!res.ok) throw new GameLoadError(res.status)
+  return res.json()
+}
+
+/**
+ * `early`: the same request already started by the page's HTML (see
+ * _document.tsx), used instead of a new one.
+ */
+export const fetchPgnOfLichessGame = async (
+  id: string,
+  early?: Promise<string>,
+): Promise<string> => {
+  try {
+    const text = await (early ??
+      fetch(`https://lichess.org/game/export/${id}`, {
+        headers: {
+          Accept: 'application/x-chess-pgn',
+        },
+      }).then((res) => (res.ok ? res.text() : '')))
+    if (looksLikePgn(text)) return text
+  } catch (error) {
+    console.warn('Lichess game export failed, trying the export by id:', error)
+  }
+
+  // Lichess redirects anonymous exports of older games to its sign-up page,
+  // which fails CORS. Its export by ids still serves them, and with these
+  // options returns the same PGN as the single-game export.
+  const res = await fetch(
+    'https://lichess.org/api/games/export/_ids?clocks=true&evals=true&opening=true',
+    {
+      method: 'POST',
+      headers: {
+        Accept: 'application/x-chess-pgn',
+      },
+      body: id,
     },
-  })
-  return res.text()
+  )
+  if (!res.ok) throw new GameLoadError(res.status)
+  // An id that matches no game gets an empty reply.
+  const text = await res.text()
+  if (!looksLikePgn(text)) throw new GameLoadError(404)
+  return text
 }
 
 export const fetchAnalyzedWorldChampionshipGame = async (
@@ -79,7 +134,7 @@ export const fetchAnalyzedWorldChampionshipGame = async (
     buildUrl(`analysis/analysis_list/${gameId.join('/')}`),
   )
 
-  const data = await res.json()
+  const data = await readGameReply(res)
 
   const id = data['id']
   const termination = {
@@ -95,6 +150,9 @@ export const fetchAnalyzedWorldChampionshipGame = async (
     [model: string]: MoveValueMapping[]
   } = {}
   const stockfishEvaluations: MoveValueMapping[] = data['stockfish_evals']
+  // How far the mates are, where the stored analysis recorded it (absent from
+  // older backends).
+  const stockfishMates: MoveValueMapping[] | undefined = data['stockfish_mates']
 
   const availableMoves: AvailableMoves[] = []
 
@@ -123,7 +181,12 @@ export const fetchAnalyzedWorldChampionshipGame = async (
 
   const moves = buildMovesListFromGameStates(gameStates)
   const tree = buildGameTreeFromMoveList(moves, moves[0].board)
-  insertBackendStockfishEvalToGameTree(tree, moves, stockfishEvaluations)
+  insertBackendStockfishEvalToGameTree(
+    tree,
+    moves,
+    stockfishEvaluations,
+    stockfishMates,
+  )
 
   return {
     id,
@@ -145,7 +208,7 @@ export const fetchAnalyzedPgnGame = async (id: string, pgn: string) => {
     },
   })
 
-  const data = await res.json()
+  const data = await readGameReply(res)
 
   const termination = {
     ...data['termination'],
@@ -196,6 +259,20 @@ export const fetchAnalyzedPgnGame = async (id: string, pgn: string) => {
   } as AnalyzedGame
 }
 
+/**
+ * Sends a PGN to `analyze_user_game` without reading the reply, for games the
+ * page builds itself (see parseLichessPgn), in case the backend records it.
+ */
+export const sendPgnGame = (pgn: string) => {
+  fetch(buildUrl('analysis/analyze_user_game'), {
+    method: 'POST',
+    body: pgn,
+    headers: {
+      'Content-Type': 'text/plain',
+    },
+  }).catch(() => undefined)
+}
+
 export const fetchAnalyzedMaiaGame = async (
   id: string,
   game_type: 'play' | 'hand' | 'brain' | 'custom',
@@ -215,7 +292,7 @@ export const fetchAnalyzedMaiaGame = async (
     },
   )
 
-  const data = await res.json()
+  const data = await readGameReply(res)
 
   const termination = {
     ...data['termination'],
@@ -229,11 +306,11 @@ export const fetchAnalyzedMaiaGame = async (
   const maiaPattern = /maia_kdd_\d{3,4}/
 
   if (blackPlayer.name && maiaPattern.test(blackPlayer.name)) {
-    blackPlayer.name = blackPlayer.name.replace('maia_kdd_', 'Maia ')
+    blackPlayer.name = formatMaiaName(blackPlayer.name, data['created_time'])
   }
 
   if (whitePlayer.name && maiaPattern.test(whitePlayer.name)) {
-    whitePlayer.name = whitePlayer.name.replace('maia_kdd_', 'Maia ')
+    whitePlayer.name = formatMaiaName(whitePlayer.name, data['created_time'])
   }
 
   const maiaEvals: { [model: string]: MoveValueMapping[] } = {}

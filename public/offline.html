@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#171214" />
+    <title>Offline · Maia Chess</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 16px;
+        background: #171214;
+        color: #f5eef0;
+        font-family:
+          'Open Sans',
+          system-ui,
+          -apple-system,
+          sans-serif;
+        text-align: center;
+      }
+      img {
+        width: 72px;
+        height: 72px;
+        border-radius: 16px;
+      }
+      h1 {
+        margin: 20px 0 8px;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      p {
+        margin: 0 0 24px;
+        color: #b9adb1;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+      button {
+        padding: 10px 20px;
+        border: 0;
+        border-radius: 8px;
+        background: #be6559;
+        color: #fff;
+        font: inherit;
+        font-size: 15px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>You're offline</h1>
+      <p>Maia needs a connection to load. Check your network and try again.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+    <script>
+      // Come back by itself once the connection returns.
+      window.addEventListener('online', function () {
+        location.reload()
+      })
+    </script>
+  </body>
+</html>

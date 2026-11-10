@@ -1,9 +1,15 @@
 import Image from 'next/image'
-import { Chess } from 'chess.ts'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/router'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useCallback, useContext, useState } from 'react'
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 
 import {
   Color,
@@ -13,26 +19,28 @@ import {
   TimeControlOptions,
 } from 'src/types'
 import { ModalContext } from 'src/contexts/ModalContext'
+import { startGameEarly } from 'src/api/play'
+import { checkStartPosition } from 'src/lib/startPosition'
+import {
+  INCREMENT_SECONDS_STEPS,
+  TIME_MINUTES_STEPS,
+  nearestStepIndex,
+} from 'src/lib/timeControl'
+import {
+  UnfinishedGame,
+  clearUnfinishedGame,
+  loadUnfinishedGame,
+} from 'src/lib/unfinishedGame'
+import {
+  MAIA_VERSIONS as maiaOptions,
+  PlaySetupInitialState,
+  loadPlaySettings,
+  playSetupInitialState,
+  savePlaySettings,
+} from 'src/lib/playSettings'
 import { ModalContainer } from './ModalContainer'
 
-const maiaOptions = [
-  'maia_kdd_600',
-  'maia_kdd_800',
-  'maia_kdd_1000',
-  'maia_kdd_1100',
-  'maia_kdd_1200',
-  'maia_kdd_1300',
-  'maia_kdd_1400',
-  'maia_kdd_1500',
-  'maia_kdd_1600',
-  'maia_kdd_1700',
-  'maia_kdd_1800',
-  'maia_kdd_1900',
-  'maia_kdd_2000',
-  'maia_kdd_2200',
-  'maia_kdd_2400',
-  'maia_kdd_2600',
-]
+const subscribeToNothing = () => () => undefined
 
 interface OptionSelectProps<T> {
   options: T[]
@@ -57,7 +65,7 @@ function OptionSelect<T>({
         return (
           <button
             key={index}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors ${
               option === selected ? selectedClassName : unselectedClassName
             } ${index === 0 ? 'rounded-l-lg' : ''} ${
               index === options.length - 1 ? 'rounded-r-lg' : ''
@@ -81,12 +89,18 @@ export interface PlaySetupModalProps {
   isBrain?: boolean
   sampleMoves?: boolean
   simulateMaiaTime?: boolean
+  practice?: boolean
   startFen?: string
   returnTo?: string
   challengeId?: string
   forcedPlayerColor?: Color
   modalTitle?: string
   modalSubtitle?: string
+  // Called when the dialog closes (dismissed, or a game started), besides
+  // clearing ModalContext's dialog: for a page that renders it itself.
+  onClose?: () => void
+  // false: shown without fading and sliding in (see /play).
+  animateIn?: boolean
 }
 
 export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
@@ -96,8 +110,23 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   const router = useRouter()
   const { push } = router
 
+  // Fetch the game page's code while the visitor chooses, so that it is
+  // ready when they start (it otherwise waited behind the prefetches of the
+  // header's links).
+  const gamePath = props.playType === 'againstMaia' ? '/play/maia' : '/play/hb'
+  useEffect(() => {
+    router.prefetch(gamePath).catch(() => undefined)
+  }, [router, gamePath])
+
+  // Until the app has started, the dialog (in /play's server HTML) ignores
+  // taps: a choice made before then would show but not be used.
+  const [interactive, setInteractive] = useState(false)
+  useEffect(() => setInteractive(true), [])
+
+  const { onClose } = props
   const dismissModal = useCallback(() => {
     setPlaySetupModalProps(undefined)
+    onClose?.()
 
     if (
       props.returnTo &&
@@ -112,41 +141,130 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     router.asPath,
     router.pathname,
     setPlaySetupModalProps,
+    onClose,
   ])
 
-  const [timeControl, setTimeControl] = useState<TimeControl>(
-    props.timeControl || TimeControlOptions[0],
+  const forcedPlayerColor = props.forcedPlayerColor
+  const colorSelectionLocked = forcedPlayerColor !== undefined
+  const positionLocked = forcedPlayerColor !== undefined
+
+  // The dialog starts from its props, then the settings of the last game
+  // started in this browser (src/lib/playSettings.ts), then the defaults.
+  // /play renders it in the server's HTML, which can't know what this
+  // browser saved: while hydrating that HTML (useSyncExternalStore gives its
+  // server value then) it starts from the defaults as the server did, and
+  // takes the saved settings once mounted. The dialog ignores taps until
+  // then anyway (`interactive`). Opened later (ModalContext, or /play reached
+  // in the app), it starts from them at once, without a visible change.
+  const hydrating = useSyncExternalStore(
+    subscribeToNothing,
+    () => false,
+    () => true,
   )
-  const [timeMinutes, setTimeMinutes] = useState<number>(() => {
-    const initial = props.timeControl || TimeControlOptions[0]
-    if (initial === 'unlimited') return 0
-    return parseInt(initial.split('+')[0])
-  })
-  const [incrementSeconds, setIncrementSeconds] = useState<number>(() => {
-    const initial = props.timeControl || TimeControlOptions[0]
-    if (initial === 'unlimited') return 0
-    return parseInt(initial.split('+')[1])
-  })
-  const [isBrain, setIsBrain] = useState<boolean>(props.isBrain || false)
+  const initialProps = {
+    playType: props.playType,
+    timeControl: props.timeControl,
+    maiaVersion: props.maiaVersion,
+    maiaPartnerVersion: props.maiaPartnerVersion,
+    isBrain: props.isBrain,
+    simulateMaiaTime: props.simulateMaiaTime,
+    practice: props.practice,
+    startFen: props.startFen,
+  }
+  const [initial] = useState<PlaySetupInitialState>(() =>
+    playSetupInitialState(
+      initialProps,
+      hydrating ? {} : loadPlaySettings(props.playType),
+    ),
+  )
+
+  const [timeControl, setTimeControl] = useState<TimeControl>(
+    initial.timeControl,
+  )
+  // The sliders' minutes and increment (kept while Unlimited is chosen, for
+  // when the slider is moved back).
+  const [timeMinutes, setTimeMinutes] = useState<number>(initial.timeMinutes)
+  const [incrementSeconds, setIncrementSeconds] = useState<number>(
+    initial.incrementSeconds,
+  )
+  const [isBrain, setIsBrain] = useState<boolean>(initial.isBrain)
   const [sampleMoves, setSampleMoves] = useState<boolean>(
     props.sampleMoves || true,
   )
   const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
-    props.simulateMaiaTime !== undefined ? props.simulateMaiaTime : true,
+    initial.simulateMaiaTime,
   )
+  const [practice, setPractice] = useState<boolean>(initial.practice)
+
+  // An unlimited or practice game vs Maia left unfinished in this browser,
+  // offered to continue (read after the first render: the dialog is in /play's
+  // server HTML).
+  const [unfinishedGame, setUnfinishedGame] = useState<UnfinishedGame | null>(
+    null,
+  )
+  // Shown for Hand & Brain too: starting any game resigns it.
+  useEffect(() => {
+    setUnfinishedGame(loadUnfinishedGame())
+  }, [])
+
+  const continueUnfinishedGame = useCallback(() => {
+    if (!unfinishedGame) return
+    const { config } = unfinishedGame
+    setPlaySetupModalProps(undefined)
+    onClose?.()
+    push({
+      pathname: '/play/maia',
+      query: {
+        player: config.player,
+        maiaVersion: config.maiaVersion,
+        timeControl: config.timeControl,
+        sampleMoves: config.sampleMoves,
+        simulateMaiaTime: config.simulateMaiaTime ?? true,
+        startFen: config.startFen,
+        practice: !!config.practice,
+      },
+    })
+  }, [unfinishedGame, setPlaySetupModalProps, onClose, push])
 
   const [maiaPartnerVersion, setMaiaPartnerVersion] = useState<string>(
-    props.maiaPartnerVersion || maiaOptions[0],
+    initial.maiaPartnerVersion,
   )
-  const [maiaVersion, setMaiaVersion] = useState<string>(
-    props.maiaVersion || maiaOptions[0],
-  )
-  const [fen, setFen] = useState<string | undefined>(
-    props.startFen ? props.startFen : undefined,
-  )
-  const forcedPlayerColor = props.forcedPlayerColor
-  const colorSelectionLocked = forcedPlayerColor !== undefined
-  const positionLocked = forcedPlayerColor !== undefined
+  const [maiaVersion, setMaiaVersion] = useState<string>(initial.maiaVersion)
+  const [fen, setFen] = useState<string | undefined>(initial.fen)
+  // An empty box starts from the usual position.
+  const fenCheck = fen?.trim() ? checkStartPosition(fen) : undefined
+  const startFen = fenCheck?.ok ? fenCheck.fen : undefined
+
+  // Opened with a position that can't be played (from a link, say): the
+  // box and what's wrong with it are below the fold, so show them.
+  const fenInputRef = useRef<HTMLInputElement>(null)
+  const openedWithBadFen = useRef(fenCheck !== undefined && !fenCheck.ok)
+  useEffect(() => {
+    if (openedWithBadFen.current) {
+      fenInputRef.current?.scrollIntoView({ block: 'center' })
+    }
+  }, [])
+
+  // After hydrating /play's server HTML (see above), the saved settings.
+  const savedSettingsLoaded = useRef(!hydrating)
+  useEffect(() => {
+    if (savedSettingsLoaded.current) return
+    savedSettingsLoaded.current = true
+    const saved = loadPlaySettings(props.playType)
+    if (Object.keys(saved).length === 0) return
+    const state = playSetupInitialState(initialProps, saved)
+    setTimeControl(state.timeControl)
+    setTimeMinutes(state.timeMinutes)
+    setIncrementSeconds(state.incrementSeconds)
+    setIsBrain(state.isBrain)
+    setSimulateMaiaTime(state.simulateMaiaTime)
+    setPractice(state.practice)
+    setMaiaPartnerVersion(state.maiaPartnerVersion)
+    setMaiaVersion(state.maiaVersion)
+    setFen(state.fen)
+    // Once, on mounting: later prop changes remount the dialog (/play's key).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [openMoreOptions, setMoreOptionsOpen] = useState<boolean>(true)
   const compactHandBrainLayout = props.playType === 'handAndBrain'
@@ -163,35 +281,33 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
 
   const handlePresetSelect = useCallback((preset: TimeControl) => {
     setTimeControl(preset)
-    if (preset === 'unlimited') {
-      setTimeMinutes(0)
-      setIncrementSeconds(0)
-    } else {
+    if (preset !== 'unlimited') {
       const [minutes, increment] = preset.split('+').map(Number)
       setTimeMinutes(minutes)
       setIncrementSeconds(increment)
     }
   }, [])
 
+  // `newTimeMinutes` null: Unlimited (the minutes slider's last position).
   const handleSliderChange = useCallback(
-    (newTimeMinutes: number, newIncrementSeconds: number) => {
-      setTimeMinutes(newTimeMinutes)
-      setIncrementSeconds(newIncrementSeconds)
-
-      if (newTimeMinutes === 0 && newIncrementSeconds === 0) {
+    (newTimeMinutes: number | null, newIncrementSeconds: number) => {
+      if (newTimeMinutes === null) {
         setTimeControl('unlimited')
-      } else {
-        const newTimeControl =
-          `${newTimeMinutes}+${newIncrementSeconds}` as TimeControl
-        if (TimeControlOptions.includes(newTimeControl)) {
-          setTimeControl(newTimeControl)
-        } else {
-          setTimeControl(newTimeControl)
-        }
+        return
       }
+      // A game needs some time: with no base time ("0+N", which starts at
+      // 3 seconds) there must be an increment.
+      const increment =
+        newTimeMinutes === 0 && newIncrementSeconds === 0
+          ? 1
+          : newIncrementSeconds
+      setTimeMinutes(newTimeMinutes)
+      setIncrementSeconds(increment)
+      setTimeControl(`${newTimeMinutes}+${increment}` as TimeControl)
     },
     [],
   )
+  const isUnlimited = timeControl === 'unlimited'
 
   const start = useCallback(
     (color: Color | undefined) => {
@@ -206,14 +322,41 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       const player = color ?? ['white', 'black'][Math.floor(Math.random() * 2)]
       const resolvedPlayer = forcedPlayerColor ?? player
 
-      if (fen && !new Chess().validateFen(fen).valid) {
-        toast.error('Invalid Starting FEN provided')
+      if (fenCheck && !fenCheck.ok) {
+        toast.error(fenCheck.error)
         return
       }
 
       setPlaySetupModalProps(undefined)
+      onClose?.()
+      // A new game resigns any unfinished one (on the backend, as it starts).
+      clearUnfinishedGame()
+
+      // Next time the dialog starts from these choices. Not a challenge's:
+      // those settings were set for the visitor, not chosen by them.
+      if (!props.challengeId && forcedPlayerColor === undefined) {
+        const shared = {
+          maiaVersion,
+          timeControl,
+          timeMinutes,
+          incrementSeconds,
+          simulateMaiaTime,
+        }
+        savePlaySettings(
+          props.playType,
+          props.playType === 'againstMaia'
+            ? { ...shared, practice }
+            : { ...shared, maiaPartnerVersion, isBrain },
+        )
+      }
 
       if (props.playType == 'againstMaia') {
+        startGameEarly(
+          resolvedPlayer as Color,
+          maiaVersion,
+          sampleMoves,
+          timeControl,
+        )
         push({
           pathname: '/play/maia',
           query: {
@@ -223,7 +366,8 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
             timeControl: timeControl,
             sampleMoves: sampleMoves,
             simulateMaiaTime: simulateMaiaTime,
-            startFen: fen,
+            startFen: startFen,
+            practice: practice,
             returnTo: props.returnTo,
             challengeId: props.challengeId,
             forcedColor: forcedPlayerColor,
@@ -242,7 +386,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
             isBrain: isBrain,
             sampleMoves: sampleMoves,
             simulateMaiaTime: simulateMaiaTime,
-            startFen: fen,
+            startFen: startFen,
           },
         })
       }
@@ -256,26 +400,33 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       timeControl,
       sampleMoves,
       simulateMaiaTime,
-      fen,
+      practice,
+      startFen,
+      fenCheck,
+      timeMinutes,
+      incrementSeconds,
       forcedPlayerColor,
       isBrain,
       props.challengeId,
       props.modalSubtitle,
       props.modalTitle,
       props.returnTo,
+      onClose,
     ],
   )
 
   return (
     <AnimatePresence>
-      <ModalContainer dismiss={dismissModal}>
+      <ModalContainer dismiss={dismissModal} animateIn={props.animateIn}>
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={props.animateIn === false ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className={`relative flex ${
             compactHandBrainLayout ? 'h-[640px]' : 'h-[600px]'
-          } w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md`}
+          } w-[500px] max-w-[90vw] flex-col overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md ${
+            interactive ? '' : 'pointer-events-none'
+          }`}
         >
           <div
             className="pointer-events-none absolute inset-0"
@@ -311,6 +462,28 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
             }`}
           >
             <div className="space-y-4">
+              {unfinishedGame && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-human-4/50 bg-human-4/10 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-primary">
+                      Unfinished game vs{' '}
+                      {unfinishedGame.config.maiaVersion.replace(
+                        'maia_kdd_',
+                        'Maia-3 ',
+                      )}
+                    </p>
+                    <p className="text-xs text-secondary">
+                      Starting a new game resigns the unfinished game
+                    </p>
+                  </div>
+                  <button
+                    onClick={continueUnfinishedGame}
+                    className="shrink-0 rounded-md bg-human-4 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-human-4/90"
+                  >
+                    Continue
+                  </button>
+                </div>
+              )}
               {props.playType == 'handAndBrain' ? (
                 <>
                   <div>
@@ -352,15 +525,15 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                       >
                         {maiaOptions.map((maia) => (
                           <option key={`partner_${maia}`} value={maia}>
-                            {maia.replace('maia_kdd_', 'Maia ')}
+                            {maia.replace('maia_kdd_', 'Maia-3 ')}
                           </option>
                         ))}
                       </select>
                     </div>
                     <p className="mt-0.5 text-xxs leading-tight text-secondary">
                       {isBrain
-                        ? `${maiaPartnerVersion.replace('maia_kdd_', 'Maia ')} is your Hand and will make the move on the board.`
-                        : `${maiaPartnerVersion.replace('maia_kdd_', 'Maia ')} is your Brain and will choose which piece type must be moved.`}
+                        ? `${maiaPartnerVersion.replace('maia_kdd_', 'Maia-3 ')} is your Hand and will make the move on the board.`
+                        : `${maiaPartnerVersion.replace('maia_kdd_', 'Maia-3 ')} is your Brain and will choose which piece type must be moved.`}
                     </p>
                   </div>
                 </>
@@ -382,7 +555,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   >
                     {maiaOptions.map((maia) => (
                       <option key={`opponent_${maia}`} value={maia}>
-                        {maia.replace('maia_kdd_', 'Maia ')}
+                        {maia.replace('maia_kdd_', 'Maia-3 ')}
                       </option>
                     ))}
                   </select>
@@ -390,12 +563,14 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
               </div>
 
               <div>
+                {/* On phones the label sits above the buttons, which share
+                    the row's width, so that "Unlimited" fits. */}
                 <div
-                  className={`flex items-center justify-between ${
+                  className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${
                     compactHandBrainLayout ? 'mb-2' : 'mb-3'
                   }`}
                 >
-                  <span className="text-sm font-medium text-primary">
+                  <span className="whitespace-nowrap text-sm font-medium text-primary">
                     Time Control:
                   </span>
                   <div className="flex gap-1.5">
@@ -403,7 +578,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                       <button
                         key={option}
                         onClick={() => handlePresetSelect(option)}
-                        className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${
+                        className={`flex-1 whitespace-nowrap rounded border px-1.5 py-1 text-xs font-medium transition-colors sm:flex-none sm:px-2 ${
                           timeControl === option
                             ? 'border-glass-border bg-glass-stronger text-white backdrop-blur-md'
                             : 'border-glass-border bg-glass text-white/90 hover:bg-glass-strong'
@@ -433,19 +608,23 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                         Time (minutes)
                       </label>
                       <span className="text-xs text-secondary">
-                        {timeMinutes}
+                        {isUnlimited ? 'Unlimited' : timeMinutes}
                       </span>
                     </div>
                     <input
                       id="time-minutes-slider"
                       type="range"
                       min="0"
-                      max="60"
+                      max={TIME_MINUTES_STEPS.length}
                       step="1"
-                      value={timeMinutes}
+                      value={
+                        isUnlimited
+                          ? TIME_MINUTES_STEPS.length
+                          : nearestStepIndex(TIME_MINUTES_STEPS, timeMinutes)
+                      }
                       onChange={(e) =>
                         handleSliderChange(
-                          Number(e.target.value),
+                          TIME_MINUTES_STEPS[Number(e.target.value)] ?? null,
                           incrementSeconds,
                         )
                       }
@@ -473,20 +652,27 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                       id="increment-seconds-slider"
                       type="range"
                       min="0"
-                      max="30"
+                      max={INCREMENT_SECONDS_STEPS.length - 1}
                       step="1"
-                      value={incrementSeconds}
+                      value={nearestStepIndex(
+                        INCREMENT_SECONDS_STEPS,
+                        incrementSeconds,
+                      )}
+                      disabled={isUnlimited}
                       onChange={(e) =>
-                        handleSliderChange(timeMinutes, Number(e.target.value))
+                        handleSliderChange(
+                          timeMinutes,
+                          INCREMENT_SECONDS_STEPS[Number(e.target.value)],
+                        )
                       }
-                      className="w-full accent-human-4"
+                      className="w-full accent-human-4 disabled:opacity-40"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <div className="grid grid-cols-[auto,1fr] items-center gap-3">
+                <div className="flex flex-col gap-2 sm:grid sm:grid-cols-[auto,1fr] sm:items-center sm:gap-3">
                   <label
                     htmlFor="maia-timing-select"
                     className="whitespace-nowrap text-sm font-medium text-primary"
@@ -504,6 +690,27 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   </div>
                 </div>
               </div>
+
+              {props.playType === 'againstMaia' && (
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="practiceMode"
+                    checked={practice}
+                    onChange={() => setPractice(!practice)}
+                    className="mt-0.5 accent-human-4"
+                  />
+                  <label
+                    htmlFor="practiceMode"
+                    className="text-sm text-primary"
+                  >
+                    Practice mode{' '}
+                    <span className="text-xs text-secondary">
+                      (unrated, with takebacks and extra time)
+                    </span>
+                  </label>
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
                 <input
@@ -531,10 +738,15 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                   </label>
                   <input
                     id="fen-input"
+                    ref={fenInputRef}
                     type="text"
                     value={fen}
                     placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
                     readOnly={positionLocked}
+                    aria-invalid={fenCheck ? !fenCheck.ok : undefined}
+                    aria-describedby={
+                      fenCheck && !fenCheck.ok ? 'fen-input-error' : undefined
+                    }
                     onChange={(e) => setFen(e.target.value)}
                     className={`w-full rounded border border-glass-border px-3 py-2 font-mono text-xs placeholder-white/60 focus:outline-none ${
                       positionLocked
@@ -542,11 +754,21 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
                         : 'bg-glass text-white/90'
                     }`}
                   />
-                  <p className="mt-1 text-xs text-secondary">
-                    {positionLocked
-                      ? 'This challenge uses a fixed starting position.'
-                      : 'Enter a valid FEN string to start from a specific position'}
-                  </p>
+                  {fenCheck && !fenCheck.ok ? (
+                    <p
+                      id="fen-input-error"
+                      className="mt-1 text-xs text-red-400"
+                      aria-live="polite"
+                    >
+                      {fenCheck.error}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-secondary">
+                      {positionLocked
+                        ? 'This challenge uses a fixed starting position.'
+                        : 'Enter a valid FEN string to start from a specific position'}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

@@ -64,6 +64,9 @@ export const useBroadcastController = (): BroadcastStreamController => {
   const abortController = useRef<AbortController | null>(null)
   const currentRoundId = useRef<string | null>(null)
   const gameStates = useRef<Map<string, LiveGame>>(new Map())
+  // When each game's latest move arrived, for the running clock of the side
+  // to move (see BroadcastGame.lastMoveReceivedAt).
+  const lastMoveReceivedAt = useRef<Map<string, number>>(new Map())
   const lastPGNData = useRef<string>('')
   const currentGameRef = useRef<BroadcastGame | null>(null)
 
@@ -164,17 +167,6 @@ export const useBroadcastController = (): BroadcastStreamController => {
       // Note: Coming Soon tournaments are now included in the Live Tournaments section above
 
       setBroadcastSections(sections)
-      console.log(
-        'Loaded broadcasts:',
-        sections.map((s) => ({
-          title: s.title,
-          broadcasts: s.broadcasts.map((b) => ({
-            name: b.tour.name,
-            rounds: b.rounds.length,
-            roundNames: b.rounds.map((r) => r.name),
-          })),
-        })),
-      )
       setBroadcastState((prev) => ({ ...prev, isConnecting: false }))
     } catch (error) {
       console.error('Error loading broadcasts:', error)
@@ -188,18 +180,14 @@ export const useBroadcastController = (): BroadcastStreamController => {
   }, [])
 
   const selectBroadcast = useCallback(
-    async (broadcastId: string) => {
-      console.log('Selecting broadcast:', broadcastId)
-
+    async (broadcastId: string, roundId?: string) => {
       // Always fetch complete broadcast data directly from API to ensure we get ALL rounds
       // The /api/broadcast endpoint often only returns currently ongoing rounds
       let broadcast: Broadcast | undefined
       try {
-        console.log('Fetching complete broadcast data from API...')
         const fetchedBroadcast = await getLichessBroadcastById(broadcastId)
         if (fetchedBroadcast) {
           broadcast = fetchedBroadcast
-          console.log('✓ Got complete broadcast data with all rounds')
         }
       } catch (error) {
         console.error('Failed to get broadcast by ID:', error)
@@ -207,34 +195,27 @@ export const useBroadcastController = (): BroadcastStreamController => {
 
       // Fallback: use data from sections if API call failed
       if (!broadcast) {
-        console.log('API call failed, falling back to section data...')
         for (const section of broadcastSections) {
           broadcast = section.broadcasts.find((b) => b.tour.id === broadcastId)
           if (broadcast) {
-            console.log('⚠ Found in sections but may have incomplete rounds')
             break
           }
         }
       }
 
       if (broadcast) {
-        console.log(
-          'Selected broadcast:',
-          broadcast.tour.name,
-          'with',
-          broadcast.rounds.length,
-          'rounds:',
-          broadcast.rounds.map((r) => r.name),
-        )
         setCurrentBroadcast(broadcast)
-        // Auto-select default round if available
-        const defaultRound = getPreferredBroadcastRound(broadcast)
-        if (defaultRound) {
-          setCurrentRound(defaultRound)
+        // The requested round, or else the default one
+        const round =
+          broadcast.rounds.find((r) => r.id === roundId) ??
+          getPreferredBroadcastRound(broadcast)
+        if (round) {
+          setCurrentRound(round)
         }
       } else {
         console.error('Broadcast not found:', broadcastId)
       }
+      return broadcast
     },
     [broadcastSections],
   )
@@ -244,11 +225,8 @@ export const useBroadcastController = (): BroadcastStreamController => {
       if (currentBroadcast) {
         const round = currentBroadcast.rounds.find((r) => r.id === roundId)
         if (round) {
-          console.log('Selecting round:', round.name, `(${roundId})`)
-
           // Stop current stream if different round
           if (currentRoundId.current !== roundId) {
-            console.log('Switching to different round, stopping current stream')
             // Stop the current stream
             if (abortController.current) {
               abortController.current.abort()
@@ -261,6 +239,7 @@ export const useBroadcastController = (): BroadcastStreamController => {
             }))
             currentRoundId.current = null
             gameStates.current.clear()
+            lastMoveReceivedAt.current.clear()
             lastPGNData.current = ''
 
             // Clear current game selection when switching rounds
@@ -282,10 +261,6 @@ export const useBroadcastController = (): BroadcastStreamController => {
       if (roundData) {
         const game = roundData.games.get(gameId)
         if (game) {
-          console.log(
-            'Manual game selection:',
-            game.white + ' vs ' + game.black,
-          )
           setCurrentGame(game)
         }
       }
@@ -312,6 +287,7 @@ export const useBroadcastController = (): BroadcastStreamController => {
     currentRoundId.current = null
     setCurrentGame(null)
     gameStates.current.clear()
+    lastMoveReceivedAt.current.clear()
     lastPGNData.current = ''
   }, [])
 
@@ -331,9 +307,6 @@ export const useBroadcastController = (): BroadcastStreamController => {
         // Reuse existing tree and states - preserve all analysis and variations
         tree = existingLiveGame.tree
         existingMoveCount = tree.getMainLine().length - 1 // Subtract 1 for initial position
-        console.log(
-          `Reusing existing tree with ${existingMoveCount} moves, adding ${broadcastGame.moves.length - existingMoveCount} new moves`,
-        )
       } else {
         // Create new tree only for new games
         tree = new GameTree(startingFen)
@@ -346,9 +319,6 @@ export const useBroadcastController = (): BroadcastStreamController => {
             maia_values: {},
           },
         ]
-        console.log(
-          `Creating new tree for ${broadcastGame.white} vs ${broadcastGame.black}`,
-        )
       }
 
       // Only process new moves that we don't already have
@@ -385,7 +355,6 @@ export const useBroadcastController = (): BroadcastStreamController => {
               currentNode = tree
                 .getLastMainlineNode()
                 .addChild(newFen, uci, move.san, true)
-              console.log(`Added new move: ${move.san}`)
             }
           } catch (error) {
             console.warn(
@@ -459,14 +428,22 @@ export const useBroadcastController = (): BroadcastStreamController => {
         return
       }
 
+      // A game already on the page whose PGN now has more moves has just had
+      // a move played, so its side to move started thinking now. Games seen
+      // for the first time (the round's opening snapshot) get no time: their
+      // last move could have been played long ago. This runs before the
+      // state update below, which replaces the games' known move counts.
+      const receivedAt = Date.now()
+      for (const game of parseResult.games) {
+        const known = gameStates.current.get(game.id)
+        if (known && game.moves.length > known.tree.getMainLine().length - 1) {
+          lastMoveReceivedAt.current.set(game.id, receivedAt)
+        }
+        game.lastMoveReceivedAt = lastMoveReceivedAt.current.get(game.id)
+      }
+
       // Store the current game ID to preserve selection
       const currentGameId = currentGameRef.current?.id
-      console.log(
-        'handlePGNUpdate - currentGameId:',
-        currentGameId,
-        'currentGame:',
-        currentGameRef.current?.white + ' vs ' + currentGameRef.current?.black,
-      )
 
       let allGamesAfterUpdate: BroadcastGame[] = []
 
@@ -517,43 +494,20 @@ export const useBroadcastController = (): BroadcastStreamController => {
 
       // Preserve game selection - only update current game if it was already selected
       if (currentGameId) {
-        console.log(
-          'Current game selected:',
-          currentGameRef.current?.white +
-            ' vs ' +
-            currentGameRef.current?.black,
-        )
         const updatedCurrentGame = parseResult.games.find(
           (g) => g.id === currentGameId,
         )
         if (updatedCurrentGame) {
-          console.log('Updating current game with new data')
           // Update the currently selected game with new data (including clocks)
           setCurrentGame(updatedCurrentGame)
         } else {
-          console.log(
-            'Current game not in update - keeping selection unchanged',
-          )
           // Keep the current game selection even if it's not in this update
           // This prevents auto-switching to the first game
         }
       } else if (!currentGameRef.current && allGamesAfterUpdate.length > 0) {
         // Auto-select first game only if no game is currently selected at all
-        console.log('No game selected - auto-selecting first game')
-        console.log(
-          'Auto-selecting:',
-          allGamesAfterUpdate[0].white + ' vs ' + allGamesAfterUpdate[0].black,
-        )
         setCurrentGame(allGamesAfterUpdate[0])
       } else {
-        console.log(
-          'No action taken - currentGameId:',
-          currentGameId,
-          'currentGame exists:',
-          !!currentGameRef.current,
-          'allGamesAfterUpdate.length:',
-          allGamesAfterUpdate.length,
-        )
       }
 
       // Update broadcast state
@@ -596,9 +550,6 @@ export const useBroadcastController = (): BroadcastStreamController => {
 
       // Set up a timeout to handle rounds with no data (future rounds)
       const timeoutId = setTimeout(() => {
-        console.log(
-          'Stream timeout - no data received, likely future/empty round',
-        )
         if (abortController.current && currentRoundId.current === roundId) {
           // Set empty round data instead of staying in connecting state
           setRoundData({
@@ -671,11 +622,6 @@ export const useBroadcastController = (): BroadcastStreamController => {
       !broadcastState.isConnecting &&
       !broadcastState.isConnected
     ) {
-      console.log(
-        'Starting stream for selected round:',
-        currentRound.name,
-        currentRound.ongoing ? '(Live)' : '(Past/Future)',
-      )
       startRoundStream(currentRound.id)
     }
   }, [

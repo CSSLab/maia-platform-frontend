@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import type { Key } from 'chessground/types'
 import type { DrawShape } from 'chessground/draw'
 import Chessground from '@react-chess/chessground'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { DemoBlunderMeter } from './DemoBlunderMeter'
 import { useInView } from 'react-intersection-observer'
 import { analysisMockData } from './analysisMockData.js'
@@ -115,6 +115,21 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
     triggerOnce: false,
     threshold: 0.1,
   })
+  // The board and the chart are drawn once the section is within a screen
+  // of the viewport. They are transparent until it scrolls into view, and
+  // drawing them at load was most of the home page's main-thread work after
+  // hydration.
+  const [nearRef, isNear] = useInView({
+    triggerOnce: true,
+    rootMargin: '100% 0px',
+  })
+  const sectionRef = useCallback(
+    (node: HTMLElement | null) => {
+      ref(node)
+      nearRef(node)
+    },
+    [ref, nearRef],
+  )
 
   const [renderKey, setRenderKey] = useState(0)
 
@@ -203,7 +218,7 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
     <section
       id={id}
       className="relative flex w-full flex-col items-center justify-center overflow-hidden bg-transparent py-6 md:py-8"
-      ref={ref}
+      ref={sectionRef}
     >
       <div className="mx-auto flex w-full max-w-[95%] flex-col-reverse items-center px-2 md:max-w-[90%] md:flex-row md:gap-8 md:px-4 lg:gap-12">
         <motion.div
@@ -222,11 +237,11 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                     </div>
                     <div className="relative aspect-square w-full">
                       <div className="aspect-square h-full w-full">
-                        <AnalysisChessboard forceKey={renderKey} />
+                        {isNear && <AnalysisChessboard forceKey={renderKey} />}
                       </div>
                     </div>
                     <div className="rounded-b-sm bg-white/5 p-2 text-left text-sm font-medium text-primary/80">
-                      Petrosian, Tigran V
+                      Petrosian, Tigran V.
                     </div>
                   </div>
                 </div>
@@ -278,11 +293,13 @@ export const AnalysisSection = ({ id }: AnalysisSectionProps) => {
                 transition={{ duration: 0.3, delay: 0.6 }}
               >
                 <div className="from-white/8 to-white/4 h-full w-full overflow-hidden rounded border border-glass-border bg-gradient-to-br backdrop-blur-md">
-                  <MovesByRating
-                    moves={analysisMockData.movesByRating}
-                    colorSanMapping={analysisMockData.colorSanMapping}
-                    isHomePage={true}
-                  />
+                  {isNear && (
+                    <MovesByRating
+                      moves={analysisMockData.movesByRating}
+                      colorSanMapping={analysisMockData.colorSanMapping}
+                      isHomePage={true}
+                    />
+                  )}
                 </div>
               </motion.div>
             </div>

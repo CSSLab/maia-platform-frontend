@@ -288,3 +288,10 @@ svg {
 .cg-wrap coords.files {
   left: 4% !important;
 }
+
+/* The home page's game carousel: one copy of its doubled list (see GameCarousel). */
+@keyframes game-carousel-scroll {
+  to {
+    transform: translateX(calc(-50% - 1.25rem));
+  }
+}

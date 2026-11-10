@@ -143,7 +143,7 @@ export const OpeningDrillSidebar: React.FC<Props> = ({
                 </div>
               )}
               <span>
-                vs Maia {currentDrill.maiaVersion.replace('maia_kdd_', '')}
+                vs Maia-3 {currentDrill.maiaVersion.replace('maia_kdd_', '')}
               </span>
               {currentIsEndgame ? (
                 <>

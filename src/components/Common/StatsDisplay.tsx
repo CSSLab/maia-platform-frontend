@@ -28,7 +28,7 @@ const SingleStatsDisplay: React.FC<SingleProps> = ({
       </div>
       <div className="flex flex-1 flex-col gap-1">
         <div className={`${stats == undefined && 'opacity-0'}`}>
-          {Number.isNaN(winPercentage) ? '-' : Math.trunc(winPercentage)}%
+          {Number.isNaN(winPercentage) ? '–' : `${Math.trunc(winPercentage)}%`}
         </div>
         <div className="text-xs">Rate</div>
       </div>

@@ -8,10 +8,18 @@ import {
   StockfishEvaluation,
   CachedEngineAnalysisEntry,
 } from 'src/types'
+import { MAIA_MODELS } from 'src/constants/common'
 
+/**
+ * possibleMoves: the backend's centipawns, from the side to move, with every
+ * mate scored +-10000. mates: how far those mates are, when the analysis
+ * recorded it (the backend's stockfish_mates; also the side to move's: N > 0
+ * mates in N, N < 0 gets mated in N).
+ */
 export function convertBackendEvalToStockfishEval(
   possibleMoves: MoveValueMapping,
   turn: 'w' | 'b',
+  mates?: MoveValueMapping,
 ): StockfishEvaluation {
   const cp_vec: { [key: string]: number } = {}
   const cp_relative_vec: { [key: string]: number } = {}
@@ -26,18 +34,29 @@ export function convertBackendEvalToStockfishEval(
     // Detect mate patterns (±10000 indicates mate)
     let mateIn: number | undefined = undefined
     if (Math.abs(cp) >= 10000) {
-      // Estimate mate in moves based on how close to 10000 it is
-      // The closer to 10000, the faster the mate
-      const mateDistance = Math.abs(10000 - Math.abs(cp))
-      mateIn =
-        cp > 0
-          ? Math.max(1, Math.floor(mateDistance / 100) + 1)
-          : -Math.max(1, Math.floor(mateDistance / 100) + 1)
+      const known = mates?.[move]
+      if (known && Math.sign(known) === Math.sign(cp)) {
+        mateIn = known
+      } else {
+        // Estimate mate in moves based on how close to 10000 it is
+        // The closer to 10000, the faster the mate
+        const mateDistance = Math.abs(10000 - Math.abs(cp))
+        mateIn =
+          cp > 0
+            ? Math.max(1, Math.floor(mateDistance / 100) + 1)
+            : -Math.max(1, Math.floor(mateDistance / 100) + 1)
+      }
       mate_vec[move] = mateIn
     }
 
     cp_vec[move] = cp
-    if (cp > model_optimal_cp) {
+    // Between mates (all scored 10000), the fastest is the best move.
+    const fasterMate =
+      cp === model_optimal_cp &&
+      mateIn !== undefined &&
+      mateIn > 0 &&
+      mateIn < (mate_vec[model_move] ?? Infinity)
+    if (cp > model_optimal_cp || fasterMate) {
       model_optimal_cp = cp
       model_move = move
     }
@@ -82,13 +101,14 @@ export function convertBackendEvalToStockfishEval(
     Object.entries(winrate_loss_vec).sort(([, a], [, b]) => b - a),
   )
 
+  // The backend's scores are the side to move's. cp_vec is White's, as the
+  // engine's are, but mate_vec stays the side to move's (see
+  // sortStockfishMoves): flipping it made a move that gets Black mated show as
+  // Black mating (-M1) and rank first.
   if (turn === 'b') {
     model_optimal_cp *= -1
     for (const move in cp_vec_sorted) {
       cp_vec_sorted[move] *= -1
-    }
-    for (const move in mate_vec) {
-      mate_vec[move] *= -1
     }
   }
 
@@ -121,6 +141,7 @@ export function insertBackendStockfishEvalToGameTree(
   tree: GameTree,
   moves: RawMove[],
   stockfishEvaluations: MoveValueMapping[],
+  stockfishMates?: MoveValueMapping[],
 ) {
   let currentNode: GameNode | null = tree.getRoot()
 
@@ -133,6 +154,7 @@ export function insertBackendStockfishEvalToGameTree(
       ? convertBackendEvalToStockfishEval(
           stockfishEvaluations[i],
           moves[i].board.split(' ')[1] as 'w' | 'b',
+          stockfishMates?.[i],
         )
       : undefined
 
@@ -150,7 +172,15 @@ export const collectEngineAnalysisData = (
   const mainLine = gameTree.getMainLine()
 
   mainLine.forEach((node, index) => {
-    if (!node.analysis.maia && !node.analysis.stockfish) {
+    // The analysis page adds the selected rating before the others; a
+    // position left before the rest arrived is stored without Maia (and
+    // analysed again when loaded) rather than with some ratings missing.
+    const hasAllMaia = MAIA_MODELS.every((model) => node.analysis.maia?.[model])
+    // An unfinished search isn't saved: most of its moves are still shallow.
+    const stockfish = node.analysis.stockfish?.partial
+      ? undefined
+      : node.analysis.stockfish
+    if (!hasAllMaia && !stockfish) {
       return
     }
 
@@ -159,15 +189,15 @@ export const collectEngineAnalysisData = (
       fen: node.fen,
     }
 
-    if (node.analysis.maia) {
+    if (hasAllMaia) {
       position.maia = node.analysis.maia
     }
 
-    if (node.analysis.stockfish) {
+    if (stockfish) {
       position.stockfish = {
-        depth: node.analysis.stockfish.depth,
-        cp_vec: node.analysis.stockfish.cp_vec,
-        mate_vec: node.analysis.stockfish.mate_vec,
+        depth: stockfish.depth,
+        cp_vec: stockfish.cp_vec,
+        mate_vec: stockfish.mate_vec,
       }
     }
 

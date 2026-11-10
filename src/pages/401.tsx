@@ -6,22 +6,33 @@ import Chessground from '@react-chess/chessground'
 
 import { AuthContext } from 'src/contexts'
 
+// Pages come here when a request to the Maia server fails, whatever the
+// reason, so this page offers another try rather than a sign-in wall.
 export default function Error401Page() {
   const router = useRouter()
   const { user, connectLichess } = useContext(AuthContext)
 
-  if (user?.lichessId) {
-    router.push('/')
+  // Going back to the page that failed makes it request its data again. If
+  // the tab loaded /401 itself (a direct visit or a reload), the page before
+  // it may be another site, so this goes home instead.
+  const tryAgain = () => {
+    const [load] = performance.getEntriesByType('navigation')
+    if (load && new URL(load.name).pathname === router.pathname) {
+      router.push('/')
+    } else {
+      router.back()
+    }
   }
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-8 px-4 py-40 md:flex-row md:px-0">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-8 px-4 py-24 md:flex-row md:py-40">
       <Head>
-        <title>Beta Access – Maia Chess</title>
+        <title>Something Went Wrong – Maia Chess</title>
         <meta
           name="description"
-          content="Maia Chess is in beta! Sign up to get access"
+          content="Maia Chess couldn't load this. Please try again."
         />
+        <meta name="robots" content="noindex" />
       </Head>
       <div
         style={{
@@ -38,64 +49,49 @@ export default function Error401Page() {
           }}
         />
       </div>
-      <div className="flex flex-col items-center gap-2 md:items-start md:gap-5">
-        <h2 className="text-2xl font-bold md:text-3xl">
-          Sign up for the beta!
-        </h2>
-        <div className="flex flex-col gap-3">
-          <p className="max-w-md text-center text-secondary md:text-left">
-            We are currently beta testing the new Maia Chess platform! If you
-            part of the beta, please{' '}
-            <button onClick={connectLichess} className="underline">
-              sign in with Lichess
-            </button>
-            . Otherwise,{' '}
-            <a
-              target="_blank"
-              href="https://forms.gle/VAUKap4uwMGXJH3N8"
-              className="underline"
-              rel="noreferrer"
-            >
-              sign up for the beta
-            </a>{' '}
-            or{' '}
-            <a
-              target="_blank"
-              href="https://lichess.org/@/maia1"
-              className="underline"
-              rel="noreferrer"
-            >
-              play Maia on Lichess
-            </a>
-            !
-          </p>
-          <p className="max-w-md text-center text-secondary md:text-left">
-            You can also join our{' '}
-            <a
-              target="_blank"
-              rel="noreferrer"
-              className="underline"
-              href="https://discord.gg/Az93GqEAs7"
-            >
-              Discord
-            </a>{' '}
-            and stay tuned for our full release
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/">
-            <button className="rounded bg-engine-4 px-4 py-2 font-medium transition duration-200 hover:bg-engine-3 md:px-6">
-              Go home
-            </button>
-          </Link>
+      <div className="flex flex-col items-center gap-4 text-center md:items-start md:text-left">
+        <h1 className="text-2xl font-bold md:text-3xl">Something went wrong</h1>
+        <p className="max-w-md text-secondary">
+          We couldn&apos;t load this from the Maia server. Please try again in a
+          moment.
+        </p>
+        <p className="max-w-md text-secondary">
+          If it keeps happening,{' '}
+          {!user?.lichessId && (
+            <>
+              <button
+                onClick={() => connectLichess('error_page')}
+                className="underline"
+              >
+                sign in with Lichess
+              </button>{' '}
+              or{' '}
+            </>
+          )}
+          let us know on{' '}
           <a
             target="_blank"
-            href="https://forms.gle/VAUKap4uwMGXJH3N8"
-            className="rounded bg-engine-4 px-4 py-2 font-medium transition duration-200 hover:bg-engine-3 md:px-6"
             rel="noreferrer"
+            className="underline"
+            href="https://discord.gg/Az93GqEAs7"
           >
-            Sign up for the BETA
+            Discord
           </a>
+          .
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+          <button
+            onClick={tryAgain}
+            className="rounded bg-human-4 px-5 py-2 font-medium text-white transition duration-200 hover:bg-human-4/80"
+          >
+            Try again
+          </button>
+          <Link
+            href="/"
+            className="rounded border border-glass-border bg-glass px-5 py-2 font-medium transition duration-200 hover:bg-glass-stronger"
+          >
+            Go home
+          </Link>
         </div>
       </div>
     </div>

@@ -20,13 +20,22 @@ export interface StockfishStreamOptions {
   forcedCandidateMoves?: string[]
   maiaPolicy?: { [move: string]: number }
   kSf?: number
+  /**
+   * Read again when the analysis reaches the phases that use Maia's moves,
+   * so a policy that arrives during the search is used without restarting it.
+   */
+  getMaiaCandidates?: () => Pick<
+    StockfishStreamOptions,
+    'maiaCandidateMoves' | 'maiaPolicy'
+  >
 }
 
 export interface MaiaEngine {
   maia?: Maia
   status: MaiaStatus
   progress: number
-  downloadModel: () => Promise<void>
+  /** Whether the model downloaded. */
+  downloadModel: () => Promise<boolean>
 }
 
 export interface StockfishEngine {

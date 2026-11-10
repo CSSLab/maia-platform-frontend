@@ -68,7 +68,7 @@ export const useDeepAnalysis = ({
 
       while (
         retries < maxRetries &&
-        (!stockfish.isReady() || maia.status !== 'ready') &&
+        (!stockfish.isReady() || maia.status === 'loading') &&
         !deepAnalysisStatus.current.cancelled
       ) {
         await new Promise((resolve) => setTimeout(resolve, 100))
@@ -110,7 +110,8 @@ export const useDeepAnalysis = ({
             analysisRetries < maxAnalysisRetries &&
             !deepAnalysisStatus.current.cancelled &&
             (!node.analysis.stockfish ||
-              (node.analysis.stockfish.depth < targetDepth &&
+              ((node.analysis.stockfish.depth < targetDepth ||
+                node.analysis.stockfish.partial) &&
                 node.analysis.stockfish.model_optimal_cp !== 10000 &&
                 node.analysis.stockfish.model_optimal_cp !== -10000))
           ) {

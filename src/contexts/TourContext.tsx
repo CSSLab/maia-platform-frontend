@@ -6,15 +6,22 @@ import React, {
   useMemo,
   useEffect,
 } from 'react'
-import Joyride, { STATUS } from 'react-joyride'
+import dynamic from 'next/dynamic'
 import type { Step } from 'react-joyride'
+
+// react-joyride and its popper (~30 kB gzip) load only when a tour starts.
+const Joyride = dynamic(() => import('react-joyride'), { ssr: false })
 
 export interface TourStep {
   id: string
   title: string
   description: string
   targetId: string
-  placement?: 'top' | 'bottom' | 'left' | 'right'
+  /**
+   * 'center': in the middle of the screen, over the whole page, without
+   * scrolling (for a step about the page as a whole).
+   */
+  placement?: 'top' | 'bottom' | 'left' | 'right' | 'center'
   offset?: { x: number; y: number }
 }
 
@@ -86,9 +93,11 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     }
   }, [isClient])
 
-  // Monitor download modal visibility
+  // Monitor download modal visibility while a tour runs (it only decides
+  // whether the tour shows). The observer scans the page on every DOM change,
+  // which on the analysis page means every engine update.
   useEffect(() => {
-    if (!isClient) return
+    if (!isClient || !tourState.isActive) return
 
     const checkModal = () => {
       const modal = document.querySelector('[data-testid="download-modal"]')
@@ -116,7 +125,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     })
 
     return () => observer.disconnect()
-  }, [isClient])
+  }, [isClient, tourState.isActive])
 
   const [joyrideSteps, setJoyrideSteps] = useState<Step[]>([])
 
@@ -140,7 +149,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     return (
       <div
         {...tooltipProps}
-        className="from-white/12/80 to-white/5/80 w-[320px] overflow-hidden rounded-xl border-2 border-glass-border bg-gradient-to-br backdrop-blur-xl"
+        className="w-[320px] max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border-2 border-glass-border bg-backdrop/95 shadow-xl backdrop-blur-xl"
         style={{
           fontFamily: 'inherit',
         }}
@@ -224,7 +233,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
   // Convert TourStep[] to Joyride Step[]
   const convertToJoyrideSteps = useCallback((steps: TourStep[]): Step[] => {
     return steps.map((step) => ({
-      target: `#${step.targetId}`,
+      target: step.placement === 'center' ? 'body' : `#${step.targetId}`,
       content: step as unknown as React.ReactNode, // Custom tooltip component handles this
       placement: step.placement || 'bottom',
       disableBeacon: true,
@@ -565,7 +574,8 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
         scrollToTooltipMobile()
       }
 
-      if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      // react-joyride's STATUS.FINISHED and STATUS.SKIPPED
+      if (status === 'finished' || status === 'skipped') {
         endTour()
       }
     },

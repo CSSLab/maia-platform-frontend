@@ -1,8 +1,11 @@
+import { forgetMaiaModelSaved } from './maiaDownloadPrompt'
+
 interface ModelStorage {
   id: string
   url: string
   version: string
-  data: Blob
+  /** The bytes themselves where the browser wouldn't take a Blob. */
+  data: Blob | ArrayBuffer
   timestamp: number
   size: number
 }
@@ -135,7 +138,10 @@ export class MaiaModelStorage {
 
       console.log('Storage: Converting Blob to ArrayBuffer...')
       // Convert Blob back to ArrayBuffer
-      const buffer = await modelData.data.arrayBuffer()
+      const buffer =
+        modelData.data instanceof Blob
+          ? await modelData.data.arrayBuffer()
+          : modelData.data
       console.log(
         'Storage: Successfully retrieved model, size:',
         buffer.byteLength,
@@ -230,6 +236,7 @@ export class MaiaModelStorage {
   }
 
   async clearAllStorage(): Promise<void> {
+    forgetMaiaModelSaved()
     try {
       await this.deleteModel()
       console.log('Maia storage cleared')

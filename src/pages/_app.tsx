@@ -1,22 +1,16 @@
 import Head from 'next/head'
 import { Toaster } from 'react-hot-toast'
 import Script from 'next/script'
-import { useRouter } from 'next/router'
 import { useEffect } from 'react'
 import type { AppProps } from 'next/app'
-import posthog from 'posthog-js'
-import { Analytics } from '@vercel/analytics/react'
-import { PostHogProvider } from 'posthog-js/react'
 import { SoundProvider } from 'src/contexts/SoundContext'
 
-import { AnalysisListContextProvider } from 'src/contexts/AnalysisListContext'
 import { AuthContextProvider } from 'src/contexts/AuthContext'
-import { MaiaEngineContextProvider } from 'src/contexts/MaiaEngineContext'
 import { ModalContextProvider } from 'src/contexts/ModalContext'
 import { SettingsProvider } from 'src/contexts/SettingsContext'
-import { StockfishEngineContextProvider } from 'src/contexts/StockfishEngineContext'
 import { TourProvider as TourContextProvider } from 'src/contexts/TourContext'
 import { WindowSizeContextProvider } from 'src/contexts/WindowSizeContext'
+import type { PageProvider } from 'src/contexts/pageProviders'
 import 'src/styles/tailwind.css'
 import 'src/styles/themes.css'
 import 'react-tooltip/dist/react-tooltip.css'
@@ -28,42 +22,51 @@ import { ErrorBoundary } from 'src/components/Common/ErrorBoundary'
 import { FeedbackButton } from 'src/components/Common/FeedbackButton'
 import { Footer } from 'src/components/Common/Footer'
 import { Header } from 'src/components/Common/Header'
-import { browserPostHogConfig } from 'src/lib/posthog-browser-config'
+import { loadPostHog } from 'src/lib/posthogClient'
+import { whenPageIsIdle } from 'src/lib/whenPageIsIdle'
+import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
+import { markAppHydrated } from 'src/components/Common/PageShell'
+import { guardAgainstTranslation } from 'src/lib/translationGuard'
+
+// Before React first touches the page (see src/lib/translationGuard).
+if (typeof window !== 'undefined') guardAgainstTranslation()
 
 const openSansClassName = 'font-sans'
 const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
-// Only wght 200-400 and FILL 0/1 are actually used, so pin opsz=24/GRAD=0 and
-// narrow the ranges: Google serves a ~1.1MB instance instead of the full
-// ~3.8MB variable font. The material-symbols-ready guard hides icons until the
-// font loads, so display=swap never flashes the ligature text.
-const MATERIAL_SYMBOLS_STYLESHEET =
-  'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200..400,0..1,0&display=swap'
+// The material-symbols-ready guard hides icons until the font loads, so
+// display=swap never flashes the ligature text.
+
+// Engine pages list the providers they need (see src/contexts/pageProviders).
+type PageWithProviders = AppProps['Component'] & { providers?: PageProvider[] }
 
 function MaiaPlatform({ Component, pageProps }: AppProps) {
-  const router = useRouter()
-  const isAnalysisPage = router.pathname.startsWith('/analysis')
-  const isPageWithMaia = [
-    '/analysis',
-    '/drills',
-    '/puzzles',
-    '/settings',
-    '/broadcast',
-  ].some((path) => router.pathname.includes(path))
-  const isPageWithStockfish = [
-    '/analysis',
-    '/drills',
-    '/puzzles',
-    '/broadcast',
-  ].some((path) => router.pathname.includes(path))
+  const pageProviders = (Component as PageWithProviders).providers ?? []
 
+  // Page shells rendered from now on are rendered normally (PageShell).
+  useEffect(markAppHydrated, [])
+
+  // PostHog loads once the page has drawn and the browser is idle (or 5 s
+  // after the load event), not before the page can draw; events tracked
+  // before then wait for it (src/lib/posthogClient).
+  useEffect(() => whenPageIsIdle(loadPostHog, 5000), [])
+
+  // The service worker (public/sw.js) only shows an offline page when a page
+  // can't load, which also makes the site installable as an app. Not in
+  // development, where it would outlive the dev server.
   useEffect(() => {
-    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
-      api_host: '/ingest',
-      ui_host: 'https://us.posthog.com',
-      ...browserPostHogConfig,
-      capture_exceptions: true,
-      debug: false,
-    })
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      !('serviceWorker' in navigator)
+    ) {
+      return
+    }
+    return whenPageIsIdle(() => {
+      // Checked for an update from the browser's cache (a day, as set in
+      // next.config.js) rather than from the server on every page load.
+      navigator.serviceWorker
+        .register('/sw.js', { updateViaCache: 'all' })
+        .catch(() => undefined)
+    }, 5000)
   }, [])
 
   useEffect(() => {
@@ -89,7 +92,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
   }, [])
 
   return (
-    <PostHogProvider client={posthog}>
+    <>
       <TourContextProvider>
         <Compose
           components={[
@@ -99,9 +102,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             AuthContextProvider,
             ErrorBoundary,
             ModalContextProvider,
-            ...(isPageWithMaia ? [MaiaEngineContextProvider] : []),
-            ...(isPageWithStockfish ? [StockfishEngineContextProvider] : []),
-            ...(isAnalysisPage ? [AnalysisListContextProvider] : []),
+            ...pageProviders,
           ]}
         >
           <Head>
@@ -120,7 +121,12 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <style
               dangerouslySetInnerHTML={{
                 __html:
-                  'html:not(.material-symbols-ready) .material-symbols-outlined{visibility:hidden}',
+                  // Until the font loads, an icon is laid out as the text of its
+                  // name (e.g. "network_intelligence"): keep it 1em wide so the
+                  // layout does not change when the icons appear. :where() keeps
+                  // icons' own width classes in force.
+                  'html:not(.material-symbols-ready) .material-symbols-outlined{visibility:hidden}' +
+                  ':where(html:not(.material-symbols-ready) .material-symbols-outlined){width:1em}',
               }}
             />
 
@@ -156,7 +162,11 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
 
           <div className={`${openSansClassName} app-container`}>
             <Header />
-            <div className="content-container">
+            {/* The page area is kept at least a screen tall, so the footer
+                starts below the fold: while a page loads (or is rendered
+                empty on the server) it would otherwise show under the
+                header and then jump down when the page appears. */}
+            <div className="content-container min-h-screen">
               <div
                 className="pointer-events-none fixed inset-0"
                 style={{
@@ -170,9 +180,14 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <FeedbackButton />
           </div>
           <Toaster position="bottom-right" />
-          <Analytics />
-          <Script async src="/analytics.js?id=G-SNP84LXLKY" />
-          <Script id="analytics">
+          {/* Google Analytics loads once the page has loaded and the browser
+              is idle, so it doesn't run while the page is being drawn. */}
+          <Script
+            async
+            src="/analytics.js?id=G-SNP84LXLKY"
+            strategy="lazyOnload"
+          />
+          <Script id="analytics" strategy="lazyOnload">
             {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
@@ -183,7 +198,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
           </Script>
         </Compose>
       </TourContextProvider>
-    </PostHogProvider>
+    </>
   )
 }
 

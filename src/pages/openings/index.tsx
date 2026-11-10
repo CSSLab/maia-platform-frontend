@@ -23,6 +23,7 @@ import {
 } from 'src/contexts'
 import {
   DrillConfiguration,
+  OpeningSelection,
   AnalyzedGame,
   GameNode,
   MaiaEvaluation,
@@ -37,6 +38,7 @@ import {
   GameBoard,
   PromotionOverlay,
   DownloadModelModal,
+  MaiaDownloadPrompt,
   AuthenticatedWrapper,
   AnalysisNotification,
   AnalysisOverlay,
@@ -55,18 +57,28 @@ import {
 } from 'src/components/Analysis/BoardChrome'
 import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import openings from 'src/constants/maia_openings_expanded.json'
-import endgamesRaw from 'src/constants/endgames.json'
-import { buildEndgameDataset, createEndgameOpenings } from 'src/lib/endgames'
+import {
+  buildEndgameDataset,
+  createEndgameOpenings,
+  EndgameDataset,
+  EndgamesJson,
+} from 'src/lib/endgames'
 import { MAIA_MODELS } from 'src/constants/common'
 import { cpToWinrate } from 'src/lib/analysis'
 import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
+import { loadDrillQueue, saveDrillQueue } from 'src/lib/drillQueue'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
+import {
+  downloadsWithoutAsking,
+  maiaPromptVariant,
+} from 'src/lib/engine/maiaDownloadPrompt'
 import {
   getCurrentPlayer,
   getAvailableMovesArray,
   requiresPromotion,
 } from 'src/lib/puzzle'
+import { LATE_STOCKFISH_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -82,9 +94,24 @@ const OpeningsPage: NextPage = () => {
   const router = useRouter()
   const [showSelectionModal, setShowSelectionModal] = useState(true)
 
-  const endgameDataset = useMemo(() => buildEndgameDataset(endgamesRaw), [])
+  // The endgame positions (~480 KB of JSON, ~11,000 FENs) are only needed
+  // for the selection window's Endgames tab: they load in their own chunk
+  // when that tab is opened or pointed at, not with the page's JavaScript.
+  const [endgameDataset, setEndgameDataset] = useState<EndgameDataset>()
+  const endgamesRequested = useRef(false)
+  const loadEndgames = useCallback(() => {
+    if (endgamesRequested.current) return
+    endgamesRequested.current = true
+    import('src/constants/endgames.json')
+      .then(({ default: raw }) =>
+        setEndgameDataset(buildEndgameDataset(raw as EndgamesJson)),
+      )
+      .catch(() => {
+        endgamesRequested.current = false
+      })
+  }, [])
   const endgameOpenings = useMemo(
-    () => createEndgameOpenings(endgameDataset),
+    () => (endgameDataset ? createEndgameOpenings(endgameDataset) : undefined),
     [endgameDataset],
   )
   const linkedCustomDraft = useMemo(() => {
@@ -123,6 +150,16 @@ const OpeningsPage: NextPage = () => {
 
   const [drillConfiguration, setDrillConfiguration] =
     useState<DrillConfiguration | null>(null)
+
+  // Drills queued before a refresh. Read after the first render (the dialog
+  // is in the server's HTML), then the dialog is remounted with them.
+  const [restoredQueue, setRestoredQueue] = useState<OpeningSelection[] | null>(
+    null,
+  )
+  useEffect(() => {
+    const queue = loadDrillQueue()
+    if (queue.length) setRestoredQueue(queue)
+  }, [])
   const [promotionFromTo, setPromotionFromTo] = useState<
     [string, string] | null
   >(null)
@@ -150,7 +187,7 @@ const OpeningsPage: NextPage = () => {
 
     const maiaName = controller.currentDrill.maiaVersion.replace(
       'maia_kdd_',
-      'Maia ',
+      'Maia-3 ',
     )
     const maiaRating = parseInt(
       controller.currentDrill.maiaVersion.replace('maia_kdd_', ''),
@@ -1104,7 +1141,7 @@ const OpeningsPage: NextPage = () => {
             : ''}
         </p>
         <p className="mt-1 text-xs text-white/70">
-          Drill {controller.currentDrillNumber || 1} · vs Maia{' '}
+          Drill {controller.currentDrillNumber || 1} · vs Maia-3{' '}
           {controller.currentDrill.maiaVersion.replace('maia_kdd_', '')}
         </p>
         <p className="mt-3 text-center text-sm font-semibold uppercase tracking-wider text-white">
@@ -1112,7 +1149,10 @@ const OpeningsPage: NextPage = () => {
             ? 'Drill Complete'
             : controller.isPlayerTurn
               ? 'Your Turn'
-              : 'Waiting for Maia'}
+              : // Looking back at a position Maia already answered.
+                controller.currentNode?.mainChild
+                ? 'Viewing an Earlier Move'
+                : 'Waiting for Maia'}
         </p>
         {controller.drillEndReasonMessage && (
           <p className="mt-2 text-center text-xs font-medium text-human-4">
@@ -1127,24 +1167,24 @@ const OpeningsPage: NextPage = () => {
   //   return null
   // }
 
-  // Show download modal if Maia model needs to be downloaded
-  if (maiaEngine.status === 'no-cache' || maiaEngine.status === 'downloading') {
+  // Maia is needed once a drill starts. In the group without the full-page
+  // prompt, not while choosing what to drill.
+  const maiaMissing =
+    maiaEngine.status === 'no-cache' || maiaEngine.status === 'downloading'
+  if (
+    maiaMissing &&
+    (!showSelectionModal ||
+      (maiaPromptVariant() === 'wall' && !downloadsWithoutAsking()))
+  ) {
     return (
-      <>
-        <Head>
-          <title>Opening Drills – Maia Chess</title>
-          <meta
-            name="description"
-            content="Drill chess openings against Maia models calibrated to specific rating levels. Practice against opponents similar to those you'll face, with targeted training for your skill level."
-          />
-        </Head>
-        <AnimatePresence>
-          <DownloadModelModal
-            progress={maiaEngine.progress}
-            download={maiaEngine.downloadModel}
-          />
-        </AnimatePresence>
-      </>
+      <AnimatePresence>
+        <DownloadModelModal
+          maia={maiaEngine.maia}
+          progress={maiaEngine.progress}
+          download={maiaEngine.downloadModel}
+          downloading={maiaEngine.status === 'downloading'}
+        />
+      </AnimatePresence>
     )
   }
 
@@ -1152,22 +1192,24 @@ const OpeningsPage: NextPage = () => {
   if (showSelectionModal) {
     return (
       <>
-        <Head>
-          <title>Opening Drills – Maia Chess</title>
-          <meta
-            name="description"
-            content="Drill chess openings against Maia models calibrated to specific rating levels. Practice against opponents similar to those you'll face, with targeted training for your skill level."
-          />
-        </Head>
+        <MaiaDownloadPrompt
+          engine={maiaEngine}
+          wanted={maiaMissing && downloadsWithoutAsking()}
+        />
         <AnimatePresence>
           <OpeningSelectionModal
+            key={restoredQueue ? 'restored-queue' : 'new-queue'}
             openings={openings}
             endgames={endgameOpenings}
             endgameDataset={endgameDataset}
-            initialSelections={drillConfiguration?.selections || []}
+            onLoadEndgames={loadEndgames}
+            initialSelections={
+              drillConfiguration?.selections || restoredQueue || []
+            }
             initialCustomDraft={linkedCustomDraft}
             onComplete={handleCompleteSelection}
             onClose={handleCloseModal}
+            onSelectionsChange={saveDrillQueue}
           />
         </AnimatePresence>
       </>
@@ -1577,6 +1619,10 @@ const OpeningsPage: NextPage = () => {
                   setCurrentMaiaModel={analysisController.setCurrentMaiaModel}
                   showTopMoveBadges={analysisController.showTopMoveBadges}
                   setShowTopMoveBadges={analysisController.setShowTopMoveBadges}
+                  stockfishDepth={analysisController.stockfishDepth}
+                  setStockfishDepth={analysisController.setStockfishDepth}
+                  stockfishEnabled={analysisController.stockfishEnabled}
+                  setStockfishEnabled={analysisController.setStockfishEnabled}
                   launchContinue={() => {
                     launchContinue()
                   }}
@@ -1636,7 +1682,7 @@ const OpeningsPage: NextPage = () => {
               )}
               <span className="text-secondary">•</span>
               <span className="text-secondary">
-                vs Maia{' '}
+                vs Maia-3{' '}
                 {controller.currentDrill.maiaVersion.replace('maia_kdd_', '')}
               </span>
               <span className="text-secondary">•</span>
@@ -1898,6 +1944,11 @@ const OpeningsPage: NextPage = () => {
                 colorSanMapping={
                   analysisEnabled ? analysisController.colorSanMapping : {}
                 }
+                positionKey={
+                  analysisEnabled
+                    ? analysisController.currentNode?.fen
+                    : undefined
+                }
               />
               {!analysisEnabled && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-backdrop/90 backdrop-blur-sm">
@@ -1919,6 +1970,10 @@ const OpeningsPage: NextPage = () => {
                 setCurrentMaiaModel={analysisController.setCurrentMaiaModel}
                 showTopMoveBadges={analysisController.showTopMoveBadges}
                 setShowTopMoveBadges={analysisController.setShowTopMoveBadges}
+                stockfishDepth={analysisController.stockfishDepth}
+                setStockfishDepth={analysisController.setStockfishDepth}
+                stockfishEnabled={analysisController.stockfishEnabled}
+                setStockfishEnabled={analysisController.setStockfishEnabled}
                 launchContinue={launchContinue}
                 MAIA_MODELS={MAIA_MODELS}
                 game={analyzedGame}
@@ -2002,8 +2057,19 @@ const OpeningsPage: NextPage = () => {
 
 export default function AuthenticatedOpeningsPage() {
   return (
-    <AuthenticatedWrapper>
-      <OpeningsPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Opening Drills – Maia Chess</title>
+        <meta
+          name="description"
+          content="Drill chess openings against Maia models calibrated to specific rating levels. Practice against opponents similar to those you'll face, with targeted training for your skill level."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <OpeningsPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }
+
+AuthenticatedOpeningsPage.providers = LATE_STOCKFISH_PROVIDERS

@@ -14,7 +14,9 @@ import {
   fetchAnalyzedMaiaGame,
   fetchAnalyzedPgnGame,
   fetchAnalyzedWorldChampionshipGame,
+  isGameNotFound,
   retrieveGameAnalysisCache,
+  sendPgnGame,
   storeCustomGame,
 } from 'src/api'
 import {
@@ -23,8 +25,14 @@ import {
   StockfishEvaluation,
   GameNode,
 } from 'src/types'
-import { WindowSizeContext, TreeControllerContext, useTour } from 'src/contexts'
-import { Loading } from 'src/components'
+import {
+  AuthContext,
+  WindowSizeContext,
+  TreeControllerContext,
+  useTour,
+} from 'src/contexts'
+import { UnderlineTabs } from 'src/components'
+import { AnalysisShell } from 'src/components/Analysis/AnalysisShell'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import {
   AnalysisSidebar,
@@ -38,7 +46,8 @@ import {
 } from 'src/components/Analysis/BoardChrome'
 import { MovesByRating } from 'src/components/Analysis/MovesByRating'
 import { AnalysisGameList } from 'src/components/Analysis/AnalysisGameList'
-import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
+import { GameLoadFailure } from 'src/components/Analysis/GameLoadFailure'
+import { MaiaDownloadPrompt } from 'src/components/Common/MaiaDownloadPrompt'
 import { CustomAnalysisModal } from 'src/components/Analysis/CustomAnalysisModal'
 import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens'
 import { AnalysisConfigModal } from 'src/components/Analysis/AnalysisConfigModal'
@@ -53,20 +62,49 @@ import { GameInfo } from 'src/components/Common/GameInfo'
 import { MaterialBalance } from 'src/components/Common/MaterialBalance'
 import Head from 'next/head'
 import toast from 'react-hot-toast'
-import type { NextPage } from 'next'
-import { trackAnalysisGameLoaded } from 'src/lib/analytics'
+import {
+  trackAnalysisGameLoaded,
+  trackCustomGameInputUsed,
+} from 'src/lib/analytics'
 import { useRouter } from 'next/router'
 import type { Key } from 'chessground/types'
 import { Chess, PieceSymbol } from 'chess.ts'
 import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
-import { useAnalysisController } from 'src/hooks'
+import {
+  useAnalysisController,
+  useBoardWheelNavigation,
+  useTablebase,
+} from 'src/hooks'
 import { tourConfigs } from 'src/constants/tours'
+import {
+  ANALYSIS_LEFT_PANEL_TABS,
+  AnalysisGameListName,
+  AnalysisMenuRequest,
+  OPEN_ANALYSIS_LIST_EVENT,
+  OPEN_ANALYSIS_LIST_KEY,
+  isAnalysisMenuRequest,
+} from 'src/constants/analysis'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
-import { cpToWinrate } from 'src/lib'
+import { formatMaiaName } from 'src/lib/maiaNames'
+import { cpToWinrate, parseLichessPgn } from 'src/lib'
+import {
+  applyImportedVariations,
+  saveImportedVariations,
+} from 'src/lib/customGameVariations'
+import {
+  openedByPageLoad,
+  placeKey,
+  restoreAnalysisPlace,
+  saveAnalysisPlace,
+} from 'src/lib/analysisPlace'
+import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const EVAL_BAR_RANGE = 4
+// Whether the first game since the page loaded has been opened (see
+// analysisPlace).
+let placeChecked = false
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
   'maia_custom_pgn_result_overrides'
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -127,6 +165,8 @@ const formatMoveHistoryAsPgn = (moves: string[]): string => {
   return tokens.join(' ').trim()
 }
 
+// The backend gets the main line only; an imported game's variations are kept
+// in the browser and added back when it opens (see customGameVariations).
 const normalizeCustomPgnForBackendStore = (pgn: string): string => {
   const trimmed = pgn.trim()
   const candidates = Array.from(
@@ -220,7 +260,61 @@ const applyCustomPgnResultOverride = (
   }
 }
 
-const AnalysisPage: NextPage = () => {
+/**
+ * Lichess PGN requests started before AnalysisPage mounts (it waits for the
+ * account to load), by game id. Each is used once, so opening a game again
+ * fetches it again.
+ */
+const prefetchedLichessPgns = new Map<string, Promise<string>>()
+
+declare global {
+  interface Window {
+    /** Started by the page's HTML on a first load (see _document.tsx). */
+    __lichessPgn?: { id: string; request: Promise<string> }
+  }
+}
+
+const requestLichessPgn = (gameId: string): Promise<string> => {
+  const early = typeof window !== 'undefined' ? window.__lichessPgn : undefined
+  if (early?.id === gameId) {
+    delete window.__lichessPgn
+    return fetchPgnOfLichessGame(gameId, early.request)
+  }
+  return fetchPgnOfLichessGame(gameId)
+}
+
+const prefetchLichessPgn = (gameId: string) => {
+  if (prefetchedLichessPgns.has(gameId)) return
+  const request = requestLichessPgn(gameId)
+  // If the prefetch fails, the page makes its own request.
+  request.catch(() => prefetchedLichessPgns.delete(gameId))
+  prefetchedLichessPgns.set(gameId, request)
+}
+
+const takeLichessPgn = (gameId: string): Promise<string> => {
+  const request = prefetchedLichessPgns.get(gameId)
+  prefetchedLichessPgns.delete(gameId)
+  return request ?? requestLichessPgn(gameId)
+}
+
+/**
+ * Starts fetching a game's stored engine analysis, which needs only its id,
+ * so it loads alongside the game rather than after it. If it is back by the
+ * time the game is set, it is applied before the first render.
+ */
+const requestGameAnalysisCache = (gameId: string) => {
+  const request = retrieveGameAnalysisCache(gameId)
+  // Handled by loadGameAnalysisCache; this covers a failed game fetch.
+  request.catch(() => undefined)
+  return request
+}
+
+interface AnalysisPageProps {
+  // Called with whether the game is on screen, before that frame is painted.
+  onGameShown: (shown: boolean) => void
+}
+
+const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
   const { startTour, tourState } = useTour()
 
   const router = useRouter()
@@ -240,21 +334,30 @@ const AnalysisPage: NextPage = () => {
     }
   }, [initialTourCheck, startTour, tourState.ready])
   const [currentId, setCurrentId] = useState<string[]>(id as string[])
+  const [storedAnalysisRevision, setStoredAnalysisRevision] = useState(0)
 
-  const loadGameAnalysisCache = useCallback(async (game: AnalyzedGame) => {
-    if (!game.id || game.type === 'tournament') {
-      return
-    }
-
-    try {
-      const storedAnalysis = await retrieveGameAnalysisCache(game.id)
-      if (storedAnalysis && storedAnalysis.positions.length > 0) {
-        applyEngineAnalysisData(game.tree, storedAnalysis.positions)
+  const loadGameAnalysisCache = useCallback(
+    async (
+      game: AnalyzedGame,
+      storedAnalysisRequest?: ReturnType<typeof retrieveGameAnalysisCache>,
+    ) => {
+      if (!game.id || game.type === 'tournament') {
+        return
       }
-    } catch (error) {
-      console.warn('Failed to load stored analysis:', error)
-    }
-  }, [])
+
+      try {
+        const storedAnalysis = await (storedAnalysisRequest ??
+          retrieveGameAnalysisCache(game.id))
+        if (storedAnalysis && storedAnalysis.positions.length > 0) {
+          applyEngineAnalysisData(game.tree, storedAnalysis.positions)
+          setStoredAnalysisRevision((revision) => revision + 1)
+        }
+      } catch (error) {
+        console.warn('Failed to load stored analysis:', error)
+      }
+    },
+    [],
+  )
 
   const getAndSetWorldChampionshipGame = useCallback(
     async (
@@ -262,16 +365,10 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
-      let game
-      try {
-        game = await fetchAnalyzedWorldChampionshipGame(newId)
-      } catch (e) {
-        router.push('/401')
-        return
-      }
+      const game = await fetchAnalyzedWorldChampionshipGame(newId)
       if (setCurrentMove) setCurrentMove(0)
 
-      trackAnalysisGameLoaded('lichess')
+      trackAnalysisGameLoaded('tournament')
       setAnalyzedGame({ ...game, type: 'tournament' })
       setCurrentId(newId)
 
@@ -291,17 +388,26 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
-      const game = await fetchAnalyzedPgnGame(id, pgn)
+      const storedAnalysisRequest = requestGameAnalysisCache(id)
+      // Built here, rather than waiting ~0.5 s for the backend to parse the
+      // PGN; variants and set-up positions are still left to the backend.
+      const localGame = parseLichessPgn(id, pgn)
+      if (localGame) sendPgnGame(pgn)
+      const game = localGame ?? (await fetchAnalyzedPgnGame(id, pgn))
 
       if (setCurrentMove) setCurrentMove(0)
 
+      trackAnalysisGameLoaded('lichess')
       setAnalyzedGame({
         ...game,
         type: 'lichess',
       })
       setCurrentId([id, 'lichess'])
 
-      await loadGameAnalysisCache({ ...game, type: 'lichess' })
+      await loadGameAnalysisCache(
+        { ...game, type: 'lichess' },
+        storedAnalysisRequest,
+      )
 
       if (updateUrl) {
         router.push(`/analysis/${id}/lichess`, undefined, { shallow: true })
@@ -317,15 +423,18 @@ const AnalysisPage: NextPage = () => {
       setCurrentMove?: Dispatch<SetStateAction<number>>,
       updateUrl = true,
     ) => {
+      const storedAnalysisRequest = requestGameAnalysisCache(id)
       const rawGame = await fetchAnalyzedMaiaGame(id, type)
       const game =
         type === 'custom' ? applyCustomPgnResultOverride(id, rawGame) : rawGame
+      if (type === 'custom') applyImportedVariations(id, game.tree)
 
       if (setCurrentMove) setCurrentMove(0)
 
+      trackAnalysisGameLoaded(type)
       setAnalyzedGame({ ...game, type })
       setCurrentId([id, type])
-      await loadGameAnalysisCache({ ...game, type })
+      await loadGameAnalysisCache({ ...game, type }, storedAnalysisRequest)
 
       if (updateUrl) {
         router.push(`/analysis/${id}/${type}`, undefined, {
@@ -336,6 +445,13 @@ const AnalysisPage: NextPage = () => {
     [router, loadGameAnalysisCache],
   )
 
+  // The game in the URL that couldn't be loaded, and whether it doesn't exist
+  // (rather than the server failing).
+  const [loadFailure, setLoadFailure] = useState<{
+    id: string
+    notFound: boolean
+  }>()
+
   useEffect(() => {
     ;(async () => {
       const queryId = id as string[]
@@ -343,30 +459,59 @@ const AnalysisPage: NextPage = () => {
 
       const needsNewGame =
         !analyzedGame || currentId.join('/') !== queryId.join('/')
+      if (!needsNewGame || loadFailure?.id === queryId.join('/')) return
 
-      if (needsNewGame) {
+      try {
         if (queryId[1] === 'lichess') {
-          const pgn = await fetchPgnOfLichessGame(queryId[0])
-          getAndSetLichessGame(queryId[0], pgn, undefined, false)
+          const pgn = await takeLichessPgn(queryId[0])
+          await getAndSetLichessGame(queryId[0], pgn, undefined, false)
         } else if (['play', 'hand', 'brain', 'custom'].includes(queryId[1])) {
-          getAndSetUserGame(
+          await getAndSetUserGame(
             queryId[0],
             queryId[1] as 'play' | 'hand' | 'brain' | 'custom',
             undefined,
             false,
           )
         } else {
-          getAndSetWorldChampionshipGame(queryId, undefined, false)
+          await getAndSetWorldChampionshipGame(queryId, undefined, false)
+        }
+      } catch (error) {
+        console.error('Failed to load game:', error)
+        const notFound = isGameNotFound(error)
+        setLoadFailure({ id: queryId.join('/'), notFound })
+        // With a game already on screen, it stays there.
+        if (analyzedGame) {
+          toast.error(
+            notFound
+              ? "That game couldn't be found."
+              : "Couldn't load that game. Try again in a moment.",
+          )
         }
       }
     })()
   }, [
     id,
     analyzedGame,
+    loadFailure,
     getAndSetWorldChampionshipGame,
     getAndSetLichessGame,
     getAndSetUserGame,
   ])
+
+  const showLoadFailure = !analyzedGame && loadFailure !== undefined
+
+  useIsomorphicLayoutEffect(() => {
+    onGameShown(analyzedGame !== undefined || showLoadFailure)
+  }, [analyzedGame, showLoadFailure, onGameShown])
+
+  if (showLoadFailure) {
+    return (
+      <GameLoadFailure
+        notFound={loadFailure.notFound}
+        onRetry={() => setLoadFailure(undefined)}
+      />
+    )
+  }
 
   return (
     <>
@@ -377,13 +522,10 @@ const AnalysisPage: NextPage = () => {
           getAndSetTournamentGame={getAndSetWorldChampionshipGame}
           getAndSetLichessGame={getAndSetLichessGame}
           getAndSetUserGame={getAndSetUserGame}
+          storedAnalysisRevision={storedAnalysisRevision}
           router={router}
         />
-      ) : (
-        <Loading isLoading={true}>
-          <div></div>
-        </Loading>
-      )}
+      ) : null}
     </>
   )
 }
@@ -409,8 +551,46 @@ interface Props {
     setCurrentMove?: Dispatch<SetStateAction<number>>,
     updateUrl?: boolean,
   ) => Promise<void>
+  /** Bumped when stored engine analysis has been applied to the game tree. */
+  storedAnalysisRevision: number
   router: ReturnType<typeof useRouter>
 }
+
+// Stored games' names are already formatted with the game's date (see
+// fetchAnalyzedMaiaGame); any other Maia name is taken to be current.
+const formatAnalysisPlayerName = (name: string) =>
+  /^maia_kdd_\d+$/i.test(name) ? formatMaiaName(name) : name
+
+// Apart from the page so that it renders only when the game changes: each
+// render of <Head> makes Next.js update the document's head, and the page
+// re-renders on every engine update.
+const AnalysisHead = React.memo(function AnalysisHead({
+  whitePlayer,
+  blackPlayer,
+}: {
+  whitePlayer?: string
+  blackPlayer?: string
+}) {
+  const players =
+    whitePlayer !== undefined && blackPlayer !== undefined
+      ? `${formatAnalysisPlayerName(whitePlayer)} vs ${formatAnalysisPlayerName(blackPlayer)}`
+      : null
+  return (
+    <Head>
+      <title>
+        {players ? `Analyze: ${players} – Maia Chess` : 'Analyze – Maia Chess'}
+      </title>
+      <meta
+        name="description"
+        content={
+          players
+            ? `Analyze ${players} with human-aware AI. See what real players would do, explore moves by rating level, and spot where blunders are most likely to occur.`
+            : 'Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers.'
+        }
+      />
+    </Head>
+  )
+})
 
 const Analysis: React.FC<Props> = ({
   currentId,
@@ -418,7 +598,7 @@ const Analysis: React.FC<Props> = ({
   getAndSetTournamentGame,
   getAndSetLichessGame,
   getAndSetUserGame,
-
+  storedAnalysisRevision,
   router,
 }: Props) => {
   const { width, height } = useContext(WindowSizeContext)
@@ -494,6 +674,18 @@ const Analysis: React.FC<Props> = ({
   >('not-learning')
 
   const controller = useAnalysisController(analyzedGame)
+  const { refreshAnalysis } = controller
+  // Exact endgame results (7 pieces or fewer) from the Lichess tablebase.
+  // Not during Learn from mistakes, where it would give the answer away.
+  const tablebase = useTablebase(
+    controller.currentNode?.fen,
+    analysisEnabled && !controller.learnFromMistakes.state.isActive,
+  )
+  useEffect(() => {
+    // Stored analysis can arrive after the game is on screen: show it, and let
+    // the engine effects see that the position is already analysed.
+    if (storedAnalysisRevision > 0) refreshAnalysis()
+  }, [storedAnalysisRevision, refreshAnalysis])
   const userGamePovOrientation = useMemo(() => {
     if (!['play', 'hand', 'brain'].includes(analyzedGame.type)) {
       return null
@@ -535,15 +727,49 @@ const Analysis: React.FC<Props> = ({
   useEffect(() => {
     if (analyzedGame?.tree) {
       try {
+        // The first game after the page loads opens where you were, if the
+        // browser closed this tab in the background (see analysisPlace).
+        let restored: GameNode | null = null
+        if (!placeChecked) {
+          placeChecked = true
+          if (openedByPageLoad(window.location.pathname)) {
+            restored = restoreAnalysisPlace(
+              placeKey(analyzedGame),
+              analyzedGame.tree,
+            )
+          }
+        }
         const rootNode = analyzedGame.tree.getRoot()
-        if (rootNode) {
-          controller.setCurrentNode(rootNode)
+        if (restored || rootNode) {
+          controller.setCurrentNode(restored ?? rootNode)
         }
       } catch (error) {
         console.error('Error setting current node:', error)
       }
     }
   }, [analyzedGame])
+
+  // Kept whenever the page goes into the background or is left: a browser
+  // closes background tabs without warning.
+  const placeRef = useRef({ game: analyzedGame, node: controller.currentNode })
+  placeRef.current = { game: analyzedGame, node: controller.currentNode }
+  useEffect(() => {
+    const save = () => {
+      const { game, node } = placeRef.current
+      if (game?.id && game.tree && node) {
+        saveAnalysisPlace(placeKey(game), game.tree, node)
+      }
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') save()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('pagehide', save)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('pagehide', save)
+    }
+  }, [])
 
   useEffect(() => {
     if (!userGamePovOrientation) return
@@ -599,16 +825,18 @@ const Analysis: React.FC<Props> = ({
           if (pgnResult && pgnResult !== '*') {
             setCustomPgnResultOverride(game_id, pgnResult)
           }
+          if (type === 'pgn') saveImportedVariations(game_id, data)
 
+          trackCustomGameInputUsed(type, data.length, true)
           setShowCustomModal(false)
           router.push(`/analysis/${game_id}/custom`)
         } catch (error) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'Failed to store custom game'
+          trackCustomGameInputUsed(type, data.length, false)
+          // The error holds the HTTP status and the backend's raw reply.
           console.error('Custom analysis import failed:', error)
-          toast.error(message)
+          toast.error(
+            "Couldn't import this game. Check the PGN or FEN and try again.",
+          )
         }
       })()
     },
@@ -862,6 +1090,25 @@ const Analysis: React.FC<Props> = ({
     }),
     [],
   )
+
+  // After "See solution", the best move as an arrow on the mistake's
+  // position (the board stays there).
+  const learnSolutionShapes = useMemo<DrawShape[]>(() => {
+    const { state } = controller.learnFromMistakes
+    if (!state.isActive || !state.showSolution) return []
+    if (controller.currentNode?.fen !== state.originalPosition) return []
+    const bestMove =
+      controller.learnFromMistakes.getCurrentInfo()?.mistake.bestMove
+    if (!bestMove || bestMove.length < 4) return []
+    return [
+      {
+        brush: 'green',
+        orig: bestMove.slice(0, 2) as Key,
+        dest: bestMove.slice(2, 4) as Key,
+        modifiers: { lineWidth: 10 },
+      },
+    ]
+  }, [controller.learnFromMistakes, controller.currentNode?.fen])
 
   const playedMoveShapes = useMemo<DrawShape[]>(() => {
     const playedMove = controller.currentNode?.mainChild?.move
@@ -1208,19 +1455,48 @@ const Analysis: React.FC<Props> = ({
       controller.currentMaiaModel?.replace('maia_kdd_', '') || '----'
     return `Maia %\n@ ${ratingLevel}`
   }, [controller.currentMaiaModel])
-  const desktopLeftPanelTabs = [
-    {
-      id: 'moves',
-      name: 'Moves',
-    },
-    {
-      id: 'select-game',
-      name: 'Select Game',
-    },
-  ] as const
   const [desktopLeftPanelTab, setDesktopLeftPanelTab] = useState<
-    (typeof desktopLeftPanelTabs)[number]['id']
-  >(desktopLeftPanelTabs[0].id)
+    (typeof ANALYSIS_LEFT_PANEL_TABS)[number]['id']
+  >(ANALYSIS_LEFT_PANEL_TABS[0].id)
+  const [showGameListMobile, setShowGameListMobile] = useState(false)
+
+  // The site's Analysis menu opens one of the game lists (or the box for
+  // pasting a PGN or FEN) with an event here, or from another page through
+  // session storage.
+  const [gameListRequest, setGameListRequest] = useState<{
+    list: AnalysisGameListName
+    nonce: number
+  } | null>(null)
+  useEffect(() => {
+    const open = (request: AnalysisMenuRequest) => {
+      if (request === 'import') {
+        setShowCustomModal(true)
+        return
+      }
+      setGameListRequest({ list: request, nonce: Date.now() })
+      if (useMobileStyleAnalysisLayout) {
+        setShowGameListMobile(true)
+      } else {
+        setDesktopLeftPanelTab('select-game')
+      }
+    }
+    const onRequest = (event: Event) => {
+      const request = (event as CustomEvent<unknown>).detail
+      if (isAnalysisMenuRequest(request)) open(request)
+    }
+    window.addEventListener(OPEN_ANALYSIS_LIST_EVENT, onRequest)
+
+    let pending: string | null = null
+    try {
+      pending = sessionStorage.getItem(OPEN_ANALYSIS_LIST_KEY)
+      if (pending) sessionStorage.removeItem(OPEN_ANALYSIS_LIST_KEY)
+    } catch {
+      // Storage can be blocked; the menu still works on this page.
+    }
+    if (isAnalysisMenuRequest(pending)) open(pending)
+
+    return () => window.removeEventListener(OPEN_ANALYSIS_LIST_EVENT, onRequest)
+  }, [useMobileStyleAnalysisLayout])
   const showDesktopMovesAfterNavigation = useCallback(() => {
     if (desktopLeftPanelTab !== 'select-game') return
 
@@ -1281,6 +1557,40 @@ const Analysis: React.FC<Props> = ({
     useMobileStyleAnalysisLayout,
   ])
 
+  // Wheel over the board steps through the moves, like the arrow keys (and
+  // like Lichess). Off whenever the arrow keys are: in Learn from mistakes,
+  // which locks navigation, and while "Analyze entire game" walks the board
+  // through the game itself; and while the promotion picker is open.
+  const wheelNavigationDisabled =
+    controller.learnFromMistakes.state.isActive ||
+    controller.gameAnalysis.progress.isAnalyzing ||
+    !!promotionFromTo
+  const handleWheelNext = useCallback(() => {
+    if (!controller.currentNode?.mainChild) return
+    controller.goToNextNode()
+    if (!useMobileStyleAnalysisLayout) showDesktopMovesAfterNavigation()
+  }, [
+    controller.currentNode,
+    controller.goToNextNode,
+    showDesktopMovesAfterNavigation,
+    useMobileStyleAnalysisLayout,
+  ])
+  const handleWheelPrevious = useCallback(() => {
+    if (!controller.currentNode?.parent) return
+    controller.goToPreviousNode()
+    if (!useMobileStyleAnalysisLayout) showDesktopMovesAfterNavigation()
+  }, [
+    controller.currentNode,
+    controller.goToPreviousNode,
+    showDesktopMovesAfterNavigation,
+    useMobileStyleAnalysisLayout,
+  ])
+  const boardWheelRef = useBoardWheelNavigation<HTMLDivElement>({
+    onNext: handleWheelNext,
+    onPrevious: handleWheelPrevious,
+    disabled: wheelNavigationDisabled,
+  })
+
   const smoothedEvalPosition = useSpring(50, {
     stiffness: 520,
     damping: 42,
@@ -1313,40 +1623,34 @@ const Analysis: React.FC<Props> = ({
     smoothedEvalPosition.set(evalBarPositionTargetPercent)
   }, [evalBarPositionTargetPercent, smoothedEvalPosition])
 
-  const formatAnalysisPlayerName = (name: string) => {
-    const maiaMatch = name.match(/^maia_kdd_(\d+)$/i)
-    if (maiaMatch) {
-      return `Maia ${maiaMatch[1]}`
-    }
-    return name
-  }
-
   const NestedGameInfo = () => (
     <div className="flex w-full flex-col">
       <div className="hidden md:block">
         {[analyzedGame.whitePlayer, analyzedGame.blackPlayer].map(
           (player, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div
+              key={index}
+              className="flex items-center justify-between gap-2"
+            >
+              <div className="flex min-w-0 items-center gap-2">
                 <div
-                  className={`h-2 w-2 rounded-full ${index === 0 ? 'bg-white' : 'border-[0.5px] bg-black'}`}
+                  className={`h-2 w-2 shrink-0 rounded-full ${index === 0 ? 'bg-white' : 'border-[0.5px] bg-black'}`}
                 />
-                <div className="flex items-center gap-1">
-                  <p className="text-sm">
+                <div className="flex min-w-0 items-center gap-1">
+                  <p className="truncate text-sm" title={player.name}>
                     {formatAnalysisPlayerName(player.name)}
                   </p>
-                  <span className="text-xs">
+                  <span className="shrink-0 text-xs">
                     {player.rating ? <>({player.rating})</> : null}
                   </span>
                 </div>
               </div>
-              {analyzedGame.termination?.winner ===
-              (index == 0 ? 'white' : 'black') ? (
+              {/* Nothing for a game without a result (still going). */}
+              {!analyzedGame.termination?.winner ? null : analyzedGame
+                  .termination.winner === (index == 0 ? 'white' : 'black') ? (
                 <p className="text-xs text-engine-3">1</p>
-              ) : analyzedGame.termination?.winner !== 'none' ? (
+              ) : analyzedGame.termination.winner !== 'none' ? (
                 <p className="text-xs text-human-3">0</p>
-              ) : analyzedGame.termination === undefined ? (
-                <></>
               ) : (
                 <p className="text-xs text-secondary">½</p>
               )}
@@ -1354,44 +1658,40 @@ const Analysis: React.FC<Props> = ({
           ),
         )}
       </div>
-      <div className="flex w-full items-center justify-between text-xs md:hidden">
-        <div className="flex items-center gap-1">
-          <span className="inline-flex w-4 items-center justify-center">
+      {/* Phones: one line, each name cut short rather than wrapped, and the
+          result between them only if the game has one. */}
+      <div className="flex w-full items-center gap-2 text-xs md:hidden">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <span className="inline-flex w-4 shrink-0 items-center justify-center">
             <div className="h-2 w-2 rounded-full bg-white" />
           </span>
-          <span className="font-medium">
+          <span className="truncate font-medium">
             {formatAnalysisPlayerName(analyzedGame.whitePlayer.name)}
           </span>
           {analyzedGame.whitePlayer.rating && (
-            <span className="text-primary/60">
+            <span className="shrink-0 text-primary/60">
               ({analyzedGame.whitePlayer.rating})
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          {analyzedGame.termination?.winner === 'none' ? (
-            <span className="font-medium text-primary/80">½-½</span>
-          ) : (
-            <span className="font-medium">
-              <span className="text-primary/70">
-                {analyzedGame.termination?.winner === 'white' ? '1' : '0'}
-              </span>
-              <span className="text-primary/70">-</span>
-              <span className="text-primary/70">
-                {analyzedGame.termination?.winner === 'black' ? '1' : '0'}
-              </span>
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="inline-flex w-4 items-center justify-center">
+        {analyzedGame.termination?.winner && (
+          <span className="shrink-0 font-medium text-primary/70">
+            {analyzedGame.termination.winner === 'white'
+              ? '1-0'
+              : analyzedGame.termination.winner === 'black'
+                ? '0-1'
+                : '½-½'}
+          </span>
+        )}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+          <span className="inline-flex w-4 shrink-0 items-center justify-center">
             <div className="h-2 w-2 rounded-full border-[0.5px] bg-black" />
           </span>
-          <span className="font-medium">
+          <span className="truncate font-medium">
             {formatAnalysisPlayerName(analyzedGame.blackPlayer.name)}
           </span>
           {analyzedGame.blackPlayer.rating && (
-            <span className="text-primary/60">
+            <span className="shrink-0 text-primary/60">
               ({analyzedGame.blackPlayer.rating})
             </span>
           )}
@@ -1436,11 +1736,13 @@ const Analysis: React.FC<Props> = ({
     },
   }
 
+  // initial={false}: no fade-in when the game replaces the shell, which
+  // already shows the panels and board.
   const desktopLayout = (
     <motion.div
       className="flex h-full w-full flex-col items-center py-4 2xl:items-end"
       variants={containerVariants}
-      initial="hidden"
+      initial={false}
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
@@ -1464,35 +1766,13 @@ const Analysis: React.FC<Props> = ({
             </GameInfo>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
-            <div className="flex flex-row border-b border-glass-border">
-              {desktopLeftPanelTabs.map((tab) => {
-                const selected = tab.id === desktopLeftPanelTab
-                return (
-                  <div
-                    key={tab.id}
-                    tabIndex={0}
-                    role="button"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') setDesktopLeftPanelTab(tab.id)
-                    }}
-                    onClick={() => setDesktopLeftPanelTab(tab.id)}
-                    className={`relative flex cursor-pointer select-none flex-row px-3 py-1.5 outline-none transition duration-200 focus:outline-none focus-visible:outline-none ${selected ? 'bg-white/5' : 'hover:bg-white hover:bg-opacity-[0.02]'}`}
-                  >
-                    <p
-                      className={`text-xs transition duration-200 2xl:text-sm ${selected ? 'text-primary' : 'text-secondary'}`}
-                    >
-                      {tab.name}
-                    </p>
-                    {selected ? (
-                      <motion.div
-                        layoutId="analysisDesktopLeftPanelTab"
-                        className="absolute bottom-0 left-0 h-[1px] w-full bg-white"
-                      />
-                    ) : null}
-                  </div>
-                )
-              })}
-            </div>
+            <UnderlineTabs
+              tabs={ANALYSIS_LEFT_PANEL_TABS}
+              selected={desktopLeftPanelTab}
+              onSelect={setDesktopLeftPanelTab}
+              layoutId="analysisDesktopLeftPanelTab"
+              tabClassName="outline-none focus:outline-none focus-visible:outline-none"
+            />
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="relative min-h-0 flex-1 overflow-hidden">
                 <div
@@ -1540,6 +1820,7 @@ const Analysis: React.FC<Props> = ({
                     }
                     onCustomAnalysis={() => setShowCustomModal(true)}
                     refreshTrigger={refreshTrigger}
+                    requestedList={gameListRequest}
                     embedded
                   />
                 </div>
@@ -1645,7 +1926,10 @@ const Analysis: React.FC<Props> = ({
                       desktopSize={desktopBarChromeSize}
                     />
                   </div>
-                  <div className="relative flex aspect-square w-full">
+                  <div
+                    ref={boardWheelRef}
+                    className="relative flex aspect-square w-full"
+                  >
                     <GameBoard
                       game={analyzedGame}
                       availableMoves={
@@ -1680,6 +1964,8 @@ const Analysis: React.FC<Props> = ({
                             })
                           }
                         }
+
+                        baseShapes.push(...learnSolutionShapes)
 
                         // Add hover arrow if present
                         if (hoverArrow) {
@@ -1741,6 +2027,7 @@ const Analysis: React.FC<Props> = ({
           handleToggleAnalysis={handleToggleAnalysis}
           hideDetailedBlunderMeter={true}
           desktopContentHeightCss={desktopSidebarContentHeightCss}
+          tablebase={tablebase}
           containerStyle={{
             width: 'clamp(23rem, 27vw, 26rem)',
             minWidth: '23rem',
@@ -1756,6 +2043,10 @@ const Analysis: React.FC<Props> = ({
                 setCurrentMaiaModel={controller.setCurrentMaiaModel}
                 showTopMoveBadges={controller.showTopMoveBadges}
                 setShowTopMoveBadges={controller.setShowTopMoveBadges}
+                stockfishDepth={controller.stockfishDepth}
+                setStockfishDepth={controller.setStockfishDepth}
+                stockfishEnabled={controller.stockfishEnabled}
+                setStockfishEnabled={controller.setStockfishEnabled}
                 launchContinue={launchContinue}
                 MAIA_MODELS={MAIA_MODELS}
                 game={analyzedGame}
@@ -1785,12 +2076,10 @@ const Analysis: React.FC<Props> = ({
     </motion.div>
   )
 
-  const [showGameListMobile, setShowGameListMobile] = useState(false)
-
   const mobileLayout = (
     <motion.div
       variants={containerVariants}
-      initial="hidden"
+      initial={false}
       animate="visible"
       exit="exit"
       style={{ willChange: 'transform, opacity' }}
@@ -1844,6 +2133,7 @@ const Analysis: React.FC<Props> = ({
                 }}
                 onGameSelected={() => setShowGameListMobile(false)}
                 refreshTrigger={refreshTrigger}
+                requestedList={gameListRequest}
               />
             </div>
           </div>
@@ -1933,6 +2223,7 @@ const Analysis: React.FC<Props> = ({
                 </div>
                 <div
                   id="analysis"
+                  ref={boardWheelRef}
                   className="relative flex aspect-square w-full"
                 >
                   <GameBoard
@@ -1967,6 +2258,8 @@ const Analysis: React.FC<Props> = ({
                           })
                         }
                       }
+
+                      baseShapes.push(...learnSolutionShapes)
 
                       if (hoverArrow) {
                         baseShapes.push(hoverArrow)
@@ -2111,6 +2404,10 @@ const Analysis: React.FC<Props> = ({
                     simplified: true,
                     hideWhiteWinRateSummary: true,
                     hideStockfishEvalSummary: true,
+                    stockfishOff:
+                      !controller.stockfishEnabled &&
+                      !controller.moveEvaluation?.stockfish,
+                    tablebase,
                   }}
                   blunderMeterProps={{
                     hover:
@@ -2181,6 +2478,12 @@ const Analysis: React.FC<Props> = ({
                       ? controller.colorSanMapping
                       : {}
                   }
+                  positionKey={
+                    analysisEnabled &&
+                    !controller.learnFromMistakes.state.isActive
+                      ? controller.currentNode?.fen
+                      : undefined
+                  }
                 />
                 {(!analysisEnabled ||
                   controller.learnFromMistakes.state.isActive) && (
@@ -2204,6 +2507,10 @@ const Analysis: React.FC<Props> = ({
               setCurrentMaiaModel={controller.setCurrentMaiaModel}
               showTopMoveBadges={controller.showTopMoveBadges}
               setShowTopMoveBadges={controller.setShowTopMoveBadges}
+              stockfishDepth={controller.stockfishDepth}
+              setStockfishDepth={controller.setStockfishDepth}
+              stockfishEnabled={controller.stockfishEnabled}
+              setStockfishEnabled={controller.setStockfishEnabled}
               launchContinue={launchContinue}
               MAIA_MODELS={MAIA_MODELS}
               game={analyzedGame}
@@ -2239,30 +2546,11 @@ const Analysis: React.FC<Props> = ({
 
   return (
     <>
-      <Head>
-        <title>
-          {analyzedGame
-            ? `Analyze: ${formatAnalysisPlayerName(analyzedGame.whitePlayer.name)} vs ${formatAnalysisPlayerName(analyzedGame.blackPlayer.name)} – Maia Chess`
-            : 'Analyze – Maia Chess'}
-        </title>
-        <meta
-          name="description"
-          content={
-            analyzedGame
-              ? `Analyze ${formatAnalysisPlayerName(analyzedGame.whitePlayer.name)} vs ${formatAnalysisPlayerName(analyzedGame.blackPlayer.name)} with human-aware AI. See what real players would do, explore moves by rating level, and spot where blunders are most likely to occur.`
-              : 'Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers.'
-          }
-        />
-      </Head>
-      <AnimatePresence>
-        {controller.maia.status === 'no-cache' ||
-        controller.maia.status === 'downloading' ? (
-          <DownloadModelModal
-            progress={controller.maia.progress}
-            download={controller.maia.downloadModel}
-          />
-        ) : null}
-      </AnimatePresence>
+      <AnalysisHead
+        whitePlayer={analyzedGame?.whitePlayer.name}
+        blackPlayer={analyzedGame?.blackPlayer.name}
+      />
+      <MaiaDownloadPrompt engine={controller.maia} />
       <TreeControllerContext.Provider value={controller}>
         {analyzedGame && (
           <div>
@@ -2305,10 +2593,36 @@ const Analysis: React.FC<Props> = ({
   )
 }
 
+// Memoized so that removing the shell, beside it, doesn't render the page
+// again.
+const MemoizedAnalysisPage = React.memo(AnalysisPage)
+
 export default function AuthenticatedAnalysisPage() {
+  const { query } = useRouter()
+  const { user } = useContext(AuthContext)
+
+  useEffect(() => {
+    // AnalysisPage mounts once the account has loaded; the game's PGN does not
+    // depend on it, so start fetching it now.
+    const queryId = query.id
+    if (!user && Array.isArray(queryId) && queryId[1] === 'lichess') {
+      prefetchLichessPgn(queryId[0])
+    }
+  }, [query.id, user])
+
+  // One shell from the first paint until the game is on screen, while the
+  // visitor's session and then the game load.
+  const [gameShown, setGameShown] = useState(false)
+
   return (
-    <AuthenticatedWrapper>
-      <AnalysisPage />
-    </AuthenticatedWrapper>
+    <>
+      <AnalysisHead />
+      <AuthenticatedWrapper>
+        <MemoizedAnalysisPage onGameShown={setGameShown} />
+      </AuthenticatedWrapper>
+      {!gameShown && <AnalysisShell />}
+    </>
   )
 }
+
+AuthenticatedAnalysisPage.providers = ANALYSIS_PROVIDERS

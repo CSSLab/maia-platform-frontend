@@ -7,7 +7,11 @@ import {
   LearnFromMistakesConfiguration,
   DeepAnalysisProgress,
 } from 'src/types/analysis'
-import { extractPlayerMistakes, isBestMove } from 'src/lib/analysis'
+import { isBestMove } from 'src/lib/analysis'
+import {
+  getStablePlayerMistakes,
+  loadStoredMistakes,
+} from 'src/lib/learnMistakes'
 import { LEARN_FROM_MISTAKES_DEPTH } from 'src/constants/analysis'
 
 interface UseLearnFromMistakesProps {
@@ -53,6 +57,13 @@ export const useLearnFromMistakes = ({
 
   const checkAnalysisProgressForLearnMode = useCallback(
     async (playerColor: 'white' | 'black') => {
+      // A game reviewed before has its list of mistakes already, so it doesn't
+      // wait for the analysis of the whole game again.
+      if (loadStoredMistakes(gameTree, playerColor)) {
+        beginLearnMode(playerColor)
+        return
+      }
+
       const mainLine = gameTree.getMainLine()
       const hasEnoughAnalysis = mainLine.every((node) => {
         if (!node.move) return true
@@ -61,7 +72,8 @@ export const useLearnFromMistakes = ({
         if (chess.gameOver()) return true
 
         return (
-          (node.analysis.stockfish?.depth ?? 0) >= LEARN_FROM_MISTAKES_DEPTH
+          (node.analysis.stockfish?.depth ?? 0) >= LEARN_FROM_MISTAKES_DEPTH &&
+          !node.analysis.stockfish?.partial
         )
       })
 
@@ -95,7 +107,9 @@ export const useLearnFromMistakes = ({
 
   const beginLearnMode = useCallback(
     (playerColor: 'white' | 'black') => {
-      const mistakes = extractPlayerMistakes(gameTree, playerColor)
+      // The list from the game's first review, when there is one, so the same
+      // game gives the same mistakes each time (see src/lib/learnMistakes).
+      const mistakes = getStablePlayerMistakes(gameTree, playerColor)
 
       if (mistakes.length === 0) {
         const colorName = playerColor === 'white' ? 'White' : 'Black'
@@ -169,15 +183,18 @@ export const useLearnFromMistakes = ({
     const chess = new Chess(currentNode.fen)
     const moveResult = chess.move(currentMistake.bestMove, { sloppy: true })
 
+    // The best move goes in the move list, but the board stays on the
+    // mistake's position (the page draws the move as an arrow), so that the
+    // panels, Moves by Rating among them, describe the position the question
+    // was about rather than the one after the answer.
     if (moveResult) {
-      const newVariation = gameTree.addVariationNode(
+      gameTree.addVariationNode(
         currentNode,
         chess.fen(),
         currentMistake.bestMove,
         currentMistake.bestMoveSan,
         currentMaiaModel,
       )
-      goToNode(newVariation)
     }
 
     setLearnModeState((prev) => ({
@@ -222,7 +239,10 @@ export const useLearnFromMistakes = ({
         learnModeState.mistakes[learnModeState.currentMistakeIndex]
       if (!currentMistake) return 'not-learning'
 
-      const isCorrect = isBestMove(currentNode, moveUci)
+      // A kept mistake's best move came from the analysis at its first
+      // review; a deeper search since may prefer another, and either counts.
+      const isCorrect =
+        moveUci === currentMistake.bestMove || isBestMove(currentNode, moveUci)
 
       if (isCorrect) {
         setLearnModeState((prev) => ({

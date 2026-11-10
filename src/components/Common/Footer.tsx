@@ -61,15 +61,15 @@ export const Footer: React.FC = () => {
       links: [
         {
           href: 'https://lichess.org/@/maia1',
-          text: 'Maia 1100',
+          text: 'Maia-1 1100',
         },
         {
           href: 'https://lichess.org/@/maia5',
-          text: 'Maia 1500',
+          text: 'Maia-1 1500',
         },
         {
           href: 'https://lichess.org/@/maia9',
-          text: 'Maia 1900',
+          text: 'Maia-1 1900',
         },
       ],
     },
@@ -104,11 +104,14 @@ export const Footer: React.FC = () => {
         <div className="flex w-full max-w-4xl flex-col items-start justify-start gap-4 md:flex-row md:items-center md:justify-center md:gap-8">
           <div className="mb-2 flex flex-col items-start gap-1 md:mb-0 md:items-center md:gap-0.5">
             <div className="flex items-center gap-2">
+              {/* Asked for at the header's size, so both use one image
+                  (each size is a separate download). */}
               <Image
                 src="/maia-ios-icon.png"
                 alt="Maia Chess"
-                width={26}
-                height={26}
+                width={40}
+                height={40}
+                className="h-[26px] w-[26px]"
               />
               <p className="text-xl font-bold text-primary">Maia Chess</p>
             </div>
@@ -117,7 +120,7 @@ export const Footer: React.FC = () => {
               <a
                 target="_blank"
                 rel="noreferrer"
-                href="http://csslab.cs.toronto.edu/"
+                href="https://csslab.cs.toronto.edu/"
                 className="text-primary"
               >
                 University of Toronto CSSLab
@@ -138,8 +141,9 @@ export const Footer: React.FC = () => {
                   <a
                     key={linkIndex}
                     href={link.href}
-                    target="_blank"
-                    rel="noreferrer"
+                    {...(link.href.startsWith('mailto:')
+                      ? {}
+                      : { target: '_blank', rel: 'noreferrer' })}
                     className="mt-0.5 md:mt-0.5"
                   >
                     {link.icon ? (
@@ -161,7 +165,7 @@ export const Footer: React.FC = () => {
           </div>
         </div>
         <p className="text-left text-sm text-secondary md:text-center md:text-xs">
-          © 2026 Maia Chess. All rights reserved.
+          © {new Date().getFullYear()} Maia Chess. All rights reserved.
         </p>
       </div>
     </div>

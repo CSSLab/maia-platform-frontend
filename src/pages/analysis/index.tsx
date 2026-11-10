@@ -1,15 +1,22 @@
+import Head from 'next/head'
 import { NextPage } from 'next'
 import { useRouter } from 'next/router'
-import { Loading } from 'src/components'
+import { AnalysisShell } from 'src/components/Analysis/AnalysisShell'
 import { fetchMaiaGameList } from 'src/api'
 import { AnalysisListContext } from 'src/contexts'
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
+import { ANALYSIS_PROVIDERS } from 'src/contexts/pageProviders'
 
 const AnalysisPage: NextPage = () => {
   const { push } = useRouter()
   const { analysisTournamentList, analysisPlayList } =
     useContext(AnalysisListContext)
   const [loading, setLoading] = useState(true)
+  // The effect runs again as the lists in the context load; the user's play
+  // games are fetched once.
+  const playGamesRequest = useRef<ReturnType<typeof fetchMaiaGameList> | null>(
+    null,
+  )
 
   useEffect(() => {
     const redirectToGame = async () => {
@@ -22,7 +29,8 @@ const AnalysisPage: NextPage = () => {
 
       // If no play games in context, try to fetch them directly
       try {
-        const playGames = await fetchMaiaGameList('play', 1)
+        playGamesRequest.current ??= fetchMaiaGameList('play', 1)
+        const playGames = await playGamesRequest.current
         if (playGames.games && playGames.games.length > 0) {
           const gameId = playGames.games[0].game_id
           push(`/analysis/${gameId}/play`)
@@ -51,10 +59,19 @@ const AnalysisPage: NextPage = () => {
   }, [analysisTournamentList, analysisPlayList, push])
 
   return (
-    <Loading isLoading={loading}>
-      <div></div>
-    </Loading>
+    <>
+      <Head>
+        <title>Analyze – Maia Chess</title>
+        <meta
+          name="description"
+          content="Analyze chess games with human-aware AI. Combine Stockfish precision with human tendencies learned from millions of games. See what works at your rating level, not just for computers."
+        />
+      </Head>
+      {/* The analysis page's shell while a game to open is found; the game's
+          page shows the same until the game has loaded. */}
+      {loading && <AnalysisShell />}
+    </>
   )
 }
 
-export default AnalysisPage
+export default Object.assign(AnalysisPage, { providers: ANALYSIS_PROVIDERS })

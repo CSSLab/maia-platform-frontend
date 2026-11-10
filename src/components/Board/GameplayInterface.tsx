@@ -8,7 +8,6 @@ import {
   MovesContainer,
   BoardController,
 } from 'src/components'
-import Head from 'next/head'
 import { useUnload } from 'src/hooks/useUnload'
 import type { DrawShape } from 'chessground/draw'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
@@ -18,6 +17,8 @@ import {
   TreeControllerContext,
 } from 'src/contexts'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
+import { formatPgnDate, pgnPlayerName } from 'src/lib/pgn'
+import { pgnTimeControl } from 'src/lib/timeControl'
 
 interface Props {
   boardShapes?: DrawShape[]
@@ -123,14 +124,60 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
     return result
   }, [availableMoves])
 
-  const maiaTitle = maiaVersion.replace('maia_kdd_', 'Maia ')
-  const blackPlayer = player == 'black' ? user?.displayName : maiaTitle
-  const whitePlayer = player == 'white' ? user?.displayName : maiaTitle
+  const maiaTitle = maiaVersion.replace('maia_kdd_', 'Maia-3 ')
+  // A visitor who isn't signed in is "Guest": their account has no name, and
+  // an exported game named them as missing.
+  const humanName = pgnPlayerName(user)
+  const blackPlayer = player == 'black' ? humanName : maiaTitle
+  const whitePlayer = player == 'white' ? humanName : maiaTitle
+
+  // The date and the player's rating as the game started, for its PGN: the
+  // rating shown changes once a rated game ends. Only a game against Maia
+  // has a rating for each side (Hand and Brain pairs the player with Maia).
+  const [gameStart, setGameStart] = useState<{
+    gameId: string
+    date: string
+    rating?: number
+  } | null>(null)
+  useEffect(() => {
+    const rating = stats.rating || undefined
+    setGameStart((previous) => {
+      if (previous?.gameId !== game.id) {
+        return { gameId: game.id, date: formatPgnDate(new Date()), rating }
+      }
+      // Stats load after the game may have started; once it's over, the
+      // rating is the one after it.
+      if (previous.rating || game.termination || !rating) return previous
+      return { ...previous, rating }
+    })
+  }, [game.id, game.termination, stats.rating])
+
+  const maiaRating = parseInt(maiaVersion.replace('maia_kdd_', ''), 10)
+  const playerRating =
+    playType === 'againstMaia' && gameStart?.gameId === game.id
+      ? gameStart.rating
+      : undefined
+  const pgnDetails = {
+    date: gameStart?.gameId === game.id ? gameStart.date : undefined,
+    timeControl: pgnTimeControl(timeControl),
+    whiteElo:
+      playType !== 'againstMaia'
+        ? undefined
+        : player === 'white'
+          ? playerRating
+          : maiaRating,
+    blackElo:
+      playType !== 'againstMaia'
+        ? undefined
+        : player === 'black'
+          ? playerRating
+          : maiaRating,
+  }
 
   const Info = (
     <>
       <div className="flex w-full items-center justify-between text-secondary">
-        <p>● {whitePlayer ?? 'Unknown'}</p>
+        <p>● {whitePlayer}</p>
         <p>
           {game.termination?.winner === 'white' ? (
             <span className="text-engine-3">1</span>
@@ -142,7 +189,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
         </p>
       </div>
       <div className="flex w-full items-center justify-between text-secondary">
-        <p>○ {blackPlayer ?? 'Unknown'}</p>
+        <p>○ {blackPlayer}</p>
         <p>
           {game.termination?.winner === 'black' ? (
             <span className="text-engine-3">1</span>
@@ -165,7 +212,9 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
 
   const desktopLayout = (
     <>
-      <div className="flex h-full flex-1 flex-col justify-center gap-1 py-2 md:py-4">
+      {/* From the top, as on the analysis page: centred, the game sat under
+          a band of empty space (about 100px in a 900px-tall window). */}
+      <div className="flex h-full flex-1 flex-col justify-start gap-1 py-2 md:py-4">
         <div className="mx-auto mt-2 flex w-[90%] flex-row items-start justify-between gap-3">
           <div className="flex h-[75vh] max-h-[75vh] min-h-[75vh] w-[22rem] min-w-[22rem] max-w-[22rem] flex-shrink-0 flex-col overflow-hidden">
             <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
@@ -187,10 +236,11 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                     game={game}
                     gameTree={gameTree}
                     currentNode={currentNode}
-                    whitePlayer={whitePlayer ?? 'Unknown'}
-                    blackPlayer={blackPlayer ?? 'Unknown'}
+                    whitePlayer={whitePlayer}
+                    blackPlayer={blackPlayer}
                     event={`Play vs. ${maiaTitle}`}
                     type="play"
+                    {...pgnDetails}
                   />
                 </div>
                 <div className="h-3 border-y border-glass-border" />
@@ -349,10 +399,11 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                 game={game}
                 gameTree={gameTree}
                 currentNode={currentNode}
-                whitePlayer={whitePlayer ?? 'Unknown'}
-                blackPlayer={blackPlayer ?? 'Unknown'}
+                whitePlayer={whitePlayer}
+                blackPlayer={blackPlayer}
                 event={`Play vs. ${maiaTitle}`}
                 type="play"
+                {...pgnDetails}
               />
             </div>
           </div>
@@ -365,10 +416,6 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
 
   return (
     <>
-      <Head>
-        <title>Maia Chess - Play</title>
-        <meta name="description" content="Turing survey" />
-      </Head>
       <TreeControllerContext.Provider
         value={{
           gameTree,

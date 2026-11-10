@@ -4,8 +4,6 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { motion } from 'framer-motion'
 
-import { Loading } from 'src/components'
-import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
 import { useBroadcastController } from 'src/hooks/useBroadcastController'
 import { Broadcast, BroadcastRound } from 'src/types'
 
@@ -77,36 +75,31 @@ const BroadcastsPage: NextPage = () => {
     })
   }
 
+  // The heading renders at once (and on the server), not after Lichess
+  // answers.
+  const pageHeader = (
+    <div className="mb-8 text-center">
+      <h1 className="mb-2 text-3xl font-bold text-white">Live Broadcasts</h1>
+      <p className="text-white/80">
+        Watch ongoing chess tournaments with real-time Maia AI analysis
+      </p>
+    </div>
+  )
+
   if (loading) {
     return (
-      <>
-        <Head>
-          <title>Live Broadcasts – Maia Chess</title>
-          <meta
-            name="description"
-            content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
-          />
-        </Head>
-        <Loading isLoading={true}>
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="text-center">
-              <h2 className="mb-2 text-xl font-semibold">
-                Loading Live Broadcasts
-              </h2>
-              <p className="text-secondary">Fetching ongoing tournaments...</p>
-            </div>
-          </div>
-        </Loading>
-      </>
+      <div className="container relative mx-auto px-6 py-8">
+        {pageHeader}
+        <p className="animate-pulse text-center text-secondary">
+          Fetching ongoing tournaments...
+        </p>
+      </div>
     )
   }
 
   if (broadcastState.error) {
     return (
       <>
-        <Head>
-          <title>Live Broadcasts – Maia Chess</title>
-        </Head>
         <div className="flex min-h-screen items-center justify-center bg-backdrop">
           <div className="rounded-lg border border-glass-border bg-glass p-6 text-center">
             <h2 className="mb-4 text-xl font-semibold text-red-400">
@@ -133,28 +126,13 @@ const BroadcastsPage: NextPage = () => {
 
   return (
     <>
-      <Head>
-        <title>Live Broadcasts – Maia Chess</title>
-        <meta
-          name="description"
-          content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
-        />
-      </Head>
-
       <motion.div
         className="container relative mx-auto px-6 py-8"
         initial="initial"
         animate="animate"
         variants={staggerContainer}
       >
-        <motion.div className="mb-8 text-center" variants={fadeInUp}>
-          <h1 className="mb-2 text-3xl font-bold text-white">
-            Live Broadcasts
-          </h1>
-          <p className="text-white/80">
-            Watch ongoing chess tournaments with real-time Maia AI analysis
-          </p>
-        </motion.div>
+        {pageHeader}
 
         {broadcastSections.length === 0 ? (
           <motion.div
@@ -339,8 +317,17 @@ const BroadcastsPage: NextPage = () => {
 
 export default function AuthenticatedBroadcastsPage() {
   return (
-    <AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Live Broadcasts – Maia Chess</title>
+        <meta
+          name="description"
+          content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
+        />
+      </Head>
+      {/* No AuthenticatedWrapper: the list asks only Lichess, so it needn't
+          wait for the visitor's session (and renders on the server). */}
       <BroadcastsPage />
-    </AuthenticatedWrapper>
+    </>
   )
 }

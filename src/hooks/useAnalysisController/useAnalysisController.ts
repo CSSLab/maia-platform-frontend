@@ -11,6 +11,11 @@ import {
 import { AnalyzedGame, GameNode } from 'src/types'
 import type { DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
+import {
+  DEFAULT_LIVE_STOCKFISH_DEPTH,
+  MAX_LIVE_STOCKFISH_DEPTH,
+  MIN_LIVE_STOCKFISH_DEPTH,
+} from 'src/constants/analysis'
 import { useTreeController, useLocalStorage } from '..'
 import { useEngineAnalysis } from './useEngineAnalysis'
 import { useBoardDescription } from './useBoardDescription'
@@ -21,12 +26,28 @@ import { useAutoSave } from './useAutoSave'
 import { MaiaEngineContext } from 'src/contexts/MaiaEngineContext'
 import { generateColorSanMapping, calculateBlunderMeter } from './utils'
 import { StockfishEngineContext } from 'src/contexts/StockfishEngineContext'
+import { useContentStable } from 'src/hooks/useContentStable'
+
+interface MaiaModelSetting {
+  // Where the chosen Maia model is remembered, and the model before any is
+  // chosen. A page with its own default (the broadcasts) keeps its choice
+  // under its own key, so that it doesn't change the model of the analysis
+  // page, and the other way round.
+  storageKey: string
+  defaultModel: string
+}
+
+const DEFAULT_MAIA_MODEL_SETTING: MaiaModelSetting = {
+  storageKey: 'currentMaiaModel',
+  defaultModel: MAIA_MODELS[0],
+}
 
 export const useAnalysisController = (
   game: AnalyzedGame,
   initialOrientation?: 'white' | 'black',
   enableAutoSave = true,
   enableEngineAnalysis = true,
+  maiaModelSetting: MaiaModelSetting = DEFAULT_MAIA_MODEL_SETTING,
 ) => {
   const defaultOrientation = initialOrientation
     ? initialOrientation
@@ -39,6 +60,10 @@ export const useAnalysisController = (
   const controller = useTreeController(game.tree, defaultOrientation)
 
   const [analysisState, setAnalysisState] = useState(0)
+  const refreshAnalysis = useCallback(
+    () => setAnalysisState((state) => state + 1),
+    [],
+  )
   const inProgressAnalyses = useMemo(() => new Set<string>(), [])
 
   const autoSaveController = useAutoSave({
@@ -50,11 +75,26 @@ export const useAnalysisController = (
 
   const [currentMove, setCurrentMove] = useState<[string, string] | null>()
   const [currentMaiaModel, setCurrentMaiaModel] = useLocalStorage(
-    'currentMaiaModel',
-    MAIA_MODELS[0],
+    maiaModelSetting.storageKey,
+    maiaModelSetting.defaultModel,
   )
   const [showTopMoveBadges, setShowTopMoveBadges] = useLocalStorage<boolean>(
     'analysis-show-top-move-badges',
+    true,
+  )
+  // Stockfish while browsing a game: its depth, or off (Maia only).
+  const [storedStockfishDepth, setStockfishDepth] = useLocalStorage<number>(
+    'analysis-stockfish-depth',
+    DEFAULT_LIVE_STOCKFISH_DEPTH,
+  )
+  const stockfishDepth =
+    Number.isInteger(storedStockfishDepth) &&
+    storedStockfishDepth >= MIN_LIVE_STOCKFISH_DEPTH &&
+    storedStockfishDepth <= MAX_LIVE_STOCKFISH_DEPTH
+      ? storedStockfishDepth
+      : DEFAULT_LIVE_STOCKFISH_DEPTH
+  const [stockfishEnabled, setStockfishEnabled] = useLocalStorage<boolean>(
+    'analysis-stockfish-enabled',
     true,
   )
 
@@ -75,7 +115,7 @@ export const useAnalysisController = (
 
   useEffect(() => {
     if (!MAIA_MODELS.includes(currentMaiaModel)) {
-      setCurrentMaiaModel(MAIA_MODELS[0])
+      setCurrentMaiaModel(maiaModelSetting.defaultModel)
     }
   }, [currentMaiaModel, setCurrentMaiaModel])
 
@@ -86,8 +126,12 @@ export const useAnalysisController = (
     setAnalysisState,
     deepAnalysisController.progress.isAnalyzing
       ? deepAnalysisController.config.targetDepth
-      : 18,
+      : stockfishDepth,
     enableEngineAnalysis,
+    // Full-game analysis (and Learn from mistakes, which uses it) was asked
+    // for explicitly, so it runs Stockfish even when it's off.
+    stockfishEnabled || deepAnalysisController.progress.isAnalyzing,
+    !deepAnalysisController.progress.isAnalyzing,
   )
 
   const availableMoves = useMemo(() => {
@@ -105,14 +149,16 @@ export const useAnalysisController = (
     return moveMap
   }, [controller.currentNode])
 
-  const colorSanMapping = useMemo(() => {
-    if (!controller.currentNode) return {}
+  const colorSanMapping = useContentStable(
+    useMemo(() => {
+      if (!controller.currentNode) return {}
 
-    return generateColorSanMapping(
-      controller.currentNode.analysis.stockfish,
-      controller.currentNode.fen,
-    )
-  }, [controller.currentNode, analysisState])
+      return generateColorSanMapping(
+        controller.currentNode.analysis.stockfish,
+        controller.currentNode.fen,
+      )
+    }, [controller.currentNode, analysisState]),
+  )
 
   const moveEvaluation = useMemo(() => {
     if (!controller.currentNode) return null
@@ -131,13 +177,14 @@ export const useAnalysisController = (
 
   const {
     recommendations: moveRecommendations,
-    movesByRating,
+    movesByRating: latestMovesByRating,
     moveMap,
   } = useMoveRecommendations(
     controller.currentNode || null,
     moveEvaluation,
     currentMaiaModel,
   )
+  const movesByRating = useContentStable(latestMovesByRating)
 
   const boardDescription = useBoardDescription(
     controller.currentNode || null,
@@ -248,6 +295,10 @@ export const useAnalysisController = (
     setCurrentMove,
     showTopMoveBadges,
     setShowTopMoveBadges,
+    stockfishDepth,
+    setStockfishDepth,
+    stockfishEnabled,
+    setStockfishEnabled,
     moveEvaluation,
     movesByRating,
     moveRecommendations,
@@ -264,5 +315,7 @@ export const useAnalysisController = (
       autoSave: autoSaveController.autoSave,
     },
     learnFromMistakes: learnFromMistakesController,
+    /** Re-reads the analysis stored on the tree's nodes. */
+    refreshAnalysis,
   }
 }

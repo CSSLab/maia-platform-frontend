@@ -1,11 +1,86 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { buildUrl } from './utils'
+import { fetchAsGuest } from './guest'
 import { MoveValueMapping, GameTree } from 'src/types'
 import { AvailableMoves, PuzzleGame } from 'src/types/puzzle'
 
+declare global {
+  interface Window {
+    /** The first puzzle, asked for by the page's HTML (see _document.tsx). */
+    __puzzle?: Promise<any>
+  }
+}
+
+/**
+ * Why no puzzle came: the visitor has attempted every puzzle there is
+ * ('exhausted'), or the request failed ('error'), which another try may fix.
+ */
+export type PuzzleUnavailableReason = 'exhausted' | 'error'
+
+export class PuzzleUnavailableError extends Error {
+  constructor(
+    readonly reason: PuzzleUnavailableReason,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'PuzzleUnavailableError'
+  }
+}
+
+/**
+ * The puzzle in a new_puzzle response, or a PuzzleUnavailableError. A player
+ * who had attempted ~1000 puzzles got a response without one, which the page
+ * read as a puzzle, failed on, and sent them to /401, whose "Try again" asked
+ * for the same missing puzzle. What the server sends when it has no puzzle
+ * left for someone isn't known here, so any answer from it without a puzzle
+ * (an empty or puzzle-less body, or "not found") counts as having run out;
+ * other failures (server errors, a lost session, no connection) as errors.
+ */
+export const checkPuzzleResponse = (status: number, data: any) => {
+  if (status >= 200 && status < 300 && data?.puzzle_id) return data
+
+  const detail =
+    typeof data?.detail === 'string'
+      ? data.detail
+      : typeof data?.message === 'string'
+        ? data.message
+        : ''
+  // A body that isn't JSON (`undefined` here) is more likely a proxy's error
+  // page than the server's answer, except for 204 No Content.
+  const outOfPuzzles =
+    status === 204 ||
+    (status >= 200 && status < 300 && data !== undefined) ||
+    status === 404 ||
+    /no (more )?puzzles|out of puzzles|exhausted|attempted (all|every)/i.test(
+      detail,
+    )
+  throw new PuzzleUnavailableError(
+    outOfPuzzles ? 'exhausted' : 'error',
+    `new_puzzle: HTTP ${status}${detail ? ` (${detail})` : ''}`,
+  )
+}
+
+export const fetchPuzzleData = async () => {
+  // The first call takes the request the page's HTML started, which fails
+  // (and is asked again here) unless the server answered 2xx.
+  const early = typeof window !== 'undefined' ? window.__puzzle : undefined
+  if (early) {
+    delete window.__puzzle
+    const data = await early.catch(() => null)
+    if (data) return checkPuzzleResponse(200, data)
+  }
+  let res: Response
+  try {
+    res = await fetchAsGuest(buildUrl('puzzle/new_puzzle'))
+  } catch (error) {
+    throw new PuzzleUnavailableError('error', String(error))
+  }
+  const data = await res.json().catch(() => undefined)
+  return checkPuzzleResponse(res.status, data)
+}
+
 export const fetchPuzzle = async () => {
-  const res = await fetch(buildUrl('puzzle/new_puzzle'))
-  const data = await res.json()
+  const data = await fetchPuzzleData()
   const id =
     data['puzzle_id']['game_source'] +
     '-' +

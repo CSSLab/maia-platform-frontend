@@ -1,5 +1,4 @@
 import { MaiaStatus } from 'src/types'
-import { Tensor } from 'onnxruntime-web'
 
 import {
   mirrorMove,
@@ -8,12 +7,33 @@ import {
 } from './tensor'
 import { MaiaModelStorage } from './storage'
 
+/**
+ * Holds the logits the Maia worker returns. onnxruntime-web's Tensor was used
+ * for this, but importing it put the whole ORT runtime (~480 KB of minified
+ * JS) in the bundle every page loads; inference runs in the worker, which
+ * loads ORT itself.
+ */
+class Tensor {
+  constructor(
+    readonly type: 'float32',
+    readonly data: Float32Array,
+    readonly dims: readonly number[],
+  ) {}
+}
+
 interface MaiaOptions {
   model: string
   modelVersion: string
   setStatus: (status: MaiaStatus) => void
   setProgress: (progress: number) => void
   setError: (error: string) => void
+  /** Downloaded, but the browser wouldn't save it. */
+  onStoreFailed?: (
+    message: string,
+    storage: { quota_mb?: number; usage_mb?: number },
+  ) => void
+  /** Saved as plain bytes, because the browser refused it as a Blob. */
+  onStoredAsBytes?: (message: string) => void
 }
 
 interface PendingInference {
@@ -24,6 +44,35 @@ interface PendingInference {
   reject: (error: Error) => void
 }
 
+export interface MaiaInferenceOptions {
+  /** Drops the request if it is aborted before it reaches the worker. */
+  signal?: AbortSignal
+}
+
+interface QueuedInference extends PendingInference {
+  id: number
+  message: Record<string, unknown>
+  transfer: Transferable[]
+  signal?: AbortSignal
+}
+
+const abortError = () => new DOMException('Inference aborted', 'AbortError')
+
+/** maia3_simplified.onnx, which is sent compressed and so without a length. */
+const MAIA_MODEL_BYTES = 45_683_686
+
+/**
+ * Starting ONNX Runtime reserves a shared WebAssembly memory of up to 4 GB.
+ * On an iPhone, reloading the analysis page can fail that reservation
+ * ("no available backend found. ERR: [wasm] RangeError: Out of memory")
+ * while the previous page's memory is still held. ONNX Runtime does not try
+ * again in the same worker, so Maia starts again in a new one, a little
+ * later, before reporting an error.
+ */
+export const MAIA_RESTART_DELAYS_MS = [1000, 3000, 8000, 15000]
+const isRuntimeStartFailure = (message: string) =>
+  /out of memory|initWasm/i.test(message)
+
 interface PendingDownload {
   resolve: () => void
   reject: (error: Error) => void
@@ -31,12 +80,24 @@ interface PendingDownload {
 
 class Maia {
   private worker: Worker | null = null
+  private downloadListeners = new Set<() => void>()
+  private reportedTens = 0
+  /** How far the download is, for showing it. */
+  public downloadPercent = 0
+  public downloadStartedAt = 0
   private options: MaiaOptions
   private storage: MaiaModelStorage
   private pendingInferences: Map<number, PendingInference> = new Map()
+  /**
+   * Requests wait here and go to the worker one at a time, so stale ones can
+   * be dropped (the worker would otherwise run every queued request in order).
+   */
+  private queue: QueuedInference[] = []
+  private inFlightId: number | null = null
   private pendingDownload: PendingDownload | null = null
   private downloadPromise: Promise<void> | null = null
   private nextRequestId = 0
+  private restarts = 0
 
   constructor(options: MaiaOptions) {
     this.options = options
@@ -65,8 +126,23 @@ class Maia {
           }
           break
 
-        case 'progress':
-          this.options.setProgress(msg.progress)
+        case 'progress': {
+          this.downloadPercent = msg.progress
+          this.downloadListeners.forEach((listener) => listener())
+          const tens = Math.floor(msg.progress / 10) * 10
+          if (tens !== this.reportedTens) {
+            this.reportedTens = tens
+            this.options.setProgress(tens)
+          }
+          break
+        }
+
+        case 'store-failed':
+          this.options.onStoreFailed?.(msg.message, msg.storage ?? {})
+          break
+
+        case 'stored-as-bytes':
+          this.options.onStoredAsBytes?.(msg.message)
           break
 
         case 'error': {
@@ -76,6 +152,12 @@ class Maia {
               pending.reject(new Error(msg.message))
               this.pendingInferences.delete(msg.id)
             }
+            this.inferenceSettled(msg.id)
+          } else if (
+            isRuntimeStartFailure(msg.message) &&
+            this.restarts < MAIA_RESTART_DELAYS_MS.length
+          ) {
+            this.restart(modelUrl, modelVersion)
           } else {
             this.options.setError(msg.message)
             this.options.setStatus('error')
@@ -95,6 +177,7 @@ class Maia {
             })
             this.pendingInferences.delete(msg.id)
           }
+          this.inferenceSettled(msg.id)
           break
         }
       }
@@ -108,9 +191,40 @@ class Maia {
       this.pendingDownload?.reject(error)
       this.pendingDownload = null
       this.downloadPromise = null
+      for (const pending of Array.from(this.pendingInferences.values())) {
+        pending.reject(error)
+      }
+      this.pendingInferences.clear()
+      for (const job of this.queue.splice(0)) job.reject(error)
+      this.inFlightId = null
     }
 
     this.worker.postMessage({ type: 'init', modelUrl, modelVersion })
+  }
+
+  /**
+   * Starts Maia in a new worker after a delay. A download in progress is
+   * resolved when the new worker reports that the model is ready (the worker
+   * stores the model before starting the runtime).
+   */
+  private restart(modelUrl: string, modelVersion: string) {
+    const delay = MAIA_RESTART_DELAYS_MS[this.restarts++]
+    this.worker?.terminate()
+    this.worker = null
+    this.options.setStatus('loading')
+    setTimeout(() => this.initialize(modelUrl, modelVersion), delay)
+  }
+
+  /** How many times Maia has started again for lack of memory. */
+  public get restartCount() {
+    return this.restarts
+  }
+
+  public onDownloadProgress = (listener: () => void) => {
+    this.downloadListeners.add(listener)
+    return () => {
+      this.downloadListeners.delete(listener)
+    }
   }
 
   public async downloadModel() {
@@ -119,11 +233,17 @@ class Maia {
       return this.downloadPromise
     }
 
+    this.reportedTens = 0
+    this.downloadPercent = 0
+    this.downloadStartedAt = Date.now()
     this.options.setProgress(0)
 
     this.downloadPromise = new Promise<void>((resolve, reject) => {
       this.pendingDownload = { resolve, reject }
-      this.worker!.postMessage({ type: 'download' })
+      this.worker!.postMessage({
+        type: 'download',
+        expectedBytes: MAIA_MODEL_BYTES,
+      })
     })
 
     return this.downloadPromise
@@ -142,19 +262,21 @@ class Maia {
     eloSelfs: Float32Array,
     eloOppos: Float32Array,
     batchSize: number,
+    options: MaiaInferenceOptions = {},
   ): Promise<{ logitsMove: Float32Array; logitsValue: Float32Array }> {
     if (!this.worker) {
       return Promise.reject(new Error('Worker not initialized'))
     }
+    const { signal } = options
+    if (signal?.aborted) return Promise.reject(abortError())
 
     const id = this.nextRequestId++
 
     return new Promise((resolve, reject) => {
-      this.pendingInferences.set(id, { resolve, reject })
-
-      // Transfer ArrayBuffers for zero-copy send
-      this.worker!.postMessage(
-        {
+      const job: QueuedInference = {
+        id,
+        // Transfer the ArrayBuffers for a zero-copy send
+        message: {
           type: 'inference',
           id,
           tokens: tokens.buffer,
@@ -162,9 +284,44 @@ class Maia {
           eloOppos: eloOppos.buffer,
           batchSize,
         },
-        [tokens.buffer, eloSelfs.buffer, eloOppos.buffer],
+        transfer: [tokens.buffer, eloSelfs.buffer, eloOppos.buffer],
+        signal,
+        resolve,
+        reject,
+      }
+      signal?.addEventListener(
+        'abort',
+        () => {
+          const index = this.queue.indexOf(job)
+          if (index >= 0) {
+            this.queue.splice(index, 1)
+            reject(abortError())
+          }
+        },
+        { once: true },
       )
+      this.queue.push(job)
+      this.pumpInferences()
     })
+  }
+
+  /** Sends the oldest queued request when the worker is free. */
+  private pumpInferences() {
+    if (this.inFlightId !== null || !this.worker) return
+    const job = this.queue.shift()
+    if (!job) return
+    this.pendingInferences.set(job.id, {
+      resolve: job.resolve,
+      reject: job.reject,
+    })
+    this.inFlightId = job.id
+    this.worker.postMessage(job.message, job.transfer)
+  }
+
+  private inferenceSettled(id: number) {
+    if (id !== this.inFlightId) return
+    this.inFlightId = null
+    this.pumpInferences()
   }
 
   /**
@@ -174,7 +331,9 @@ class Maia {
     const { boardTokens, legalMoves } = preprocessMaia3(board)
 
     const { logitsMove, logitsValue } = await this.runInference(
-      boardTokens,
+      // a copy: the tokens are transferred to the worker, and preprocessMaia3
+      // keeps its result for the next request
+      boardTokens.slice(),
       Float32Array.from([eloSelf]),
       Float32Array.from([eloOppo]),
       1,
@@ -193,6 +352,7 @@ class Maia {
     boards: string[],
     eloSelfs: number[],
     eloOppos: number[],
+    options?: MaiaInferenceOptions,
   ) {
     const batchSize = boards.length
     const boardInputs: Float32Array[] = []
@@ -215,6 +375,7 @@ class Maia {
       Float32Array.from(eloSelfs),
       Float32Array.from(eloOppos),
       batchSize,
+      options,
     )
     const end = performance.now()
 

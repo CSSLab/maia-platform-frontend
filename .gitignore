@@ -39,7 +39,6 @@ yarn-error.log*
 
 # Large model weights
 /public/maia2/*.onnx
-/public/stockfish/*.nnue
 
 # Maia3 training code and checkpoints
 /maia3_code/

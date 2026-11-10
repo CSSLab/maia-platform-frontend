@@ -1,8 +1,9 @@
 import { buildUrl } from './utils'
+import { fetchAsGuest } from './guest'
 import { Color, TuringGame, TuringSubmissionResult, GameTree } from 'src/types'
 
 export const fetchTuringGame = async () => {
-  const res = await fetch(buildUrl('turing/new_game'))
+  const res = await fetchAsGuest(buildUrl('turing/new_game'))
 
   if (res.status === 401) {
     throw new Error('Unauthorized')

@@ -1,3 +1,15 @@
+import {
+  trackMaiaEngineFailed,
+  trackMaiaEngineReady,
+  trackMaiaModelLost,
+  trackMaiaModelProtected,
+  trackMaiaModelStoreFailed,
+  trackMaiaModelStoredAsBytes,
+} from 'src/lib/analytics'
+import {
+  protectMaiaModel,
+  takeLostMaiaModelAge,
+} from 'src/lib/engine/maiaDownloadPrompt'
 import Maia from '../lib/engine/maia'
 import { MaiaStatus, MaiaEngine } from 'src/types'
 import React, {
@@ -32,6 +44,8 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
   const toastId = useRef<string | null>(null)
   const loadingToastTimerRef = useRef<number | null>(null)
 
+  const storeFailed = useRef(false)
+
   const maia = useMemo(() => {
     const model = new Maia({
       model:
@@ -41,6 +55,11 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
       setStatus: setStatus,
       setProgress: setProgress,
       setError: setError,
+      onStoreFailed: (message, storage) => {
+        storeFailed.current = true
+        trackMaiaModelStoreFailed(message, storage)
+      },
+      onStoredAsBytes: trackMaiaModelStoredAsBytes,
     })
     return model
   }, [])
@@ -49,9 +68,11 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
     try {
       setStatus('downloading')
       await maia.downloadModel()
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download model')
       setStatus('error')
+      return false
     }
   }, [maia])
 
@@ -62,6 +83,39 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
   const clearStorage = useCallback(async () => {
     return await maia.clearStorage()
   }, [maia])
+
+  // The download should only ever happen once: ask the browser to keep the
+  // model, and report it if the browser has lost one it had.
+  useEffect(() => {
+    if (status === 'ready' && !storeFailed.current) {
+      protectMaiaModel().then((granted) => {
+        if (granted !== null) trackMaiaModelProtected(granted)
+      })
+    } else if (status === 'no-cache') {
+      const days = takeLostMaiaModelAge()
+      if (days !== null) trackMaiaModelLost(days)
+    }
+  }, [status])
+
+  // How Maia's start went, once a page (a download doesn't count as a start).
+  const startedAt = useRef(Date.now())
+  const startReported = useRef(false)
+  useEffect(() => {
+    if (status === 'no-cache' || status === 'downloading') {
+      startReported.current = true
+    }
+    if (startReported.current || (status !== 'ready' && status !== 'error')) {
+      return
+    }
+    startReported.current = true
+    const page = window.location.pathname.split('/')[1] || 'home'
+    const seconds = (Date.now() - startedAt.current) / 1000
+    if (status === 'ready') {
+      trackMaiaEngineReady(seconds, page, maia.restartCount)
+    } else {
+      trackMaiaEngineFailed(error ?? '', seconds, page, maia.restartCount)
+    }
+  }, [status, error, maia])
 
   // Toast notifications for Maia model status
   useEffect(() => {

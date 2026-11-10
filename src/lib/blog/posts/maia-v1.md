@@ -79,18 +79,18 @@ In the analysis above, we looked at a number of different Leela generations, wit
 
 # Maia
 
-Maia is an engine designed to play like humans at a particular skill level. To achieve this, we adapted the AlphaZero/Leela Chess framework to learn from human games. We created 9 different versions, one for each rating range from 1100-1199 to 1900-1999. We made 9 training datasets in the same way that we made the test datasets (described above), with each training set containing 12 million games. We then trained a separate Maia model for each rating bin to create our 9 Maias, from Maia 1100 to Maia 1900.
+Maia is an engine designed to play like humans at a particular skill level. To achieve this, we adapted the AlphaZero/Leela Chess framework to learn from human games. We created 9 different versions, one for each rating range from 1100-1199 to 1900-1999. We made 9 training datasets in the same way that we made the test datasets (described above), with each training set containing 12 million games. We then trained a separate Maia model for each rating bin to create our 9 Maias, from Maia-1 1100 to Maia-1 1900.
 
 ![Move matching accuracy for Maia compared with the targeted player's ELO rating](/blog/maia_lineplot.svg)
 
 As you can see, the Maia results are qualitatively different from Stockfish and Leela. First off, the move matching performance is much higher: Maia's _lowest_ accuracy, when it is trained on 1900-rated players but predicts moves
 made by 1100-rated players, is 46% -- is as high as the best performance
 achieved by any Stockfish or Leela model on any human skill level we
-tested. Maia's highest accuracy is over 52%. Over half the time, Maia 1900 predicts _the exact move_ a 1900-rated human played in an actual game.
+tested. Maia's highest accuracy is over 52%. Over half the time, Maia-1 1900 predicts _the exact move_ a 1900-rated human played in an actual game.
 
 ![Move matching accuracy for all the models compared with the targeted player's ELO rating](/blog/all_lineplot.svg)
 
-Importantly, every version of Maia uniquely captures a specific human skill level, since every curve achieves its maximum accuracy at a different human rating. Even Maia 1100 achieves over 50% accuracy in predicting 1100-rated moves, and is much better at predicting 1100-rated players than 1900-rated players!
+Importantly, every version of Maia uniquely captures a specific human skill level, since every curve achieves its maximum accuracy at a different human rating. Even Maia-1 1100 achieves over 50% accuracy in predicting 1100-rated moves, and is much better at predicting 1100-rated players than 1900-rated players!
 
 This means something deep about chess: there is such a thing as "1100-rated style". And furthermore, it can be captured by a machine learning model. This was surprising to us: it would have been possible that human play is a mixture of good moves and random blunders, with 1100-rated players blundering more often and 1900-rated players blundering less often. Then it would have been impossible to capture 1100-rated style, because random blunders are impossible to predict. But since we _can_ predict human play at different levels, there is a reliable, predictable, and maybe even algorithmically teachable difference between one human skill level and the next.
 
@@ -112,7 +112,7 @@ In this position, Maia levels 1100–1400 correctly predict that White will play
 
 # Personalizing to Individual Players
 
-Next, we tried pushing the modeling of human play to the next level: could we predict the moves a _particular_ human player would make? It turns out that personalizing Maia gives us our biggest performance gains. We achieve these results by fine-tuning Maia: starting with a base Maia, say Maia 1900, we update the model by continuing training on an individual player's games. This approach allows personalized Maias to achieve up to 65% accuracy at predicting particular players' moves.
+Next, we tried pushing the modeling of human play to the next level: could we predict the moves a _particular_ human player would make? It turns out that personalizing Maia gives us our biggest performance gains. We achieve these results by fine-tuning Maia: starting with a base Maia, say Maia-1 1900, we update the model by continuing training on an individual player's games. This approach allows personalized Maias to achieve up to 65% accuracy at predicting particular players' moves.
 
 ![By targeting a specific player we can get even higher move prediction accuracy compared to Maias targeting just the player's rating](/blog/maia_transfer_val_accs.svg)
 
@@ -120,7 +120,7 @@ The paper for this work is available [here](https://www.cs.toronto.edu/~ashton/p
 
 # Play Maia and More
 
-You can play against Maia yourself on Lichess! You can play [Maia 1100](https://lichess.org/@/maia1), [Maia 1500](https://lichess.org/@/maia5), and [Maia 1900](https://lichess.org/@/maia9).
+You can play against Maia yourself on Lichess! You can play [Maia-1 1100](https://lichess.org/@/maia1), [Maia-1 1500](https://lichess.org/@/maia5), and [Maia-1 1900](https://lichess.org/@/maia9).
 
 Maia is an ongoing research project using chess as a case study for how to design better human-AI interactions. We hope Maia becomes a useful learning tool and is fun to play against. Our research goals include personalizing Maia to individual players, characterizing the kinds of mistakes that are made at each rating level, running Maia on your games and spotting repeated, predictable mistakes, and more.
 

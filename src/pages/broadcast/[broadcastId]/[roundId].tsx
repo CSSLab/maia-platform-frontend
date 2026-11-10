@@ -6,18 +6,26 @@ import { AnimatePresence } from 'framer-motion'
 
 import { Loading } from 'src/components'
 import { AuthenticatedWrapper } from 'src/components/Common/AuthenticatedWrapper'
-import { DownloadModelModal } from 'src/components/Common/DownloadModelModal'
+import { MaiaDownloadPrompt } from 'src/components/Common/MaiaDownloadPrompt'
 import { useBroadcastController } from 'src/hooks/useBroadcastController'
 import { useAnalysisController } from 'src/hooks'
 import { TreeControllerContext } from 'src/contexts'
 import { BroadcastAnalysis } from 'src/components/Analysis/BroadcastAnalysis'
 import {
   AnalyzedGame,
-  Broadcast,
   BroadcastStreamController,
   LiveGame,
   GameTree,
 } from 'src/types'
+import { ENGINE_PROVIDERS } from 'src/contexts/pageProviders'
+
+// Broadcasts open with the strongest Maia, as the players are strong. The
+// model is remembered under its own key: a model picked here stays from game
+// to game, and doesn't change the one on the analysis page.
+const BROADCAST_MAIA_MODEL_SETTING = {
+  storageKey: 'broadcastMaiaModel',
+  defaultModel: 'maia_kdd_2600',
+}
 
 const BroadcastAnalysisPage: NextPage = () => {
   const router = useRouter()
@@ -29,10 +37,16 @@ const BroadcastAnalysisPage: NextPage = () => {
   const broadcastController = useBroadcastController()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // The round being opened: the effect runs again when the broadcast list
+  // loads, and must not open the round a second time.
+  const initializedFor = useRef<string | null>(null)
 
   useEffect(() => {
     const initializeBroadcast = async () => {
       if (!broadcastId || !roundId) return
+      const key = `${broadcastId}/${roundId}`
+      if (initializedFor.current === key) return
+      initializedFor.current = key
 
       try {
         setLoading(true)
@@ -43,29 +57,20 @@ const BroadcastAnalysisPage: NextPage = () => {
           await broadcastController.loadBroadcasts()
         }
 
-        // Find and select the broadcast across all sections
-        let broadcast: Broadcast | undefined
-        for (const section of broadcastController.broadcastSections) {
-          broadcast = section.broadcasts.find((b) => b.tour.id === broadcastId)
-          if (broadcast) break
-        }
-
-        if (!broadcast) {
-          // throw new Error('Broadcast not found')
-          return
-        }
-
-        // Find the round
-        const round = broadcast.rounds.find(
-          (r: { id: string }) => r.id === roundId,
+        // Select the broadcast and the round, fetched by the broadcast's id:
+        // the broadcast list holds only live, upcoming and recent
+        // broadcasts, so an older one (e.g. from a shared link) is not in
+        // it.
+        const broadcast = await broadcastController.selectBroadcast(
+          broadcastId,
+          roundId,
         )
-        if (!round) {
+        if (!broadcast) {
+          throw new Error('Broadcast not found')
+        }
+        if (!broadcast.rounds.some((r) => r.id === roundId)) {
           throw new Error('Round not found')
         }
-
-        // Select broadcast and round
-        await broadcastController.selectBroadcast(broadcastId)
-        broadcastController.selectRound(roundId)
 
         setLoading(false)
       } catch (err) {
@@ -114,25 +119,9 @@ const BroadcastAnalysisPage: NextPage = () => {
     currentGame,
     undefined,
     false,
+    true,
+    BROADCAST_MAIA_MODEL_SETTING,
   )
-  const defaultModelAppliedForGameId = useRef<string | null>(null)
-
-  useEffect(() => {
-    const gameId = broadcastController.currentGame?.id
-    if (!gameId) return
-
-    if (defaultModelAppliedForGameId.current === gameId) return
-
-    defaultModelAppliedForGameId.current = gameId
-
-    if (analysisController.currentMaiaModel === 'maia_kdd_2600') return
-
-    analysisController.setCurrentMaiaModel('maia_kdd_2600')
-  }, [
-    broadcastController.currentGame?.id,
-    analysisController.currentMaiaModel,
-    analysisController.setCurrentMaiaModel,
-  ])
 
   // Auto-follow live moves for the selected game
   const lastGameMoveCount = useRef(0)
@@ -150,10 +139,6 @@ const BroadcastAnalysisPage: NextPage = () => {
 
         // If new moves have been added to the game
         if (currentMoveCount > lastGameMoveCount.current) {
-          console.log(
-            `New move detected: ${lastGameMoveCount.current} -> ${currentMoveCount}`,
-          )
-
           // Find the last node in the main line
           const lastNode = mainLine[mainLine.length - 1]
 
@@ -163,7 +148,6 @@ const BroadcastAnalysisPage: NextPage = () => {
             lastNode === analysisController.currentNode
 
           if (isAtLatestPosition) {
-            console.log('Auto-following to new move')
             analysisController.setCurrentNode(lastNode)
           }
 
@@ -265,16 +249,9 @@ const BroadcastAnalysisPage: NextPage = () => {
         <meta name="description" content={pageDescription} />
       </Head>
 
-      <AnimatePresence>
-        {analysisController &&
-        (analysisController.maia.status === 'no-cache' ||
-          analysisController.maia.status === 'downloading') ? (
-          <DownloadModelModal
-            progress={analysisController.maia.progress}
-            download={analysisController.maia.downloadModel}
-          />
-        ) : null}
-      </AnimatePresence>
+      {analysisController ? (
+        <MaiaDownloadPrompt engine={analysisController.maia} />
+      ) : null}
 
       <TreeControllerContext.Provider value={analysisController}>
         {!(broadcastController as any).currentLiveGame?.loaded &&
@@ -304,8 +281,19 @@ const BroadcastAnalysisPage: NextPage = () => {
 
 export default function AuthenticatedBroadcastAnalysisPage() {
   return (
-    <AuthenticatedWrapper>
-      <BroadcastAnalysisPage />
-    </AuthenticatedWrapper>
+    <>
+      <Head>
+        <title>Live Broadcast – Maia Chess</title>
+        <meta
+          name="description"
+          content="Watch live chess tournaments and broadcasts with real-time Maia AI analysis."
+        />
+      </Head>
+      <AuthenticatedWrapper>
+        <BroadcastAnalysisPage />
+      </AuthenticatedWrapper>
+    </>
   )
 }
+
+AuthenticatedBroadcastAnalysisPage.providers = ENGINE_PROVIDERS

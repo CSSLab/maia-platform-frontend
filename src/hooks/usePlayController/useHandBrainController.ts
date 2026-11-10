@@ -2,14 +2,20 @@ import { PieceSymbol, Chess } from 'chess.ts'
 import type { Key } from 'chessground/types'
 import { backOff } from 'exponential-backoff'
 import type { DrawShape } from 'chessground/draw'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { PlayGameConfig } from 'src/types'
 import { useStats } from 'src/hooks/useStats'
 import { usePlayController } from './usePlayController'
-import { fetchGameMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
+import { fetchMaiaMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
+import {
+  dismissMaiaMoveFailedToast,
+  reportMaiaMoveFailed,
+} from 'src/components/Common/maiaMoveFailedToast'
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
+import { initialClockSeconds } from 'src/lib/timeControl'
+import { useGameLog } from './useGameLog'
 
 const brainStatsLoader = async () => {
   const stats = await fetchPlayPlayerStats()
@@ -43,6 +49,9 @@ export const useHandBrainController = (
   )
 
   const [brainMoves, setBrainMoves] = useState<string[]>([])
+  // Asks Maia again (for a piece, or a move) after a request that failed.
+  const [maiaAttempt, setMaiaAttempt] = useState(0)
+  const retryMaia = useCallback(() => setMaiaAttempt((n) => n + 1), [])
 
   const [stats, incrementStats, updateRating] = useStats(
     isBrain ? brainStatsLoader : handStatsLoader,
@@ -73,20 +82,22 @@ export const useHandBrainController = (
       let canceled = false
 
       const maiaChoosePiece = async () => {
-        const maiaMoves = await backOff(
-          () =>
-            fetchGameMove(
-              controller.moveList,
-              playGameConfig.maiaPartnerVersion,
-              playGameConfig.startFen,
-            ),
-          {
-            jitter: 'full',
-          },
-        )
-        const nextMove = maiaMoves['top_move']
+        let maiaMoves
+        try {
+          maiaMoves = await fetchMaiaMove(
+            controller.moveList,
+            playGameConfig.maiaPartnerVersion,
+            playGameConfig.startFen,
+          )
+        } catch (error) {
+          if (!canceled) reportMaiaMoveFailed(error, retryMaia)
+          return
+        }
+        dismissMaiaMoveFailedToast()
+        const nextMove: string = maiaMoves['top_move']
 
-        const pieceType = controller.pieces[nextMove.substring(0, 2)].type
+        const pieceType = controller.pieces[nextMove.substring(0, 2)]?.type
+        if (!pieceType) return
 
         if (!canceled) {
           setSelectedPiece(pieceType)
@@ -109,6 +120,8 @@ export const useHandBrainController = (
     playGameConfig.maiaPartnerVersion,
     playGameConfig.startFen,
     selectedPiece,
+    maiaAttempt,
+    retryMaia,
   ])
 
   const makePlayerMove = useCallback(
@@ -136,30 +149,29 @@ export const useHandBrainController = (
         (controller.player == 'white'
           ? controller.blackClock
           : controller.whiteClock) / 1000
-      const initialClock = controller.timeControl.includes('+')
-        ? parseInt(controller.timeControl.split('+')[0]) * 60
-        : 0
+      const initialClock = initialClockSeconds(controller.timeControl)
 
-      const maiaMoves = await backOff(
-        () =>
-          fetchGameMove(
-            controller.moveList,
-            playGameConfig.maiaVersion,
-            playGameConfig.startFen,
-            null,
-            simulateMaiaTime ? initialClock : 0,
-            simulateMaiaTime ? maiaClock : 0,
-          ),
-        {
-          jitter: 'full',
-        },
-      )
-      const nextMove = maiaMoves['top_move']
+      let maiaMoves
+      try {
+        maiaMoves = await fetchMaiaMove(
+          controller.moveList,
+          playGameConfig.maiaVersion,
+          playGameConfig.startFen,
+          null,
+          simulateMaiaTime ? initialClock : 0,
+          simulateMaiaTime ? maiaClock : 0,
+        )
+      } catch (error) {
+        if (!canceled) reportMaiaMoveFailed(error, retryMaia)
+        return
+      }
+      const nextMove: string = maiaMoves['top_move']
       const moveDelay = maiaMoves['move_delay']
 
       if (canceled) {
         return
       }
+      dismissMaiaMoveFailedToast()
 
       moveTimeout = setTimeout(
         () => {
@@ -201,28 +213,32 @@ export const useHandBrainController = (
     playGameConfig.maiaVersion,
     playGameConfig.startFen,
     simulateMaiaTime,
+    maiaAttempt,
+    retryMaia,
   ])
 
   const selectPiece = useCallback(
     async (piece: PieceSymbol) => {
       if (movablePieceTypes.has(piece)) {
         setSelectedPiece(piece)
-        setBrainMoves([...brainMoves, piece])
 
-        const maiaMoves = await backOff(
-          () =>
-            fetchGameMove(
-              controller.moveList,
-              playGameConfig.maiaPartnerVersion,
-              playGameConfig.startFen,
-              piece,
-            ),
-          {
-            jitter: 'full',
-          },
-        )
-        const nextMove = maiaMoves['top_move']
-        makePlayerMove(nextMove)
+        let maiaMoves
+        try {
+          maiaMoves = await fetchMaiaMove(
+            controller.moveList,
+            playGameConfig.maiaPartnerVersion,
+            playGameConfig.startFen,
+            piece,
+          )
+        } catch (error) {
+          // The piece can be chosen again, or Try again asks for this one.
+          setSelectedPiece(undefined)
+          reportMaiaMoveFailed(error, () => selectPieceRef.current?.(piece))
+          return
+        }
+        dismissMaiaMoveFailedToast()
+        setBrainMoves([...brainMoves, piece])
+        makePlayerMove(maiaMoves['top_move'])
       }
     },
     [
@@ -234,6 +250,10 @@ export const useHandBrainController = (
       brainMoves,
     ],
   )
+
+  // Try again calls the latest selectPiece, with the latest position.
+  const selectPieceRef = useRef(selectPiece)
+  selectPieceRef.current = selectPiece
 
   const boardShapes: DrawShape[] = useMemo(() => {
     if (!isBrain && selectedPiece) {
@@ -257,53 +277,42 @@ export const useHandBrainController = (
     controller.reset()
   }
 
-  useEffect(() => {
-    const gameOverState = controller.game.termination?.type || 'not_over'
+  const gameOverState = controller.game.termination?.type || 'not_over'
+  useGameLog({
+    gameId: controller.game.id,
+    plies: controller.moveList.length,
+    state: gameOverState,
+    send: (leaving) => {
+      const winner = controller.game.termination?.winner
+      const log = (keepalive: boolean) =>
+        logGameMove(
+          controller.game.id,
+          controller.moveList,
+          controller.moveTimes,
+          gameOverState,
+          playGameConfig.isBrain ? 'brain' : 'hand',
+          playGameConfig.startFen || undefined,
+          winner,
+          brainMoves,
+          { keepalive },
+        )
 
-    if (controller.moveList.length == 0 && gameOverState == 'not_over') {
-      return
-    }
-
-    const winner = controller.game.termination?.winner
-
-    const submitFn = async () => {
-      const response = await backOff(
-        () =>
-          logGameMove(
-            controller.game.id,
-            controller.moveList,
-            controller.moveTimes,
-            gameOverState,
-            playGameConfig.isBrain ? 'brain' : 'hand',
-            playGameConfig.startFen || undefined,
-            winner,
-            brainMoves,
-          ),
-        {
-          jitter: 'full',
-        },
-      )
-      if (controller.game.termination) {
-        const winner = controller.game.termination?.winner
-
-        // Safely update rating - only if the response contains a valid rating
-        safeUpdateRating(response.player_elo, updateRating)
-        incrementStats(1, winner == playGameConfig.player ? 1 : 0)
+      if (leaving) {
+        log(true).catch(() => undefined)
+        return
       }
-    }
-    submitFn()
-  }, [
-    controller.game.id,
-    controller.moveList,
-    controller.game.termination,
-    controller.moveTimes,
-    playGameConfig.startFen,
-    playGameConfig.isBrain,
-    brainMoves,
-    playGameConfig.player,
-    incrementStats,
-    updateRating,
-  ])
+
+      const submitFn = async () => {
+        const response = await backOff(() => log(false), { jitter: 'full' })
+        if (controller.game.termination) {
+          // Safely update rating - only if the response contains a valid rating
+          safeUpdateRating(response.player_elo, updateRating)
+          incrementStats(1, winner == playGameConfig.player ? 1 : 0)
+        }
+      }
+      submitFn()
+    },
+  })
 
   return {
     ...controller,

@@ -11,6 +11,7 @@ import {
   fetchTuringPlayerStats,
   submitTuringGuess,
 } from 'src/api'
+import { trackTuringSubmissionMade } from 'src/lib/analytics'
 
 const statsLoader = async () => {
   const stats = await fetchTuringPlayerStats()
@@ -69,6 +70,13 @@ export const useTuringController = () => {
     async (guess: Color, comment = '', rating?: number) => {
       if (game && !game.result) {
         const result = await submitTuringGuess(game.id, guess, comment)
+        trackTuringSubmissionMade(
+          game.id,
+          guess,
+          result.correct,
+          result.turingElo,
+          comment.length > 0,
+        )
         setTuringGames(
           turingGames.map((g, index) =>
             index === currentIndex

@@ -2,7 +2,8 @@ import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
 import { MoveTooltip } from './MoveTooltip'
 import { InteractiveDescription } from './InteractiveDescription'
-import { useState, useEffect, useRef, useContext } from 'react'
+import { TablebasePanel } from './TablebasePanel'
+import { useState, useEffect, useRef, useContext, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MaiaEvaluation,
@@ -11,7 +12,12 @@ import {
   GameNode,
 } from 'src/types'
 import { MAIA_MODELS } from 'src/constants/common'
-import { WindowSizeContext } from 'src/contexts'
+import { MaiaEngineContext, WindowSizeContext } from 'src/contexts'
+import {
+  MAIA_DOWNLOAD_MB,
+  startMaiaDownload,
+} from 'src/lib/engine/maiaDownloadPrompt'
+import type { TablebaseResult } from 'src/lib/tablebase'
 
 type DescriptionSegment =
   | { type: 'text'; content: string }
@@ -43,6 +49,10 @@ interface Props {
   simplified?: boolean
   hideStockfishEvalSummary?: boolean
   hideWhiteWinRateSummary?: boolean
+  /** Stockfish is turned off in the analysis settings (Maia only). */
+  stockfishOff?: boolean
+  /** The endgame tablebase's result, for positions with at most 7 pieces. */
+  tablebase?: TablebaseResult | null
 }
 
 export const Highlight: React.FC<Props> = ({
@@ -59,20 +69,24 @@ export const Highlight: React.FC<Props> = ({
   simplified = false,
   hideStockfishEvalSummary = false,
   hideWhiteWinRateSummary = false,
+  stockfishOff = false,
+  tablebase = null,
 }: Props) => {
+  const maiaEngine = useContext(MaiaEngineContext)
   const { isMobile } = useContext(WindowSizeContext)
 
-  // Check if current position is checkmate (independent of Stockfish analysis)
-  const isCurrentPositionCheckmate = currentNode
-    ? (() => {
-        try {
-          const chess = new Chess(currentNode.fen)
-          return chess.inCheckmate()
-        } catch {
-          return false
-        }
-      })()
-    : false
+  // Check if current position is checkmate (independent of Stockfish
+  // analysis). Once per position: it generates every legal move, and this
+  // panel re-renders on every engine update.
+  const fen = currentNode?.fen
+  const isCurrentPositionCheckmate = useMemo(() => {
+    if (!fen) return false
+    try {
+      return new Chess(fen).inCheckmate()
+    } catch {
+      return false
+    }
+  }, [fen])
 
   const currentTurn: 'w' | 'b' =
     currentNode?.turn || (recommendations.isBlackTurn ? 'b' : 'w')
@@ -354,13 +368,39 @@ export const Highlight: React.FC<Props> = ({
     }
   }, [boardDescription?.segments?.length])
 
+  // In the stacked (phone) layout the page flows below this panel, so the
+  // move lists keep room for their 4 rows and the description for 4 lines:
+  // emptied on every move and filled again as Maia and Stockfish answer,
+  // they moved everything below up and down by 50-80 px each time.
+  const emptyRows = (shown: number) =>
+    isMobile
+      ? Array.from({ length: Math.max(0, 4 - shown) }, (_, index) => (
+          <div
+            key={`empty-${index}`}
+            aria-hidden
+            className="invisible flex w-full"
+          >
+            <p
+              className={`font-mono ${simplified ? 'text-sm' : 'text-sm md:text-xxs xl:text-xs'}`}
+            >
+              &nbsp;
+            </p>
+          </div>
+        ))
+      : null
+
   const useCompactMobileColumnTitles = isMobile || simplified
   const maiaRating = currentMaiaModel.replace('maia_kdd_', '')
-  const mobileMaiaColumnTitle = `Maia ${maiaRating}: Human Moves`
-  const mobileStockfishColumnTitle = 'SF 17: Engine Moves'
+  const mobileMaiaColumnTitle = `Maia-3 ${maiaRating}: Human Moves`
+  const mobileStockfishColumnTitle = 'SF 19: Engine Moves'
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
-  const compactTitleTextClass = 'text-sm font-semibold leading-none'
+  const compactTitleTextClass = 'font-semibold leading-none'
+  // Compact titles are one line, "Maia-3 1600: Human Moves" beside "SF 19:
+  // Engine Moves", in two equal columns of a panel as narrow as 360px. Both
+  // are one size, which follows the panel's width (cqi: 1% of it) so that
+  // the longer Maia title fits its half, up to 14px.
+  const compactTitleStyle = { fontSize: 'min(2.85cqi, 14px)' }
   const splitTitleTextClass =
     'text-sm font-semibold leading-none md:text-xxs lg:text-xs'
   const stockfishDepth = moveEvaluation?.stockfish?.depth
@@ -389,9 +429,12 @@ export const Highlight: React.FC<Props> = ({
       className="flex h-full w-full flex-col border-glass-border bg-transparent"
     >
       <div
-        className={`grid grid-cols-2 border-b border-glass-border ${
-          simplified ? 'grid-cols-1' : ''
-        }`}
+        className="grid grid-cols-2 border-b border-glass-border"
+        style={
+          useCompactMobileColumnTitles
+            ? { containerType: 'inline-size' }
+            : undefined
+        }
       >
         <div
           className={`flex flex-col items-center justify-start border-r border-glass-border ${
@@ -407,24 +450,29 @@ export const Highlight: React.FC<Props> = ({
           >
             {isHomePage ? (
               <div
-                className={`text-center text-human-1 ${
+                className={`whitespace-nowrap text-center text-human-1 ${
                   useCompactMobileColumnTitles
                     ? compactTitleTextClass
                     : splitTitleTextClass
                 }`}
+                style={
+                  useCompactMobileColumnTitles ? compactTitleStyle : undefined
+                }
               >
                 {useCompactMobileColumnTitles
                   ? mobileMaiaColumnTitle
-                  : `Maia ${maiaRating}`}
+                  : `Maia-3 ${maiaRating}`}
               </div>
             ) : (
               <>
                 {useCompactMobileColumnTitles ? (
                   <div
-                    className={`flex items-center justify-center pr-4 text-human-1 ${compactTitleTextClass}`}
+                    className={`flex items-center justify-center gap-0.5 text-human-1 ${compactTitleTextClass}`}
+                    style={compactTitleStyle}
                   >
                     <select
                       ref={maiaHeaderSelectRef}
+                      aria-label="Maia model"
                       value={currentMaiaModel}
                       onChange={(e) => setCurrentMaiaModel(e.target.value)}
                       className="edge-dark-select pointer-events-none absolute inset-0 h-full w-full appearance-none opacity-0"
@@ -435,17 +483,26 @@ export const Highlight: React.FC<Props> = ({
                           key={model}
                           className="bg-transparent text-human-1"
                         >
-                          {`Maia ${model.replace('maia_kdd_', '')}`}
+                          {`Maia-3 ${model.replace('maia_kdd_', '')}`}
                         </option>
                       ))}
                     </select>
                     <span className="whitespace-nowrap leading-none">
                       {mobileMaiaColumnTitle}
                     </span>
+                    {/* Beside the title rather than at the cell's edge,
+                        where it took the title's room. */}
+                    <span
+                      aria-hidden
+                      className="material-symbols-outlined pointer-events-none !text-[1.15em] leading-none text-human-1/65"
+                    >
+                      expand_more
+                    </span>
                   </div>
                 ) : (
                   <select
                     ref={maiaHeaderSelectRef}
+                    aria-label="Maia model"
                     value={currentMaiaModel}
                     onChange={(e) => setCurrentMaiaModel(e.target.value)}
                     className={`edge-dark-select cursor-pointer appearance-none bg-transparent text-center ${splitTitleTextClass} text-human-1 outline-none transition-colors duration-200 hover:text-human-1/80`}
@@ -456,14 +513,18 @@ export const Highlight: React.FC<Props> = ({
                         key={model}
                         className="bg-transparent text-human-1"
                       >
-                        {`Maia ${model.replace('maia_kdd_', '')}`}
+                        {`Maia-3 ${model.replace('maia_kdd_', '')}`}
                       </option>
                     ))}
                   </select>
                 )}
                 <button
                   type="button"
-                  className="material-symbols-outlined absolute right-0.5 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center text-base leading-none text-human-1/65"
+                  className={`material-symbols-outlined absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center text-base leading-none text-human-1/65 ${
+                    useCompactMobileColumnTitles
+                      ? 'inset-x-0 h-full w-full text-transparent'
+                      : 'right-0.5 h-5 w-5'
+                  }`}
                   onMouseDown={(e) => {
                     e.preventDefault()
                     openMaiaHeaderPicker()
@@ -552,6 +613,21 @@ export const Highlight: React.FC<Props> = ({
                 </button>
               )
             })}
+            <div className="relative w-full">
+              {emptyRows(recommendations.maia?.slice(0, 4).length ?? 0)}
+              {maiaEngine.status === 'no-cache' &&
+              !recommendations.maia?.length ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    startMaiaDownload(maiaEngine.downloadModel, 'panel')
+                  }
+                  className="absolute inset-0 m-auto h-fit rounded border border-glass-border bg-human-4 px-2 py-1 text-xs font-medium text-white"
+                >
+                  Download Maia-3 ({MAIA_DOWNLOAD_MB}MB)
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
         <div
@@ -572,11 +648,14 @@ export const Highlight: React.FC<Props> = ({
                   ? compactTitleTextClass
                   : splitTitleTextClass
               }`}
+              style={
+                useCompactMobileColumnTitles ? compactTitleStyle : undefined
+              }
             >
               <span className="leading-none">
                 {useCompactMobileColumnTitles
                   ? mobileStockfishColumnTitle
-                  : 'Stockfish 17'}
+                  : 'Stockfish 19'}
               </span>
               {stockfishDepthLabel && (
                 <span className="text-[10px] font-normal leading-none text-engine-2/75 md:text-[9px] lg:text-[10px]">
@@ -594,7 +673,9 @@ export const Highlight: React.FC<Props> = ({
               <p className="text-sm font-bold text-engine-1 md:text-sm lg:text-lg">
                 {isCurrentPositionCheckmate
                   ? 'Checkmate'
-                  : getStockfishEvalDisplay()}
+                  : stockfishOff
+                    ? 'Off'
+                    : getStockfishEvalDisplay()}
               </p>
             </div>
           )}
@@ -682,35 +763,55 @@ export const Highlight: React.FC<Props> = ({
                   </button>
                 )
               })}
+            {stockfishOff && (
+              <p className="w-full py-1 text-left text-xs text-secondary md:text-center md:text-xxs xl:text-xs">
+                Off in analysis settings
+              </p>
+            )}
+            {emptyRows(
+              stockfishOff
+                ? 1
+                : (recommendations.stockfish?.slice(0, 4).length ?? 0),
+            )}
           </div>
         </div>
       </div>
+      {tablebase && tablebase.fen === currentNode?.fen ? (
+        <TablebasePanel
+          result={tablebase}
+          hover={hover}
+          makeMove={makeMove}
+          simplified={simplified}
+        />
+      ) : null}
       <div
         className={`flex flex-col items-start justify-start bg-transparent text-sm ${simplified ? 'p-3' : 'p-2'}`}
       >
-        <AnimatePresence mode="wait">
-          {boardDescription?.segments?.length > 0 ? (
-            <motion.div
-              key={animationKey}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.075 }}
-              className="w-full"
-            >
-              <InteractiveDescription
-                description={boardDescription}
-                colorSanMapping={colorSanMapping}
-                moveEvaluation={moveEvaluation}
-                hover={hover}
-                makeMove={makeMove}
-                isHomePage={isHomePage}
-                simplified={simplified}
-                playerToMove={currentTurn}
-              />
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        <div className={`w-full ${isMobile ? 'min-h-[5em]' : ''}`}>
+          <AnimatePresence mode="wait">
+            {boardDescription?.segments?.length > 0 ? (
+              <motion.div
+                key={animationKey}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.075 }}
+                className="w-full"
+              >
+                <InteractiveDescription
+                  description={boardDescription}
+                  colorSanMapping={colorSanMapping}
+                  moveEvaluation={moveEvaluation}
+                  hover={hover}
+                  makeMove={makeMove}
+                  isHomePage={isHomePage}
+                  simplified={simplified}
+                  playerToMove={currentTurn}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Tooltip */}
