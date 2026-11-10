@@ -125,6 +125,47 @@ describe('game requests to the Maia server', () => {
     expect(isGameNotFound(error)).toBe(false)
   })
 
+  describe('whose stored game it is', () => {
+    const storedGame = (extra: object) =>
+      JSON.stringify({
+        termination: { result: '*', winner: 'none', type: 'unterminated' },
+        white_player: { name: 'alice' },
+        black_player: { name: 'maia_kdd_1100' },
+        created_time: '2026-11-01T12:00:00',
+        maia_versions: [],
+        maia_evals: {},
+        move_maps: [],
+        game_states: [
+          {
+            fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            last_move: null,
+            last_move_san: null,
+            check: false,
+          },
+        ],
+        ...extra,
+      })
+
+    it('marks someone else’s game, opened by its link, as not yours', async () => {
+      fetchMock.mockReturnValueOnce(reply(storedGame({ is_owner: false })))
+      const game = await fetchAnalyzedMaiaGame('a1b2c3d4-e5f', 'play')
+      expect(game.isOwner).toBe(false)
+      expect(game.whitePlayer.name).toBe('alice')
+    })
+
+    it('marks your own game as yours', async () => {
+      fetchMock.mockReturnValueOnce(reply(storedGame({ is_owner: true })))
+      const game = await fetchAnalyzedMaiaGame('a1b2c3d4-e5f', 'play')
+      expect(game.isOwner).toBe(true)
+    })
+
+    it('takes a reply without is_owner, from an older server, as yours', async () => {
+      fetchMock.mockReturnValueOnce(reply(storedGame({})))
+      const game = await fetchAnalyzedMaiaGame('custom_a1b2c3d4e5f6', 'custom')
+      expect(game.isOwner).toBe(true)
+    })
+  })
+
   it('treats a network failure as not a missing game', () => {
     expect(isGameNotFound(new TypeError('Failed to fetch'))).toBe(false)
   })

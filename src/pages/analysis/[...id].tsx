@@ -673,7 +673,15 @@ const Analysis: React.FC<Props> = ({
     'correct' | 'incorrect' | 'not-learning'
   >('not-learning')
 
-  const controller = useAnalysisController(analyzedGame)
+  // Someone else's game, opened by its link: its analysis is the viewer's to
+  // look at, but only the owner's is saved (the server refuses the rest).
+  const isOthersGame = analyzedGame.isOwner === false
+  const controller = useAnalysisController(
+    analyzedGame,
+    undefined,
+    !isOthersGame,
+  )
+  const autoSave = isOthersGame ? undefined : controller.gameAnalysis.autoSave
   const { refreshAnalysis } = controller
   // Exact endgame results (7 pieces or fewer) from the Lichess tablebase.
   // Not during Learn from mistakes, where it would give the answer away.
@@ -2059,7 +2067,7 @@ const Analysis: React.FC<Props> = ({
                 isLearnFromMistakesActive={
                   controller.learnFromMistakes.state.isActive
                 }
-                autoSave={controller.gameAnalysis.autoSave}
+                autoSave={autoSave}
                 learnFromMistakesState={controller.learnFromMistakes.state}
                 learnFromMistakesCurrentInfo={controller.learnFromMistakes.getCurrentInfo()}
                 onShowSolution={handleShowSolution}
@@ -2522,7 +2530,7 @@ const Analysis: React.FC<Props> = ({
               isLearnFromMistakesActive={
                 controller.learnFromMistakes.state.isActive
               }
-              autoSave={controller.gameAnalysis.autoSave}
+              autoSave={autoSave}
               currentNode={controller.currentNode as GameNode}
               learnFromMistakesState={controller.learnFromMistakes.state}
               learnFromMistakesCurrentInfo={controller.learnFromMistakes.getCurrentInfo()}

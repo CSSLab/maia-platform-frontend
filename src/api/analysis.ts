@@ -355,6 +355,10 @@ export const fetchAnalyzedMaiaGame = async (
     gameType,
     termination,
     tree,
+    // Anyone with a stored game's link can open it; only its owner's analysis
+    // is saved. (A reply without is_owner, from before the backend sent it,
+    // counts as the owner's, as every game opened then was.)
+    isOwner: data['is_owner'] !== false,
   } as AnalyzedGame
 }
 

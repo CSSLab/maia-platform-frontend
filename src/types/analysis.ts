@@ -13,6 +13,11 @@ export interface AnalyzedGame extends BaseGame {
   blackPlayer: Player
   whitePlayer: Player
   termination?: Termination
+  /**
+   * For a stored game (play, hand, brain or custom): false when it is someone
+   * else's, opened by its link. Its analysis can be viewed but isn't saved.
+   */
+  isOwner?: boolean
 }
 
 export interface MaiaEvaluation {
