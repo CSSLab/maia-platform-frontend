@@ -45,7 +45,6 @@ export const dropUnwantedEvents = (event: CaptureResult | null) => {
 
 export const browserPostHogConfig: Pick<
   PostHogConfig,
-  | 'advanced_disable_flags'
   | 'api_host'
   | 'autocapture'
   | 'before_send'
@@ -82,10 +81,6 @@ export const browserPostHogConfig: Pick<
   // for 67,000 events. 5 s is the most PostHog allows; what is waiting is
   // still sent when the page is left.
   request_queue_config: { flush_interval_ms: 5000 },
-  // No feature flags are used (the Maia download prompt's A/B test picks its
-  // variant in src/lib/engine/maiaDownloadPrompt), so the request for them on
-  // each page load is skipped. Turn this off before using a flag.
-  advanced_disable_flags: true,
   capture_performance: {
     web_vitals: true,
     // LCP is sent by src/lib/largestContentfulPaint, which starts before
