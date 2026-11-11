@@ -14,7 +14,7 @@ import {
 } from 'src/components/Common/maiaMoveFailedToast'
 import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
-import { initialClockSeconds } from 'src/lib/timeControl'
+import { maiaMoveClocks } from 'src/lib/timeControl'
 import { useGameLog } from './useGameLog'
 
 const brainStatsLoader = async () => {
@@ -151,7 +151,7 @@ export const useHandBrainController = (
         (controller.player == 'white'
           ? controller.blackClock
           : controller.whiteClock) / 1000
-      const initialClock = initialClockSeconds(controller.timeControl)
+      const clocks = maiaMoveClocks(controller.timeControl, maiaClock)
 
       let maiaMoves
       try {
@@ -160,8 +160,9 @@ export const useHandBrainController = (
           playGameConfig.maiaVersion,
           playGameConfig.startFen,
           null,
-          simulateMaiaTime ? initialClock : 0,
-          simulateMaiaTime ? maiaClock : 0,
+          clocks.initialClock,
+          clocks.currentClock,
+          clocks.increment,
         )
       } catch (error) {
         if (!canceled) reportMaiaMoveFailed(error, retryMaia)

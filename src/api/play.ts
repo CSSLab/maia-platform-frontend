@@ -123,44 +123,19 @@ export const fetchGameMove = async (
   piece: string | null = null,
   initial_clock = 0,
   current_clock = 0,
+  increment = 0,
 ) => {
+  const params: Record<string, string> = {
+    maia_name: maiaVersion,
+    initial_clock: initial_clock.toString(),
+    increment: increment.toString(),
+    current_clock: current_clock.toString(),
+    maia_version: 'maia3',
+  }
+  if (fen) params.fen = fen
+  if (piece) params.piece = piece
   const res = await fetch(
-    buildUrl(
-      'play/get_move?' +
-        new URLSearchParams(
-          piece
-            ? fen
-              ? {
-                  fen: fen || '',
-                  maia_name: maiaVersion,
-                  piece: piece || '',
-                  initial_clock: initial_clock.toString(),
-                  current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
-                }
-              : {
-                  maia_name: maiaVersion,
-                  piece: piece || '',
-                  initial_clock: initial_clock.toString(),
-                  current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
-                }
-            : fen
-              ? {
-                  fen: fen || '',
-                  maia_name: maiaVersion,
-                  initial_clock: initial_clock.toString(),
-                  current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
-                }
-              : {
-                  maia_name: maiaVersion,
-                  initial_clock: initial_clock.toString(),
-                  current_clock: current_clock.toString(),
-                  maia_version: 'maia3',
-                },
-        ),
-    ),
+    buildUrl('play/get_move?' + new URLSearchParams(params)),
     {
       method: 'POST',
       headers: {
