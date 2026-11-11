@@ -262,6 +262,19 @@ export const evalAfterMoveFromLine = (
   return Math.round(sideToMove)
 }
 
+/**
+ * A finished position's eval for the side to move, or null if play goes on:
+ * checkmated -10000 (mate in 0), stalemate or insufficient material 0. The
+ * server gives such a position its exact result, and no search reaches a
+ * depth there, so the bars should not wait for one.
+ */
+export const gameOverEval = (fen: string): number | null => {
+  const board = new Chess(fen)
+  if (board.inCheckmate()) return -10000
+  if (board.inStalemate() || board.insufficientMaterial()) return 0
+  return null
+}
+
 /** Lichess's winning-chances curve: expected score in [0, 1] for `cp`. */
 export const lichessExpectedScore = (cp: number): number => {
   const clamped = Math.max(-1000, Math.min(1000, cp))

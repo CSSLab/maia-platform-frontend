@@ -6,6 +6,7 @@ import {
   evaluationOrder,
   fenAfterMove,
   float32ToBase64LE,
+  gameOverEval,
   likelyMoves,
   parsePgnHeaders,
   engineChance,
@@ -182,5 +183,19 @@ describe('one-move mix inputs', () => {
     // White mates: Black, to move after the move, is getting mated.
     expect(evalAfterMoveFromLine(10000, 3, false)).toBe(-(10000 - 3))
     expect(evalAfterMoveFromLine(-10000, -2, true)).toBe(-(10000 - 2))
+  })
+})
+
+describe('finished positions', () => {
+  it('gives mate, stalemate and bare kings their exact eval, else null', () => {
+    // Fool's mate: White to move is mated.
+    expect(
+      gameOverEval(
+        'rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3',
+      ),
+    ).toBe(-10000)
+    expect(gameOverEval('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1')).toBe(0)
+    expect(gameOverEval('8/8/4k3/8/8/4K3/8/8 w - - 0 1')).toBe(0)
+    expect(gameOverEval(START)).toBeNull()
   })
 })

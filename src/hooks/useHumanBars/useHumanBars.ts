@@ -29,6 +29,7 @@ import {
   evaluationOrder,
   fenAfterMove,
   float32ToBase64LE,
+  gameOverEval,
   likelyMoves,
 } from 'src/lib/humanBar'
 import type {
@@ -95,7 +96,7 @@ interface KidRun {
   uci: string
   prob: number
   fen: string
-  /** The move played in the game: its inputs are the next ply's own. */
+  /** The move played in the game: the next ply's own inputs once it has them. */
   played: boolean
   /** The bars' own small search (for plies the site has not analysed). */
   cp: number | null
@@ -147,7 +148,7 @@ interface GameRun {
   kids: (KidRun[] | undefined)[]
   /** The ply's bars on hand were asked for with its likely moves (the mix). */
   mixed: boolean[]
-  /** The depth of the site's search behind the likely moves' evals sent (0: the bars' own searches). */
+  /** The shallowest of the site's lines behind the likely moves' evals sent (0: none of the site's). */
   kidDepth: number[]
   /** Plies whose bars on hand include the mix. */
   mixDone: number
@@ -270,48 +271,35 @@ const kidInputs = (
   const lines = siteLinesOf(node)
   const whiteAfter = run.fens[p].split(' ')[1] === 'b'
   const kids: HumanBarKidInput[] = []
-  let depth = 0
+  // The shallowest of the site's lines used (a later, deeper search asks again).
+  let depth = Infinity
   for (const k of ks) {
-    if (k.played) {
-      const q = p + 1
-      if (!hasInputs(run, q)) return null
-      kids.push({
-        fen: run.fens[q],
-        cp: run.cp[q] as number,
-        depth: run.cpDepth[q] || FALLBACK_DEPTH,
-        value: run.value[q] as [number, number, number],
-        repr: run.repr[q] as string,
-        prob: k.prob,
-      })
-      continue
-    }
-    if (!k.value || !k.repr) return null
+    // The move played: whatever the next ply already has (its Maia outputs,
+    // its eval), else what any likely move uses (its own Maia outputs, the
+    // site's line for it), so the mix never waits for the next ply.
+    const q = p + 1
+    const value = k.played ? (run.value[q] ?? k.value) : k.value
+    const repr = k.played ? (run.repr[q] ?? k.repr) : k.repr
+    if (!value || !repr) return null
     const line = lines?.cp_vec?.[k.uci]
-    if (lines && line !== undefined && Number.isFinite(line)) {
-      const d = lines.root_move_depth_vec?.[k.uci] ?? lines.depth
-      depth = Math.max(depth, d)
-      kids.push({
-        fen: k.fen,
-        cp: evalAfterMoveFromLine(line, lines.mate_vec?.[k.uci], whiteAfter),
-        depth: d,
-        value: k.value,
-        repr: k.repr,
-        prob: k.prob,
-      })
+    let cp: number
+    let d: number
+    if (k.played && run.cp[q] !== null) {
+      cp = run.cp[q] as number
+      d = run.cpDepth[q] || FALLBACK_DEPTH
+    } else if (lines && line !== undefined && Number.isFinite(line)) {
+      d = lines.root_move_depth_vec?.[k.uci] ?? lines.depth
+      depth = Math.min(depth, d)
+      cp = evalAfterMoveFromLine(line, lines.mate_vec?.[k.uci], whiteAfter)
     } else if (k.cp !== null) {
-      kids.push({
-        fen: k.fen,
-        cp: k.cp,
-        depth: FALLBACK_DEPTH,
-        value: k.value,
-        repr: k.repr,
-        prob: k.prob,
-      })
+      cp = k.cp
+      d = FALLBACK_DEPTH
     } else {
       return null
     }
+    kids.push({ fen: k.fen, cp, depth: d, value, repr, prob: k.prob })
   }
-  return { kids, depth }
+  return { kids, depth: Number.isFinite(depth) ? depth : 0 }
 }
 
 /** The likely moves of ply p that still need the bars' own search (no site line for them). */
@@ -321,7 +309,7 @@ const kidsToSearch = (run: GameRun, p: number, node: GameNode | undefined) => {
   const lines = siteLinesOf(node)
   return ks.filter(
     (k) =>
-      !k.played &&
+      !(k.played && run.cp[p + 1] !== null) &&
       k.cp === null &&
       !(lines && Number.isFinite(lines.cp_vec?.[k.uci] ?? NaN)),
   )
@@ -811,6 +799,18 @@ export const useHumanBars = (
           wake(run)
           continue
         }
+        // A finished game (mate, stalemate): its exact eval at once, since
+        // no search of it reaches a depth to wait for.
+        const over = gameOverEval(run.fens[p])
+        if (over !== null) {
+          run.cp[p] = over
+          run.cpDepth[p] = 0
+          run.stockfishDone = run.cp.filter((v) => v !== null).length
+          bump()
+          send(run, token)
+          wake(run)
+          continue
+        }
         // The site's own eval when it has one. The position on screen waits
         // for it while the site is analysing it (its engine may still be
         // starting on a phone); it searches itself only if the site is not
@@ -889,6 +889,53 @@ export const useHumanBars = (
       }
     }
 
+    /** Plies whose likely moves are with Maia now. */
+    const kidsInFlight = new Set<number>()
+    /**
+     * Maia on some of a ply's likely moves (at most `size`), at background
+     * priority: after the site's own Maia work for the position on screen.
+     */
+    const kidMaia = async (
+      engine: NonNullable<typeof maiaRef.current.maia>,
+      p: number,
+      size: number,
+    ) => {
+      const ks = (run.kids[p] ?? [])
+        .filter(
+          (k) => k.value === null && !(k.played && run.value[p + 1] !== null),
+        )
+        .slice(0, size)
+      if (ks.length === 0) return
+      kidsInFlight.add(p)
+      try {
+        // The side to move after the move is the other player.
+        const whiteAfter = run.fens[p].split(' ')[1] === 'b'
+        const self = whiteAfter ? run.game.white_elo : run.game.black_elo
+        const oppo = whiteAfter ? run.game.black_elo : run.game.white_elo
+        const outputs = await engine.batchEvaluateMaia3Raw(
+          ks.map((k) => k.fen),
+          ks.map(() => self),
+          ks.map(() => oppo),
+          { priority: MAIA_PRIORITY.background },
+        )
+        if (!live()) return
+        outputs.forEach((out, j) => {
+          if (!out.repr) {
+            throw new Error(
+              'The cached Maia model has no repr output; reload the page to refresh it.',
+            )
+          }
+          ks[j].value = out.value
+          ks[j].repr = float32ToBase64LE(out.repr)
+        })
+      } finally {
+        kidsInFlight.delete(p)
+      }
+      bump()
+      send(run, token)
+      wake(run)
+    }
+
     const runMaia = async () => {
       while (live()) {
         const engine =
@@ -898,52 +945,25 @@ export const useHumanBars = (
           continue
         }
         mark(run, 'Maia ready')
-        // The likely moves of the position on screen come right after its
-        // own Maia outputs; those of the other plies once every position
-        // has its own.
         const kidTodo = (p: number) =>
-          (run.kids[p] ?? []).filter((k) => !k.played && k.value === null)
-        const kidsOnScreen =
-          run.value[run.target] !== null ? kidTodo(run.target) : []
+          !kidsInFlight.has(p) &&
+          (run.kids[p] ?? []).some(
+            (k) => k.value === null && !(k.played && run.value[p + 1] !== null),
+          )
+        // The likely moves of the position on screen go to Maia as soon as
+        // its own outputs are in, without holding up the next positions'
+        // own (so stepping forward still finds their bars ready).
+        if (run.value[run.target] !== null && kidTodo(run.target)) {
+          kidMaia(engine, run.target, KID_MAIA_BATCH_SIZE).catch((error) =>
+            console.warn('[human bars] likely moves failed:', error),
+          )
+        }
         const ownLeft = run.value.some((v) => v === null)
-        const kidPly = kidsOnScreen.length
-          ? run.target
-          : ownLeft
-            ? undefined
-            : order().find((p) => kidTodo(p).length > 0)
+        // Those of the other plies once every position has its own.
+        const kidPly = ownLeft ? undefined : order().find((p) => kidTodo(p))
         if (kidPly !== undefined) {
-          const onScreen = kidPly === run.target
-          const ks = kidTodo(kidPly).slice(
-            0,
-            onScreen ? KID_MAIA_BATCH_SIZE : MAIA_BATCH_SIZE,
-          )
-          // The side to move after the move is the other player.
-          const whiteAfter = run.fens[kidPly].split(' ')[1] === 'b'
-          const self = whiteAfter ? run.game.white_elo : run.game.black_elo
-          const oppo = whiteAfter ? run.game.black_elo : run.game.white_elo
-          const outputs = await engine.batchEvaluateMaia3Raw(
-            ks.map((k) => k.fen),
-            ks.map(() => self),
-            ks.map(() => oppo),
-            {
-              priority: onScreen
-                ? MAIA_PRIORITY.normal
-                : MAIA_PRIORITY.background,
-            },
-          )
+          await kidMaia(engine, kidPly, MAIA_BATCH_SIZE)
           if (!live()) return
-          outputs.forEach((out, j) => {
-            if (!out.repr) {
-              throw new Error(
-                'The cached Maia model has no repr output; reload the page to refresh it.',
-              )
-            }
-            ks[j].value = out.value
-            ks[j].repr = float32ToBase64LE(out.repr)
-          })
-          bump()
-          send(run, token)
-          wake(run)
           continue
         }
         // Maia is about ten times faster than Stockfish: keep it on the
@@ -956,7 +976,12 @@ export const useHumanBars = (
           )
           .slice(0, MAIA_BATCH_SIZE)
         if (todo.length === 0) {
-          if (!ownLeft && run.kids.every((ks) => ks !== undefined)) return
+          if (
+            !ownLeft &&
+            kidsInFlight.size === 0 &&
+            run.kids.every((ks) => ks !== undefined)
+          )
+            return
           await pause(run, 1000)
           continue
         }
