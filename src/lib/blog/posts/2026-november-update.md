@@ -2,9 +2,9 @@
 title: "What's New on Maia Chess"
 date: '2026-11-11'
 tags:
-  - chess
   - maia
   - platform
+  - update
 excerpt: >-
   Over the past few weeks we have reworked large parts of Maia Chess: a practice mode with takebacks, games you can come back to, a much faster analysis page, an improved rating system, new analysis tools, and many fixes you asked for on Discord.
 github: https://github.com/CSSLab/maia-platform-frontend
@@ -22,15 +22,15 @@ The rest is below.
 
 ## New in analysis
 
-**Endgame tablebases.** In positions with seven pieces or fewer, the analysis panel shows the exact result from the Lichess tablebase ("Win · mate in 22", "Draw") along with the best moves, which you can preview by hovering and play with a click.
+**Endgame tablebases.** In positions with seven pieces or fewer, the analysis panel shows the exact result from the Lichess tablebase ("Mate in 22", "Draw") along with the best moves, which you can preview by hovering and play with a click.
 
-**Lichess studies.** The custom analysis dialog accepts a link to a Lichess study or chapter and lets you choose which chapter to import.
-
-**Variations survive.** Importing a PGN keeps its variations, and exporting one writes yours out, with correct move numbers. Exported games against Maia now carry the date, time control and ratings.
+**Variations.** Importing a PGN keeps its variations, and exporting one writes yours out, with correct move numbers. Exported games against Maia now carry the date, time control and ratings.
 
 **Engine controls.** You can switch Stockfish off to see Maia alone, and choose the depth of live analysis, from 12 to 25.
 
-**Getting around.** Scroll over the board to step through the moves. "Analysis" in the top bar now opens a menu that takes you straight to your games against Maia, your Lichess games, your imported games or your favourites. If your browser closes a background tab to save memory, the page reopens on the move you were looking at, with the lines you had tried still there. And game lists now say when each game was played.
+**Getting around.** Mousewheel scroll over the board to step through the moves. "Analysis" in the top bar now opens a menu that takes you straight to your games against Maia, your Lichess games, your imported games or your favourites. If your browser closes a background tab to save memory, the page reopens on the move you were looking at, with the lines you had tried still there. And game lists now say when each game was played.
+
+**Lichess studies.** The custom analysis dialog accepts a link to a Lichess study or chapter and lets you choose which chapter to import.
 
 **Learn from mistakes** now goes through the same mistakes each time you review a game, and "See solution" shows the best move as an arrow on the position you were asked about.
 
@@ -42,7 +42,7 @@ The broadcast page shows both players' clocks beside their names, running for th
 
 - **Settings without an account.** Sound, board theme and the downloaded Maia model can now be changed by visitors who aren't signed in, from the gear icon in the header.
 - **A news box on the homepage**, where announcements like this one will appear.
-- **Signing in** is now a clear "Sign in with Lichess" button, and a failed request leads to a page that offers to try again.
+- **Signing in** is now a clear "Sign in with Lichess" button, and a failed request goes back to maiachess.com (instead of an error as before).
 - **Keyboard and screen readers.** The header's menus open from the keyboard, and the board's buttons are labelled.
 - **Forced dark modes** in browsers and extensions no longer turn Black's pieces white.
 - Puzzles reopened as Black are shown from Black's side, drills keep their queue through a refresh, and Bot or Not shows the game's result before you guess.

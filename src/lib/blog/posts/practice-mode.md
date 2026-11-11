@@ -2,14 +2,14 @@
 title: 'Practice Mode, and Games You Can Come Back To'
 date: '2026-11-11'
 tags:
-  - chess
   - maia
   - platform
+  - update
 excerpt: >-
   Play Maia with takebacks and extra time, close the tab in the middle of a game and continue it later, and find the setup dialog as you left it.
 ---
 
-Two of the most common requests on our Discord were takebacks, for the misclick that ruins a good game, and a way to play one game over several sittings. Both are now part of playing against Maia.
+Two of the most common requests on our Discord were takebacks and a way to play one game over several sittings. Both are now part of playing against Maia.
 
 ## Practice mode
 
@@ -22,7 +22,7 @@ Both ask you to confirm, in place, before they act. Wins and draws in practice g
 
 ## Come back to a game later
 
-Unlimited games and practice games against Maia are now kept in your browser after every move. If you refresh the page or close the tab, the game picks up where you left it, with the clocks paused while you were away. The setup dialog also offers to continue an unfinished game, for up to two weeks.
+Unlimited games and practice games against Maia are now kept in your browser after every move. If you refresh the page or close the tab, the game picks up where you left it, with the clocks paused while you were away. The setup dialog also offers to continue an unfinished game, for up to two weeks. These games are unrated.
 
 Rated games with a clock are still played in one sitting.
 

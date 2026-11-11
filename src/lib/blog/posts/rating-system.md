@@ -9,13 +9,13 @@ excerpt: >-
   Ratings on Maia Chess now say when they are still provisional, and profiles and the leaderboard explain where you stand and why.
 ---
 
-A rating is an estimate, and some estimates are better than others. A rating built on five games says much less than one built on five hundred, and a rating you earned a year ago may no longer describe how you play. Ratings on Maia Chess now show the difference.
+A rating is an estimate, and some estimates are better than others. A rating built on five games says much less than one built on five hundred, and a rating you earned a year ago may no longer describe how you play. Ratings on Maia Chess now use Glicko-2, a rating system that shows these differences (and the rating system used by many others).
 
 ## Provisional ratings
 
-A rating is **provisional** while you are new to a mode, or when you have been away from it for months. A provisional rating is followed by a "?", as in "1650?", wherever your rating is shown: after games against Maia, in Hand and Brain, in puzzles and in Bot or Not. Hover over the "?" or tap it and it explains itself.
+A rating is **provisional** while you are new to a mode, or when you have been away from it for months. A provisional rating is followed by a "?", as in "1650?", wherever your rating is shown: after games against Maia, in Hand and Brain, in puzzles and in Bot or Not.
 
-Playing more is all it takes to remove it. Once there are enough recent results, the rating is **established**.
+Playing more is all it takes to remove it. Once there are enough recent results, the rating becomes **established**, and thus eligible for the leaderboard.
 
 ## Your profile
 
@@ -23,7 +23,7 @@ Each rating on a profile now says whether it is provisional or established, and 
 
 ## The leaderboard
 
-The leaderboards list established ratings of players who have been active recently, and each one now says what period that covers. If you aren't listed, your profile says why: the rating is still provisional, or you haven't played in that period.
+The leaderboards list established ratings of players who have been active recently. If you aren't listed but your rating seems high enough to qualify, it is because your rating isn't established. Play more games to earn an established rating.
 
 ## Also new on profiles
 
