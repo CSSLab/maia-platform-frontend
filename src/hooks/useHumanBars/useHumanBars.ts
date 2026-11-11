@@ -302,6 +302,42 @@ const kidInputs = (
   return { kids, depth: Number.isFinite(depth) ? depth : 0 }
 }
 
+/**
+ * The shallowest line taken for the next position: the site's staged search
+ * scores every move at a screening depth (about 6) before deepening some, and
+ * such an eval is only shown until the site's own search of that position
+ * replaces it (the bars' map treats it as depth 8, the shallowest it has).
+ */
+const PARENT_LINE_MIN_DEPTH = 6
+
+/**
+ * Ply p's eval from the site's search of the ply before it: that search's
+ * line for the move played (side to move at p), once the line is at least
+ * PARENT_LINE_MIN_DEPTH deep (and the search at least SITE_EVAL_MIN_DEPTH);
+ * null otherwise.
+ */
+const evalFromParentLine = (
+  run: GameRun,
+  p: number,
+  nodes: GameNode[],
+): { cp: number; depth: number } | null => {
+  const lines = siteLinesOf(nodes[p - 1])
+  const move = nodes[p]?.move
+  if (!lines || !move) return null
+  const line = lines.cp_vec?.[move]
+  const depth = lines.root_move_depth_vec?.[move] ?? lines.depth
+  if (line === undefined || !Number.isFinite(line)) return null
+  if (!(depth >= PARENT_LINE_MIN_DEPTH)) return null
+  return {
+    cp: evalAfterMoveFromLine(
+      line,
+      lines.mate_vec?.[move],
+      run.fens[p].split(' ')[1] !== 'b',
+    ),
+    depth,
+  }
+}
+
 /** The likely moves of ply p that still need the bars' own search (no site line for them). */
 const kidsToSearch = (run: GameRun, p: number, node: GameNode | undefined) => {
   const ks = run.kids[p]
@@ -842,6 +878,24 @@ export const useHumanBars = (
           if (!live()) return
           if (!site && p !== run.target) continue
         }
+        // A position right after one the site has searched (the next move
+        // from the one on screen, as you step forward): its eval from that
+        // search's line for the move played, at once and without a search of
+        // its own; the site's own search of it replaces it once it is shown.
+        const parent =
+          !site && p > 0
+            ? evalFromParentLine(run, p, mainlineRef.current)
+            : null
+        if (parent) {
+          run.cp[p] = parent.cp
+          run.cpDepth[p] = parent.depth
+          mark(run, 'first Stockfish eval')
+          run.stockfishDone = run.cp.filter((v) => v !== null).length
+          bump()
+          send(run, token)
+          wake(run)
+          continue
+        }
         if (!site && p !== run.target) {
           // Another position (the rest of the game, for the chart): search it
           // only while the site's engine is idle, i.e. once the position on
@@ -858,9 +912,13 @@ export const useHumanBars = (
               performance.now() - since > SITE_SEARCH_GIVE_UP_MS
             )
           }
-          while (live() && !idle() && run.target === t) await pause(run, 500)
+          // (Until the site's line for the move into it arrives, which takes
+          // it without a search: see above.)
+          const lineIn = () => !!evalFromParentLine(run, p, mainlineRef.current)
+          while (live() && !idle() && run.target === t && !lineIn())
+            await pause(run, 200)
           if (!live()) return
-          if (run.target !== t) continue
+          if (run.target !== t || lineIn()) continue
           site = siteEvalOf(mainlineRef.current[p])
         }
         if (site) {
@@ -979,12 +1037,18 @@ export const useHumanBars = (
           continue
         }
         // Maia is about ten times faster than Stockfish: keep it on the
-        // positions Stockfish has done or is doing, plus the one on screen.
+        // positions Stockfish has done or is doing, plus the one on screen and
+        // the next ones (their evals come from the site's line for the move
+        // as soon as you reach the one before, so their bars are ready when
+        // you step forward).
         const todo = order()
           .filter(
             (i) =>
               run.value[i] === null &&
-              (i === run.target || run.cp[i] !== null || i === run.sfJob?.ply),
+              (i === run.target ||
+                run.cp[i] !== null ||
+                i === run.sfJob?.ply ||
+                (i > run.target && i <= run.target + LOOKAHEAD)),
           )
           .slice(0, MAIA_BATCH_SIZE)
         if (todo.length === 0) {
