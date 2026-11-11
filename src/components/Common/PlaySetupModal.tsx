@@ -20,6 +20,12 @@ import {
 } from 'src/types'
 import { ModalContext } from 'src/contexts/ModalContext'
 import { startGameEarly } from 'src/api/play'
+import { fetchCurrentServerGame, resignServerGame } from 'src/api/serverGames'
+import {
+  SERVER_GAMES,
+  ServerGame,
+  describeServerGame,
+} from 'src/lib/serverGames'
 import { checkStartPosition } from 'src/lib/startPosition'
 import {
   INCREMENT_SECONDS_STEPS,
@@ -226,6 +232,51 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     })
   }, [unfinishedGame, setPlaySetupModalProps, onClose, push])
 
+  // The player's game in progress on the server (src/lib/serverGames.ts): it
+  // has to be resumed or resigned before another game is started.
+  const [openServerGame, setOpenServerGame] = useState<ServerGame | null>(null)
+  const [resigningOpenGame, setResigningOpenGame] = useState(false)
+  useEffect(() => {
+    if (!SERVER_GAMES) return
+    let canceled = false
+    fetchCurrentServerGame()
+      .then((game) => {
+        if (!canceled) setOpenServerGame(game)
+      })
+      .catch(() => undefined)
+    return () => {
+      canceled = true
+    }
+  }, [])
+
+  const resumeOpenServerGame = useCallback(() => {
+    if (!openServerGame) return
+    setPlaySetupModalProps(undefined)
+    onClose?.()
+    // /play/maia asks the server for a game and is given this one.
+    push({
+      pathname: '/play/maia',
+      query: {
+        player: openServerGame.player_color,
+        maiaVersion: openServerGame.maia_name,
+        timeControl: openServerGame.time_control,
+        sampleMoves: openServerGame.sample_moves,
+        simulateMaiaTime: true,
+        startFen: openServerGame.fen || undefined,
+        practice: false,
+      },
+    })
+  }, [openServerGame, setPlaySetupModalProps, onClose, push])
+
+  const resignOpenServerGame = useCallback(() => {
+    if (!openServerGame || resigningOpenGame) return
+    setResigningOpenGame(true)
+    resignServerGame(openServerGame.game_id)
+      .then(() => setOpenServerGame(null))
+      .catch(() => toast.error("Couldn't resign the game. Please try again."))
+      .finally(() => setResigningOpenGame(false))
+  }, [openServerGame, resigningOpenGame])
+
   const [maiaPartnerVersion, setMaiaPartnerVersion] = useState<string>(
     initial.maiaPartnerVersion,
   )
@@ -327,6 +378,14 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
         return
       }
 
+      // The server holds one game per player at a time.
+      const serverHeld =
+        SERVER_GAMES && props.playType == 'againstMaia' && !practice
+      if (serverHeld && openServerGame) {
+        toast.error('Resume or resign your game in progress first')
+        return
+      }
+
       setPlaySetupModalProps(undefined)
       onClose?.()
       // A new game resigns any unfinished one (on the backend, as it starts).
@@ -351,12 +410,15 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       }
 
       if (props.playType == 'againstMaia') {
-        startGameEarly(
-          resolvedPlayer as Color,
-          maiaVersion,
-          sampleMoves,
-          timeControl,
-        )
+        // A game the server holds is created by /play/maia itself.
+        if (!serverHeld) {
+          startGameEarly(
+            resolvedPlayer as Color,
+            maiaVersion,
+            sampleMoves,
+            timeControl,
+          )
+        }
         push({
           pathname: '/play/maia',
           query: {
@@ -392,6 +454,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       }
     },
     [
+      openServerGame,
       setPlaySetupModalProps,
       props.playType,
       push,
@@ -462,6 +525,33 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
             }`}
           >
             <div className="space-y-4">
+              {openServerGame && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-human-4/50 bg-human-4/10 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-primary">
+                      Game in progress: {describeServerGame(openServerGame)}
+                    </p>
+                    <p className="text-xs text-secondary">
+                      Resume it or resign it before starting another
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={resignOpenServerGame}
+                      disabled={resigningOpenGame}
+                      className="rounded-md border border-glass-border px-3 py-1.5 text-sm font-medium text-primary transition-colors duration-200 hover:bg-white/10 disabled:opacity-50"
+                    >
+                      Resign
+                    </button>
+                    <button
+                      onClick={resumeOpenServerGame}
+                      className="rounded-md bg-human-4 px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-human-4/90"
+                    >
+                      Resume
+                    </button>
+                  </div>
+                </div>
+              )}
               {unfinishedGame && (
                 <div className="flex items-center justify-between gap-3 rounded-md border border-human-4/50 bg-human-4/10 px-3 py-2">
                   <div className="min-w-0">
