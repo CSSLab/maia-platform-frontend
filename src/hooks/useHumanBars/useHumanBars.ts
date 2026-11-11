@@ -818,11 +818,23 @@ export const useHumanBars = (
         let site = siteEvalOf(mainlineRef.current[p])
         if (!site && p === run.target) {
           const since = performance.now()
+          // The site does not search a position whose cached eval is at its
+          // final depth, and the bars do not take cached evals (the cache
+          // does not say which engine made them): then search it here.
+          const cachedOnly = () => {
+            const sf = mainlineRef.current[p]?.analysis?.stockfish
+            return (
+              !!sf?.from_cache &&
+              !sf.partial &&
+              sf.depth >= SITE_EVAL_FINAL_DEPTH
+            )
+          }
           const siteBusy = () =>
-            siteAnalysingRef.current ||
-            (mainlineRef.current[p]?.analysis?.stockfish !== undefined &&
-              !mainlineRef.current[p]?.analysis?.stockfish?.from_cache) ||
-            performance.now() - since < SITE_EVAL_WAIT_MS
+            !cachedOnly() &&
+            (siteAnalysingRef.current ||
+              (mainlineRef.current[p]?.analysis?.stockfish !== undefined &&
+                !mainlineRef.current[p]?.analysis?.stockfish?.from_cache) ||
+              performance.now() - since < SITE_EVAL_WAIT_MS)
           while (!site && live() && p === run.target && siteBusy()) {
             await pause(run, 100)
             site = siteEvalOf(mainlineRef.current[p])
