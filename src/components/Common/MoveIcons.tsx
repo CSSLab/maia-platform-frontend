@@ -155,33 +155,36 @@ export const ExcellentIcon: React.FC<IconProps> = ({
  * The marks from the two costs (practical LOG §91, lib/humanBar moveMark):
  * an objective mistake that is still these players' close-to-best try is ?!,
  * the best practical try that isn't Stockfish's move is !?; an inaccuracy is
- * a yellow dot, without a symbol.
+ * a yellow dot, without a symbol. A mark is a judgement of quality, so its
+ * colour is a step on the page's one quality scale, the meter's red - yellow
+ * - green (ColorBrewer RdYlGn), from ?? to the site's green !: never blue,
+ * which is the computer's colour on this page (Stockfish), as warm is Maia's.
  */
 const MARKS: Record<MoveMark, { glyph: string; colour: string; tip: string }> =
   {
     '??': {
       glyph: '??',
-      colour: 'bg-red-500 hover:bg-red-600',
+      colour: 'bg-[#d73027] text-white hover:bg-[#c0281f]',
       tip: 'Blunder',
     },
     '?': {
       glyph: '?',
-      colour: 'bg-orange-500 hover:bg-orange-600',
+      colour: 'bg-[#fc8d59] text-[#2b1206] hover:bg-[#f47a43]',
       tip: 'Mistake',
     },
     '?!': {
       glyph: '?!',
-      colour: 'bg-yellow-500 hover:bg-yellow-600',
+      colour: 'bg-[#fee08b] text-[#3d2f00] hover:bg-[#fdd46a]',
       tip: 'Dubious: a mistake, yet for these players it is about as good a try as any',
     },
     '!?': {
       glyph: '!?',
-      colour: 'bg-sky-500 hover:bg-sky-600',
+      colour: 'bg-[#a6d96a] text-[#12290a] hover:bg-[#94cd56]',
       tip: "Interesting: not Stockfish's move, but these players' best try",
     },
     inaccuracy: {
       glyph: '',
-      colour: 'bg-yellow-500 hover:bg-yellow-600',
+      colour: 'bg-[#fee08b] hover:bg-[#fdd46a]',
       tip: 'Inaccuracy',
     },
   }
@@ -215,7 +218,7 @@ export const MoveMarkIcon: React.FC<
             handleClick(e)
           }
         }}
-        className={`ml-1 flex select-none items-center justify-center rounded-full font-bold text-white ${colour} ${sizeClasses} ${className} ${onClick ? 'cursor-pointer' : ''}`}
+        className={`ml-1 flex select-none items-center justify-center rounded-full font-bold ${colour} ${sizeClasses} ${className} ${onClick ? 'cursor-pointer' : ''}`}
         data-tooltip-id={id}
         onClick={handleClick}
       >

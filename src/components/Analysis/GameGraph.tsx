@@ -34,10 +34,12 @@ const LANE = 8
 const LANE_GAP = 3
 const LANES = 2 * (LANE + LANE_GAP)
 const DANGER = '#e0301e'
-const BLUNDER = '#ff3b2f'
-const MISTAKE = '#ff8a3d'
+// The marks' steps on the page's one quality scale (the meter's RdYlGn; see
+// MoveIcons): never blue, the computer's colour here.
+const BLUNDER = '#d73027'
+const MISTAKE = '#fc8d59'
 const INACCURACY = '#fee08b'
-const INTERESTING = '#38bdf8'
+const INTERESTING = '#a6d96a'
 /** Each mark's dot on the line: radius and colour. */
 const MARK_DOT: Record<MoveMark, [number, string]> = {
   '??': [4, BLUNDER],
