@@ -23,6 +23,10 @@ const PAD_L = 22
 const PAD_R = 12
 const PAD_TOP = 8
 const AXIS = 16
+/** Each player's danger lane under the plot: its height and the gap above it. */
+const LANE = 8
+const LANE_GAP = 3
+const LANES = 2 * (LANE + LANE_GAP)
 const DANGER = '#e0301e'
 const BLUNDER = '#ff3b2f'
 const INACCURACY = '#fee08b'
@@ -34,10 +38,11 @@ const dangerOf = (risk: number | undefined, usual: number) =>
 const FADE = (d: number) => (d > 0 ? 0.18 + 0.67 * d : 0)
 
 /**
- * The two bars unrolled over the game. Below the white line is White's share of
- * the game and above it Black's; a side turns red while that player is in danger
- * of a blunder, so danger shows where it can cost them. The blue line is the
- * Stockfish bar.
+ * The two bars unrolled over the game: the white line is White's chance (below
+ * it White's share, above it Black's), the blue line the Stockfish bar. Under
+ * them each player has a lane of their own that turns red while they are in
+ * danger of a blunder (above their usual risk), so White's danger and Black's
+ * read apart. A marker runs through all of it at the move on screen.
  */
 export const GameGraph: React.FC<Props> = ({
   bars,
@@ -63,7 +68,10 @@ export const GameGraph: React.FC<Props> = ({
 
   const { w, h } = size
   const n = Math.max(mainline.length, 2)
-  const plotBottom = h - AXIS
+  const plotBottom = h - AXIS - LANES
+  const lane = (side: number) =>
+    plotBottom + LANE_GAP + side * (LANE + LANE_GAP)
+  const lanesBottom = lane(1) + LANE
   const x = useCallback(
     (p: number) => PAD_L + (p / (n - 1)) * (w - PAD_L - PAD_R),
     [n, w],
@@ -73,10 +81,9 @@ export const GameGraph: React.FC<Props> = ({
     [plotBottom],
   )
 
-  const { line, below, above } = useMemo(() => {
+  const { line, below } = useMemo(() => {
     let lineD = ''
     let belowD = ''
-    let aboveD = ''
     let run: [number, number][] = []
     const flush = () => {
       if (run.length > 1) {
@@ -87,7 +94,6 @@ export const GameGraph: React.FC<Props> = ({
         const last = run[run.length - 1][0].toFixed(1)
         lineD += path
         belowD += `${path}L${last} ${plotBottom}L${first} ${plotBottom}Z`
-        aboveD += `${path}L${last} ${PAD_TOP}L${first} ${PAD_TOP}Z`
       }
       run = []
     }
@@ -97,7 +103,7 @@ export const GameGraph: React.FC<Props> = ({
       else flush()
     }
     flush()
-    return { line: lineD, below: belowD, above: aboveD }
+    return { line: lineD, below: belowD }
   }, [bars, n, plotBottom, x, y])
 
   const engineLine = useMemo(() => {
@@ -201,8 +207,35 @@ export const GameGraph: React.FC<Props> = ({
             ))}
           </defs>
           <path d={below} fill="rgb(255 255 255 / 0.13)" />
-          <path d={below} fill="url(#game-graph-danger-0)" />
-          <path d={above} fill="url(#game-graph-danger-1)" />
+          {[0, 1].map((side) => (
+            <g key={side}>
+              <rect
+                x={PAD_L}
+                y={lane(side)}
+                width={Math.max(0, w - PAD_L - PAD_R)}
+                height={LANE}
+                rx="1"
+                fill="rgb(255 255 255 / 0.07)"
+              />
+              <rect
+                x={PAD_L}
+                y={lane(side)}
+                width={Math.max(0, w - PAD_L - PAD_R)}
+                height={LANE}
+                rx="1"
+                fill={`url(#game-graph-danger-${side})`}
+              />
+              <circle
+                cx={PAD_L - 11}
+                cy={lane(side) + LANE / 2}
+                r="3"
+                fill={side === 0 ? 'white' : 'rgb(18 14 14)'}
+                stroke={side === 0 ? 'none' : 'rgb(255 255 255 / 0.7)'}
+              >
+                <title>{side === 0 ? 'White' : 'Black'}: blunder danger</title>
+              </circle>
+            </g>
+          ))}
           <line
             x1={PAD_L}
             x2={w - PAD_R}
@@ -241,22 +274,49 @@ export const GameGraph: React.FC<Props> = ({
               />
             )
           })}
-          {shown !== null ? (
+          {pointed !== null && pointed !== ply ? (
             <line
-              x1={x(shown)}
-              x2={x(shown)}
+              x1={x(pointed)}
+              x2={x(pointed)}
               y1={PAD_TOP}
-              y2={plotBottom}
-              stroke="rgb(255 255 255 / 0.45)"
+              y2={lanesBottom}
+              stroke="rgb(255 255 255 / 0.35)"
               strokeWidth="1"
+              strokeDasharray="2 3"
             />
           ) : null}
-          {shownBar && shown !== null ? (
+          {ply !== null ? (
+            <g>
+              <line
+                x1={x(ply)}
+                x2={x(ply)}
+                y1={PAD_TOP - 2}
+                y2={lanesBottom + 2}
+                stroke="rgb(255 255 255 / 0.9)"
+                strokeWidth="1.5"
+              />
+              <path
+                d={`M${(x(ply) - 4).toFixed(1)} ${PAD_TOP - 6}L${(x(ply) + 4).toFixed(1)} ${PAD_TOP - 6}L${x(ply).toFixed(1)} ${PAD_TOP - 1}Z`}
+                fill="white"
+              />
+              {bars[ply] ? (
+                <circle
+                  cx={x(ply)}
+                  cy={y((bars[ply] as HumanBarPly).W)}
+                  r="4"
+                  fill="white"
+                  stroke="rgb(18 14 14)"
+                  strokeWidth="1.25"
+                />
+              ) : null}
+            </g>
+          ) : null}
+          {pointed !== null && pointed !== ply && shownBar ? (
             <circle
-              cx={x(shown)}
+              cx={x(pointed)}
               cy={y(shownBar.W)}
-              r="3.5"
-              fill="white"
+              r="3"
+              fill="rgb(255 255 255 / 0.6)"
               stroke="rgb(18 14 14)"
               strokeWidth="1"
             />
@@ -283,8 +343,8 @@ export const GameGraph: React.FC<Props> = ({
             </text>
           ))}
           <text
-            x={PAD_L}
-            y={h - 3}
+            x={PAD_L + 2}
+            y={plotBottom - 3}
             fontSize="10"
             fontWeight="600"
             fill="rgb(255 255 255 / 0.7)"
@@ -301,7 +361,7 @@ export const GameGraph: React.FC<Props> = ({
             Black
           </text>
           <rect
-            x={w - PAD_R - 88}
+            x={w - PAD_R - 100}
             y={PAD_TOP + 2}
             width="9"
             height="9"
