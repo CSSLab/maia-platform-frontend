@@ -89,6 +89,7 @@ import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { formatMaiaName } from 'src/lib/maiaNames'
+import { playerLabel } from 'src/lib/pgn'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
 import {
   applyImportedVariations,
@@ -559,8 +560,15 @@ interface Props {
 
 // Stored games' names are already formatted with the game's date (see
 // fetchAnalyzedMaiaGame); any other Maia name is taken to be current.
-const formatAnalysisPlayerName = (name: string) =>
-  /^maia_kdd_\d+$/i.test(name) ? formatMaiaName(name) : name
+// A player without a name is shown as playerLabel says.
+const formatAnalysisPlayerName = (
+  name: string,
+  color: 'white' | 'black',
+  gameType?: string,
+) => {
+  const label = playerLabel(name, color, gameType)
+  return /^maia_kdd_\d+$/i.test(label) ? formatMaiaName(label) : label
+}
 
 // Apart from the page so that it renders only when the game changes: each
 // render of <Head> makes Next.js update the document's head, and the page
@@ -568,13 +576,15 @@ const formatAnalysisPlayerName = (name: string) =>
 const AnalysisHead = React.memo(function AnalysisHead({
   whitePlayer,
   blackPlayer,
+  gameType,
 }: {
   whitePlayer?: string
   blackPlayer?: string
+  gameType?: string
 }) {
   const players =
     whitePlayer !== undefined && blackPlayer !== undefined
-      ? `${formatAnalysisPlayerName(whitePlayer)} vs ${formatAnalysisPlayerName(blackPlayer)}`
+      ? `${formatAnalysisPlayerName(whitePlayer, 'white', gameType)} vs ${formatAnalysisPlayerName(blackPlayer, 'black', gameType)}`
       : null
   return (
     <Head>
@@ -1647,7 +1657,11 @@ const Analysis: React.FC<Props> = ({
                 />
                 <div className="flex min-w-0 items-center gap-1">
                   <p className="truncate text-sm" title={player.name}>
-                    {formatAnalysisPlayerName(player.name)}
+                    {formatAnalysisPlayerName(
+                      player.name,
+                      index === 0 ? 'white' : 'black',
+                      analyzedGame.type,
+                    )}
                   </p>
                   <span className="shrink-0 text-xs">
                     {player.rating ? <>({player.rating})</> : null}
@@ -1682,7 +1696,11 @@ const Analysis: React.FC<Props> = ({
             <div className="h-2 w-2 rounded-full bg-white" />
           </span>
           <span className="truncate font-medium">
-            {formatAnalysisPlayerName(analyzedGame.whitePlayer.name)}
+            {formatAnalysisPlayerName(
+              analyzedGame.whitePlayer.name,
+              'white',
+              analyzedGame.type,
+            )}
           </span>
           {analyzedGame.whitePlayer.rating && (
             <span className="shrink-0 text-primary/60">
@@ -1710,7 +1728,11 @@ const Analysis: React.FC<Props> = ({
             <div className="h-2 w-2 rounded-full border-[0.5px] bg-black" />
           </span>
           <span className="truncate font-medium">
-            {formatAnalysisPlayerName(analyzedGame.blackPlayer.name)}
+            {formatAnalysisPlayerName(
+              analyzedGame.blackPlayer.name,
+              'black',
+              analyzedGame.type,
+            )}
           </span>
           {analyzedGame.blackPlayer.rating && (
             <span className="shrink-0 text-primary/60">
@@ -2571,6 +2593,7 @@ const Analysis: React.FC<Props> = ({
       <AnalysisHead
         whitePlayer={analyzedGame?.whitePlayer.name}
         blackPlayer={analyzedGame?.blackPlayer.name}
+        gameType={analyzedGame?.type}
       />
       <MaiaDownloadPrompt engine={controller.maia} />
       <TreeControllerContext.Provider value={controller}>

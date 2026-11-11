@@ -62,17 +62,37 @@ export const pgnPlayerName = (user: User | null | undefined): string => {
 /**
  * A stored player's name for a PGN, or `fallback` when there's none: games
  * played by a visitor who wasn't signed in are stored without a name, or with
- * "None".
+ * "None", and an imported PGN that names nobody comes back with "?" (PGN's
+ * "unknown").
  */
 export const pgnNameOr = (
   name: string | null | undefined,
   fallback: string,
 ) => {
   const trimmed = name?.trim()
-  return trimmed && !/^(none|null|undefined)$/i.test(trimmed)
+  return trimmed && !/^(none|null|undefined|\?)$/i.test(trimmed)
     ? trimmed
     : fallback
 }
+
+/**
+ * A player's name to show, or without one: "Guest" in a game played here (by
+ * a visitor who wasn't signed in), and their colour in any other (an imported
+ * game that names nobody).
+ */
+export const playerLabel = (
+  name: string | null | undefined,
+  color: 'white' | 'black',
+  gameType?: string,
+) =>
+  pgnNameOr(
+    name,
+    ['play', 'hand', 'brain'].includes(gameType ?? '')
+      ? 'Guest'
+      : color === 'white'
+        ? 'White'
+        : 'Black',
+  )
 
 const sanOf = (parent: GameNode, child: GameNode): string => {
   if (child.san) return child.san
