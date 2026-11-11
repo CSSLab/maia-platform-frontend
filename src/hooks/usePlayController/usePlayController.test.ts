@@ -115,3 +115,38 @@ describe('usePlayController continuing a game', () => {
     expect(result.current.playerActive).toBe(false)
   })
 })
+
+describe('usePlayController clock state', () => {
+  it('publishes the clocks as the game goes, and clears them on leaving', () => {
+    const { result, unmount } = renderHook(() =>
+      usePlayController('game', config({ timeControl: '3+2' })),
+    )
+    expect(window.__MaiaClockState).toMatchObject({
+      lifecycle: 'not_started',
+      whiteInitialMs: 180000,
+      incrementMs: 2000,
+      activeColor: null,
+    })
+
+    act(() => result.current.addMoveWithTime('e2e4', 0))
+    act(() => result.current.addMoveWithTime('e7e5', 0))
+    act(() => {
+      result.current.updateClock()
+    })
+    expect(window.__MaiaClockState).toMatchObject({
+      lifecycle: 'ongoing',
+      turnColor: 'white',
+      activeColor: 'white',
+    })
+
+    act(() => result.current.setResigned(true))
+    expect(window.__MaiaClockState).toMatchObject({
+      lifecycle: 'finished',
+      result: 'black_wins',
+      activeColor: null,
+    })
+
+    unmount()
+    expect(window.__MaiaClockState).toBeUndefined()
+  })
+})

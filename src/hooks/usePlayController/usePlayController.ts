@@ -6,6 +6,7 @@ import { useTreeController } from '../useTreeController'
 import { usePlayGameTracking } from './usePlayGameTracking'
 import { useMemo, useState, useCallback, useEffect } from 'react'
 import { initialClockSeconds } from 'src/lib/timeControl'
+import { buildClockState, publishClockState } from 'src/lib/clockState'
 import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 const nullFen = new Chess().fen()
@@ -278,6 +279,36 @@ export const usePlayController = (
     toPlay,
     whiteClock,
   ])
+
+  // The clocks, for tools that drive a physical board or clock.
+  useEffect(() => {
+    publishClockState(
+      buildClockState({
+        timeControl: config.timeControl,
+        whiteClock,
+        blackClock,
+        initialClock: initialClockValue,
+        incrementSeconds,
+        lastMoveTime,
+        movesPlayed: moveList.length,
+        toPlay,
+        termination: game.termination,
+        now: Date.now(),
+      }),
+    )
+  }, [
+    config.timeControl,
+    whiteClock,
+    blackClock,
+    initialClockValue,
+    incrementSeconds,
+    lastMoveTime,
+    moveList.length,
+    toPlay,
+    game.termination,
+  ])
+
+  useEffect(() => () => publishClockState(null), [])
 
   const addMoveWithTime = useCallback(
     (moveUci: string, moveTime: number) => {
