@@ -50,6 +50,8 @@ export interface Maia3RawOutput {
   value: [number, number, number]
   /** Pooled representation (512 floats); null if the model lacks `repr`. */
   repr: Float32Array | null
+  /** Move probabilities by UCI move, when asked for (`policy: true`). */
+  policy?: Record<string, number>
 }
 
 export const MAIA3_REPR_DIM = 512
@@ -447,25 +449,28 @@ class Maia {
 
   /**
    * Raw Maia3 outputs for a batch of positions: the value probabilities
-   * [loss, draw, win] for the side to move and the pooled representation.
-   * Skips the policy post-processing (the human bars do not need it).
+   * [loss, draw, win] for the side to move and the pooled representation;
+   * with `policy: true` also the move probabilities (the human bars' likely
+   * moves), otherwise the policy post-processing is skipped.
    */
   async batchEvaluateMaia3Raw(
     boards: string[],
     eloSelfs: number[],
     eloOppos: number[],
-    options?: MaiaInferenceOptions,
+    options?: MaiaInferenceOptions & { policy?: boolean },
   ): Promise<Maia3RawOutput[]> {
     const batchSize = boards.length
     if (batchSize === 0) return []
 
     const combinedTokens = new Float32Array(batchSize * 64 * 12)
+    const legal: Float32Array[] = []
     for (let i = 0; i < batchSize; i++) {
-      const { boardTokens } = preprocessMaia3(boards[i])
+      const { boardTokens, legalMoves } = preprocessMaia3(boards[i])
       combinedTokens.set(boardTokens, i * 64 * 12)
+      legal.push(legalMoves)
     }
 
-    const { logitsValue, repr } = await this.runInference(
+    const { logitsMove, logitsValue, repr } = await this.runInference(
       combinedTokens,
       Float32Array.from(eloSelfs),
       Float32Array.from(eloOppos),
@@ -473,13 +478,32 @@ class Maia {
       options,
     )
 
+    const moveLogitsPerItem = 4352
     const out: Maia3RawOutput[] = []
     for (let i = 0; i < batchSize; i++) {
+      const value = logitsValue.subarray(i * 3, i * 3 + 3)
       out.push({
-        value: maia3ValueSoftmax(logitsValue.subarray(i * 3, i * 3 + 3)),
+        value: maia3ValueSoftmax(value),
         repr: repr
           ? repr.slice(i * MAIA3_REPR_DIM, (i + 1) * MAIA3_REPR_DIM)
           : null,
+        ...(options?.policy
+          ? {
+              policy: processOutputsMaia3(
+                boards[i],
+                new Tensor(
+                  'float32',
+                  logitsMove.slice(
+                    i * moveLogitsPerItem,
+                    (i + 1) * moveLogitsPerItem,
+                  ),
+                  [moveLogitsPerItem],
+                ),
+                new Tensor('float32', value.slice(), [3]),
+                legal[i],
+              ).policy,
+            }
+          : {}),
       })
     }
     return out

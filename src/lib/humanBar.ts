@@ -1,3 +1,4 @@
+import { Chess } from 'chess.ts'
 import { TYPICAL_DANGER_BY_LEVEL } from 'src/constants/typicalDanger'
 import { HumanBarGameInfo } from 'src/types/humanBar'
 
@@ -206,6 +207,59 @@ export const float32ToBase64LE = (values: Float32Array): string => {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
   }
   return btoa(binary)
+}
+
+/**
+ * The moves the bars look one move ahead through (practical LOG §90, P91):
+ * Maia's most likely moves at the players' ratings until they cover 95% of
+ * its probability, at most 12. The bar shown is half the position's own bar
+ * and half the Maia-weighted average of the bars after these moves.
+ */
+export const LIKELY_COVER = 0.95
+export const LIKELY_MAX = 12
+
+export const likelyMoves = (
+  policy: Record<string, number>,
+): { uci: string; prob: number }[] => {
+  const sorted = Object.entries(policy)
+    .filter(([, prob]) => prob > 0)
+    .sort((a, b) => b[1] - a[1])
+  const out: { uci: string; prob: number }[] = []
+  let cover = 0
+  for (const [uci, prob] of sorted) {
+    if (cover >= LIKELY_COVER || out.length >= LIKELY_MAX) break
+    out.push({ uci, prob })
+    cover += prob
+  }
+  return out
+}
+
+/** The position after a move given in UCI (e.g. "e7e8q"), or null if it is not legal there. */
+export const fenAfterMove = (fen: string, uci: string): string | null => {
+  const board = new Chess(fen)
+  const move = board.move({
+    from: uci.slice(0, 2),
+    to: uci.slice(2, 4),
+    ...(uci.length > 4 ? { promotion: uci[4] } : {}),
+  } as Parameters<Chess['move']>[0])
+  return move ? board.fen() : null
+}
+
+/**
+ * The eval of the position after a move, for its side to move, from the
+ * site's search of the position before it: `cpWhite` is that move's line
+ * (White's side, mates as +-10000) and `mateIn` its mate distance.
+ */
+export const evalAfterMoveFromLine = (
+  cpWhite: number,
+  mateIn: number | undefined,
+  whiteToMoveAfter: boolean,
+): number => {
+  const sideToMove = whiteToMoveAfter ? cpWhite : -cpWhite
+  if (Math.abs(cpWhite) >= 10000) {
+    return Math.sign(sideToMove) * (10000 - Math.max(1, Math.abs(mateIn ?? 1)))
+  }
+  return Math.round(sideToMove)
 }
 
 /** Lichess's winning-chances curve: expected score in [0, 1] for `cp`. */

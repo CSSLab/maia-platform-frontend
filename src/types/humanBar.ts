@@ -26,6 +26,25 @@ export interface HumanBarPositionInput {
   value: [number, number, number]
   /** Base64 of the 512 little-endian float32 values of Maia3's repr. */
   repr: string
+  /**
+   * Maia's likely moves here (to 95% of its probability, at most 12), each as
+   * the position after it with the same inputs, and Maia's probability of the
+   * move. With them the server also returns the bars after each move and the
+   * bar to show, half this position's and half their Maia-weighted average.
+   */
+  kids?: HumanBarKidInput[]
+}
+
+/** The position after one of Maia's likely moves. */
+export interface HumanBarKidInput {
+  fen: string
+  /** Eval for the side to move there (the side that replies), centipawns. */
+  cp: number
+  depth: number
+  value: [number, number, number]
+  repr: string
+  /** Maia's probability of the move at the position before it. */
+  prob: number
 }
 
 export interface HumanBarRequest {
@@ -66,6 +85,18 @@ export interface HumanBarPly {
   dB_K10_T15?: number
   dW_flag5?: number
   dB_flag5?: number
+  /**
+   * With the position's likely moves sent: the bar to show, half this
+   * position's bar (W / Dr / L) and half the Maia-weighted average of the
+   * bars after those moves (the server's one-move mix, practical LOG §90).
+   */
+  MW?: number
+  MDr?: number
+  ML?: number
+  /** The bars after each likely move, in the order sent: [W, Dr, L]. */
+  after?: [number, number, number][]
+  /** Set in the browser when W / Dr / L show the mix: the position's own bar [W, Dr, L]. */
+  own?: [number, number, number]
 }
 
 export interface HumanBarResponse {

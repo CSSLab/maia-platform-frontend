@@ -2,8 +2,11 @@ import fs from 'node:fs'
 import { TYPICAL_DANGER_BY_LEVEL } from 'src/constants/typicalDanger'
 import {
   buildHumanBarSetup,
+  evalAfterMoveFromLine,
   evaluationOrder,
+  fenAfterMove,
   float32ToBase64LE,
+  likelyMoves,
   parsePgnHeaders,
   engineChance,
   parsePgnMainline,
@@ -143,5 +146,41 @@ describe('engine chance', () => {
     expect(at(-4)).toBeLessThan(at(0))
     expect(at(0)).toBeLessThan(at(4))
     expect(at(0, 200)).toBeGreaterThan(at(0))
+  })
+})
+
+describe('one-move mix inputs', () => {
+  it("takes Maia's moves until they cover 95%, at most 12", () => {
+    expect(likelyMoves({ a: 0.5, b: 0.3, c: 0.16, d: 0.04 })).toEqual([
+      { uci: 'a', prob: 0.5 },
+      { uci: 'b', prob: 0.3 },
+      { uci: 'c', prob: 0.16 },
+    ])
+    const flat: Record<string, number> = {}
+    for (let i = 0; i < 20; i++) flat[`m${i}`] = 0.05
+    expect(likelyMoves(flat)).toHaveLength(12)
+    expect(likelyMoves({ a: 1, b: 0 })).toEqual([{ uci: 'a', prob: 1 }])
+  })
+
+  it('plays a UCI move, promotions and castling included', () => {
+    expect(fenAfterMove(START, 'e2e4')).toBe(
+      'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+    )
+    expect(fenAfterMove(START, 'e2e5')).toBeNull()
+    expect(fenAfterMove('4k3/1P6/8/8/8/8/8/4K3 w - - 0 1', 'b7b8n')).toBe(
+      '1N2k3/8/8/8/8/8/8/4K3 b - - 0 1',
+    )
+    expect(fenAfterMove('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1', 'e1g1')).toBe(
+      'r3k2r/8/8/8/8/8/8/R4RK1 b kq - 1 1',
+    )
+  })
+
+  it('turns a line of the position before into the eval after the move', () => {
+    // White to move played into +0.8 for White: Black to move after it.
+    expect(evalAfterMoveFromLine(80, undefined, false)).toBe(-80)
+    expect(evalAfterMoveFromLine(-35, undefined, true)).toBe(-35)
+    // White mates: Black, to move after the move, is getting mated.
+    expect(evalAfterMoveFromLine(10000, 3, false)).toBe(-(10000 - 3))
+    expect(evalAfterMoveFromLine(-10000, -2, true)).toBe(-(10000 - 2))
   })
 })
