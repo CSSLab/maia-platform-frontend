@@ -8,6 +8,8 @@ import { getGlobalStats } from 'src/api'
 import { AuthContext } from 'src/contexts/AuthContext'
 import { ModalContext } from 'src/contexts/ModalContext'
 import { AnimatedNumber } from 'src/components/Common/AnimatedNumber'
+import { HomeNews } from 'src/components/Home/HomeNews'
+import { NEWS_ITEMS } from 'src/lib/news/items'
 
 interface Props {
   scrollHandler: () => void
@@ -172,41 +174,47 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
   return (
     <Fragment>
       <div className="relative flex flex-col items-center justify-center gap-4 overflow-hidden pb-6 pt-4 md:gap-14 md:pt-16">
-        <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:gap-20">
-          <div className="flex w-full flex-col items-start justify-center gap-6 md:w-[45%] md:gap-8">
-            <div className="flex flex-col gap-3 md:gap-4">
-              {/* One line on phones (sized to fit) and wide screens; two
+        <div className="z-10 flex w-full max-w-[1200px] flex-col items-center justify-center gap-10 p-4 text-left md:flex-row md:items-stretch md:gap-20">
+          {/* The left column: the introduction, and under it the news box,
+              which takes the height the column has left (the column is as
+              tall as the feature cards, or taller). On phones the column is
+              no box of its own, so that the news box can come after the
+              cards. */}
+          <div className="contents md:flex md:w-[45%] md:flex-col md:justify-center md:gap-8">
+            <div className="flex w-full flex-col items-start justify-center gap-6 md:gap-8">
+              <div className="flex flex-col gap-3 md:gap-4">
+                {/* One line on phones (sized to fit) and wide screens; two
                   balanced lines beside the feature grid on tablets. */}
-              <motion.h1 className="whitespace-nowrap text-[length:min(2.25rem,calc((100vw_-_2rem)/11.6))] font-bold leading-tight text-white md:whitespace-normal md:text-balance md:text-5xl xl:whitespace-nowrap">
-                <span className="whitespace-nowrap">Human-like</span> chess AI
-              </motion.h1>
-              <motion.p className="text-xl text-white/80 md:text-2xl">
-                Maia is a neural network chess model that captures human style.
-                Enjoy realistic games, insightful analysis, and a new way of
-                seeing chess.
-              </motion.p>
-            </div>
-            {!user?.lichessId && (
-              <motion.div className="flex flex-wrap items-center gap-3 sm:gap-3">
-                <p className="text-sm tracking-wider text-white/80">
-                  Sign in with:
-                </p>
-                <motion.button
-                  className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
-                  onClick={() => {
-                    connectLichess('homepage')
-                  }}
-                >
-                  <img
-                    src="/assets/icons/lichess.svg"
-                    className="h-4 w-4 transition-opacity duration-200 group-hover:opacity-100"
-                    alt="Lichess"
-                  />
-                  <span className="text-sm font-medium text-white/90 transition-colors duration-200 group-hover:text-white">
-                    Lichess
-                  </span>
-                </motion.button>
-                {/* <motion.button
+                <motion.h1 className="whitespace-nowrap text-[length:min(2.25rem,calc((100vw_-_2rem)/11.6))] font-bold leading-tight text-white md:whitespace-normal md:text-balance md:text-5xl xl:whitespace-nowrap">
+                  <span className="whitespace-nowrap">Human-like</span> chess AI
+                </motion.h1>
+                <motion.p className="text-xl text-white/80 md:text-2xl">
+                  Maia is a neural network chess model that captures human
+                  style. Enjoy realistic games, insightful analysis, and a new
+                  way of seeing chess.
+                </motion.p>
+              </div>
+              {!user?.lichessId && (
+                <motion.div className="flex flex-wrap items-center gap-3 sm:gap-3">
+                  <p className="text-sm tracking-wider text-white/80">
+                    Sign in with:
+                  </p>
+                  <motion.button
+                    className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
+                    onClick={() => {
+                      connectLichess('homepage')
+                    }}
+                  >
+                    <img
+                      src="/assets/icons/lichess.svg"
+                      className="h-4 w-4 transition-opacity duration-200 group-hover:opacity-100"
+                      alt="Lichess"
+                    />
+                    <span className="text-sm font-medium text-white/90 transition-colors duration-200 group-hover:text-white">
+                      Lichess
+                    </span>
+                  </motion.button>
+                  {/* <motion.button
                   className="group flex items-center gap-2.5 rounded-md border border-glass-border bg-white/5 px-3 py-2 backdrop-blur-sm transition-all duration-200 hover:border-white/20 hover:bg-white/10"
                   onClick={() => {
                     connectLichess('homepage')
@@ -221,10 +229,18 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                     Chess.com
                   </span>
                 </motion.button> */}
-              </motion.div>
-            )}
+                </motion.div>
+              )}
+            </div>
+            <HomeNews
+              news={NEWS_ITEMS}
+              className="order-last -mt-6 w-full md:order-none md:mt-0 md:min-h-32 md:flex-1"
+            />
           </div>
-          <div className="grid w-full flex-1 grid-cols-1 gap-2 md:grid-cols-3 md:gap-4">
+          {/* The cards keep their height beside a taller left column, except
+              on wide screens, where the difference is small and they grow to
+              end level with the news box. */}
+          <div className="grid w-full flex-1 grid-cols-1 gap-2 md:grid-cols-3 md:gap-4 md:self-center xl:self-stretch">
             <FeatureCard
               icon="chess_knight"
               title="Play Maia"

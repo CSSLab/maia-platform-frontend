@@ -583,6 +583,19 @@ export const trackHomepageFeatureClicked = (
   })
 }
 
+/** A headline of the homepage's news box was followed. */
+export const trackHomepageNewsClicked = (
+  title: string,
+  href: string,
+  userAuthenticated: boolean,
+) => {
+  safeTrack('homepage_news_clicked', {
+    title,
+    href,
+    user_authenticated: userAuthenticated,
+  })
+}
+
 /** Where a "Sign in with Lichess" button was pressed. */
 export type SignInSource =
   | 'homepage'

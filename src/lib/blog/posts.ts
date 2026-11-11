@@ -23,12 +23,12 @@ export function getSortedPostsData() {
     }
   })
 
+  // Newest first; posts of the same day in the order of their file names.
   return posts.sort((a, b) => {
-    if (a.date < b.date) {
-      return 1
-    } else {
-      return -1
+    if (a.date !== b.date) {
+      return a.date < b.date ? 1 : -1
     }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
   })
 }
 
