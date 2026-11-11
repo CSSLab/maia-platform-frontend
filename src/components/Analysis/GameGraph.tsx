@@ -166,12 +166,16 @@ export const GameGraph: React.FC<Props> = ({
     return Math.max(0, Math.min(n - 1, p))
   }
 
-  /** The move into node p's mark: the human bars' when given, else the site's. */
+  /**
+   * The move into node p's mark: the human bars' when given, else the site's;
+   * none in the first three moves, as in the move list.
+   */
   const markOfMove = (p: number): MoveMark | null => {
+    if (p < 6) return null
     const m = markAt?.(p)
     if (m !== undefined) return m
     const node = mainline[p]
-    return node?.blunder ? '??' : node?.inaccuracy ? '?!' : null
+    return node?.blunder ? '??' : null
   }
 
   const moveLabel = (p: number) => {

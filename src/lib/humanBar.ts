@@ -236,16 +236,16 @@ export const likelyMoves = (
 
 /**
  * A move's mark from its two costs, in points of win chance for the mover
- * (practical LOG §91, §93):
+ * (practical LOG §91, §94):
  * - objective: the site's win-rate loss against Stockfish's best move;
  * - practical: these players' chance after the move (the bar server's
  *   `after`, fair clocks) against the best practical try among the moves
  *   priced, and against Stockfish's best move.
- * The objective tiers are the usual ones (as Lichess's): under 5 none, 5-10
- * ?! (an inaccuracy), 10-15 ?, over 15 ??. !? is the one mark from the
- * human side: a move 2-15 behind Stockfish's best (up to a mistake, never a
- * blunder) that is these players' best try (within 1 point) and 2+ points
- * better for them than Stockfish's move.
+ * The plain marks are ? (10-15 behind) and ?? (over 15); smaller losses get
+ * none. The two human-side marks: !? for a move 2-10 behind that is these
+ * players' best try (within 1 point) and 2+ points better for them than
+ * Stockfish's move; ?! for a move 10+ behind that is still within 5 points of
+ * their best try.
  */
 export type MoveMark = '!?' | '?!' | '?' | '??'
 
@@ -260,18 +260,16 @@ export const moveMark = (
     best?: number
   },
 ): MoveMark | null => {
-  if (
-    objective >= 2 &&
-    objective < 15 &&
-    practical &&
-    practical.best !== undefined &&
-    practical.top - practical.move <= 1 &&
-    practical.best - practical.move <= -2
-  ) {
-    return '!?'
+  if (objective < 10) {
+    return objective >= 2 &&
+      practical &&
+      practical.best !== undefined &&
+      practical.top - practical.move <= 1 &&
+      practical.best - practical.move <= -2
+      ? '!?'
+      : null
   }
-  if (objective < 5) return null
-  if (objective < 10) return '?!'
+  if (practical && practical.top - practical.move < 5) return '?!'
   return objective < 15 ? '?' : '??'
 }
 

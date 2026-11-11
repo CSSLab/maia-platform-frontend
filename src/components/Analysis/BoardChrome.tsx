@@ -40,9 +40,10 @@ interface AnalysisCompactBlunderMeterProps {
   /** Just the strip: the move lists next to the board already name the moves. */
   hideMoves?: boolean
   /**
-   * The human bars' marks are on (practical LOG §91, §93): the bands read as
-   * the marks do, the yellow one an inaccuracy (?!), the red one a mistake or
-   * worse (?, from 10 points; ?? from 15).
+   * The human bars' marks are on (practical LOG §91, §94): the bands read as
+   * the marks do, the red one a mistake or worse (?, from 10 points; ?? from
+   * 15), the yellow one an inaccuracy, which has no mark (?! is the human
+   * side's: a mistake that is still a close try for these players).
    */
   marks?: boolean
 }
@@ -436,7 +437,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
       mobileLabel: marks ? 'Inaccurate' : 'Mistakes',
       probability: data.okMoves.probability,
       topMoves: getTopCategoryMoves(data.okMoves.moves),
-      badge: '?!',
+      badge: marks ? '' : '?!',
       bgClass: 'bg-[#fee08b]',
       badgeClass: isDesktop
         ? 'border-[#8f6b00] bg-white/95 text-[#8f6b00]'
@@ -567,11 +568,13 @@ export const AnalysisCompactBlunderMeter: React.FC<
             >
               {segment.probability >= 7 ? (
                 <>
-                  <span
-                    className={`inline-flex items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
-                  >
-                    {segment.badge}
-                  </span>
+                  {segment.badge ? (
+                    <span
+                      className={`inline-flex items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
+                    >
+                      {segment.badge}
+                    </span>
+                  ) : null}
                   <span
                     className={`font-bold leading-none ${percentTextClass} ${segment.pctClass}`}
                   >
@@ -628,12 +631,14 @@ export const AnalysisCompactBlunderMeter: React.FC<
                   key={`maia-top-moves-${segment.key}`}
                   className={`flex min-w-0 flex-1 items-start ${segment.moveClass}`}
                 >
-                  <span
-                    className={`mr-1.5 inline-flex shrink-0 items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
-                    aria-hidden="true"
-                  >
-                    {segment.badge}
-                  </span>
+                  {segment.badge ? (
+                    <span
+                      className={`mr-1.5 inline-flex shrink-0 items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
+                      aria-hidden="true"
+                    >
+                      {segment.badge}
+                    </span>
+                  ) : null}
                   {segment.topMoves.length ? (
                     segment.topMoves.length >= 3 ? (
                       <span className="flex min-w-0 flex-col gap-0.5 leading-tight">

@@ -152,10 +152,10 @@ export const ExcellentIcon: React.FC<IconProps> = ({
 }
 
 /**
- * The marks from the two costs (practical LOG §91, §93, lib/humanBar
- * moveMark): ?!, ? and ?? are the usual inaccuracy, mistake and blunder; !?
- * is the human side's mark, these players' best practical try that isn't
- * Stockfish's move. A mark is a judgement of quality, so its
+ * The marks from the two costs (practical LOG §91, §94, lib/humanBar
+ * moveMark): ? and ?? the mistakes; the human side's two: ?! an objective
+ * mistake that is still close to these players' best try, !? their best try
+ * that isn't Stockfish's move. A mark is a judgement of quality, so its
  * colour is a step on the page's one quality scale, the meter's red - yellow
  * - green (ColorBrewer RdYlGn), from ?? to the site's green !: never blue,
  * which is the computer's colour on this page (Stockfish), as warm is Maia's.
@@ -175,7 +175,7 @@ const MARKS: Record<MoveMark, { glyph: string; colour: string; tip: string }> =
     '?!': {
       glyph: '?!',
       colour: 'bg-[#fee08b] text-[#3d2f00] hover:bg-[#fdd46a]',
-      tip: 'Inaccuracy',
+      tip: 'Dubious: a mistake, yet for these players it is about as good a try as any',
     },
     '!?': {
       glyph: '!?',
