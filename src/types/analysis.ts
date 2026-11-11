@@ -9,6 +9,12 @@ export interface MoveValueMapping {
 export interface AnalyzedGame extends BaseGame {
   availableMoves: AvailableMoves[]
   type: EvaluationType
+  /**
+   * A world championship game's number within its match (the second part of
+   * its address, /analysis/<match>/<number>). The games of a match all carry
+   * the match's `id`, so this is what tells one from another.
+   */
+  gameIndex?: string
   gameType: string
   blackPlayer: Player
   whitePlayer: Player

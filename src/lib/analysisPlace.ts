@@ -37,9 +37,20 @@ const movesTo = (node: GameNode) => {
   return moves
 }
 
-/** The game a place belongs to. */
-export const placeKey = (game: { type: string; id: string }) =>
-  `${game.type}/${game.id}`
+/**
+ * The game a place belongs to. A world championship game is told from the
+ * others of its match by its number: they share the match's id, and with the
+ * id alone a place kept in one game was put back into another (its moves
+ * appeared there as a line someone had tried).
+ */
+export const placeKey = (game: {
+  type: string
+  id: string
+  gameIndex?: string
+}) =>
+  game.gameIndex
+    ? `${game.type}/${game.id}/${game.gameIndex}`
+    : `${game.type}/${game.id}`
 
 /** Keeps the tree's moves and the move on show, for the game. */
 export const saveAnalysisPlace = (

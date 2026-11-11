@@ -48,6 +48,37 @@ describe('analysis place', () => {
     expect(movetext(other)).toBe('1. d4 d5 *')
   })
 
+  it('keeps the games of one match apart', () => {
+    // The games of a world championship match share the match's id. Game 2,
+    // an Open Ruy Lopez, was kept, then the page was loaded at game 1.
+    const match = { type: 'tournament', id: '0KNdpNQd' }
+    const second = gameTree('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 *')
+    saveAnalysisPlace(
+      placeKey({ ...match, gameIndex: '2' }),
+      second,
+      second.getLastMainlineNode(),
+    )
+
+    const first = gameTree('1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O d6 *')
+    expect(
+      restoreAnalysisPlace(placeKey({ ...match, gameIndex: '1' }), first),
+    ).toBeNull()
+    // Game 2's moves used to be grafted in as a line after 3. Bb5.
+    expect(movetext(first)).toBe('1. e4 e5 2. Nf3 Nc6 3. Bb5 Nf6 4. O-O d6 *')
+
+    const again = gameTree('1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 *')
+    expect(
+      restoreAnalysisPlace(placeKey({ ...match, gameIndex: '2' }), again)?.move,
+    ).toBe('g8f6')
+  })
+
+  it('names a game by its type and id, and a match game by its number too', () => {
+    expect(placeKey({ type: 'lichess', id: 'abc' })).toBe('lichess/abc')
+    expect(placeKey({ type: 'tournament', id: 'm', gameIndex: '3' })).toBe(
+      'tournament/m/3',
+    )
+  })
+
   it('goes as far as the moves kept still fit', () => {
     const tree = gameTree()
     saveAnalysisPlace(game, tree, tree.getLastMainlineNode())
