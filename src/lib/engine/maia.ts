@@ -6,6 +6,7 @@ import {
   allPossibleMovesMaia3Reversed,
 } from './tensor'
 import { MaiaModelStorage } from './storage'
+import { ENGINE_FILES_BASE } from './engineFiles'
 
 /**
  * Holds the logits the Maia worker returns. onnxruntime-web's Tensor was used
@@ -110,7 +111,7 @@ class Maia {
       return
     }
 
-    this.worker = new Worker('/maia-worker.js')
+    this.worker = new Worker(`${ENGINE_FILES_BASE}/maia-worker.js`)
 
     this.worker.onmessage = (e) => {
       const msg = e.data

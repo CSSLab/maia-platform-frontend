@@ -31,10 +31,11 @@ WebAssembly.Memory = function Memory(descriptor) {
 }
 WebAssembly.Memory.prototype = NativeMemory.prototype
 
-importScripts('/ort/ort.wasm.min.js')
+// From the folder this worker was loaded from, which names their version.
+importScripts('ort/ort.wasm.min.js')
 
 const ORT = ort
-ORT.env.wasm.wasmPaths = '/ort/'
+ORT.env.wasm.wasmPaths = new URL('ort/', self.location.href).href
 
 // A session for a one-node model (y = Identity(x)) starts ORT's WebAssembly
 // runtime (~0.2-0.35 s) while the real model is read from IndexedDB. It is

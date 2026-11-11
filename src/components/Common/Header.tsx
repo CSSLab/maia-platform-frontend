@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { LichessSignInButton } from 'src/components/Common/LichessSignInButton'
 import Image from 'next/image'
+// Imported, so its address names its contents and browsers keep it a year.
+import maiaLogo from 'public/maia-ios-icon.png'
 import { PlayType } from 'src/types'
 import { useRouter } from 'next/router'
 import { DiscordIcon } from './Icons'
@@ -203,12 +205,7 @@ export const Header: React.FC = () => {
     <div className="flex w-[90%] flex-row items-center justify-between">
       <div className="flex flex-row items-center justify-start gap-6">
         <Link href="/" className="flex flex-row items-center gap-2">
-          <Image
-            src="/maia-ios-icon.png"
-            width={40}
-            height={40}
-            alt="Maia Logo"
-          />
+          <Image src={maiaLogo} width={40} height={40} alt="Maia Logo" />
           <h2 className="text-2xl font-bold">Maia Chess</h2>
         </Link>
         <div className="hidden flex-row items-center gap-1 text-sm tracking-wider md:flex">
@@ -430,12 +427,7 @@ export const Header: React.FC = () => {
     <div className="flex w-full flex-row justify-between px-4">
       <Link href="/" passHref>
         <div className="flex flex-row items-center gap-2">
-          <Image
-            src="/maia-ios-icon.png"
-            width={40}
-            height={40}
-            alt="Maia Logo"
-          />
+          <Image src={maiaLogo} width={40} height={40} alt="Maia Logo" />
           <h2 className="text-2xl font-bold">Maia Chess</h2>
         </div>
       </Link>
@@ -451,12 +443,7 @@ export const Header: React.FC = () => {
           <div className="flex w-full flex-row justify-between px-4">
             <Link href="/" passHref>
               <div className="flex flex-row items-center gap-2">
-                <Image
-                  src="/maia-ios-icon.png"
-                  width={40}
-                  height={40}
-                  alt="Maia Logo"
-                />
+                <Image src={maiaLogo} width={40} height={40} alt="Maia Logo" />
                 <h2 className="text-2xl font-bold">Maia Chess</h2>
               </div>
             </Link>

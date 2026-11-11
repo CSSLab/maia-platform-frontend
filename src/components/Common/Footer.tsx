@@ -1,4 +1,6 @@
 import Image from 'next/image'
+// Imported, so its address names its contents and browsers keep it a year.
+import maiaLogo from 'public/maia-ios-icon.png'
 
 // Define footer data structure
 interface FooterLink {
@@ -107,7 +109,7 @@ export const Footer: React.FC = () => {
               {/* Asked for at the header's size, so both use one image
                   (each size is a separate download). */}
               <Image
-                src="/maia-ios-icon.png"
+                src={maiaLogo}
                 alt="Maia Chess"
                 width={40}
                 height={40}
