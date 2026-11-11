@@ -10,7 +10,7 @@ excerpt: >-
 github: https://github.com/CSSLab/maia-platform-frontend
 ---
 
-Over the past few weeks we have gone through nearly every page of Maia Chess. Some of the changes are new features, many are fixes, and a great deal of the work went into making the site faster, especially on phones. Much of it started as a request or a bug report on our Discord, so thank you to everyone who wrote in.
+Over the past few weeks we have gone through nearly every page of Maia Chess. Some of the changes are new features, many are fixes, and a great deal of the work went into making the site faster, especially on phones. Much of it started as a request or a bug report on our [Discord](https://discord.gg/Az93GqEAs7), so thank you to everyone who wrote in.
 
 Three of the changes have posts of their own:
 
@@ -34,18 +34,36 @@ The rest is below.
 
 **Learn from mistakes** now goes through the same mistakes each time you review a game, and "See solution" shows the best move as an arrow on the position you were asked about.
 
-## Broadcasts
+**More accurate numbers.** Several fixes changed what the page shows:
 
-The broadcast page shows both players' clocks beside their names, running for the side to move in a game in progress. It also remembers the Maia rating level you chose, separately from the analysis page.
+- Win percentages no longer jump on tiny differences, thanks to a bugfix.
+- Forced mates are listed fastest first, and a stored analysis shows a mate's real distance where it was recorded.
+- The description of a position now draws on every Maia level from 600 to 2600, where it used to look at only the first nine.
+- Underpromotions are kept when a game is saved and reopened.
+
+## On phones
+
+**Engines that start.** On an iPhone, reloading the analysis page could leave Maia or Stockfish unable to start, with an out-of-memory error. The two engines now reserve about half the memory they used to, and they try again when they need to.
+
+**A download that persists.** In Safari, the Maia-3 download sometimes finished without being saved, so it had to be downloaded again on the next visit. It is now saved in a form Safari accepts.
+
+**Layouts that hold still.** The game setup dialog fits on a phone screen, and the analysis page no longer shifts as you step through the moves.
 
 ## Everywhere else
 
-- **Settings without an account.** Sound, board theme and the downloaded Maia model can now be changed by visitors who aren't signed in, from the gear icon in the header.
-- **A news box on the homepage**, where announcements like this one will appear.
-- **Signing in** is now a clear "Sign in with Lichess" button, and a failed request now leads to a page with a "Try again" button (instead of a sign-up page for a beta that has ended, as before).
-- **Keyboard and screen readers.** The header's menus open from the keyboard, and the board's buttons are labelled.
-- **Forced dark modes** in browsers and extensions no longer turn Black's pieces white.
-- Puzzles reopened as Black are shown from Black's side, drills keep their queue through a refresh, and Bot or Not shows the game's result before you guess.
+**Settings without an account.** Sound, board theme and the downloaded Maia model can now be changed by visitors who aren't signed in, from the gear icon in the header.
+
+**A news box on the homepage**, where announcements like this one will appear.
+
+**Signing in** is now a clear "Sign in with Lichess" button, and a failed request now leads to a page with a "Try again" button (instead of a sign-up page for a beta that has ended, as before).
+
+**Keyboard and screen readers.** The header's menus open from the keyboard, and the board's buttons are labelled.
+
+**Forced dark modes** in browsers and extensions no longer turn Black's pieces white.
+
+Puzzles reopened as Black are shown from Black's side, drills keep their queue through a refresh, and Bot or Not shows the game's result before you guess.
+
+The broadcast page shows both players' clocks beside their names, running for the side to move in a game in progress. It also remembers the Maia rating level you chose, separately from the analysis page.
 
 ## Thank you
 
