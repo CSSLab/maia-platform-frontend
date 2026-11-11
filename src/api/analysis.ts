@@ -192,6 +192,8 @@ export const fetchAnalyzedWorldChampionshipGame = async (
 
   return {
     id,
+    // The server sends the match's id for every game of the match.
+    gameIndex: gameId[1],
     blackPlayer,
     whitePlayer,
     availableMoves,

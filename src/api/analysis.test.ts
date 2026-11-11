@@ -117,6 +117,36 @@ describe('game requests to the Maia server', () => {
     expect(isGameNotFound(error)).toBe(true)
   })
 
+  it('tells the games of a world championship match apart', async () => {
+    // The server sends the match's id for each of its games.
+    const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+    const AFTER_E4 =
+      'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'
+    const body = JSON.stringify({
+      id: '0KNdpNQd',
+      termination: { result: '1/2-1/2', winner: 'none' },
+      white_player: { name: 'Schlechter, Carl', rating: 0 },
+      black_player: { name: 'Lasker, Emanuel', rating: 0 },
+      maia_versions: [],
+      maia_evals: {},
+      stockfish_evals: [],
+      move_maps: [[]],
+      game_states: [
+        { fen: START, last_move: 'None', last_move_san: null, check: false },
+        { fen: AFTER_E4, last_move: 'e2e4', last_move_san: 'e4', check: false },
+      ],
+    })
+    fetchMock.mockReturnValueOnce(reply(body)).mockReturnValueOnce(reply(body))
+
+    const second = await fetchAnalyzedWorldChampionshipGame(['0KNdpNQd', '2'])
+    const tenth = await fetchAnalyzedWorldChampionshipGame(['0KNdpNQd', '10'])
+    expect([second.id, second.gameIndex]).toEqual(['0KNdpNQd', '2'])
+    expect([tenth.id, tenth.gameIndex]).toEqual(['0KNdpNQd', '10'])
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      'analysis/analysis_list/0KNdpNQd/2',
+    )
+  })
+
   it('reports a server failure for a Maia game as not a missing game', async () => {
     fetchMock.mockReturnValueOnce(reply('{}', 500))
 
