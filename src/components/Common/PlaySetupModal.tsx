@@ -25,6 +25,7 @@ import {
   SERVER_GAMES,
   ServerGame,
   describeServerGame,
+  serverGamePage,
 } from 'src/lib/serverGames'
 import { checkStartPosition } from 'src/lib/startPosition'
 import {
@@ -253,19 +254,8 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     if (!openServerGame) return
     setPlaySetupModalProps(undefined)
     onClose?.()
-    // /play/maia asks the server for a game and is given this one.
-    push({
-      pathname: '/play/maia',
-      query: {
-        player: openServerGame.player_color,
-        maiaVersion: openServerGame.maia_name,
-        timeControl: openServerGame.time_control,
-        sampleMoves: openServerGame.sample_moves,
-        simulateMaiaTime: true,
-        startFen: openServerGame.fen || undefined,
-        practice: false,
-      },
-    })
+    // The game's page asks the server for a game and is given this one.
+    push(serverGamePage(openServerGame))
   }, [openServerGame, setPlaySetupModalProps, onClose, push])
 
   const resignOpenServerGame = useCallback(() => {
@@ -379,8 +369,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       }
 
       // The server holds one game per player at a time.
-      const serverHeld =
-        SERVER_GAMES && props.playType == 'againstMaia' && !practice
+      const serverHeld = SERVER_GAMES
       if (serverHeld && openServerGame) {
         toast.error('Resume or resign your game in progress first')
         return

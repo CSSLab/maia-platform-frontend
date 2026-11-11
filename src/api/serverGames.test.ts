@@ -1,8 +1,11 @@
 import {
   ServerGameConflict,
+  addTimeServerGame,
   createServerGame,
   fetchCurrentServerGame,
   sendServerMove,
+  sendServerPiece,
+  takeBackServerGame,
 } from './serverGames'
 import { MoveRequestError } from './play'
 
@@ -46,11 +49,55 @@ describe('games the server holds: requests', () => {
       game_type: 'play',
       player_color: 'black',
       maia_name: 'maia_kdd_1500',
+      practice: false,
       time_control: '5+3',
       sample_moves: true,
       fen: null,
       instant: false,
     })
+  })
+
+  it('starts a hand or brain game with its partner', async () => {
+    fetchMock.mockResolvedValue(answer(201, state()))
+    await createServerGame({
+      gameType: 'brain',
+      playerColor: 'white',
+      maiaVersion: 'maia_kdd_1500',
+      maiaPartnerVersion: 'maia_kdd_1900',
+      timeControl: 'unlimited',
+      sampleMoves: true,
+      instant: true,
+    })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      game_type: 'brain',
+      player_color: 'white',
+      maia_name: 'maia_kdd_1500',
+      maia_friendly_name: 'maia_kdd_1900',
+      time_control: 'unlimited',
+      sample_moves: true,
+      fen: null,
+      instant: true,
+    })
+  })
+
+  it('names a piece in a brain game, and asks for takebacks and time', async () => {
+    fetchMock.mockResolvedValue(answer(200, state()))
+    await sendServerPiece('abc123', 2, 'n', 900, false)
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/play/games/abc123/moves')
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      ply: 2,
+      piece: 'n',
+      think_ms: 900,
+      instant: false,
+    })
+    await takeBackServerGame('abc123')
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      '/api/v1/play/games/abc123/takeback',
+    )
+    await addTimeServerGame('abc123')
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      '/api/v1/play/games/abc123/add_time',
+    )
   })
 
   it('is given the game in progress instead of a new one', async () => {

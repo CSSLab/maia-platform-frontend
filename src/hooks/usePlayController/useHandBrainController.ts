@@ -16,6 +16,9 @@ import { useSound } from 'src/hooks/useSound'
 import { safeUpdateRating } from 'src/lib/ratingUtils'
 import { maiaMoveClocks } from 'src/lib/timeControl'
 import { useGameLog } from './useGameLog'
+import { useServerTurns } from './useServerTurns'
+import { ServerGame } from 'src/lib/serverGames'
+import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 const brainStatsLoader = async () => {
   const stats = await fetchPlayPlayerStats()
@@ -41,9 +44,16 @@ export const useHandBrainController = (
   id: string,
   playGameConfig: PlayGameConfig,
   simulateMaiaTime: boolean,
+  // A game the server holds (src/lib/serverGames.ts): `resume` has the moves
+  // to show at once, `serverGame` its state. The server then names the
+  // brain's piece (hand games) or makes the hand's move (brain games).
+  resume?: UnfinishedGame,
+  serverGame?: ServerGame,
+  onServerResync?: (game: ServerGame) => void,
 ) => {
   const isBrain = playGameConfig.isBrain
-  const controller = usePlayController(id, playGameConfig)
+  const serverHeld = !!serverGame
+  const controller = usePlayController(id, playGameConfig, resume, serverHeld)
   const { playMoveSound } = useSound()
 
   const [selectedPiece, setSelectedPiece] = useState<PieceSymbol | undefined>(
@@ -58,6 +68,40 @@ export const useHandBrainController = (
   const [stats, incrementStats, updateRating] = useStats(
     isBrain ? brainStatsLoader : handStatsLoader,
   )
+
+  const server = useServerTurns({
+    controller,
+    id,
+    serverGame,
+    player: playGameConfig.player,
+    simulateMaiaTime,
+    initialPlies: resume?.moves.length ?? 0,
+    playMoveSound,
+    onServerResync,
+    onGameEnd: (game) => {
+      const rating = game.rating
+      if (rating) {
+        safeUpdateRating(rating.player_elo, (elo) =>
+          updateRating(elo, rating.player_provisional ?? undefined),
+        )
+      }
+      incrementStats(1, game.winner == playGameConfig.player ? 1 : 0)
+    },
+    // Hand: the brain's piece for the next move comes with each answer.
+    // Brain: the piece the player named has been played.
+    onShown: (game) => {
+      setBrainMoves(game.brain_moves ?? [])
+      setSelectedPiece(
+        !isBrain && game.state === 'not_over' && game.partner_piece
+          ? (game.partner_piece as PieceSymbol)
+          : undefined,
+      )
+    },
+    // The piece can be chosen again.
+    onSendFailed: () => {
+      if (isBrain) setSelectedPiece(undefined)
+    },
+  })
 
   const movablePieceTypes = useMemo(() => {
     return new Set(controller.availableMoves.map((m) => m.piece))
@@ -75,6 +119,7 @@ export const useHandBrainController = (
 
   useEffect(() => {
     if (
+      !serverHeld &&
       controller.game.id &&
       !isBrain &&
       !selectedPiece &&
@@ -124,6 +169,7 @@ export const useHandBrainController = (
     selectedPiece,
     maiaAttempt,
     retryMaia,
+    serverHeld,
   ])
 
   const makePlayerMove = useCallback(
@@ -132,14 +178,19 @@ export const useHandBrainController = (
       const destinationSquare = moveUci.slice(2, 4)
       const isCapture = !!chess.get(destinationSquare)
 
-      const moveTime = controller.updateClock()
-
-      controller.addMoveWithTime(moveUci, moveTime)
+      if (serverHeld) {
+        const thinkMs = server.thinkMs()
+        controller.updateClock()
+        server.sendMove(moveUci, thinkMs)
+      } else {
+        const moveTime = controller.updateClock()
+        controller.addMoveWithTime(moveUci, moveTime)
+      }
       setSelectedPiece(undefined)
 
       playMoveSound(isCapture)
     },
-    [controller, playMoveSound],
+    [controller, playMoveSound, serverHeld, server.thinkMs, server.sendMove],
   )
 
   useEffect(() => {
@@ -196,6 +247,7 @@ export const useHandBrainController = (
     }
 
     if (
+      !serverHeld &&
       controller.game.id &&
       !controller.playerActive &&
       !controller.game.termination
@@ -218,12 +270,20 @@ export const useHandBrainController = (
     simulateMaiaTime,
     maiaAttempt,
     retryMaia,
+    serverHeld,
   ])
 
   const selectPiece = useCallback(
     async (piece: PieceSymbol) => {
       if (movablePieceTypes.has(piece)) {
         setSelectedPiece(piece)
+
+        if (serverHeld) {
+          // The server has the partner Maia make the move with this piece,
+          // and answers with it and the opponent's reply.
+          server.sendPiece(piece, server.thinkMs())
+          return
+        }
 
         let maiaMoves
         try {
@@ -251,6 +311,9 @@ export const useHandBrainController = (
       playGameConfig.maiaPartnerVersion,
       playGameConfig.startFen,
       brainMoves,
+      serverHeld,
+      server.sendPiece,
+      server.thinkMs,
     ],
   )
 
@@ -281,8 +344,17 @@ export const useHandBrainController = (
   }
 
   const gameOverState = controller.game.termination?.type || 'not_over'
+  const resign = useCallback(() => {
+    if (serverHeld) {
+      server.resign()
+      return
+    }
+    controller.setResigned(true)
+  }, [serverHeld, server.resign, controller.setResigned])
+
   useGameLog({
-    gameId: controller.game.id,
+    // Never sent for a game the server holds: it has every move already.
+    gameId: serverHeld ? '' : controller.game.id,
     plies: controller.moveList.length,
     state: gameOverState,
     send: (leaving) => {
@@ -328,6 +400,7 @@ export const useHandBrainController = (
     movablePieceTypes,
     selectPiece,
     reset,
+    resign,
     stats,
   }
 }

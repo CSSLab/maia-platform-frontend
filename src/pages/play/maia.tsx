@@ -25,6 +25,7 @@ import { createServerGame, fetchServerGame } from 'src/api/serverGames'
 import {
   ServerGame,
   serverGameConfig,
+  serverGamePage,
   serverGameStart,
   usesServerGame,
 } from 'src/lib/serverGames'
@@ -381,6 +382,7 @@ const PlayMaiaPage: NextPage = () => {
           timeControl: playGameConfig.timeControl,
           sampleMoves: playGameConfig.sampleMoves,
           startFen: playGameConfig.startFen,
+          practice: !!playGameConfig.practice,
           instant: !simulateMaiaTime,
         })
       } catch (e) {
@@ -395,8 +397,13 @@ const PlayMaiaPage: NextPage = () => {
       }
       if (canceled) return
       const { game, inProgress } = created
-      const config = serverGameConfig(game, playGameConfig)
       if (inProgress) toast('Continuing your game in progress')
+      // A hand or brain game in progress is picked up on its own page.
+      if (game.game_type !== 'play') {
+        router.replace(serverGamePage(game))
+        return
+      }
+      const config = serverGameConfig(game, playGameConfig)
       setResumeGame(serverGameStart(game, config))
       setServerGame(game)
       showGame(game.game_id, config)

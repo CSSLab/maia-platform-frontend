@@ -4,12 +4,14 @@ import {
   describeServerGame,
   serverClocks,
   serverGameConfig,
+  serverGamePage,
   serverGameStart,
   serverTermination,
 } from './serverGames'
 
 const game = (fields: Partial<ServerGame> = {}): ServerGame => ({
   game_id: 'abc123',
+  game_type: 'play',
   player_color: 'white',
   maia_name: 'maia_kdd_1500',
   time_control: '5+3',
@@ -107,6 +109,31 @@ describe('a game the server holds', () => {
   it('starts the board with every move when picked up again', () => {
     const start = serverGameStart(game({ bot_move: null }), config)
     expect(start.moves).toEqual(['e2e4', 'e7e5'])
+  })
+
+  it('knows a hand or brain game by its type, partner and page', () => {
+    const brain = game({
+      game_type: 'brain',
+      maia_partner_name: 'maia_kdd_1900',
+    })
+    expect(serverGameConfig(brain, config)).toMatchObject({
+      playType: 'handAndBrain',
+      isBrain: true,
+      maiaPartnerVersion: 'maia_kdd_1900',
+    })
+    expect(serverGameConfig(game(), config)).toMatchObject({
+      playType: 'againstMaia',
+      isBrain: false,
+    })
+    expect(serverGamePage(brain).pathname).toBe('/play/hb')
+    expect(serverGamePage(brain).query).toMatchObject({
+      isBrain: true,
+      maiaPartnerVersion: 'maia_kdd_1900',
+    })
+    expect(serverGamePage(game()).pathname).toBe('/play/maia')
+    expect(describeServerGame(brain)).toBe(
+      'Hand & Brain vs Maia 1500, 5+3, move 2',
+    )
   })
 
   it('is described for the setup dialog', () => {

@@ -61,11 +61,15 @@ const retried = <T>(call: () => Promise<T>, attempts: number) =>
   })
 
 export interface NewServerGame {
+  gameType?: 'play' | 'hand' | 'brain'
   playerColor: Color
   maiaVersion: string
+  // The Maia playing with the player, in a hand or brain game.
+  maiaPartnerVersion?: string
   timeControl: string
   sampleMoves: boolean
   startFen?: string
+  practice?: boolean
   instant: boolean
 }
 
@@ -75,10 +79,14 @@ export interface NewServerGame {
  */
 export const createServerGame = (settings: NewServerGame) =>
   retried(async () => {
+    const gameType = settings.gameType ?? 'play'
     const answer = await request('play/games', 'POST', {
-      game_type: 'play',
+      game_type: gameType,
       player_color: settings.playerColor,
       maia_name: settings.maiaVersion,
+      ...(gameType === 'play'
+        ? { practice: !!settings.practice }
+        : { maia_friendly_name: settings.maiaPartnerVersion }),
       time_control: settings.timeControl,
       sample_moves: settings.sampleMoves,
       fen: settings.startFen || null,
@@ -121,6 +129,54 @@ export const sendServerMove = (
         }),
       ),
     6,
+  )
+
+/**
+ * Brain games: the type of piece the player names for their move at `ply`.
+ * The answer has the move the partner Maia made with it (player_move) and the
+ * opponent's reply.
+ */
+export const sendServerPiece = (
+  gameId: string,
+  ply: number,
+  piece: string,
+  thinkMs: number,
+  instant: boolean,
+) =>
+  retried(
+    async () =>
+      gameFrom(
+        'play/games move',
+        await request(`play/games/${gameId}/moves`, 'POST', {
+          ply,
+          piece,
+          think_ms: thinkMs,
+          instant,
+        }),
+      ),
+    6,
+  )
+
+/** Practice games: takes back the player's last move and Maia's reply. */
+export const takeBackServerGame = (gameId: string) =>
+  retried(
+    async () =>
+      gameFrom(
+        'play/games takeback',
+        await request(`play/games/${gameId}/takeback`, 'POST'),
+      ),
+    4,
+  )
+
+/** Practice games: more time on the player's clock. */
+export const addTimeServerGame = (gameId: string) =>
+  retried(
+    async () =>
+      gameFrom(
+        'play/games add_time',
+        await request(`play/games/${gameId}/add_time`, 'POST'),
+      ),
+    4,
   )
 
 export const resignServerGame = (gameId: string) =>

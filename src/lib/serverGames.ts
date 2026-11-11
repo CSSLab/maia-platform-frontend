@@ -9,13 +9,9 @@ import { UnfinishedGame } from 'src/lib/unfinishedGame'
  */
 export const SERVER_GAMES = process.env.NEXT_PUBLIC_SERVER_GAMES === '1'
 
-/**
- * Whether a game with these settings is held by the server. Play games only:
- * hand and brain games, and practice games (takebacks, extra time), aren't
- * yet.
- */
-export const usesServerGame = (config: PlayGameConfig) =>
-  SERVER_GAMES && config.playType === 'againstMaia' && !config.practice
+/** Whether a game with these settings is held by the server: every game is, when switched on. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const usesServerGame = (_config: PlayGameConfig) => SERVER_GAMES
 
 export interface ServerClock {
   white_ms: number
@@ -31,6 +27,15 @@ export interface ServerClock {
 /** A game as the server reports it (the backend's game_state). */
 export interface ServerGame {
   game_id: string
+  game_type: 'play' | 'hand' | 'brain'
+  // The Maia playing with the player, in a hand or brain game.
+  maia_partner_name?: string | null
+  // Hand games: the type of piece ("n", "p", ...) the brain has named for
+  // the player's next move.
+  partner_piece?: string | null
+  brain_moves?: string[]
+  // Brain games: the move the partner Maia made for the player in this answer.
+  player_move?: { uci: string; ply: number } | null
   player_color: Color
   maia_name: string
   time_control: string
@@ -90,7 +95,9 @@ export const serverGameConfig = (
   base: PlayGameConfig,
 ): PlayGameConfig => ({
   ...base,
-  playType: 'againstMaia',
+  playType: game.game_type === 'play' ? 'againstMaia' : 'handAndBrain',
+  isBrain: game.game_type === 'brain',
+  maiaPartnerVersion: game.maia_partner_name || base.maiaPartnerVersion,
   player: game.player_color,
   maiaVersion: game.maia_name,
   timeControl: game.time_control as TimeControl,
@@ -126,5 +133,35 @@ export const describeServerGame = (game: ServerGame) => {
   const control =
     game.time_control === 'unlimited' ? 'unlimited' : game.time_control
   const move = Math.floor(game.ply / 2) + 1
-  return `Maia ${rating}, ${control}, move ${move}`
+  const kind = game.game_type === 'play' ? '' : 'Hand & Brain vs '
+  return `${kind}Maia ${rating}, ${control}, move ${move}`
 }
+
+/** The page a game is played on, with its settings in the query. */
+export const serverGamePage = (game: ServerGame) =>
+  game.game_type === 'play'
+    ? {
+        pathname: '/play/maia',
+        query: {
+          player: game.player_color,
+          maiaVersion: game.maia_name,
+          timeControl: game.time_control,
+          sampleMoves: game.sample_moves,
+          simulateMaiaTime: true,
+          startFen: game.fen || undefined,
+          practice: game.practice,
+        },
+      }
+    : {
+        pathname: '/play/hb',
+        query: {
+          player: game.player_color,
+          maiaVersion: game.maia_name,
+          maiaPartnerVersion: game.maia_partner_name || undefined,
+          timeControl: game.time_control,
+          isBrain: game.game_type === 'brain',
+          sampleMoves: game.sample_moves,
+          simulateMaiaTime: true,
+          startFen: game.fen || undefined,
+        },
+      }

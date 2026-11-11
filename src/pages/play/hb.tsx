@@ -16,6 +16,15 @@ import { checkStartPosition } from 'src/lib/startPosition'
 import { useHandBrainController } from 'src/hooks/usePlayController/useHandBrainController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 import { tourConfigs } from 'src/constants/tours'
+import { createServerGame, fetchServerGame } from 'src/api/serverGames'
+import {
+  ServerGame,
+  serverGameConfig,
+  serverGamePage,
+  serverGameStart,
+  usesServerGame,
+} from 'src/lib/serverGames'
+import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 interface Props {
   id: string
@@ -23,6 +32,11 @@ interface Props {
   playAgain: () => void
   simulateMaiaTime: boolean
   setSimulateMaiaTime: (value: boolean) => void
+  // A game the server holds (src/lib/serverGames.ts): the moves to show at
+  // once, and its state.
+  resume?: UnfinishedGame
+  serverGame?: ServerGame
+  onServerResync?: (game: ServerGame) => void
 }
 
 const PlayHandBrain: React.FC<Props> = ({
@@ -31,11 +45,17 @@ const PlayHandBrain: React.FC<Props> = ({
   playAgain,
   simulateMaiaTime,
   setSimulateMaiaTime,
+  resume,
+  serverGame,
+  onServerResync,
 }: Props) => {
   const controller = useHandBrainController(
     id,
     playGameConfig,
     simulateMaiaTime,
+    resume,
+    serverGame,
+    onServerResync,
   )
 
   return (
@@ -50,7 +70,7 @@ const PlayHandBrain: React.FC<Props> = ({
           movablePieceTypes={Array.from(controller.movablePieceTypes)}
           selectedPiece={controller.selectedPiece}
           selectPiece={controller.selectPiece}
-          resign={() => controller.setResigned(true)}
+          resign={controller.resign}
           playAgain={playAgain}
           simulateMaiaTime={simulateMaiaTime}
           setSimulateMaiaTime={setSimulateMaiaTime}
@@ -136,6 +156,14 @@ const PlayHandBrainPage: NextPage = () => {
     setPlaySetupModalProps({ ...playGameConfig })
   }, [setPlaySetupModalProps, playGameConfig])
 
+  // The game as the server holds it, when it does: started here, or the
+  // player's game in progress, picked up again. Each new state from the
+  // server redraws the board from it.
+  const serverHeld = usesServerGame(playGameConfig)
+  const [serverGame, setServerGame] = useState<ServerGame>()
+  const [resumeGame, setResumeGame] = useState<UnfinishedGame>()
+  const [serverGameVersion, setServerGameVersion] = useState(0)
+
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
     // after the first render. Starting before then also started a game, with
@@ -152,6 +180,75 @@ const PlayHandBrainPage: NextPage = () => {
     }
 
     let canceled = false
+
+    const takeServerGame = (game: ServerGame) => {
+      const config = serverGameConfig(game, playGameConfig)
+      setResumeGame(serverGameStart(game, config))
+      setServerGame(game)
+      return config
+    }
+
+    // The address has a game the server holds but this page doesn't have its
+    // state (back or forward in the browser): ask for it.
+    if (serverHeld && typeof id === 'string' && serverGame?.game_id !== id) {
+      fetchServerGame(id)
+        .then((game) => {
+          if (!canceled) takeServerGame(game)
+        })
+        .catch(() => router.replace('/play'))
+      return () => {
+        canceled = true
+      }
+    }
+
+    // A game the server holds is created there. If the player already has a
+    // game in progress the server answers with that one, which is picked up
+    // where it was (on the play page, if it is a game against Maia alone).
+    async function startServerGame() {
+      let created
+      try {
+        created = await createServerGame({
+          gameType: playGameConfig.isBrain ? 'brain' : 'hand',
+          playerColor: playGameConfig.player,
+          maiaVersion: playGameConfig.maiaVersion,
+          maiaPartnerVersion: playGameConfig.maiaPartnerVersion,
+          timeControl: playGameConfig.timeControl,
+          sampleMoves: playGameConfig.sampleMoves,
+          startFen: playGameConfig.startFen,
+          instant: !simulateMaiaTime,
+        })
+      } catch (e) {
+        console.error(e)
+        trackGameStartFailed(
+          playGameConfig.isBrain ? 'brain' : 'hand',
+          e,
+          e instanceof MoveRequestError ? e.status : undefined,
+        )
+        router.push('/401')
+        return
+      }
+      if (canceled) return
+      const { game, inProgress } = created
+      if (inProgress) toast('Continuing your game in progress')
+      if (game.game_type === 'play') {
+        router.replace(serverGamePage(game))
+        return
+      }
+      const config = takeServerGame(game)
+      router.replace(
+        { pathname: '/play/hb', query: { id: game.game_id, ...config } },
+        { pathname: '/play/hb', query: { ...config } },
+      )
+    }
+
+    if (!id && serverHeld) {
+      setServerGame(undefined)
+      setResumeGame(undefined)
+      startServerGame()
+      return () => {
+        canceled = true
+      }
+    }
 
     async function fetchGameId() {
       let response
@@ -212,7 +309,14 @@ const PlayHandBrainPage: NextPage = () => {
     setPlaySetupModalProps,
     startFen,
     startFenCheck,
+    serverHeld,
   ])
+
+  // A game the server holds is shown once its state is here.
+  const ready =
+    router.isReady &&
+    !!id &&
+    (!serverHeld || (serverGame !== undefined && serverGame.game_id === id))
 
   return (
     <>
@@ -223,14 +327,23 @@ const PlayHandBrainPage: NextPage = () => {
           content="Team up with Maia in this collaborative chess variant. You can be the 'Hand' making moves while Maia is the 'Brain' selecting pieces, or vice versa."
         />
       </Head>
-      <Loading isLoading={!router.isReady || !id}>
-        {router.isReady && id && (
+      <Loading isLoading={!ready}>
+        {ready && (
           <PlayHandBrain
+            key={`${id}-${serverGameVersion}`}
             id={id as string}
             playGameConfig={playGameConfig}
             playAgain={playAgain}
             simulateMaiaTime={simulateMaiaTime}
             setSimulateMaiaTime={setSimulateMaiaTime}
+            resume={serverHeld ? resumeGame : undefined}
+            serverGame={serverHeld ? serverGame : undefined}
+            onServerResync={(game) => {
+              const config = serverGameConfig(game, playGameConfig)
+              setResumeGame(serverGameStart(game, config))
+              setServerGame(game)
+              setServerGameVersion((version) => version + 1)
+            }}
           />
         )}
       </Loading>

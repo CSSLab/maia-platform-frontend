@@ -6,6 +6,8 @@ import { useVsMaiaPlayController } from './useVsMaiaController'
 const sendServerMove = jest.fn()
 const resignServerGame = jest.fn()
 const flagServerGame = jest.fn()
+const takeBackServerGame = jest.fn()
+const addTimeServerGame = jest.fn()
 const fetchMaiaMove = jest.fn()
 const logGameMove = jest.fn()
 const incrementStats = jest.fn()
@@ -45,6 +47,9 @@ jest.mock('src/api/serverGames', () => {
     sendServerMove: (...args: unknown[]) => sendServerMove(...args),
     resignServerGame: (...args: unknown[]) => resignServerGame(...args),
     flagServerGame: (...args: unknown[]) => flagServerGame(...args),
+    takeBackServerGame: (...args: unknown[]) => takeBackServerGame(...args),
+    addTimeServerGame: (...args: unknown[]) => addTimeServerGame(...args),
+    sendServerPiece: jest.fn(),
   }
 })
 
@@ -60,6 +65,7 @@ const config = (overrides: Partial<PlayGameConfig> = {}): PlayGameConfig => ({
 
 const serverGame = (fields: Partial<ServerGame> = {}): ServerGame => ({
   game_id: 'g1',
+  game_type: 'play',
   player_color: 'white',
   maia_name: 'maia_kdd_1500',
   time_control: '5+3',
@@ -118,6 +124,8 @@ describe('playing a game the server holds', () => {
       sendServerMove,
       resignServerGame,
       flagServerGame,
+      takeBackServerGame,
+      addTimeServerGame,
       fetchMaiaMove,
       logGameMove,
       incrementStats,
@@ -372,6 +380,44 @@ describe('playing a game the server holds', () => {
     })
     await settle()
     expect(onResync).toHaveBeenCalledWith(current)
+  })
+
+  it('takes a move back and adds time on the server, in a practice game', async () => {
+    const practice = serverGame({
+      practice: true,
+      moves: ['e2e4', 'e7e5'],
+      move_times: [0, 0],
+      ply: 2,
+      clock: {
+        white_ms: 300000,
+        black_ms: 300000,
+        increment_ms: 3000,
+        running: 'white',
+        since_ms: 0,
+      },
+    })
+    const onResync = jest.fn()
+    const { result } = start(practice, config({ practice: true }), onResync)
+    expect(result.current.canTakeBack).toBe(true)
+
+    // The board is drawn again from the server's game after a takeback.
+    const takenBack = serverGame({ practice: true })
+    takeBackServerGame.mockResolvedValue(takenBack)
+    act(() => result.current.takeBack())
+    await settle()
+    expect(takeBackServerGame).toHaveBeenCalledWith('g1')
+    expect(onResync).toHaveBeenCalledWith(takenBack)
+
+    // More time: the clocks are the server's.
+    addTimeServerGame.mockResolvedValue({
+      ...practice,
+      clock: { ...practice.clock!, white_ms: 315000 },
+    })
+    act(() => result.current.addTime(15000))
+    await settle()
+    expect(addTimeServerGame).toHaveBeenCalledWith('g1')
+    expect(result.current.whiteClock).toBe(315000)
+    expect(result.current.moveList).toEqual(['e2e4', 'e7e5'])
   })
 
   it('asks for an instant reply when thinking time is off', async () => {
