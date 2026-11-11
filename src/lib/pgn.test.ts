@@ -6,7 +6,9 @@ import {
   graftVariations,
   hasVariations,
   parsePgnWithVariations,
+  pgnNameOr,
   pgnPlayerName,
+  playerLabel,
   splitPgnGames,
 } from './pgn'
 
@@ -211,5 +213,25 @@ describe('pgnPlayerName and formatPgnDate', () => {
 
   it('formats a date as PGN does', () => {
     expect(formatPgnDate(new Date(2026, 0, 5))).toBe('2026.01.05')
+  })
+})
+
+describe('pgnNameOr and playerLabel', () => {
+  it('keeps a real name', () => {
+    expect(pgnNameOr(' Carlsen, Magnus ', '?')).toBe('Carlsen, Magnus')
+    expect(playerLabel('Nakamura', 'black', 'custom')).toBe('Nakamura')
+  })
+
+  it('treats PGN\'s "?" and stored placeholders as no name', () => {
+    for (const name of ['?', ' ? ', 'None', 'null', '', undefined]) {
+      expect(pgnNameOr(name, 'x')).toBe('x')
+    }
+  })
+
+  it('shows an unnamed player by colour, or as Guest in a game played here', () => {
+    expect(playerLabel('?', 'white', 'custom')).toBe('White')
+    expect(playerLabel('?', 'black', 'custom')).toBe('Black')
+    expect(playerLabel('?', 'black')).toBe('Black')
+    expect(playerLabel('None', 'white', 'play')).toBe('Guest')
   })
 })
