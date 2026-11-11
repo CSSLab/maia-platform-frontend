@@ -23,6 +23,22 @@ describe('fetchGameMove', () => {
     })
   })
 
+  it('sends the clocks, increment included', async () => {
+    respond(200, { top_move: 'e2e4', move_delay: 0.4 })
+    await fetchGameMove(['e2e4'], 'maia_kdd_1500', null, null, 600, 412.5, 5)
+    const url = new URL(
+      (global.fetch as jest.Mock).mock.calls[0][0],
+      'https://example.com',
+    )
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      maia_name: 'maia_kdd_1500',
+      initial_clock: '600',
+      increment: '5',
+      current_clock: '412.5',
+      maia_version: 'maia3',
+    })
+  })
+
   it('throws, with the status, when the server rejects the request', async () => {
     respond(400, { detail: 'Illegal move order given' })
     const error = await fetchGameMove(['e2e5']).catch((e) => e)
