@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react'
+import type { MoveMark } from 'src/lib/humanBar'
 import type { HumanBarPly } from 'src/types'
 import type { GameNode } from 'src/types/node'
 
@@ -17,6 +18,11 @@ interface Props {
   onSelectPly: (ply: number) => void
   /** Where an eval in centipawns sits on the Stockfish bar (0-1). */
   engineAt: (cpw: number) => number
+  /**
+   * The mark of the move into main-line node p (the human bars' marks;
+   * undefined: the site's own classification).
+   */
+  markAt?: (p: number) => MoveMark | null | undefined
 }
 
 const PAD_L = 22
@@ -29,7 +35,17 @@ const LANE_GAP = 3
 const LANES = 2 * (LANE + LANE_GAP)
 const DANGER = '#e0301e'
 const BLUNDER = '#ff3b2f'
+const MISTAKE = '#ff8a3d'
 const INACCURACY = '#fee08b'
+const INTERESTING = '#38bdf8'
+/** Each mark's dot on the line: radius and colour. */
+const MARK_DOT: Record<MoveMark, [number, string]> = {
+  '??': [4, BLUNDER],
+  '?': [3.5, MISTAKE],
+  '?!': [3, INACCURACY],
+  '!?': [3, INTERESTING],
+  inaccuracy: [2.25, INACCURACY],
+}
 
 /** 0 at the player's usual risk of a blunder, 1 at twice it or more. */
 const dangerOf = (risk: number | undefined, usual: number) =>
@@ -51,6 +67,7 @@ export const GameGraph: React.FC<Props> = ({
   usual,
   onSelectPly,
   engineAt,
+  markAt,
 }) => {
   const box = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
@@ -148,11 +165,20 @@ export const GameGraph: React.FC<Props> = ({
     return Math.max(0, Math.min(n - 1, p))
   }
 
+  /** The move into node p's mark: the human bars' when given, else the site's. */
+  const markOfMove = (p: number): MoveMark | null => {
+    const m = markAt?.(p)
+    if (m !== undefined) return m
+    const node = mainline[p]
+    return node?.blunder ? '??' : node?.inaccuracy ? 'inaccuracy' : null
+  }
+
   const moveLabel = (p: number) => {
     const node = mainline[p]
     if (!node?.san) return 'Start'
     const number = Math.ceil(p / 2)
-    const mark = node.blunder ? '??' : node.inaccuracy ? '?!' : ''
+    const m = markOfMove(p)
+    const mark = m && m !== 'inaccuracy' ? m : ''
     return `${number}${p % 2 ? '.' : '...'}${node.san}${mark}`
   }
 
@@ -259,16 +285,18 @@ export const GameGraph: React.FC<Props> = ({
             strokeWidth="1.75"
             strokeLinejoin="round"
           />
-          {mainline.map((node, p) => {
+          {mainline.map((_, p) => {
             const bar = bars[p]
-            if (!bar || !(node.blunder || node.inaccuracy)) return null
+            const mark = bar ? markOfMove(p) : null
+            if (!bar || !mark) return null
+            const [r, fill] = MARK_DOT[mark]
             return (
               <circle
                 key={p}
                 cx={x(p)}
                 cy={y(bar.W)}
-                r={node.blunder ? 4 : 3}
-                fill={node.blunder ? BLUNDER : INACCURACY}
+                r={r}
+                fill={fill}
                 stroke="rgb(18 14 14)"
                 strokeWidth="1.25"
               />

@@ -284,6 +284,7 @@ export const useAnalysisController = (
 
     return {
       square: topHumanMove.slice(2, 4),
+      move: topHumanMove,
       classification,
     }
   }, [controller.currentNode, moveEvaluation, currentMaiaModel])

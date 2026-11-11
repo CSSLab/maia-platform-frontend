@@ -31,7 +31,9 @@ import {
   float32ToBase64LE,
   gameOverEval,
   likelyMoves,
+  moveMark,
 } from 'src/lib/humanBar'
+import type { MoveMark } from 'src/lib/humanBar'
 import type {
   AnalyzedGame,
   GameNode,
@@ -98,6 +100,11 @@ interface KidRun {
   fen: string
   /** The move played in the game: the next ply's own inputs once it has them. */
   played: boolean
+  /**
+   * Not one of Maia's likely moves (the move played, Stockfish's best): sent
+   * with prob 0, priced for the marks but not in the mix.
+   */
+  extra: boolean
   /** The bars' own small search (for plies the site has not analysed). */
   cp: number | null
   value: [number, number, number] | null
@@ -152,6 +159,10 @@ interface GameRun {
   kidDepth: number[]
   /** Plies whose bars on hand include the mix. */
   mixDone: number
+  /** The bars after each move priced at a ply (W, Dr, L), by UCI move: the marks' practical cost. */
+  afterBy: (Record<string, [number, number, number]> | undefined)[]
+  /** The ply's last mix also priced the move played and Stockfish's best (the marks need both). */
+  mixFull: boolean[]
   model: string | null
   maiaDone: number
   stockfishDone: number
@@ -265,10 +276,19 @@ const kidInputs = (
   run: GameRun,
   p: number,
   node: GameNode | undefined,
-): { kids: HumanBarKidInput[]; depth: number } | null => {
+): {
+  kids: HumanBarKidInput[]
+  ucis: string[]
+  depth: number
+  /** Every extra (the move played, Stockfish's best) is in. */
+  full: boolean
+} | null => {
+  addBestMoveKid(run, p, node)
   const ks = run.kids[p]
   if (!ks || ks.length === 0) return null
   const lines = siteLinesOf(node)
+  const ucis: string[] = []
+  let full = true
   const whiteAfter = run.fens[p].split(' ')[1] === 'b'
   const kids: HumanBarKidInput[] = []
   // The shallowest of the site's lines used (a later, deeper search asks again).
@@ -280,7 +300,17 @@ const kidInputs = (
     const q = p + 1
     const value = k.played ? (run.value[q] ?? k.value) : k.value
     const repr = k.played ? (run.repr[q] ?? k.repr) : k.repr
-    if (!value || !repr) return null
+    // A likely move missing an input holds the request; an extra waits for
+    // a later one (the mix does not need it).
+    const missing = () => {
+      if (!k.extra) return true
+      full = false
+      return false
+    }
+    if (!value || !repr) {
+      if (missing()) return null
+      continue
+    }
     const line = lines?.cp_vec?.[k.uci]
     let cp: number
     let d: number
@@ -295,11 +325,43 @@ const kidInputs = (
       cp = k.cp
       d = FALLBACK_DEPTH
     } else {
-      return null
+      if (missing()) return null
+      continue
     }
     kids.push({ fen: k.fen, cp, depth: d, value, repr, prob: k.prob })
+    ucis.push(k.uci)
   }
-  return { kids, depth: Number.isFinite(depth) ? depth : 0 }
+  return { kids, ucis, depth: Number.isFinite(depth) ? depth : 0, full }
+}
+
+/**
+ * Once the site has searched ply p (depth 12, as the site marks moves): its
+ * best move among the moves priced there (an extra, prob 0, when Maia's
+ * likely set lacks it), for the marks.
+ */
+const addBestMoveKid = (
+  run: GameRun,
+  p: number,
+  node: GameNode | undefined,
+) => {
+  const ks = run.kids[p]
+  // The move only (a cached search's too: its eval comes from the bars' own
+  // search then, like any likely move without a line of this page's engine).
+  const sf = node?.analysis?.stockfish
+  const best = sf && sf.depth >= 12 ? sf.model_move : undefined
+  if (!ks || ks.length === 0 || !best || ks.some((k) => k.uci === best)) return
+  const fen = fenAfterMove(run.fens[p], best)
+  if (!fen) return
+  ks.push({
+    uci: best,
+    prob: 0,
+    fen,
+    played: false,
+    extra: true,
+    cp: null,
+    value: null,
+    repr: null,
+  })
 }
 
 /**
@@ -364,7 +426,8 @@ const needsBars = (run: GameRun, p: number, node: GameNode | undefined) =>
   run.bars[p] === undefined ||
   run.stale.has(p) ||
   (run.form !== null && run.barsForm[p] !== run.form) ||
-  (!run.mixed[p] && kidInputs(run, p, node) !== null)
+  (!run.mixed[p] && kidInputs(run, p, node) !== null) ||
+  (run.mixed[p] && !run.mixFull[p] && !!kidInputs(run, p, node)?.full)
 
 /** The request for the given plies (each with its index p). */
 export const buildHumanBarRequest = (
@@ -471,6 +534,8 @@ export const useHumanBars = (
       mixed: fens.map(() => false),
       kidDepth: fens.map(() => 0),
       mixDone: 0,
+      afterBy: fens.map(() => undefined),
+      mixFull: fens.map(() => false),
       model: null,
       maiaDone: 0,
       stockfishDone: 0,
@@ -523,6 +588,7 @@ export const useHumanBars = (
       )
       const kids = new Map<number, HumanBarKidInput[]>()
       const kidDepth = new Map<number, number>()
+      const kidMoves = new Map<number, { ucis: string[]; full: boolean }>()
       const ready: number[] = []
       for (const p of candidates) {
         const k =
@@ -532,6 +598,7 @@ export const useHumanBars = (
         if (k) {
           kids.set(p, k.kids)
           kidDepth.set(p, k.depth)
+          kidMoves.set(p, { ucis: k.ucis, full: k.full })
         } else if (
           target.bars[p] !== undefined &&
           !target.stale.has(p) &&
@@ -590,6 +657,17 @@ export const useHumanBars = (
               if (kids.has(bar.p)) {
                 target.mixed[bar.p] = true
                 target.kidDepth[bar.p] = kidDepth.get(bar.p) ?? 0
+                const sent = kidMoves.get(bar.p)
+                target.mixFull[bar.p] = sent?.full ?? false
+                if (
+                  sent &&
+                  bar.after &&
+                  bar.after.length === sent.ucis.length
+                ) {
+                  target.afterBy[bar.p] = Object.fromEntries(
+                    sent.ucis.map((uci, i) => [uci, bar.after?.[i]]),
+                  ) as Record<string, [number, number, number]>
+                }
               } else {
                 target.mixed[bar.p] = false
               }
@@ -1090,27 +1168,43 @@ export const useHumanBars = (
           run.value[i] = out.value
           run.repr[i] = float32ToBase64LE(out.repr)
           const played = mainlineRef.current[i + 1]?.move ?? null
-          run.kids[i] = likelyMoves(out.policy ?? {}).flatMap(
-            ({ uci, prob }) => {
-              const fen =
-                uci === played
-                  ? run.fens[i + 1]
-                  : fenAfterMove(run.fens[i], uci)
-              return fen === null
-                ? []
-                : [
-                    {
-                      uci,
-                      prob,
-                      fen,
-                      played: uci === played,
-                      cp: null,
-                      value: null,
-                      repr: null,
-                    },
-                  ]
-            },
-          )
+          const likely = likelyMoves(out.policy ?? {})
+          run.kids[i] = likely.flatMap(({ uci, prob }) => {
+            const fen =
+              uci === played ? run.fens[i + 1] : fenAfterMove(run.fens[i], uci)
+            return fen === null
+              ? []
+              : [
+                  {
+                    uci,
+                    prob,
+                    fen,
+                    played: uci === played,
+                    extra: false,
+                    cp: null,
+                    value: null,
+                    repr: null,
+                  },
+                ]
+          })
+          // The move played, priced for its mark even when it is not one of
+          // Maia's likely moves (not in the mix).
+          if (
+            played &&
+            run.kids[i]?.length &&
+            !likely.some((m) => m.uci === played)
+          ) {
+            run.kids[i]?.push({
+              uci: played,
+              prob: 0,
+              fen: run.fens[i + 1],
+              played: true,
+              extra: true,
+              cp: null,
+              value: null,
+              repr: null,
+            })
+          }
         })
         run.maiaDone = run.value.filter((v) => v !== null).length
         bump()
@@ -1151,6 +1245,42 @@ export const useHumanBars = (
   const barsRevision = run?.barsRevision ?? 0
   const bars = useMemo(() => (run ? [...run.bars] : []), [run, barsRevision])
 
+  /**
+   * The mark of the move played from ply p (practical LOG §91, moveMark):
+   * its objective cost from the site's own search of p (the win-rate loss the
+   * site marks by), its practical cost from the bars after the moves priced
+   * there (none until they are in: then only the objective tiers). undefined
+   * while the site has not searched p deep enough to mark it.
+   */
+  const markOf = useCallback(
+    (p: number): MoveMark | null | undefined => {
+      const move = mainline[p + 1]?.move
+      const sf = mainline[p]?.analysis?.stockfish
+      if (!run || !move || !sf || !(sf.depth >= 12)) return undefined
+      const loss = sf.winrate_loss_vec?.[move]
+      if (loss === undefined || !Number.isFinite(loss)) return undefined
+      const after = run.afterBy[p]
+      const white = run.fens[p].split(' ')[1] !== 'b'
+      const chance = (a: [number, number, number]) =>
+        100 * (white ? a[0] + a[1] / 2 : a[2] + a[1] / 2)
+      const mine = after?.[move]
+      const best = after?.[sf.model_move]
+      return moveMark(
+        Math.abs(loss) * 100,
+        after && mine
+          ? {
+              move: chance(mine),
+              top: Math.max(...Object.values(after).map(chance)),
+              best: best ? chance(best) : undefined,
+            }
+          : undefined,
+      )
+    },
+    // barsRevision: afterBy is updated in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [run, mainline, barsRevision],
+  )
+
   let status: HumanBarStatus
   if (!enabled || !isLichess || !serverConfigured) status = 'off'
   else if (!setup || !setup.ok || !run) status = 'unavailable'
@@ -1168,6 +1298,7 @@ export const useHumanBars = (
     error: run?.fatal ?? run?.error ?? null,
     model: run?.model ?? null,
     bars,
+    markOf,
     total: run?.fens.length ?? 0,
     progress: {
       maia: run?.maiaDone ?? 0,

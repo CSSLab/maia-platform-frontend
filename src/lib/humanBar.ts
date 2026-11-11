@@ -234,6 +234,48 @@ export const likelyMoves = (
   return out
 }
 
+/**
+ * A move's mark from its two costs, in points of win chance for the mover
+ * (practical LOG §91, site/design/grades/GRADES.md):
+ * - objective: the site's win-rate loss against Stockfish's best move;
+ * - practical: these players' chance after the move (the bar server's
+ *   `after`, fair clocks) against the best practical try among the moves
+ *   priced, and against Stockfish's best move.
+ * Under 2 objective: best; 2-5: good; 5-10: an inaccuracy (colour, no
+ * symbol); 10-15: ?; over 15: ??. Practically: !? for a move 2-10 behind
+ * Stockfish's best that is the best try (within 1 point) and 2+ points better
+ * for these players than Stockfish's move; ?! for a move 10+ behind that is
+ * still within 5 points of the best try.
+ */
+export type MoveMark = '!?' | '?!' | '?' | '??' | 'inaccuracy'
+
+export const moveMark = (
+  objective: number,
+  practical?: {
+    /** These players' chance after the move (0-100, the mover's). */
+    move: number
+    /** After the best practical try among the moves priced. */
+    top: number
+    /** After Stockfish's best move, if priced. */
+    best?: number
+  },
+): MoveMark | null => {
+  if (objective < 2) return null
+  if (objective < 10) {
+    if (
+      practical &&
+      practical.best !== undefined &&
+      practical.top - practical.move <= 1 &&
+      practical.best - practical.move <= -2
+    ) {
+      return '!?'
+    }
+    return objective < 5 ? null : 'inaccuracy'
+  }
+  if (practical && practical.top - practical.move < 5) return '?!'
+  return objective < 15 ? '?' : '??'
+}
+
 /** The position after a move given in UCI (e.g. "e7e8q"), or null if it is not legal there. */
 export const fenAfterMove = (fen: string, uci: string): string | null => {
   const board = new Chess(fen)

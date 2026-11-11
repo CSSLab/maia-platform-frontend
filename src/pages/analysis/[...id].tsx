@@ -94,6 +94,7 @@ import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { isPhone } from 'src/lib/engine/maiaDownloadPrompt'
 import {
   engineChance,
+  moveMark,
   SMALL_NET_TO_SF19,
   usualBlunderRiskIn5,
 } from 'src/lib/humanBar'
@@ -769,6 +770,24 @@ const Analysis: React.FC<Props> = ({
     }),
     [whiteRating, blackRating, humanBars.timeControl],
   )
+  // Main-line moves' marks from the human bars' two costs (practical LOG
+  // §91), for the move list and the game graph: the move into node i.
+  const { markOf: humanBarMarkOf, mainline: humanBarMainline } = humanBars
+  const mainlineIndex = useMemo(
+    () => new Map(humanBarMainline.map((node, i) => [node, i] as const)),
+    [humanBarMainline],
+  )
+  const markAt = useCallback(
+    (i: number) => (i > 0 ? humanBarMarkOf(i - 1) : undefined),
+    [humanBarMarkOf],
+  )
+  const markOfNode = useCallback(
+    (node: GameNode) => {
+      const i = mainlineIndex.get(node)
+      return i === undefined ? undefined : markAt(i)
+    },
+    [mainlineIndex, markAt],
+  )
   const humanBarExpected =
     humanBars.available &&
     showHumanBars &&
@@ -814,16 +833,29 @@ const Analysis: React.FC<Props> = ({
       return []
     }
 
+    // With the human bars' marks on, the badge reads on their objective tiers
+    // (an inaccuracy is a dot, ? and ?? from 10 and 15 points: no ?!, which
+    // means a practical try there); it is Maia's move at the level picked,
+    // not these players', so it has no practical part.
+    const { move } = controller.topHumanMoveBadge
+    const loss =
+      controller.currentNode?.analysis?.stockfish?.winrate_loss_vec?.[move]
     return [
       {
         square: controller.topHumanMoveBadge.square,
         classification: controller.topHumanMoveBadge.classification,
+        mark:
+          humanBarsOnPage && loss !== undefined && Number.isFinite(loss)
+            ? moveMark(Math.abs(loss) * 100)
+            : undefined,
       },
     ]
   }, [
     analysisEnabled,
     controller.showTopMoveBadges,
     controller.topHumanMoveBadge,
+    controller.currentNode,
+    humanBarsOnPage,
   ])
 
   useEffect(() => {
@@ -1961,6 +1993,7 @@ const Analysis: React.FC<Props> = ({
                     game={analyzedGame}
                     termination={analyzedGame.termination}
                     showAnnotations={true}
+                    markOf={humanBarsOnPage ? markOfNode : undefined}
                     disableKeyboardNavigation={
                       controller.gameAnalysis.progress.isAnalyzing ||
                       controller.learnFromMistakes.state.isActive
@@ -2191,6 +2224,7 @@ const Analysis: React.FC<Props> = ({
               }
             >
               <AnalysisCompactBlunderMeter
+                marks={humanBarsOnPage}
                 variant="desktop"
                 hideMoves={humanBarsOnPage}
                 data={compactBlunderMeterData}
@@ -2213,6 +2247,7 @@ const Analysis: React.FC<Props> = ({
                       ply={humanBars.ply}
                       usual={usualRiskIn5}
                       onSelectPly={selectHumanBarPly}
+                      markAt={markAt}
                       engineAt={engineBarAt}
                     />
                   ) : null}
@@ -2505,6 +2540,7 @@ const Analysis: React.FC<Props> = ({
                 </div>
               </div>
               <AnalysisCompactBlunderMeter
+                marks={humanBarsOnPage}
                 className="mb-1.5 mt-3 w-full max-w-[560px]"
                 data={compactBlunderMeterData}
                 colorSanMapping={controller.colorSanMapping}
@@ -2548,6 +2584,7 @@ const Analysis: React.FC<Props> = ({
                   game={analyzedGame}
                   termination={analyzedGame.termination}
                   showAnnotations={true}
+                  markOf={humanBarsOnPage ? markOfNode : undefined}
                   forceMobileLayout={useMobileStyleAnalysisLayout}
                   disableKeyboardNavigation={
                     controller.gameAnalysis.progress.isAnalyzing ||

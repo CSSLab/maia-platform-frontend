@@ -39,6 +39,12 @@ interface AnalysisCompactBlunderMeterProps {
   variant?: CompactBlunderMeterVariant
   /** Just the strip: the move lists next to the board already name the moves. */
   hideMoves?: boolean
+  /**
+   * The human bars' marks are on (practical LOG §91): ?! means a practical
+   * try there, so the bands read as the marks do: the red one a mistake or
+   * worse (?), the yellow one an inaccuracy (a dot, no symbol).
+   */
+  marks?: boolean
 }
 
 interface AnalysisMaiaWinrateBarProps {
@@ -359,6 +365,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
   className,
   variant = 'mobile',
   hideMoves = false,
+  marks = false,
 }) => {
   const isDesktop = variant === 'desktop'
   const sanLabelCacheRef = useRef<Record<string, string>>({})
@@ -411,11 +418,11 @@ export const AnalysisCompactBlunderMeter: React.FC<
   const segments: SegmentConfig[] = [
     {
       key: 'blunder',
-      label: 'Blunders',
-      mobileLabel: 'Blunders',
+      label: marks ? 'Mistakes' : 'Blunders',
+      mobileLabel: marks ? 'Mistakes' : 'Blunders',
       probability: data.blunderMoves.probability,
       topMoves: getTopCategoryMoves(data.blunderMoves.moves),
-      badge: '??',
+      badge: marks ? '?' : '??',
       bgClass: 'bg-[#d73027]',
       badgeClass: isDesktop
         ? 'border-[#7f1813] bg-white/95 text-[#d73027]'
@@ -425,11 +432,11 @@ export const AnalysisCompactBlunderMeter: React.FC<
     },
     {
       key: 'ok',
-      label: 'Mistakes',
-      mobileLabel: 'Mistakes',
+      label: marks ? 'Inaccuracies' : 'Mistakes',
+      mobileLabel: marks ? 'Inaccurate' : 'Mistakes',
       probability: data.okMoves.probability,
       topMoves: getTopCategoryMoves(data.okMoves.moves),
-      badge: '?!',
+      badge: marks ? '•' : '?!',
       bgClass: 'bg-[#fee08b]',
       badgeClass: isDesktop
         ? 'border-[#8f6b00] bg-white/95 text-[#8f6b00]'

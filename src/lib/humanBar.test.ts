@@ -8,6 +8,7 @@ import {
   float32ToBase64LE,
   gameOverEval,
   likelyMoves,
+  moveMark,
   parsePgnHeaders,
   engineChance,
   parsePgnMainline,
@@ -197,5 +198,33 @@ describe('finished positions', () => {
     expect(gameOverEval('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1')).toBe(0)
     expect(gameOverEval('8/8/4k3/8/8/4K3/8/8 w - - 0 1')).toBe(0)
     expect(gameOverEval(START)).toBeNull()
+  })
+})
+
+describe('move marks', () => {
+  it('grades by the objective cost without practical numbers', () => {
+    expect(moveMark(1.9)).toBeNull()
+    expect(moveMark(4)).toBeNull()
+    expect(moveMark(6)).toBe('inaccuracy')
+    expect(moveMark(12)).toBe('?')
+    expect(moveMark(20)).toBe('??')
+  })
+
+  it("gives !? to the best practical try that beats Stockfish's move for these players", () => {
+    expect(moveMark(4, { move: 50, top: 50.5, best: 47 })).toBe('!?')
+    // Not the best try, or not 2 points better than Stockfish's move:
+    expect(moveMark(4, { move: 50, top: 52, best: 47 })).toBeNull()
+    expect(moveMark(7, { move: 50, top: 50, best: 49 })).toBe('inaccuracy')
+    // Stockfish's move not priced:
+    expect(moveMark(7, { move: 50, top: 50 })).toBe('inaccuracy')
+    // Objectively best: no mark, whatever the practical numbers.
+    expect(moveMark(1, { move: 50, top: 50, best: 40 })).toBeNull()
+  })
+
+  it('gives ?! to an objective mistake that stays practically close to the best try', () => {
+    expect(moveMark(12, { move: 46, top: 50 })).toBe('?!')
+    expect(moveMark(30, { move: 46, top: 50 })).toBe('?!')
+    expect(moveMark(12, { move: 44, top: 50 })).toBe('?')
+    expect(moveMark(30, { move: 40, top: 50 })).toBe('??')
   })
 })
