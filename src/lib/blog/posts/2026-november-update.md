@@ -42,7 +42,7 @@ The broadcast page shows both players' clocks beside their names, running for th
 
 - **Settings without an account.** Sound, board theme and the downloaded Maia model can now be changed by visitors who aren't signed in, from the gear icon in the header.
 - **A news box on the homepage**, where announcements like this one will appear.
-- **Signing in** is now a clear "Sign in with Lichess" button, and a failed request goes back to maiachess.com (instead of an error as before).
+- **Signing in** is now a clear "Sign in with Lichess" button, and a failed request now leads to a page with a "Try again" button (instead of a sign-up page for a beta that has ended, as before).
 - **Keyboard and screen readers.** The header's menus open from the keyboard, and the board's buttons are labelled.
 - **Forced dark modes** in browsers and extensions no longer turn Black's pieces white.
 - Puzzles reopened as Black are shown from Black's side, drills keep their queue through a refresh, and Bot or Not shows the game's result before you guess.
