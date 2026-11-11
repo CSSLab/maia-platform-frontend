@@ -2,6 +2,7 @@ import { Chess } from 'chess.ts'
 import { cpToWinrate } from 'src/lib'
 import { hasRelaxedSimd } from './relaxedSimd'
 import StockfishWeb from '@lichess-org/stockfish-web'
+import { ENGINE_FILES_BASE } from './engineFiles'
 import {
   StockfishDiagnostics,
   StockfishEvaluation,
@@ -2201,7 +2202,7 @@ export const withStartupLog = (error: unknown, log: string[]): StartupError => {
  * deep search (see LOADING.md). The files are in public/stockfish: webpack cannot bundle the
  * package's scripts, which import Node's modules when run under Node.
  */
-const STOCKFISH_BASE = '/stockfish'
+const STOCKFISH_BASE = `${ENGINE_FILES_BASE}/stockfish`
 
 const setupStockfish = async (
   onPhaseChange?: (phase: StockfishInitPhase) => void,
