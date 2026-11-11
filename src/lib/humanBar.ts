@@ -236,18 +236,18 @@ export const likelyMoves = (
 
 /**
  * A move's mark from its two costs, in points of win chance for the mover
- * (practical LOG §91, site/design/grades/GRADES.md):
+ * (practical LOG §91, §93):
  * - objective: the site's win-rate loss against Stockfish's best move;
  * - practical: these players' chance after the move (the bar server's
  *   `after`, fair clocks) against the best practical try among the moves
  *   priced, and against Stockfish's best move.
- * Under 2 objective: best; 2-5: good; 5-10: an inaccuracy (colour, no
- * symbol); 10-15: ?; over 15: ??. Practically: !? for a move 2-10 behind
- * Stockfish's best that is the best try (within 1 point) and 2+ points better
- * for these players than Stockfish's move; ?! for a move 10+ behind that is
- * still within 5 points of the best try.
+ * The objective tiers are the usual ones (as Lichess's): under 5 none, 5-10
+ * ?! (an inaccuracy), 10-15 ?, over 15 ??. !? is the one mark from the
+ * human side: a move 2-15 behind Stockfish's best (up to a mistake, never a
+ * blunder) that is these players' best try (within 1 point) and 2+ points
+ * better for them than Stockfish's move.
  */
-export type MoveMark = '!?' | '?!' | '?' | '??' | 'inaccuracy'
+export type MoveMark = '!?' | '?!' | '?' | '??'
 
 export const moveMark = (
   objective: number,
@@ -260,19 +260,18 @@ export const moveMark = (
     best?: number
   },
 ): MoveMark | null => {
-  if (objective < 2) return null
-  if (objective < 10) {
-    if (
-      practical &&
-      practical.best !== undefined &&
-      practical.top - practical.move <= 1 &&
-      practical.best - practical.move <= -2
-    ) {
-      return '!?'
-    }
-    return objective < 5 ? null : 'inaccuracy'
+  if (
+    objective >= 2 &&
+    objective < 15 &&
+    practical &&
+    practical.best !== undefined &&
+    practical.top - practical.move <= 1 &&
+    practical.best - practical.move <= -2
+  ) {
+    return '!?'
   }
-  if (practical && practical.top - practical.move < 5) return '?!'
+  if (objective < 5) return null
+  if (objective < 10) return '?!'
   return objective < 15 ? '?' : '??'
 }
 

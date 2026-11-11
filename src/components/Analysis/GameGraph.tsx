@@ -44,9 +44,8 @@ const INTERESTING = '#a6d96a'
 const MARK_DOT: Record<MoveMark, [number, string]> = {
   '??': [4, BLUNDER],
   '?': [3.5, MISTAKE],
-  '?!': [3, INACCURACY],
+  '?!': [2.75, INACCURACY],
   '!?': [3, INTERESTING],
-  inaccuracy: [2.25, INACCURACY],
 }
 
 /** 0 at the player's usual risk of a blunder, 1 at twice it or more. */
@@ -172,15 +171,14 @@ export const GameGraph: React.FC<Props> = ({
     const m = markAt?.(p)
     if (m !== undefined) return m
     const node = mainline[p]
-    return node?.blunder ? '??' : node?.inaccuracy ? 'inaccuracy' : null
+    return node?.blunder ? '??' : node?.inaccuracy ? '?!' : null
   }
 
   const moveLabel = (p: number) => {
     const node = mainline[p]
     if (!node?.san) return 'Start'
     const number = Math.ceil(p / 2)
-    const m = markOfMove(p)
-    const mark = m && m !== 'inaccuracy' ? m : ''
+    const mark = markOfMove(p) ?? ''
     return `${number}${p % 2 ? '.' : '...'}${node.san}${mark}`
   }
 

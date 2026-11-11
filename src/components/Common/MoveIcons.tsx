@@ -152,10 +152,10 @@ export const ExcellentIcon: React.FC<IconProps> = ({
 }
 
 /**
- * The marks from the two costs (practical LOG §91, lib/humanBar moveMark):
- * an objective mistake that is still these players' close-to-best try is ?!,
- * the best practical try that isn't Stockfish's move is !?; an inaccuracy is
- * a yellow dot, without a symbol. A mark is a judgement of quality, so its
+ * The marks from the two costs (practical LOG §91, §93, lib/humanBar
+ * moveMark): ?!, ? and ?? are the usual inaccuracy, mistake and blunder; !?
+ * is the human side's mark, these players' best practical try that isn't
+ * Stockfish's move. A mark is a judgement of quality, so its
  * colour is a step on the page's one quality scale, the meter's red - yellow
  * - green (ColorBrewer RdYlGn), from ?? to the site's green !: never blue,
  * which is the computer's colour on this page (Stockfish), as warm is Maia's.
@@ -175,17 +175,12 @@ const MARKS: Record<MoveMark, { glyph: string; colour: string; tip: string }> =
     '?!': {
       glyph: '?!',
       colour: 'bg-[#fee08b] text-[#3d2f00] hover:bg-[#fdd46a]',
-      tip: 'Dubious: a mistake, yet for these players it is about as good a try as any',
+      tip: 'Inaccuracy',
     },
     '!?': {
       glyph: '!?',
       colour: 'bg-[#a6d96a] text-[#12290a] hover:bg-[#94cd56]',
       tip: "Interesting: not Stockfish's move, but these players' best try",
-    },
-    inaccuracy: {
-      glyph: '',
-      colour: 'bg-[#fee08b] hover:bg-[#fdd46a]',
-      tip: 'Inaccuracy',
     },
   }
 
@@ -196,11 +191,7 @@ export const MoveMarkIcon: React.FC<
 > = ({ mark, size = 'medium', className = '', onClick }) => {
   const { glyph, colour, tip } = MARKS[mark]
   const id = `mark-tooltip-${Math.random().toString(36).substr(2, 9)}`
-  const sizeClasses = glyph
-    ? getSizeClasses(size)
-    : size === 'small'
-      ? 'h-1.5 w-1.5'
-      : 'h-2 w-2'
+  const sizeClasses = getSizeClasses(size)
   const handleClick = (event: React.MouseEvent | React.KeyboardEvent) => {
     if (onClick) {
       event.stopPropagation()

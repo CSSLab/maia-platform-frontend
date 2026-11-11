@@ -40,9 +40,9 @@ interface AnalysisCompactBlunderMeterProps {
   /** Just the strip: the move lists next to the board already name the moves. */
   hideMoves?: boolean
   /**
-   * The human bars' marks are on (practical LOG §91): ?! means a practical
-   * try there, so the bands read as the marks do: the red one a mistake or
-   * worse (?), the yellow one an inaccuracy (a dot, no symbol).
+   * The human bars' marks are on (practical LOG §91, §93): the bands read as
+   * the marks do, the yellow one an inaccuracy (?!), the red one a mistake or
+   * worse (?, from 10 points; ?? from 15).
    */
   marks?: boolean
 }
@@ -436,7 +436,7 @@ export const AnalysisCompactBlunderMeter: React.FC<
       mobileLabel: marks ? 'Inaccurate' : 'Mistakes',
       probability: data.okMoves.probability,
       topMoves: getTopCategoryMoves(data.okMoves.moves),
-      badge: marks ? '•' : '?!',
+      badge: '?!',
       bgClass: 'bg-[#fee08b]',
       badgeClass: isDesktop
         ? 'border-[#8f6b00] bg-white/95 text-[#8f6b00]'

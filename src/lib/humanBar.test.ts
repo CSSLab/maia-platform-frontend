@@ -205,26 +205,24 @@ describe('move marks', () => {
   it('grades by the objective cost without practical numbers', () => {
     expect(moveMark(1.9)).toBeNull()
     expect(moveMark(4)).toBeNull()
-    expect(moveMark(6)).toBe('inaccuracy')
+    expect(moveMark(6)).toBe('?!')
     expect(moveMark(12)).toBe('?')
     expect(moveMark(20)).toBe('??')
   })
 
   it("gives !? to the best practical try that beats Stockfish's move for these players", () => {
     expect(moveMark(4, { move: 50, top: 50.5, best: 47 })).toBe('!?')
+    expect(moveMark(8, { move: 50, top: 50, best: 47 })).toBe('!?')
+    // Up to a mistake (10-15), never a blunder:
+    expect(moveMark(12, { move: 50, top: 50, best: 46 })).toBe('!?')
+    expect(moveMark(16, { move: 50, top: 50, best: 40 })).toBe('??')
     // Not the best try, or not 2 points better than Stockfish's move:
     expect(moveMark(4, { move: 50, top: 52, best: 47 })).toBeNull()
-    expect(moveMark(7, { move: 50, top: 50, best: 49 })).toBe('inaccuracy')
+    expect(moveMark(7, { move: 50, top: 50, best: 49 })).toBe('?!')
+    expect(moveMark(12, { move: 46, top: 50, best: 44 })).toBe('?')
     // Stockfish's move not priced:
-    expect(moveMark(7, { move: 50, top: 50 })).toBe('inaccuracy')
+    expect(moveMark(7, { move: 50, top: 50 })).toBe('?!')
     // Objectively best: no mark, whatever the practical numbers.
     expect(moveMark(1, { move: 50, top: 50, best: 40 })).toBeNull()
-  })
-
-  it('gives ?! to an objective mistake that stays practically close to the best try', () => {
-    expect(moveMark(12, { move: 46, top: 50 })).toBe('?!')
-    expect(moveMark(30, { move: 46, top: 50 })).toBe('?!')
-    expect(moveMark(12, { move: 44, top: 50 })).toBe('?')
-    expect(moveMark(30, { move: 40, top: 50 })).toBe('??')
   })
 })

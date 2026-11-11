@@ -834,9 +834,8 @@ const Analysis: React.FC<Props> = ({
     }
 
     // With the human bars' marks on, the badge reads on their objective tiers
-    // (an inaccuracy is a dot, ? and ?? from 10 and 15 points: no ?!, which
-    // means a practical try there); it is Maia's move at the level picked,
-    // not these players', so it has no practical part.
+    // (?! 5-10 points, ? from 10, ?? from 15); it is Maia's move at the level
+    // picked, not these players', so it has no practical part (no !?).
     const { move } = controller.topHumanMoveBadge
     const loss =
       controller.currentNode?.analysis?.stockfish?.winrate_loss_vec?.[move]
