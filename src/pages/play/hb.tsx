@@ -5,9 +5,16 @@ import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 import { MoveRequestError, startGameWithRetry } from 'src/api/play'
 import { trackGameStartFailed } from 'src/lib/analytics'
-import { Loading } from 'src/components/Common'
-import { GameplayInterface } from 'src/components/Board'
-import { HandBrainPlayControls } from 'src/components/Play'
+// From 'src/components' itself, not its folders: GameplayInterface takes the
+// components it renders from there, and in development that file must start
+// loading before 'src/components/Board' does, or it is left without the
+// board components that come after GameplayInterface (MovesContainer,
+// BoardController) and the page fails to render.
+import {
+  Loading,
+  GameplayInterface,
+  HandBrainPlayControls,
+} from 'src/components'
 import { ModalContext, useTour } from 'src/contexts'
 import { Color, PlayGameConfig, TimeControl } from 'src/types'
 import toast from 'react-hot-toast'
