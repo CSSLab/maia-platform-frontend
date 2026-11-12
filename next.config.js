@@ -66,6 +66,17 @@ module.exports = withTM({
         source: '/v/:version/maia-worker.js',
         destination: '/maia-worker.js',
       },
+      // MAIA_API_DIRECT (development only): an API server reached directly,
+      // without the nginx that serves it under /api/v1, e.g. a test copy
+      // through an ssh tunnel (http://localhost:18990).
+      ...(process.env.MAIA_API_DIRECT
+        ? [
+            {
+              source: '/api/v1/:path*',
+              destination: `${process.env.MAIA_API_DIRECT}/:path*`,
+            },
+          ]
+        : []),
       {
         source: '/api/:path*',
         destination: 'https://dock2.csslab.ca/api/:path*',

@@ -59,11 +59,6 @@ export const trackMaiaModelLost = (daysSinceSaved: number) => {
   safeTrack('maia_model_lost', { days_since_saved: daysSinceSaved })
 }
 
-/** "Continue without Maia" on the download prompt. */
-export const trackDownloadModelDismissed = (page: string) => {
-  safeTrack('download_model_dismissed', { page })
-}
-
 export const trackDownloadModelCompleted = (
   downloadTimeSeconds: number,
   page: string,
@@ -687,4 +682,13 @@ export const trackErrorEncountered = (
     user_action: userAction,
     error_message: errorMessage,
   })
+}
+
+// Notifications (the bell in the header)
+export const trackNotificationsOpened = (unreadCount: number) => {
+  safeTrack('notifications_opened', { unread_count: unreadCount })
+}
+
+export const trackNotificationClicked = (kind: string, unread: boolean) => {
+  safeTrack('notification_clicked', { kind, unread })
 }

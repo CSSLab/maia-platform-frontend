@@ -2,6 +2,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import Link from 'next/link'
 import { LichessSignInButton } from 'src/components/Common/LichessSignInButton'
+import { ConnectButtonSlot } from 'src/components/Common/ConnectButtonSlot'
 import Image from 'next/image'
 // Imported, so its address names its contents and browsers keep it a year.
 import maiaLogo from 'public/maia-ios-icon.png'
@@ -22,6 +23,8 @@ import { ModalContext } from 'src/contexts/ModalContext'
 import { WindowSizeContext } from 'src/contexts/WindowSizeContext'
 import { LeaderboardNavBadge } from '../Leaderboard/LeaderboardNavBadge'
 import { useLeaderboardStatus } from 'src/hooks/useLeaderboardStatus'
+import { NotificationBell } from '../Notifications/NotificationBell'
+import { useNotifications } from 'src/hooks/useNotifications'
 import {
   ANALYSIS_MENU_ITEMS,
   AnalysisMenuRequest,
@@ -74,6 +77,19 @@ export const Header: React.FC = () => {
   // Get leaderboard status for the logged in user
   const { status: leaderboardStatus, loading: leaderboardLoading } =
     useLeaderboardStatus(user?.displayName)
+
+  // Every account has notifications, a guest's too.
+  const notifications = useNotifications(user?.clientId)
+  const notificationBell = (
+    <NotificationBell
+      unreadCount={notifications.unreadCount}
+      notifications={notifications.notifications}
+      status={notifications.status}
+      open={notifications.open}
+      onOpenChange={notifications.setOpen}
+      onRetry={notifications.retry}
+    />
+  )
 
   const router = useRouter()
 
@@ -403,6 +419,7 @@ export const Header: React.FC = () => {
         </div>
       </div>
       <div className="hidden flex-row items-center gap-3 md:flex">
+        <ConnectButtonSlot />
         <a
           target="_blank"
           rel="noreferrer"
@@ -418,6 +435,7 @@ export const Header: React.FC = () => {
             loading={leaderboardLoading}
           />
         )}
+        {notificationBell}
         {userInfo}
       </div>
     </div>
@@ -431,13 +449,17 @@ export const Header: React.FC = () => {
           <h2 className="text-2xl font-bold">Maia Chess</h2>
         </div>
       </Link>
-      <button
-        aria-label="Open navigation menu"
-        className="block cursor-pointer *:*:fill-primary"
-        onClick={() => setShowMenu((show) => !show)}
-      >
-        <span className="material-symbols-outlined text-3xl">menu</span>
-      </button>
+      <div className="flex flex-row items-center gap-3">
+        <ConnectButtonSlot />
+        {notificationBell}
+        <button
+          aria-label="Open navigation menu"
+          className="block cursor-pointer *:*:fill-primary"
+          onClick={() => setShowMenu((show) => !show)}
+        >
+          <span className="material-symbols-outlined text-3xl">menu</span>
+        </button>
+      </div>
       {showMenu && (
         <div className="fixed left-0 top-0 z-40 flex h-screen w-screen flex-col items-start justify-between overflow-y-auto bg-backdrop py-4">
           <div className="flex w-full flex-row justify-between px-4">

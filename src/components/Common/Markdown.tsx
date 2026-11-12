@@ -56,7 +56,6 @@ export const Markdown: React.FC<Props> = ({ children: markdown }: Props) => (
           {children}
         </h6>
       ),
-      p: ({ children }) => <p className="text-sm">{children}</p>,
       a: ({
         children,
         href,

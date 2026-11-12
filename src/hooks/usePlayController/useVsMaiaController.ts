@@ -6,6 +6,13 @@ import { useStats } from 'src/hooks/useStats'
 import { usePlayController } from 'src/hooks/usePlayController'
 import { fetchMaiaMove, logGameMove, fetchPlayPlayerStats } from 'src/api'
 import {
+  ServerGameConflict,
+  addTimeServerGame,
+  takeBackServerGame,
+} from 'src/api/serverGames'
+import { ServerGame } from 'src/lib/serverGames'
+import { useServerTurns } from './useServerTurns'
+import {
   dismissMaiaMoveFailedToast,
   reportMaiaMoveFailed,
 } from 'src/components/Common/maiaMoveFailedToast'
@@ -42,8 +49,16 @@ export const useVsMaiaPlayController = (
   playGameConfig: PlayGameConfig,
   simulateMaiaTime: boolean,
   resume?: UnfinishedGame,
+  // The game as the server holds it, when it does (src/lib/serverGames.ts):
+  // each of the player's moves is sent to it and answered with Maia's reply,
+  // the clocks and the result. `resume` then holds the moves to show at once.
+  serverGame?: ServerGame,
+  // The server says the game isn't where this page thought: start again from
+  // its state.
+  onServerResync?: (game: ServerGame) => void,
 ) => {
-  const controller = usePlayController(id, playGameConfig, resume)
+  const serverHeld = !!serverGame
+  const controller = usePlayController(id, playGameConfig, resume, serverHeld)
   const [stats, incrementStats, updateRating] = useStats(playStatsLoader)
   const { playMoveSound } = useSound()
   const [queuedPremove, setQueuedPremove] = useState<QueuedPremove | null>(null)
@@ -91,13 +106,82 @@ export const useVsMaiaPlayController = (
     [],
   )
 
+  // --- A game the server holds (useServerTurns) --------------------------
+
+  const server = useServerTurns({
+    controller,
+    id,
+    serverGame,
+    player: playGameConfig.player,
+    simulateMaiaTime,
+    initialPlies: resume?.moves.length ?? 0,
+    playMoveSound,
+    onServerResync,
+    onGameEnd: (game) => {
+      const rating = game.rating
+      if (rating && !playGameConfig.practice) {
+        safeUpdateRating(rating.player_elo, (elo) =>
+          updateRating(elo, rating.player_provisional ?? undefined),
+        )
+      }
+      incrementStats(1, game.winner == playGameConfig.player ? 1 : 0)
+    },
+    // A queued premove is played as soon as Maia's move is on the board.
+    onShown: (game, afterMaia) => {
+      if (!afterMaia) return
+      const legalPremoveUci =
+        queuedPremoveRef.current && game.state === 'not_over'
+          ? getLegalPremoveUci(afterMaia.fen(), queuedPremoveRef.current)
+          : null
+      if (queuedPremoveRef.current) {
+        clearPremove()
+      }
+      if (legalPremoveUci) {
+        const isPremoveCapture = !!afterMaia.get(legalPremoveUci.slice(2, 4))
+        server.sendMove(legalPremoveUci, 0)
+        setTimeout(
+          () => playMoveSound(isPremoveCapture),
+          PREMOVE_SOUND_DELAY_MS,
+        )
+      }
+    },
+  })
+
+  const resign = useCallback(() => {
+    if (!serverHeld) {
+      controller.updateClock()
+      controller.setResigned(true)
+      return
+    }
+    server.resign()
+  }, [
+    serverHeld,
+    server.resign,
+    controller.updateClock,
+    controller.setResigned,
+  ])
+
   const makePlayerMove = async (moveUci: string, moveTimeOverride?: number) => {
+    if (serverHeld) {
+      // Not a move in the game (made on an earlier position): ignored.
+      if (!server.canPlay(moveUci)) return
+      const thinkMs = moveTimeOverride ?? server.thinkMs()
+      // Charged here too, so that Maia's clock is the one running while its
+      // reply is on the way; the server's answer sets both clocks right.
+      controller.updateClock()
+      clearPremove()
+      server.sendMove(moveUci, thinkMs)
+      return
+    }
     const moveTime = moveTimeOverride ?? controller.updateClock()
     clearPremove()
     controller.addMoveWithTime(moveUci, moveTime)
   }
 
   useEffect(() => {
+    // The server makes Maia's moves in a game it holds (above).
+    if (serverHeld) return
+
     let canceled = false
     let moveTimeout: ReturnType<typeof setTimeout> | undefined
 
@@ -230,13 +314,15 @@ export const useVsMaiaPlayController = (
     clearPremove,
     getLegalPremoveUci,
     maiaMoveAttempt,
+    serverHeld,
   ])
 
   const gameOverState = controller.game.termination?.type || 'not_over'
   useGameLog({
     // Until start_game has answered (a resignation in that moment), nothing
-    // is sent; it is once the game has its id.
-    gameId: controller.game.id,
+    // is sent; it is once the game has its id. Never, for a game the server
+    // holds: it has every move already.
+    gameId: serverHeld ? '' : controller.game.id,
     plies: controller.moveList.length,
     state: gameOverState,
     send: (leaving) => {
@@ -279,6 +365,8 @@ export const useVsMaiaPlayController = (
   // Unlimited and practice games are kept in this browser after each move,
   // so they can be continued if the tab is closed; forgotten once over.
   useEffect(() => {
+    // A game the server holds is continued from the server, not from here.
+    if (serverHeld) return
     if (!controller.game.id || !canResume(playGameConfig)) return
     if (controller.game.termination) {
       clearUnfinishedGame(controller.game.id)
@@ -302,17 +390,52 @@ export const useVsMaiaPlayController = (
     controller.whiteClock,
     controller.blackClock,
     playGameConfig,
+    serverHeld,
   ])
+
+  // In a game the server holds, a takeback and extra time (practice games)
+  // are asked of the server; the board is then drawn again from its state.
+  const practiceRequest = useCallback(
+    (request: (gameId: string) => Promise<ServerGame>, redraw: boolean) => {
+      request(id)
+        .then((game) => (redraw ? onServerResync?.(game) : server.show(game)))
+        .catch((error) => {
+          if (error instanceof ServerGameConflict) {
+            onServerResync?.(error.game)
+            return
+          }
+          reportMaiaMoveFailed(error, () => practiceRequest(request, redraw))
+        })
+    },
+    [id, onServerResync, server.show],
+  )
 
   const takeBack = useCallback(() => {
     clearPremove()
+    if (serverHeld) {
+      practiceRequest(takeBackServerGame, true)
+      return
+    }
     controller.takeBack()
-  }, [clearPremove, controller.takeBack])
+  }, [clearPremove, controller.takeBack, serverHeld, practiceRequest])
+
+  const addTime = useCallback(
+    (ms: number) => {
+      if (serverHeld) {
+        practiceRequest(addTimeServerGame, false)
+        return
+      }
+      controller.addTime(ms)
+    },
+    [controller.addTime, serverHeld, practiceRequest],
+  )
 
   return {
     ...controller,
     takeBack,
+    addTime,
     makePlayerMove,
+    resign,
     premovesEnabled: true,
     queuedPremove,
     setPremove,

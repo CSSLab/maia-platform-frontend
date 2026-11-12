@@ -11,6 +11,8 @@ const parseAccountInfo = (data: { [x: string]: string }) => {
     clientId: clientId,
     displayName: displayName,
     lichessId: lichessId,
+    // A boolean in the answer, whatever the type above says.
+    serverGames: (data['server_games'] as unknown) === true,
   }
 }
 

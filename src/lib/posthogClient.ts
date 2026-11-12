@@ -43,6 +43,9 @@ export const loadPostHog = () => {
         browserPostHogConfig,
       )
       client = posthog
+      // Left over from the Maia download prompt experiment (Nov 2026), which
+      // registered it for good.
+      posthog.unregister('maia_prompt_variant')
       posthog.register(registered)
       // Sent with the time they happened.
       for (const [event, properties, timestamp] of pending.splice(0)) {

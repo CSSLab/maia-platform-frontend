@@ -7,6 +7,9 @@ let appHydrated = false
 export const markAppHydrated = () => {
   appHydrated = true
 }
+// False while the first page renders: a page rendered then was opened by
+// loading it (a link, a bookmark, a refresh), not by a click in the site.
+export const isAppHydrated = () => appHydrated
 
 interface Props {
   // The window width from which the page shows its desktop layout, and the

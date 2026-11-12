@@ -1,15 +1,13 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   DownloadModelModal,
   MaiaDownloadProgress,
 } from 'src/components/Common/DownloadModelModal'
 import {
   downloadsWithoutAsking,
-  maiaPromptVariant,
   startMaiaDownload,
 } from 'src/lib/engine/maiaDownloadPrompt'
-import { trackDownloadModelDismissed } from 'src/lib/analytics'
 import { MaiaEngine } from 'src/types'
 
 interface Props {
@@ -18,23 +16,14 @@ interface Props {
   wanted?: boolean
 }
 
-const DISMISSED_KEY = 'maia.downloadOfferDismissed'
-
-const wasDismissed = () => {
-  try {
-    return window.sessionStorage.getItem(DISMISSED_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
 /**
  * Asks for the Maia model, or fetches it (see maiaDownloadPrompt). Desktops
  * download without asking: in the two-day comparison 93% got Maia that way,
- * against 64% with the prompt that blocks the page. On phones one group still
- * gets that prompt; the other gets the same prompt but can "Continue without
- * Maia". The page stays usable during the download, with a small card showing
- * how it's going.
+ * against 64% with the prompt that blocks the page. Phones get the prompt that
+ * blocks the page: in a week-long comparison (Nov 2026) it beat a prompt with
+ * "Continue without Maia" on phones, with more of them getting Maia (61%
+ * against 51%), playing (25% against 20%) and analysing (55% against 48%).
+ * Once a download has started, a small card shows how it's going.
  */
 export const MaiaDownloadPrompt: React.FC<Props> = ({
   engine,
@@ -42,15 +31,12 @@ export const MaiaDownloadPrompt: React.FC<Props> = ({
 }: Props) => {
   const { maia, status, progress, downloadModel } = engine
   const needed = status === 'no-cache' || status === 'downloading'
-  const [dismissed, setDismissed] = useState(false)
   const autoStarted = useRef(false)
   const downloadSeen = useRef(false)
   if (status === 'downloading') downloadSeen.current = true
 
-  const usesWall =
-    needed && maiaPromptVariant() === 'wall' && !downloadsWithoutAsking()
-  const asks = status === 'no-cache' && wanted && !usesWall
-  const auto = asks && downloadsWithoutAsking()
+  const usesWall = needed && !downloadsWithoutAsking()
+  const auto = status === 'no-cache' && wanted && !usesWall
 
   useEffect(() => {
     if (auto && !autoStarted.current) {
@@ -58,16 +44,6 @@ export const MaiaDownloadPrompt: React.FC<Props> = ({
       startMaiaDownload(downloadModel, 'auto')
     }
   }, [auto, downloadModel])
-
-  const dismiss = () => {
-    setDismissed(true)
-    trackDownloadModelDismissed(window.location.pathname)
-    try {
-      window.sessionStorage.setItem(DISMISSED_KEY, '1')
-    } catch {
-      // It comes back on the next page.
-    }
-  }
 
   if (usesWall) {
     return (
@@ -77,19 +53,6 @@ export const MaiaDownloadPrompt: React.FC<Props> = ({
           progress={progress}
           download={downloadModel}
           downloading={status === 'downloading'}
-        />
-      </AnimatePresence>
-    )
-  }
-
-  if (asks && !auto && !dismissed && !wasDismissed()) {
-    return (
-      <AnimatePresence>
-        <DownloadModelModal
-          maia={maia}
-          progress={progress}
-          download={downloadModel}
-          onNotNow={dismiss}
         />
       </AnimatePresence>
     )

@@ -4,35 +4,7 @@ import {
   trackDownloadModelFailed,
   trackDownloadModelInitiated,
 } from 'src/lib/analytics'
-import { registerProperties } from 'src/lib/posthogClient'
 import { looksAutomated } from 'src/lib/looksAutomated'
-
-// How a visitor without the Maia model is asked for it. About 4 in 10 people
-// who saw the full-page prompt never got past it, so half of new visitors now
-// get the page at once. Each visitor stays in one group, and every event they
-// send says which, so the two can be compared in PostHog.
-export type MaiaPromptVariant = 'wall' | 'no_wall'
-
-const VARIANT_KEY = 'maia.downloadPromptVariant'
-
-let variant: MaiaPromptVariant | null = null
-
-export const maiaPromptVariant = (): MaiaPromptVariant => {
-  if (variant) return variant
-  try {
-    const stored = window.localStorage.getItem(VARIANT_KEY)
-    if (stored === 'wall' || stored === 'no_wall') {
-      variant = stored
-    } else {
-      variant = Math.random() < 0.5 ? 'wall' : 'no_wall'
-      window.localStorage.setItem(VARIANT_KEY, variant)
-    }
-  } catch {
-    variant = 'no_wall'
-  }
-  registerProperties({ maia_prompt_variant: variant })
-  return variant
-}
 
 /** A touch screen whose shorter side is a phone's. */
 export const isPhone = () =>

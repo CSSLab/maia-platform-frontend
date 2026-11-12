@@ -9,6 +9,7 @@ import {
   BoardController,
 } from 'src/components'
 import { useUnload } from 'src/hooks/useUnload'
+import { useRouter } from 'next/router'
 import type { DrawShape } from 'chessground/draw'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
@@ -19,6 +20,11 @@ import {
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 import { formatPgnDate, pgnPlayerName } from 'src/lib/pgn'
 import { pgnTimeControl } from 'src/lib/timeControl'
+
+const LEAVE_GAME_QUESTION =
+  'You have a game in progress. Leave it? (Its clock keeps running; you can come back to it from Play.)'
+// Thrown to call off a route change the player declined; not a failure.
+const LEAVE_GAME_ABORT = 'Stayed in the game: route change called off'
 
 interface Props {
   boardShapes?: DrawShape[]
@@ -106,6 +112,33 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
       return 'Are you sure you want to leave a game in progress?'
     }
   })
+
+  // Clicking away to another page of the site, mid-game, asks first. (The
+  // browser's own prompt, above, covers closing the tab and reloading.)
+  const router = useRouter()
+  const gameInProgress = !!game.id && !game.termination && plyCount > 0
+  useEffect(() => {
+    if (!gameInProgress) return
+    const onRouteChangeStart = (url: string) => {
+      // The game's own page changing its address (a new game's id) isn't
+      // leaving.
+      if (url.split('?')[0] === router.pathname) return
+      if (window.confirm(LEAVE_GAME_QUESTION)) return
+      // How a route change is called off in the pages router: the event that
+      // ends it, then an error that stops it (swallowed below).
+      router.events.emit('routeChangeError', LEAVE_GAME_ABORT, url)
+      throw LEAVE_GAME_ABORT
+    }
+    const ignoreAbort = (event: PromiseRejectionEvent) => {
+      if (event.reason === LEAVE_GAME_ABORT) event.preventDefault()
+    }
+    router.events.on('routeChangeStart', onRouteChangeStart)
+    window.addEventListener('unhandledrejection', ignoreAbort)
+    return () => {
+      router.events.off('routeChangeStart', onRouteChangeStart)
+      window.removeEventListener('unhandledrejection', ignoreAbort)
+    }
+  }, [gameInProgress, router])
 
   const availableMovesMapped = useMemo(() => {
     const result = new Map()

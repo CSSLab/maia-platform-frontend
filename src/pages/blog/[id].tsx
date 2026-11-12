@@ -114,7 +114,7 @@ const BlogPost = ({ post }: BlogPostProps) => {
               ))}
             </div>
           </div>
-          <div className="prose prose-sm prose-invert w-full max-w-none leading-relaxed md:prose-lg lg:prose-xl prose-headings:mb-2 prose-a:text-human-2 hover:prose-a:underline prose-ul:list-inside prose-ul:list-disc prose-li:text-sm prose-img:mb-2 prose-hr:my-8 prose-hr:opacity-20 lg:max-w-[80ch]">
+          <div className="prose prose-invert w-full max-w-none leading-relaxed md:prose-lg prose-headings:mb-2 prose-a:text-human-2 hover:prose-a:underline prose-ul:list-inside prose-ul:list-disc prose-img:mb-2 prose-hr:my-8 prose-hr:opacity-20 lg:max-w-[80ch]">
             <Markdown>{post.content}</Markdown>
           </div>
         </div>
