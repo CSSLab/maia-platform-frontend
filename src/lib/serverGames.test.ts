@@ -6,6 +6,7 @@ import {
   serverGameConfig,
   serverGamePage,
   serverGameStart,
+  serverGamesFor,
   serverTermination,
 } from './serverGames'
 
@@ -134,6 +135,14 @@ describe('a game the server holds', () => {
     expect(describeServerGame(brain)).toBe(
       'Hand & Brain vs Maia 1500, 5+3, move 2',
     )
+  })
+
+  it("is the server's decision for each player, once the account request has answered", () => {
+    expect(serverGamesFor(null)).toBeUndefined()
+    const guest = { clientId: 'c1', displayName: 'Guest' }
+    expect(serverGamesFor(guest)).toBe(false)
+    expect(serverGamesFor({ ...guest, serverGames: false })).toBe(false)
+    expect(serverGamesFor({ ...guest, serverGames: true })).toBe(true)
   })
 
   it('is described for the setup dialog', () => {

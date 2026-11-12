@@ -1,17 +1,34 @@
-import { Color, PlayGameConfig, Termination, TimeControl } from 'src/types'
+import {
+  Color,
+  PlayGameConfig,
+  Termination,
+  TimeControl,
+  User,
+} from 'src/types'
 import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 /**
  * Games the server holds (the backend's /play/games): the browser sends each
  * of the player's moves and is sent Maia's reply, the clocks and the result.
- * Switched on by NEXT_PUBLIC_SERVER_GAMES=1; otherwise games are run by the
- * browser and reported to the server, as before.
+ * Otherwise games are run by the browser and reported to the server, as
+ * before.
+ *
+ * Which it is for a player is the server's decision (a share of players that
+ * can be changed without a deploy), told in the account request as
+ * `server_games`. NEXT_PUBLIC_SERVER_GAMES overrides it for a build: '1' is
+ * everyone, '0' nobody.
  */
-export const SERVER_GAMES = process.env.NEXT_PUBLIC_SERVER_GAMES === '1'
+const BUILD_SETTING = process.env.NEXT_PUBLIC_SERVER_GAMES
 
-/** Whether a game with these settings is held by the server: every game is, when switched on. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const usesServerGame = (_config: PlayGameConfig) => SERVER_GAMES
+/**
+ * Whether this player's games are held by the server; undefined until the
+ * account request has answered (`user` is null until then).
+ */
+export const serverGamesFor = (user: User | null): boolean | undefined => {
+  if (BUILD_SETTING === '1') return true
+  if (BUILD_SETTING === '0') return false
+  return user ? !!user.serverGames : undefined
+}
 
 export interface ServerClock {
   white_ms: number

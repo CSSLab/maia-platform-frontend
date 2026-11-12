@@ -27,8 +27,8 @@ import {
   serverGameConfig,
   serverGamePage,
   serverGameStart,
-  usesServerGame,
 } from 'src/lib/serverGames'
+import { useServerGames } from 'src/hooks/useServerGames'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 
@@ -252,7 +252,8 @@ const PlayMaiaPage: NextPage = () => {
   // device). Each new state from the server redraws the board from it.
   const [serverGame, setServerGame] = useState<ServerGame>()
   const [serverGameVersion, setServerGameVersion] = useState(0)
-  const serverHeld = usesServerGame(playGameConfig)
+  // undefined until the account request has said (see useServerGames).
+  const serverHeld = useServerGames()
 
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
@@ -277,6 +278,8 @@ const PlayMaiaPage: NextPage = () => {
       router.replace({ pathname: '/play', query })
       return
     }
+    // No game is started until it is known who runs this player's games.
+    if (serverHeld === undefined) return
     if (id) {
       hadGame.current = true
       // The address has a game the server holds but this page doesn't have
@@ -474,7 +477,7 @@ const PlayMaiaPage: NextPage = () => {
           // A game the server holds takes no moves until its state is here.
           id={
             typeof id === 'string' &&
-            (!serverHeld || serverGame?.game_id === id)
+            (serverHeld === false || serverGame?.game_id === id)
               ? id
               : ''
           }

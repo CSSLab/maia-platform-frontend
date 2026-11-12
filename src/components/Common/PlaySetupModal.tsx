@@ -22,11 +22,11 @@ import { ModalContext } from 'src/contexts/ModalContext'
 import { startGameEarly } from 'src/api/play'
 import { fetchCurrentServerGame, resignServerGame } from 'src/api/serverGames'
 import {
-  SERVER_GAMES,
   ServerGame,
   describeServerGame,
   serverGamePage,
 } from 'src/lib/serverGames'
+import { useServerGames } from 'src/hooks/useServerGames'
 import { checkStartPosition } from 'src/lib/startPosition'
 import {
   INCREMENT_SECONDS_STEPS,
@@ -237,8 +237,9 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   // has to be resumed or resigned before another game is started.
   const [openServerGame, setOpenServerGame] = useState<ServerGame | null>(null)
   const [resigningOpenGame, setResigningOpenGame] = useState(false)
+  const serverGames = useServerGames()
   useEffect(() => {
-    if (!SERVER_GAMES) return
+    if (!serverGames) return
     let canceled = false
     fetchCurrentServerGame()
       .then((game) => {
@@ -248,7 +249,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     return () => {
       canceled = true
     }
-  }, [])
+  }, [serverGames])
 
   const resumeOpenServerGame = useCallback(() => {
     if (!openServerGame) return
@@ -369,8 +370,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       }
 
       // The server holds one game per player at a time.
-      const serverHeld = SERVER_GAMES
-      if (serverHeld && openServerGame) {
+      if (serverGames && openServerGame) {
         toast.error('Resume or resign your game in progress first')
         return
       }
@@ -399,8 +399,9 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
       }
 
       if (props.playType == 'againstMaia') {
-        // A game the server holds is created by /play/maia itself.
-        if (!serverHeld) {
+        // A game the server holds is created by /play/maia itself (as is
+        // any game while it isn't known yet who runs this player's).
+        if (serverGames === false) {
           startGameEarly(
             resolvedPlayer as Color,
             maiaVersion,
@@ -444,6 +445,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     },
     [
       openServerGame,
+      serverGames,
       setPlaySetupModalProps,
       props.playType,
       push,

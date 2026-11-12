@@ -29,8 +29,8 @@ import {
   serverGameConfig,
   serverGamePage,
   serverGameStart,
-  usesServerGame,
 } from 'src/lib/serverGames'
+import { useServerGames } from 'src/hooks/useServerGames'
 import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 interface Props {
@@ -166,7 +166,8 @@ const PlayHandBrainPage: NextPage = () => {
   // The game as the server holds it, when it does: started here, or the
   // player's game in progress, picked up again. Each new state from the
   // server redraws the board from it.
-  const serverHeld = usesServerGame(playGameConfig)
+  // undefined until the account request has said (see useServerGames).
+  const serverHeld = useServerGames()
   const [serverGame, setServerGame] = useState<ServerGame>()
   const [resumeGame, setResumeGame] = useState<UnfinishedGame>()
   const [serverGameVersion, setServerGameVersion] = useState(0)
@@ -185,6 +186,9 @@ const PlayHandBrainPage: NextPage = () => {
       })
       return
     }
+
+    // No game is started until it is known who runs this player's games.
+    if (serverHeld === undefined) return
 
     let canceled = false
 
@@ -328,7 +332,8 @@ const PlayHandBrainPage: NextPage = () => {
   const ready =
     router.isReady &&
     !!id &&
-    (!serverHeld || (serverGame !== undefined && serverGame.game_id === id))
+    (serverHeld === false ||
+      (serverGame !== undefined && serverGame.game_id === id))
 
   return (
     <>
