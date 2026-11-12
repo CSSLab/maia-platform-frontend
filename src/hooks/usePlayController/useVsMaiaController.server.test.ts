@@ -9,6 +9,7 @@ const flagServerGame = jest.fn()
 const takeBackServerGame = jest.fn()
 const addTimeServerGame = jest.fn()
 const skipDelayServerGame = jest.fn()
+const fetchServerGame = jest.fn()
 const fetchMaiaMove = jest.fn()
 const logGameMove = jest.fn()
 const incrementStats = jest.fn()
@@ -52,6 +53,7 @@ jest.mock('src/api/serverGames', () => {
     addTimeServerGame: (...args: unknown[]) => addTimeServerGame(...args),
     sendServerPiece: jest.fn(),
     skipDelayServerGame: (...args: unknown[]) => skipDelayServerGame(...args),
+    fetchServerGame: (...args: unknown[]) => fetchServerGame(...args),
   }
 })
 
@@ -129,6 +131,7 @@ describe('playing a game the server holds', () => {
       takeBackServerGame,
       addTimeServerGame,
       skipDelayServerGame,
+      fetchServerGame,
       fetchMaiaMove,
       logGameMove,
       incrementStats,
@@ -512,6 +515,54 @@ describe('playing a game the server holds', () => {
     })
     expect(result.current.moveList).toEqual(['e2e4', 'e7e5'])
     expect(skipDelayServerGame).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a move made while looking at an earlier position', async () => {
+    // 1. e4 e5 2. Nf3 Nc6: the player steps back to the start and moves the
+    // king's knight there. In the game, that knight is already on f3.
+    const game = serverGame({
+      moves: ['e2e4', 'e7e5', 'g1f3', 'b8c6'],
+      move_times: [0, 0, 0, 0],
+      ply: 4,
+    })
+    const { result } = start(game)
+    act(() => result.current.goToRootNode())
+    await act(async () => {
+      await result.current.makePlayerMove('g1f3')
+    })
+    await settle()
+    expect(sendServerMove).not.toHaveBeenCalled()
+    expect(result.current.moveList).toEqual(game.moves)
+
+    // The next real move goes out with the right ply.
+    sendServerMove.mockResolvedValue(serverGame({ ...game, ply: 6 }))
+    await act(async () => {
+      await result.current.makePlayerMove('f1c4')
+    })
+    expect(sendServerMove).toHaveBeenCalledWith(
+      'g1',
+      4,
+      'f1c4',
+      expect.any(Number),
+      false,
+    )
+  })
+
+  it('redraws the game from the server when the server refuses a move', async () => {
+    const { MoveRequestError } = jest.requireActual('src/api/play')
+    const onResync = jest.fn()
+    const { result } = start(serverGame(), config(), onResync)
+    const current = serverGame({ moves: ['d2d4', 'd7d5'], ply: 2 })
+    sendServerMove.mockRejectedValue(
+      new MoveRequestError(400, 'not a legal move in this position'),
+    )
+    fetchServerGame.mockResolvedValue(current)
+    await act(async () => {
+      await result.current.makePlayerMove('e2e4')
+    })
+    await settle()
+    expect(fetchServerGame).toHaveBeenCalledWith('g1')
+    expect(onResync).toHaveBeenCalledWith(current)
   })
 
   it('asks for an instant reply when thinking time is off', async () => {
