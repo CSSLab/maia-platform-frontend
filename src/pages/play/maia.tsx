@@ -459,7 +459,13 @@ const PlayMaiaPage: NextPage = () => {
       {/* The game appears at once, without Loading's fade-in. */}
       {router.isReady ? (
         <PlayMaia
-          key={`${gameKey}-${resumeGame?.id ?? ''}-${serverGameVersion}`}
+          // Drawn afresh when the server's game is attached (its id reaches
+          // the address a moment after its state arrives): the controller
+          // must have the game from its first render, to play Maia's first
+          // move when Maia moves first.
+          key={`${gameKey}-${resumeGame?.id ?? ''}-${serverGameVersion}-${
+            serverHeld && serverGame?.game_id === id ? 'held' : ''
+          }`}
           // A game the server holds takes no moves until its state is here.
           id={
             typeof id === 'string' &&

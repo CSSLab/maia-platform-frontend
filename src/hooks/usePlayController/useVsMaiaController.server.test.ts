@@ -236,6 +236,35 @@ describe('playing a game the server holds', () => {
     expect(sendServerMove).not.toHaveBeenCalled()
   })
 
+  it("plays Maia's first move when the server's game arrives after the first render", () => {
+    // What /play/maia does: the game's state is there before its id is in
+    // the address, so the controller first renders without either.
+    const game = serverGame({
+      player_color: 'black',
+      moves: ['e2e4'],
+      move_times: [500],
+      ply: 1,
+      to_move: 'black',
+      bot_move: { uci: 'e2e4', ply: 0, delay: 0.5 },
+    })
+    const gameConfig = config({ player: 'black' })
+    const resume = serverGameStart(game, gameConfig)
+    const { result, rerender } = renderHook(
+      ({ id, held }: { id: string; held?: ServerGame }) =>
+        useVsMaiaPlayController(id, gameConfig, true, resume, held, jest.fn()),
+      { initialProps: { id: '' } as { id: string; held?: ServerGame } },
+    )
+    expect(result.current.moveList).toEqual([])
+
+    rerender({ id: game.game_id, held: game })
+    act(() => {
+      jest.advanceTimersByTime(500)
+    })
+    expect(result.current.moveList).toEqual(['e2e4'])
+    expect(result.current.playerActive).toBe(true)
+    expect(fetchMaiaMove).not.toHaveBeenCalled()
+  })
+
   it('picks a game up with its moves and the clocks as they read now', () => {
     const game = serverGame({
       moves: ['e2e4', 'e7e5', 'g1f3', 'b8c6'],

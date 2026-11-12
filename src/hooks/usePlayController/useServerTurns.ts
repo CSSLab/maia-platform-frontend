@@ -74,6 +74,17 @@ export const useServerTurns = (options: Options) => {
     serverGame ? { game: serverGame } : null,
   )
 
+  // The server's game can arrive after the first render (the page has its
+  // state before its id is in the address): it is shown from then, so that
+  // Maia's first move is played when Maia moves first.
+  const shownGameId = useRef(serverGame?.game_id)
+  useEffect(() => {
+    if (!serverGame || shownGameId.current === serverGame.game_id) return
+    shownGameId.current = serverGame.game_id
+    plyRef.current = latest.current.initialPlies
+    setAnswer({ game: serverGame })
+  }, [serverGame])
+
   /** How long the player has been thinking on this screen (ms). */
   const thinkMs = useCallback(
     () => Math.max(0, Date.now() - turnShownAt.current),
