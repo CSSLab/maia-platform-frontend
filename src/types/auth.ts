@@ -2,6 +2,9 @@ export interface User {
   clientId: string
   displayName: string
   lichessId?: string
+  // Whether this player's games are held by the server (the backend decides:
+  // a share of players, see src/lib/serverGames.ts).
+  serverGames?: boolean
 }
 
 // How sure the rating system (Glicko-2) is of a rating.

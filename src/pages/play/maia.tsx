@@ -21,6 +21,14 @@ import {
 } from 'src/lib/unfinishedGame'
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
+import { createServerGame, fetchServerGame } from 'src/api/serverGames'
+import {
+  ServerGame,
+  serverGameConfig,
+  serverGamePage,
+  serverGameStart,
+} from 'src/lib/serverGames'
+import { useServerGames } from 'src/hooks/useServerGames'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 
@@ -37,6 +45,9 @@ interface Props {
   simulateMaiaTime: boolean
   setSimulateMaiaTime: (value: boolean) => void
   resume?: UnfinishedGame
+  // The game as the server holds it, when it does (src/lib/serverGames.ts).
+  serverGame?: ServerGame
+  onServerResync?: (game: ServerGame) => void
 }
 
 const PlayMaia: React.FC<Props> = ({
@@ -49,6 +60,8 @@ const PlayMaia: React.FC<Props> = ({
   simulateMaiaTime,
   setSimulateMaiaTime,
   resume,
+  serverGame,
+  onServerResync,
 }: Props) => {
   const router = useRouter()
   const controller = useVsMaiaPlayController(
@@ -56,6 +69,8 @@ const PlayMaia: React.FC<Props> = ({
     playGameConfig,
     simulateMaiaTime,
     resume,
+    serverGame,
+    onServerResync,
   )
   const returnTo = useMemo(() => {
     if (!returnToPath) return undefined
@@ -114,10 +129,7 @@ const PlayMaia: React.FC<Props> = ({
             game={controller.game}
             playerActive={controller.playerActive}
             gameOver={!!controller.game.termination}
-            resign={() => {
-              controller.updateClock()
-              controller.setResigned(true)
-            }}
+            resign={controller.resign}
             playAgain={playAgain}
             returnTo={returnTo}
             returnToLabel={returnToLabel}
@@ -235,6 +247,13 @@ const PlayMaiaPage: NextPage = () => {
   // one started, which would resign it. Decided each time a game is needed;
   // the board is drawn again with its moves (PlayMaia's key).
   const [resumeGame, setResumeGame] = useState<UnfinishedGame>()
+  // The game as the server holds it, in a game it holds: started here, or
+  // the player's game in progress, picked up again (a refresh, another
+  // device). Each new state from the server redraws the board from it.
+  const [serverGame, setServerGame] = useState<ServerGame>()
+  const [serverGameVersion, setServerGameVersion] = useState(0)
+  // undefined until the account request has said (see useServerGames).
+  const serverHeld = useServerGames()
 
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
@@ -259,21 +278,42 @@ const PlayMaiaPage: NextPage = () => {
       router.replace({ pathname: '/play', query })
       return
     }
+    // No game is started until it is known who runs this player's games.
+    if (serverHeld === undefined) return
     if (id) {
       hadGame.current = true
+      // The address has a game the server holds but this page doesn't have
+      // its state (back or forward in the browser): ask for it.
+      if (serverHeld && typeof id === 'string' && serverGame?.game_id !== id) {
+        let stale = false
+        fetchServerGame(id)
+          .then((game) => {
+            if (stale) return
+            const config = serverGameConfig(game, playGameConfig)
+            setResumeGame(serverGameStart(game, config))
+            setServerGame(game)
+          })
+          .catch(() => router.replace('/play'))
+        return () => {
+          stale = true
+        }
+      }
       return
     }
     if (hadGame.current) setGameKey((key) => key + 1)
 
     let canceled = false
 
-    const showGame = (gameId: string) =>
+    const showGame = (
+      gameId: string,
+      config: PlayGameConfig = playGameConfig,
+    ) =>
       router.replace(
         {
           pathname: '/play/maia',
           query: {
             id: gameId,
-            ...playGameConfig,
+            ...config,
             returnTo,
             challengeId,
             forcedColor,
@@ -287,7 +327,7 @@ const PlayMaiaPage: NextPage = () => {
             // We don't show the game ID in the address bar
             // so that if the page is manually refreshed
             // the old game ID is not persisted
-            ...playGameConfig,
+            ...config,
             returnTo,
             challengeId,
             forcedColor,
@@ -333,6 +373,60 @@ const PlayMaiaPage: NextPage = () => {
       if (!canceled) showGame(newGameId)
     }
 
+    // A game the server holds: it is created there, with Maia's first move
+    // if Maia moves first. If the player already has a game in progress the
+    // server answers with that one, which is picked up where it was.
+    async function startServerGame() {
+      let created
+      try {
+        created = await createServerGame({
+          playerColor: playGameConfig.player,
+          maiaVersion: playGameConfig.maiaVersion,
+          timeControl: playGameConfig.timeControl,
+          sampleMoves: playGameConfig.sampleMoves,
+          startFen: playGameConfig.startFen,
+          practice: !!playGameConfig.practice,
+          instant: !simulateMaiaTime,
+        })
+      } catch (e) {
+        console.error(e)
+        trackGameStartFailed(
+          'play',
+          e,
+          e instanceof MoveRequestError ? e.status : undefined,
+        )
+        router.push('/401')
+        return
+      }
+      if (canceled) return
+      const { game, inProgress } = created
+      if (inProgress) toast('Continuing your game in progress')
+      if (game.ended_while_away) {
+        toast('Your last game ran out of time while you were away', {
+          duration: 8000,
+        })
+      }
+      // A hand or brain game in progress is picked up on its own page.
+      if (game.game_type !== 'play') {
+        router.replace(serverGamePage(game))
+        return
+      }
+      const config = serverGameConfig(game, playGameConfig)
+      setResumeGame(serverGameStart(game, config))
+      setServerGame(game)
+      showGame(game.game_id, config)
+    }
+
+    if (!id && serverHeld) {
+      setServerGame(undefined)
+      setResumeGame(undefined)
+      startServerGame()
+
+      return () => {
+        canceled = true
+      }
+    }
+
     if (!id) {
       const unfinished = loadUnfinishedGame()
       if (unfinished && sameGameSettings(unfinished.config, playGameConfig)) {
@@ -358,6 +452,7 @@ const PlayMaiaPage: NextPage = () => {
     router,
     startFen,
     startFenCheck,
+    serverHeld,
   ])
 
   return (
@@ -372,10 +467,31 @@ const PlayMaiaPage: NextPage = () => {
       {/* The game appears at once, without Loading's fade-in. */}
       {router.isReady ? (
         <PlayMaia
-          key={`${gameKey}-${resumeGame?.id ?? ''}`}
-          id={typeof id === 'string' ? id : ''}
+          // Drawn afresh when the server's game is attached (its id reaches
+          // the address a moment after its state arrives): the controller
+          // must have the game from its first render, to play Maia's first
+          // move when Maia moves first.
+          key={`${gameKey}-${resumeGame?.id ?? ''}-${serverGameVersion}-${
+            serverHeld && serverGame?.game_id === id ? 'held' : ''
+          }`}
+          // A game the server holds takes no moves until its state is here.
+          id={
+            typeof id === 'string' &&
+            (serverHeld === false || serverGame?.game_id === id)
+              ? id
+              : ''
+          }
           playGameConfig={playGameConfig}
           resume={resumeGame}
+          serverGame={
+            serverHeld && serverGame?.game_id === id ? serverGame : undefined
+          }
+          onServerResync={(game) => {
+            const config = serverGameConfig(game, playGameConfig)
+            setResumeGame(serverGameStart(game, config))
+            setServerGame(game)
+            setServerGameVersion((version) => version + 1)
+          }}
           playAgain={() =>
             setPlaySetupModalProps({
               ...playGameConfig,

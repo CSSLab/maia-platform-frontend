@@ -61,6 +61,10 @@ export const usePlayController = (
   config: PlayGameConfig,
   // A game continued from where it was left (src/lib/unfinishedGame.ts).
   resume?: UnfinishedGame,
+  // The server holds the game (src/lib/serverGames.ts): it says how the game
+  // ends (setServerTermination) and what the clocks read (syncClocks), and is
+  // asked when a clock runs out here (clockExpired).
+  serverHeld = false,
 ) => {
   const [gameTree, setGameTree] = useState<GameTree>(() => {
     const tree = new GameTree(config.startFen || nullFen)
@@ -79,6 +83,15 @@ export const usePlayController = (
   const [treeVersion, setTreeVersion] = useState<number>(0)
   const [resigned, setResigned] = useState<boolean>(false)
   const [timeExpired, setTimeExpired] = useState<Color | null>(null)
+  const [serverTermination, setServerTermination] = useState<
+    Termination | undefined
+  >(undefined)
+  // The side whose clock reached zero on this screen, in a game the server
+  // holds: the server's clock decides whether it really has.
+  const [clockExpired, setClockExpired] = useState<{
+    color: Color
+    at: number
+  } | null>(null)
 
   const incrementSeconds =
     config.timeControl == 'unlimited'
@@ -118,17 +131,19 @@ export const usePlayController = (
 
     // A mating move that was registered stands even if the clock ran out
     // at the same moment, so checkmate takes precedence over the flag.
-    const termination = chess.inCheckmate()
-      ? computeTermination(chess)
-      : timeExpired
-        ? computeTimeTermination(chess, timeExpired)
-        : resigned
-          ? ({
-              result: turn == 'w' ? '0-1' : '1-0',
-              winner: turn == 'w' ? 'black' : 'white',
-              type: 'resign',
-            } as Termination)
-          : computeTermination(chess)
+    const termination = serverHeld
+      ? serverTermination
+      : chess.inCheckmate()
+        ? computeTermination(chess)
+        : timeExpired
+          ? computeTimeTermination(chess, timeExpired)
+          : resigned
+            ? ({
+                result: turn == 'w' ? '0-1' : '1-0',
+                winner: turn == 'w' ? 'black' : 'white',
+                type: 'resign',
+              } as Termination)
+            : computeTermination(chess)
 
     const moves = []
     const rootNode = gameTree.getRoot()
@@ -162,7 +177,17 @@ export const usePlayController = (
       tree: gameTree,
       turn: turn == 'b' ? 'black' : 'white',
     }
-  }, [gameTree, treeVersion, resigned, timeExpired, whiteClock, blackClock, id])
+  }, [
+    gameTree,
+    treeVersion,
+    resigned,
+    timeExpired,
+    whiteClock,
+    blackClock,
+    id,
+    serverHeld,
+    serverTermination,
+  ])
 
   usePlayGameTracking(id, config, moveList.length, game.termination)
 
@@ -263,9 +288,19 @@ export const usePlayController = (
       toPlay
     ) {
       const activeColor = toPlay
-      const timeRemaining = activeColor == 'white' ? whiteClock : blackClock
+      const clockNow = activeColor == 'white' ? whiteClock : blackClock
+      // A clock set by the server started at lastMoveTime, which can be
+      // before this ran.
+      const timeRemaining =
+        serverHeld && lastMoveTime > 0
+          ? Math.max(0, clockNow - (Date.now() - lastMoveTime))
+          : clockNow
       const timeout = setTimeout(() => {
-        expireOnTime(activeColor)
+        if (serverHeld) {
+          setClockExpired({ color: activeColor, at: Date.now() })
+        } else {
+          expireOnTime(activeColor)
+        }
       }, timeRemaining)
 
       return () => clearTimeout(timeout)
@@ -278,6 +313,8 @@ export const usePlayController = (
     config.timeControl,
     toPlay,
     whiteClock,
+    serverHeld,
+    lastMoveTime,
   ])
 
   // The clocks, for tools that drive a physical board or clock.
@@ -309,6 +346,17 @@ export const usePlayController = (
   ])
 
   useEffect(() => () => publishClockState(null), [])
+
+  // Sets the clocks to what the server says they read now. `running`: the
+  // side to move's clock runs from this moment.
+  const syncClocks = useCallback(
+    (white: number, black: number, running: boolean) => {
+      setWhiteClock(white)
+      setBlackClock(black)
+      setLastMoveTime(running ? Date.now() : 0)
+    },
+    [],
+  )
 
   const addMoveWithTime = useCallback(
     (moveUci: string, moveTime: number) => {
@@ -472,6 +520,10 @@ export const usePlayController = (
 
     addMoveWithTime,
     setResigned,
+    serverHeld,
+    setServerTermination,
+    syncClocks,
+    clockExpired,
     reset,
     practice: !!config.practice,
     canTakeBack,
