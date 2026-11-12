@@ -8,6 +8,7 @@ const resignServerGame = jest.fn()
 const flagServerGame = jest.fn()
 const takeBackServerGame = jest.fn()
 const addTimeServerGame = jest.fn()
+const skipDelayServerGame = jest.fn()
 const fetchMaiaMove = jest.fn()
 const logGameMove = jest.fn()
 const incrementStats = jest.fn()
@@ -50,6 +51,7 @@ jest.mock('src/api/serverGames', () => {
     takeBackServerGame: (...args: unknown[]) => takeBackServerGame(...args),
     addTimeServerGame: (...args: unknown[]) => addTimeServerGame(...args),
     sendServerPiece: jest.fn(),
+    skipDelayServerGame: (...args: unknown[]) => skipDelayServerGame(...args),
   }
 })
 
@@ -126,6 +128,7 @@ describe('playing a game the server holds', () => {
       flagServerGame,
       takeBackServerGame,
       addTimeServerGame,
+      skipDelayServerGame,
       fetchMaiaMove,
       logGameMove,
       incrementStats,
@@ -447,6 +450,68 @@ describe('playing a game the server holds', () => {
     expect(addTimeServerGame).toHaveBeenCalledWith('g1')
     expect(result.current.whiteClock).toBe(315000)
     expect(result.current.moveList).toEqual(['e2e4', 'e7e5'])
+  })
+
+  it("shows Maia's move at once when thinking time is switched off while it thinks", async () => {
+    const game = serverGame()
+    const gameConfig = config()
+    const { result, rerender } = renderHook(
+      ({ simulate }: { simulate: boolean }) =>
+        useVsMaiaPlayController(
+          game.game_id,
+          gameConfig,
+          simulate,
+          serverGameStart(game, gameConfig),
+          game,
+          jest.fn(),
+        ),
+      { initialProps: { simulate: true } },
+    )
+    const thinking = {
+      white_ms: 300000,
+      black_ms: 295000,
+      increment_ms: 3000,
+      running: 'white' as const,
+      since_ms: -8000,
+    }
+    sendServerMove.mockResolvedValue(
+      serverGame({
+        moves: ['e2e4', 'e7e5'],
+        ply: 2,
+        clock: thinking,
+        bot_move: { uci: 'e7e5', ply: 1, delay: 8 },
+      }),
+    )
+    // The server gives Maia back the six seconds it didn't use.
+    skipDelayServerGame.mockResolvedValue(
+      serverGame({
+        moves: ['e2e4', 'e7e5'],
+        ply: 2,
+        clock: { ...thinking, black_ms: 301000, since_ms: 0 },
+      }),
+    )
+    await act(async () => {
+      await result.current.makePlayerMove('e2e4')
+    })
+    await settle()
+    act(() => {
+      jest.advanceTimersByTime(2000)
+    })
+    expect(result.current.moveList).toEqual(['e2e4'])
+
+    rerender({ simulate: false })
+    expect(result.current.moveList).toEqual(['e2e4', 'e7e5'])
+    expect(result.current.playerActive).toBe(true)
+    expect(skipDelayServerGame).toHaveBeenCalledWith('g1')
+    await settle()
+    expect(result.current.blackClock).toBe(301000)
+
+    // Nothing more happens when the delay would have ended.
+    act(() => {
+      jest.advanceTimersByTime(8000)
+    })
+    expect(result.current.moveList).toEqual(['e2e4', 'e7e5'])
+    expect(skipDelayServerGame).toHaveBeenCalledTimes(1)
   })
 
   it('asks for an instant reply when thinking time is off', async () => {

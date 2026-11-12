@@ -179,6 +179,21 @@ export const addTimeServerGame = (gameId: string) =>
     4,
   )
 
+/**
+ * Maia's move was shown before its thinking delay was over (thinking time
+ * switched off meanwhile): Maia gets the unused time back, and the player's
+ * clock starts now.
+ */
+export const skipDelayServerGame = (gameId: string) =>
+  retried(
+    async () =>
+      gameFrom(
+        'play/games skip_delay',
+        await request(`play/games/${gameId}/skip_delay`, 'POST'),
+      ),
+    3,
+  )
+
 export const resignServerGame = (gameId: string) =>
   retried(
     async () =>

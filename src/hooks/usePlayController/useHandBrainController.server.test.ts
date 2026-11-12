@@ -16,8 +16,11 @@ jest.mock('src/lib/analytics', () => ({
   trackPlayGameFirstMoves: jest.fn(),
   trackPlayGameEnded: jest.fn(),
 }))
+const playMoveSound = jest.fn()
 jest.mock('src/hooks/useSound', () => ({
-  useSound: () => ({ playMoveSound: jest.fn() }),
+  useSound: () => ({
+    playMoveSound: (...args: unknown[]) => playMoveSound(...args),
+  }),
 }))
 jest.mock('src/hooks/useStats', () => ({
   useStats: () => [{ rating: 1500 }, incrementStats, updateRating],
@@ -46,6 +49,7 @@ jest.mock('src/api/serverGames', () => {
     sendServerPiece: (...args: unknown[]) => sendServerPiece(...args),
     resignServerGame: (...args: unknown[]) => resignServerGame(...args),
     flagServerGame: jest.fn(),
+    skipDelayServerGame: jest.fn(),
   }
 })
 
@@ -108,7 +112,9 @@ const settle = async () => {
 
 describe('hand and brain in a game the server holds', () => {
   beforeEach(() => {
+    jest.useFakeTimers()
     for (const mock of [
+      playMoveSound,
       sendServerMove,
       sendServerPiece,
       resignServerGame,
@@ -119,6 +125,10 @@ describe('hand and brain in a game the server holds', () => {
     ]) {
       mock.mockReset()
     }
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
   })
 
   it("hand: the brain's piece comes from the server, and only it can be moved", async () => {
@@ -188,7 +198,16 @@ describe('hand and brain in a game the server holds', () => {
       true,
     )
     await settle()
+    // The hand's move is on the board at once; the opponent's reply follows
+    // a moment later, so that each is seen and heard (thinking time is off,
+    // and both came in one answer).
+    expect(result.current.moveList).toEqual(['g1f3'])
+    expect(playMoveSound).toHaveBeenCalledTimes(1)
+    act(() => {
+      jest.advanceTimersByTime(250)
+    })
     expect(result.current.moveList).toEqual(['g1f3', 'd7d5'])
+    expect(playMoveSound).toHaveBeenCalledTimes(2)
     expect(result.current.selectedPiece).toBeUndefined()
     expect(result.current.playerActive).toBe(true)
     expect(fetchMaiaMove).not.toHaveBeenCalled()

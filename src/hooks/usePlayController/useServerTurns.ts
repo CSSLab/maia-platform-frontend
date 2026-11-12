@@ -8,6 +8,7 @@ import {
   resignServerGame,
   sendServerMove,
   sendServerPiece,
+  skipDelayServerGame,
 } from 'src/api/serverGames'
 import {
   dismissMaiaMoveFailedToast,
@@ -19,6 +20,11 @@ import {
   serverTermination,
 } from 'src/lib/serverGames'
 import { usePlayController } from './usePlayController'
+
+// Brain games: the least time between the partner's move and the opponent's
+// reply appearing, so that each is seen and heard. (With thinking time off
+// both arrive in one answer; the browser used to ask for them one by one.)
+const HAND_MOVE_GAP_MS = 250
 
 interface Options {
   controller: ReturnType<typeof usePlayController>
@@ -73,6 +79,8 @@ export const useServerTurns = (options: Options) => {
   const [answer, setAnswer] = useState<{ game: ServerGame } | null>(
     serverGame ? { game: serverGame } : null,
   )
+  // Shows Maia's move now, while it is waiting out its thinking delay.
+  const showPendingNow = useRef<(() => void) | null>(null)
 
   // The server's game can arrive after the first render (the page has its
   // state before its id is in the address): it is shown from then, so that
@@ -181,7 +189,8 @@ export const useServerTurns = (options: Options) => {
 
     // Brain games: the move the partner Maia made with the player's piece.
     const mine = game.player_move
-    if (mine && mine.ply === plyRef.current) {
+    const playedMine = !!mine && mine.ply === plyRef.current
+    if (mine && playedMine) {
       const isCapture = !!new Chess(tipFen()).get(mine.uci.slice(2, 4))
       plyRef.current += 1
       controller.addMoveWithTime(mine.uci, game.move_times[mine.ply] ?? 0)
@@ -206,17 +215,56 @@ export const useServerTurns = (options: Options) => {
       settle(moveResult ? chess : null)
     }
 
-    const delayMs = bot.delay * 1000
-    if (delayMs > 0) {
-      moveTimeout = setTimeout(showMaiaMove, delayMs)
-    } else {
+    // Shown before its thinking delay is over (thinking time was switched
+    // off meanwhile): the server is told, so that Maia gets the unused time
+    // back and the player's clock starts now. Its answer only sets the
+    // clocks, and only if the board hasn't moved on since.
+    const showEarly = () => {
       showMaiaMove()
+      const shownPly = plyRef.current
+      skipDelayServerGame(id)
+        .then((skipped) => {
+          const clocks = serverClocks(skipped)
+          if (
+            clocks &&
+            skipped.ply === shownPly &&
+            plyRef.current === shownPly
+          ) {
+            controller.syncClocks(clocks.white, clocks.black, clocks.running)
+          }
+        })
+        .catch(() => undefined)
+    }
+
+    const switchedOff = bot.delay > 0 && !latest.current.simulateMaiaTime
+    let delayMs = switchedOff ? 0 : bot.delay * 1000
+    if (playedMine) delayMs = Math.max(delayMs, HAND_MOVE_GAP_MS)
+    const showWhenDue = switchedOff ? showEarly : showMaiaMove
+    if (delayMs > 0) {
+      moveTimeout = setTimeout(() => {
+        showPendingNow.current = null
+        showWhenDue()
+      }, delayMs)
+      showPendingNow.current = () => {
+        showPendingNow.current = null
+        if (moveTimeout) clearTimeout(moveTimeout)
+        showEarly()
+      }
+    } else {
+      showWhenDue()
     }
     return () => {
       canceled = true
+      showPendingNow.current = null
       if (moveTimeout) clearTimeout(moveTimeout)
     }
   }, [serverHeld, answer])
+
+  // Thinking time switched off while Maia is "thinking": its move is shown
+  // at once.
+  useEffect(() => {
+    if (!options.simulateMaiaTime) showPendingNow.current?.()
+  }, [options.simulateMaiaTime])
 
   // A clock reached zero here: the server's clock decides. If it agrees the
   // game ends on time; if not (lag given back, say) the clocks are set right.
