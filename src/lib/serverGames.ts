@@ -36,6 +36,9 @@ export interface ServerGame {
   brain_moves?: string[]
   // Brain games: the move the partner Maia made for the player in this answer.
   player_move?: { uci: string; ply: number } | null
+  // On a new game: the player's last game, if it ran out of time while they
+  // were away and they haven't been told yet.
+  ended_while_away?: ServerGame | null
   player_color: Color
   maia_name: string
   time_control: string

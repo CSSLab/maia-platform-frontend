@@ -237,6 +237,11 @@ const PlayHandBrainPage: NextPage = () => {
       if (canceled) return
       const { game, inProgress } = created
       if (inProgress) toast('Continuing your game in progress')
+      if (game.ended_while_away) {
+        toast('Your last game ran out of time while you were away', {
+          duration: 8000,
+        })
+      }
       if (game.game_type === 'play') {
         router.replace(serverGamePage(game))
         return
