@@ -9,7 +9,7 @@ import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { tourConfigs } from 'src/constants/tours'
 import { ModalContext, useTour } from 'src/contexts'
-import { Loading, PlayControls } from 'src/components'
+import { Loading, PlayControls, StartGameConfirmModal } from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
 import toast from 'react-hot-toast'
 import { normalizeTimeControl } from 'src/lib/timeControl'
@@ -29,6 +29,7 @@ import {
   serverGameStart,
 } from 'src/lib/serverGames'
 import { useServerGames } from 'src/hooks/useServerGames'
+import { useStartConfirmation } from 'src/hooks/useStartConfirmation'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 
@@ -254,6 +255,10 @@ const PlayMaiaPage: NextPage = () => {
   const [serverGameVersion, setServerGameVersion] = useState(0)
   // undefined until the account request has said (see useServerGames).
   const serverHeld = useServerGames()
+  // Opened by a link, a bookmark or a refresh: start_game resigns the game in
+  // progress, so the visitor is asked before a new game is started.
+  const { mustConfirm, confirm } = useStartConfirmation()
+  const [askingToStart, setAskingToStart] = useState(false)
 
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
@@ -435,6 +440,10 @@ const PlayMaiaPage: NextPage = () => {
         return
       }
       setResumeGame(undefined)
+      if (mustConfirm) {
+        setAskingToStart(true)
+        return
+      }
       fetchGameId()
 
       return () => {
@@ -445,6 +454,7 @@ const PlayMaiaPage: NextPage = () => {
     challengeId,
     forcedColor,
     id,
+    mustConfirm,
     modalSubtitle,
     modalTitle,
     playGameConfig,
@@ -519,6 +529,14 @@ const PlayMaiaPage: NextPage = () => {
       ) : (
         <Loading isLoading />
       )}
+      <StartGameConfirmModal
+        isOpen={askingToStart}
+        onStart={() => {
+          setAskingToStart(false)
+          confirm()
+        }}
+        onCancel={() => router.push('/play')}
+      />
     </>
   )
 }
