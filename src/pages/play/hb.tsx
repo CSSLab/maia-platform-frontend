@@ -14,6 +14,7 @@ import {
   Loading,
   GameplayInterface,
   HandBrainPlayControls,
+  StartGameConfirmModal,
 } from 'src/components'
 import { ModalContext, useTour } from 'src/contexts'
 import { Color, PlayGameConfig, TimeControl } from 'src/types'
@@ -31,6 +32,7 @@ import {
   serverGameStart,
 } from 'src/lib/serverGames'
 import { useServerGames } from 'src/hooks/useServerGames'
+import { useStartConfirmation } from 'src/hooks/useStartConfirmation'
 import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 interface Props {
@@ -168,6 +170,10 @@ const PlayHandBrainPage: NextPage = () => {
   // server redraws the board from it.
   // undefined until the account request has said (see useServerGames).
   const serverHeld = useServerGames()
+  // Opened by a link, a bookmark or a refresh: start_game resigns the game in
+  // progress, so the visitor is asked before a new game is started.
+  const { mustConfirm, confirm } = useStartConfirmation()
+  const [askingToStart, setAskingToStart] = useState(false)
   const [serverGame, setServerGame] = useState<ServerGame>()
   const [resumeGame, setResumeGame] = useState<UnfinishedGame>()
   const [serverGameVersion, setServerGameVersion] = useState(0)
@@ -312,6 +318,10 @@ const PlayHandBrainPage: NextPage = () => {
     }
 
     if (!id) {
+      if (mustConfirm) {
+        setAskingToStart(true)
+        return
+      }
       fetchGameId()
 
       return () => {
@@ -320,6 +330,7 @@ const PlayHandBrainPage: NextPage = () => {
     }
   }, [
     id,
+    mustConfirm,
     playGameConfig,
     router,
     setPlaySetupModalProps,
@@ -364,6 +375,14 @@ const PlayHandBrainPage: NextPage = () => {
           />
         )}
       </Loading>
+      <StartGameConfirmModal
+        isOpen={askingToStart}
+        onStart={() => {
+          setAskingToStart(false)
+          confirm()
+        }}
+        onCancel={() => router.push('/play')}
+      />
     </>
   )
 }
