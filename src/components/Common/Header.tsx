@@ -2,6 +2,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import Link from 'next/link'
 import { LichessSignInButton } from 'src/components/Common/LichessSignInButton'
+import { ConnectButtonSlot } from 'src/components/Common/ConnectButtonSlot'
 import Image from 'next/image'
 // Imported, so its address names its contents and browsers keep it a year.
 import maiaLogo from 'public/maia-ios-icon.png'
@@ -403,6 +404,7 @@ export const Header: React.FC = () => {
         </div>
       </div>
       <div className="hidden flex-row items-center gap-3 md:flex">
+        <ConnectButtonSlot />
         <a
           target="_blank"
           rel="noreferrer"
@@ -431,13 +433,16 @@ export const Header: React.FC = () => {
           <h2 className="text-2xl font-bold">Maia Chess</h2>
         </div>
       </Link>
-      <button
-        aria-label="Open navigation menu"
-        className="block cursor-pointer *:*:fill-primary"
-        onClick={() => setShowMenu((show) => !show)}
-      >
-        <span className="material-symbols-outlined text-3xl">menu</span>
-      </button>
+      <div className="flex flex-row items-center gap-3">
+        <ConnectButtonSlot />
+        <button
+          aria-label="Open navigation menu"
+          className="block cursor-pointer *:*:fill-primary"
+          onClick={() => setShowMenu((show) => !show)}
+        >
+          <span className="material-symbols-outlined text-3xl">menu</span>
+        </button>
+      </div>
       {showMenu && (
         <div className="fixed left-0 top-0 z-40 flex h-screen w-screen flex-col items-start justify-between overflow-y-auto bg-backdrop py-4">
           <div className="flex w-full flex-row justify-between px-4">
