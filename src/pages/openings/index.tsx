@@ -69,10 +69,7 @@ import { isValidFen, normalizeFen } from 'src/lib/positionLinks'
 import { loadDrillQueue, saveDrillQueue } from 'src/lib/drillQueue'
 
 import { useOpeningDrillController, useAnalysisController } from 'src/hooks'
-import {
-  downloadsWithoutAsking,
-  maiaPromptVariant,
-} from 'src/lib/engine/maiaDownloadPrompt'
+import { downloadsWithoutAsking } from 'src/lib/engine/maiaDownloadPrompt'
 import {
   getCurrentPlayer,
   getAvailableMovesArray,
@@ -1167,15 +1164,12 @@ const OpeningsPage: NextPage = () => {
   //   return null
   // }
 
-  // Maia is needed once a drill starts. In the group without the full-page
-  // prompt, not while choosing what to drill.
+  // Maia is needed once a drill starts. Phones are asked for it at once;
+  // desktops download it without asking, so they can choose what to drill
+  // in the meantime.
   const maiaMissing =
     maiaEngine.status === 'no-cache' || maiaEngine.status === 'downloading'
-  if (
-    maiaMissing &&
-    (!showSelectionModal ||
-      (maiaPromptVariant() === 'wall' && !downloadsWithoutAsking()))
-  ) {
+  if (maiaMissing && (!showSelectionModal || !downloadsWithoutAsking())) {
     return (
       <AnimatePresence>
         <DownloadModelModal

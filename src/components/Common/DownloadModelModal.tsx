@@ -41,8 +41,6 @@ interface Props {
   download: () => Promise<boolean>
   /** A download that started before this prompt appeared. */
   downloading?: boolean
-  /** Offers to carry on without Maia, rather than only to leave. */
-  onNotNow?: () => void
 }
 
 export const DownloadModelModal: React.FC<Props> = ({
@@ -50,7 +48,6 @@ export const DownloadModelModal: React.FC<Props> = ({
   progress,
   download,
   downloading = false,
-  onNotNow,
 }: Props) => {
   const [startedDownload, setStartedDownload] = useState(false)
   const isDownloading = startedDownload || downloading
@@ -76,7 +73,7 @@ export const DownloadModelModal: React.FC<Props> = ({
   const handleDownload = async () => {
     if (isDownloading || progress >= 100) return
     setStartedDownload(true)
-    await startMaiaDownload(download, onNotNow ? 'tap' : 'wall')
+    await startMaiaDownload(download, 'wall')
     setStartedDownload(false)
   }
   return (
@@ -130,25 +127,15 @@ export const DownloadModelModal: React.FC<Props> = ({
             ) : null}
 
             <div className="order-1 flex flex-row flex-wrap-reverse justify-end gap-2 md:order-2">
-              {onNotNow ? (
-                <button
-                  type="button"
-                  onClick={onNotNow}
-                  className="flex h-8 cursor-pointer select-none items-center whitespace-nowrap rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
-                >
-                  Continue without Maia
-                </button>
-              ) : (
-                <Link
-                  href="/"
-                  className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
-                >
-                  <span className="material-symbols-outlined text-base text-secondary group-hover:text-primary md:text-lg">
-                    home
-                  </span>
-                  <p>Return Home</p>
-                </Link>
-              )}
+              <Link
+                href="/"
+                className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
+              >
+                <span className="material-symbols-outlined text-base text-secondary group-hover:text-primary md:text-lg">
+                  home
+                </span>
+                <p>Return Home</p>
+              </Link>
 
               <div
                 tabIndex={0}
