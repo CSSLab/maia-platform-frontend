@@ -683,3 +683,12 @@ export const trackErrorEncountered = (
     error_message: errorMessage,
   })
 }
+
+// Notifications (the bell in the header)
+export const trackNotificationsOpened = (unreadCount: number) => {
+  safeTrack('notifications_opened', { unread_count: unreadCount })
+}
+
+export const trackNotificationClicked = (kind: string, unread: boolean) => {
+  safeTrack('notification_clicked', { kind, unread })
+}

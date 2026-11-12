@@ -23,6 +23,8 @@ import { ModalContext } from 'src/contexts/ModalContext'
 import { WindowSizeContext } from 'src/contexts/WindowSizeContext'
 import { LeaderboardNavBadge } from '../Leaderboard/LeaderboardNavBadge'
 import { useLeaderboardStatus } from 'src/hooks/useLeaderboardStatus'
+import { NotificationBell } from '../Notifications/NotificationBell'
+import { useNotifications } from 'src/hooks/useNotifications'
 import {
   ANALYSIS_MENU_ITEMS,
   AnalysisMenuRequest,
@@ -75,6 +77,19 @@ export const Header: React.FC = () => {
   // Get leaderboard status for the logged in user
   const { status: leaderboardStatus, loading: leaderboardLoading } =
     useLeaderboardStatus(user?.displayName)
+
+  // Every account has notifications, a guest's too.
+  const notifications = useNotifications(user?.clientId)
+  const notificationBell = (
+    <NotificationBell
+      unreadCount={notifications.unreadCount}
+      notifications={notifications.notifications}
+      status={notifications.status}
+      open={notifications.open}
+      onOpenChange={notifications.setOpen}
+      onRetry={notifications.retry}
+    />
+  )
 
   const router = useRouter()
 
@@ -420,6 +435,7 @@ export const Header: React.FC = () => {
             loading={leaderboardLoading}
           />
         )}
+        {notificationBell}
         {userInfo}
       </div>
     </div>
@@ -435,6 +451,7 @@ export const Header: React.FC = () => {
       </Link>
       <div className="flex flex-row items-center gap-3">
         <ConnectButtonSlot />
+        {notificationBell}
         <button
           aria-label="Open navigation menu"
           className="block cursor-pointer *:*:fill-primary"
