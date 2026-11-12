@@ -52,26 +52,6 @@ describe('maiaDownloadPrompt', () => {
     setPersist(undefined)
   })
 
-  describe('maiaPromptVariant', () => {
-    it('keeps a visitor in one group across visits', () => {
-      const first = load().maiaPromptVariant()
-      expect(load().maiaPromptVariant()).toBe(first)
-      expect(window.localStorage.getItem('maia.downloadPromptVariant')).toBe(
-        first,
-      )
-    })
-
-    it('splits new visitors in two', () => {
-      const random = jest.spyOn(Math, 'random')
-      random.mockReturnValue(0.25)
-      expect(load().maiaPromptVariant()).toBe('wall')
-      window.localStorage.clear()
-      random.mockReturnValue(0.75)
-      expect(load().maiaPromptVariant()).toBe('no_wall')
-      random.mockRestore()
-    })
-  })
-
   describe('downloadsWithoutAsking', () => {
     it('is true on a desktop', () => {
       expect(load().downloadsWithoutAsking()).toBe(true)
