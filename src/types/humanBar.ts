@@ -11,7 +11,22 @@ export interface HumanBarGameInfo {
   /** UTCDate + UTCTime as epoch milliseconds (null if the PGN lacks them). */
   start_ms: number | null
   site: string
+  /** The players' form, from their Lichess profiles (fetched by the browser); without both, heads without form. */
+  white_profile?: HumanBarProfile
+  black_profile?: HumanBarProfile
 }
+
+/**
+ * What the bars need of a player's Lichess profile: their rated games in
+ * each time class and when the account was created; an account Lichess does
+ * not know (closed) is `{ unknown: true }`.
+ */
+export type HumanBarProfile =
+  | {
+      games: { bullet: number; blitz: number; rapid: number; classical: number }
+      created_ms: number
+    }
+  | { unknown: true }
 
 /** One position of the game's main line. */
 export interface HumanBarPositionInput {
@@ -33,6 +48,8 @@ export interface HumanBarPositionInput {
    * bar to show, half this position's and half their Maia-weighted average.
    */
   kids?: HumanBarKidInput[]
+  /** The kids include the move played and Stockfish's best (the marks need both). */
+  full?: boolean
 }
 
 /** The position after one of Maia's likely moves. */
@@ -43,8 +60,10 @@ export interface HumanBarKidInput {
   depth: number
   value: [number, number, number]
   repr: string
-  /** Maia's probability of the move at the position before it. */
+  /** Maia's probability of the move at the position before it (0: priced for the marks, not in the mix). */
   prob: number
+  /** The move, in UCI: the game cache keeps the bar after each move by it. */
+  uci: string
 }
 
 export interface HumanBarRequest {
@@ -102,18 +121,26 @@ export interface HumanBarPly {
 export interface HumanBarResponse {
   model: string
   /**
-   * The players' form behind these bars: "prof" (their Lichess profiles),
-   * "g50" (also their last 50 games), "none" (neither: the profiles were
-   * not in on time, e.g. Lichess slow or down), ...
+   * The players' form behind these bars: "prof" (both players' Lichess
+   * profiles, sent by the browser) or "none" (one of them missing: Lichess
+   * slow or down).
    */
   form?: string
-  /** The server is still fetching the players' recent games (POST /v1/form). */
-  upgrade_pending?: boolean
   plies: HumanBarPly[]
 }
 
-export interface HumanBarFormResponse {
-  form: string
-  /** Still fetching after the server's wait; ask again. */
-  pending: boolean
+/** A ply's bars as an earlier visit left them in the server's game cache. */
+export interface HumanBarCachedPly extends HumanBarPly {
+  /** The bars after the moves priced there, by UCI move. */
+  after_by?: Record<string, [number, number, number]>
+  /** Those moves included the move played and Stockfish's best. */
+  full?: boolean
+  /** The depth of the position's eval behind them. */
+  depth?: number
+}
+
+export interface HumanBarCachedResponse {
+  model: string
+  form?: string
+  plies: HumanBarCachedPly[]
 }

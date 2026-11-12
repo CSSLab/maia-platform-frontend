@@ -140,7 +140,5 @@ export default async function handler(
 
   const delayMs = Number(process.env.HUMAN_BAR_MOCK_DELAY_MS ?? 0)
   if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs))
-  res
-    .status(200)
-    .json({ model: 'mock', form: 'mock', upgrade_pending: false, plies })
+  res.status(200).json({ model: 'mock', form: 'mock', plies })
 }

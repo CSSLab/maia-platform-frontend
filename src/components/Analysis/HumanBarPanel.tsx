@@ -461,20 +461,14 @@ export const HumanBarPanel: React.FC<Props> = ({
         </span>
       </div>
     ) : null
-  // The first bars use the players' Lichess profiles; their recent games
-  // follow a few seconds later and the bars are redone with them. If
-  // Lichess is slow or down, the first bars use neither ("none").
-  const withoutHistory = state.shownForm === 'none'
+  // The bars use the players' Lichess profiles, which the browser fetches
+  // before the first bars. If Lichess is slow or down, they use neither
+  // player's profile ("none").
   const formNote =
-    bar && (state.upgradePending || withoutHistory) ? (
+    bar && state.shownForm === 'none' ? (
       <span className="flex items-center gap-1 text-[10px] text-white/40">
-        {state.upgradePending ? spinner : null}
         <span className="min-w-0">
-          {withoutHistory
-            ? state.upgradePending
-              ? 'Without the players’ Lichess history for now · looking it up…'
-              : 'Without the players’ Lichess history: Lichess did not answer'
-            : 'From the players’ profiles · adding their recent games…'}
+          Without the players’ Lichess profiles: Lichess did not answer
         </span>
       </span>
     ) : null

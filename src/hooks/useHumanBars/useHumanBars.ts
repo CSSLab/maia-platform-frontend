@@ -10,8 +10,8 @@ import {
   fetchHumanBars,
   getHumanBarBaseUrl,
   HumanBarServerError,
-  prepareHumanBars,
-  waitForHumanBarForm,
+  fetchCachedHumanBars,
+  fetchLichessProfile,
 } from 'src/api/humanBar'
 import {
   MAIA_MODEL_VERSION,
@@ -131,17 +131,14 @@ interface GameRun {
   value: ([number, number, number] | null)[]
   repr: (string | null)[]
   bars: (HumanBarPly | undefined)[]
-  /** The players' form each ply's bars were computed with ("prof", "g50"). */
+  /** The players' form each ply's bars were computed with ("prof", "none"). */
   barsForm: (string | undefined)[]
   /**
-   * The form the server settled on for this game; bars computed with any
-   * other form are asked for again. Null until it is known.
+   * The players' form for this game, set once their Lichess profiles are
+   * in: "prof" with both, "none" without; bars computed with any other form
+   * are asked for again. Null until then.
    */
   form: string | null
-  /** The server is still fetching the players' recent games. */
-  upgradePending: boolean
-  /** A POST /v1/form wait is in flight. */
-  formWait: boolean
   /** Bumped whenever `bars` changes (it is updated in place). */
   barsRevision: number
   /** Plies sent to the server and not answered yet. */
@@ -176,8 +173,15 @@ interface GameRun {
   /** Increments for each pipeline launch; older launches stop writing. */
   token: number
   sending: boolean
-  /** POST /v1/prepare was sent for this game. */
+  /** The players' Lichess profiles and the game cache have been asked for. */
   prepared: boolean
+  /**
+   * The profiles and the game cache are in (requests wait for them, so every
+   * bar uses the players' form).
+   */
+  ready: boolean
+  /** Plies the game cache had in full (bar, mix, every move priced): nothing to compute. */
+  cached: boolean[]
   /** The ply on screen, and when it was opened without bars. */
   target: number
   targetSince: number | null
@@ -214,18 +218,6 @@ const mark = (run: GameRun, step: string) => {
 
 const isAbort = (error: unknown) =>
   error instanceof DOMException && error.name === 'AbortError'
-
-/**
- * Waits (up to a few minutes) for the server to finish fetching the players'
- * recent games; the form its bars use from then on, or null if still waiting.
- */
-const settleForm = async (game: HumanBarGameInfo): Promise<string | null> => {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const answer = await waitForHumanBarForm(game)
-    if (!answer.pending) return answer.form
-  }
-  return null
-}
 
 /**
  * The site analysis engine's eval of a position for the side to move, once
@@ -280,7 +272,7 @@ const kidInputs = (
   kids: HumanBarKidInput[]
   ucis: string[]
   depth: number
-  /** Every extra (the move played, Stockfish's best) is in. */
+  /** The move played and Stockfish's best (from the site's search of the position) are both in. */
   full: boolean
 } | null => {
   addBestMoveKid(run, p, node)
@@ -328,9 +320,23 @@ const kidInputs = (
       if (missing()) return null
       continue
     }
-    kids.push({ fen: k.fen, cp, depth: d, value, repr, prob: k.prob })
+    kids.push({
+      fen: k.fen,
+      cp,
+      depth: d,
+      value,
+      repr,
+      prob: k.prob,
+      uci: k.uci,
+    })
     ucis.push(k.uci)
   }
+  // Full only with Stockfish's best among them, which needs the site's search
+  // of the position: the game cache keeps such an answer for good, and the
+  // marks' !? needs that move's bar.
+  const sf = node?.analysis?.stockfish
+  const best = sf && sf.depth >= 12 ? sf.model_move : undefined
+  full = full && !!best && ks.some((k) => k.uci === best)
   return { kids, ucis, depth: Number.isFinite(depth) ? depth : 0, full }
 }
 
@@ -438,6 +444,8 @@ export const buildHumanBarRequest = (
   plies: number[],
   /** Each ply's likely moves, for the plies sent with them (the mix). */
   kids: Map<number, HumanBarKidInput[]> = new Map(),
+  /** Whether those include the move played and Stockfish's best. */
+  kidMoves: Map<number, { full: boolean }> = new Map(),
 ): HumanBarRequest => ({
   game: run.game,
   // The site's own engine: its analysis evals, or the bars' small fallback
@@ -451,7 +459,9 @@ export const buildHumanBarRequest = (
     depth: run.cpDepth[p] || FALLBACK_DEPTH,
     value: run.value[p] as [number, number, number],
     repr: run.repr[p] as string,
-    ...(kids.has(p) ? { kids: kids.get(p) } : {}),
+    ...(kids.has(p)
+      ? { kids: kids.get(p), full: !!kidMoves.get(p)?.full }
+      : {}),
   })),
   clocks: run.clocks,
 })
@@ -525,8 +535,6 @@ export const useHumanBars = (
       bars: fens.map(() => undefined),
       barsForm: fens.map(() => undefined),
       form: null,
-      upgradePending: false,
-      formWait: false,
       barsRevision: 0,
       inFlight: new Set(),
       stale: new Set(),
@@ -546,6 +554,8 @@ export const useHumanBars = (
       token: 0,
       sending: false,
       prepared: false,
+      ready: false,
+      cached: fens.map(() => false),
       target: 0,
       targetSince: null,
       sfJob: null,
@@ -571,7 +581,13 @@ export const useHumanBars = (
 
   const send = useCallback(
     (target: GameRun, token: number) => {
-      if (target.sending || target.token !== token || target.fatal) return
+      if (
+        target.sending ||
+        target.token !== token ||
+        target.fatal ||
+        !target.ready
+      )
+        return
       const total = target.fens.length
       const nodes = mainlineRef.current
       // Everything evaluated and not answered yet, in one request; plies
@@ -615,7 +631,7 @@ export const useHumanBars = (
       ready.forEach((p) => target.inFlight.add(p))
       mark(target, 'request sent')
       bump()
-      fetchHumanBars(buildHumanBarRequest(target, ready, kids))
+      fetchHumanBars(buildHumanBarRequest(target, ready, kids, kidMoves))
         .then((response) => {
           if (target.marks['first bars'] === undefined) {
             mark(target, 'first bars')
@@ -674,34 +690,7 @@ export const useHumanBars = (
             }
           }
           target.mixDone = target.mixed.filter(Boolean).length
-          if (response.upgrade_pending) {
-            target.upgradePending = true
-            if (!target.formWait) {
-              // These bars use the players' profiles; the server is still
-              // fetching their recent games. Redo the bars once it has them.
-              target.formWait = true
-              settleForm(target.game)
-                .then((form) => {
-                  if (form) target.form = form
-                  console.info(
-                    `[human bars] players' recent games in at ${Math.round(
-                      performance.now(),
-                    )} ms: bars redone with form "${form}"`,
-                  )
-                })
-                .catch((error) =>
-                  console.warn('[human bars] form lookup failed:', error),
-                )
-                .finally(() => {
-                  target.formWait = false
-                  target.upgradePending = false
-                  bump()
-                  send(target, target.token)
-                })
-            }
-          } else if (response.form) {
-            target.form = response.form
-          }
+          if (response.form) target.form = response.form
           target.barsRevision++
           target.barsDone = target.bars.filter(Boolean).length
           target.model = response.model ?? null
@@ -796,10 +785,63 @@ export const useHumanBars = (
     run.failures = 0
     mark(run, 'panel started')
     if (!run.prepared) {
-      // Lets the server start its slow lookups (the players' recent games)
-      // while the browser computes the first evals.
+      // The players' form: their Lichess profiles, fetched here (one request
+      // each, one at a time, as Lichess asks) while Maia and Stockfish start;
+      // then what earlier visits computed for this game with that form.
       run.prepared = true
-      prepareHumanBars(run.game)
+      const ready = async () => {
+        const white = await fetchLichessProfile(run.game.white)
+        const black = await fetchLichessProfile(run.game.black)
+        run.game = {
+          ...run.game,
+          ...(white ? { white_profile: white } : {}),
+          ...(black ? { black_profile: black } : {}),
+        }
+        run.form = white && black ? 'prof' : 'none'
+        mark(run, 'profiles')
+        const cached = await fetchCachedHumanBars({
+          game: run.game,
+          engine: HUMAN_BAR_ENGINE,
+          maia_model: MAIA_MODEL_VERSION,
+        })
+        for (const bar of cached?.plies ?? []) {
+          if (!(bar.p >= 0 && bar.p < total) || run.bars[bar.p]) continue
+          const mix =
+            bar.MW !== undefined &&
+            bar.MDr !== undefined &&
+            bar.ML !== undefined
+          run.bars[bar.p] = mix
+            ? {
+                ...bar,
+                own: [bar.W, bar.Dr, bar.L],
+                W: bar.MW as number,
+                Dr: bar.MDr as number,
+                L: bar.ML as number,
+              }
+            : bar
+          run.barsForm[bar.p] = cached?.form
+          if (mix) {
+            run.mixed[bar.p] = true
+            run.kidDepth[bar.p] = bar.depth ?? 0
+            run.afterBy[bar.p] = bar.after_by
+            run.mixFull[bar.p] = !!bar.full
+            // In full: nothing left to compute for this ply.
+            if (bar.full) run.cached[bar.p] = true
+          }
+        }
+        if (cached?.plies.length) mark(run, 'cached bars')
+        run.barsDone = run.bars.filter(Boolean).length
+        run.mixDone = run.mixed.filter(Boolean).length
+        run.barsRevision++
+      }
+      ready()
+        .catch((error) => console.warn('[human bars] profiles:', error))
+        .finally(() => {
+          run.ready = true
+          bump()
+          wake(run)
+          send(run, run.token)
+        })
     }
     const order = () => {
       const all = evaluationOrder(run.target, total, LOOKAHEAD)
@@ -859,9 +901,10 @@ export const useHumanBars = (
         }
         return null
       }
-      const allKidsKnown = () => run.kids.every((ks) => ks !== undefined)
+      const allKidsKnown = () =>
+        run.kids.every((ks, p) => ks !== undefined || run.cached[p])
       while (live()) {
-        const p = order().find((i) => run.cp[i] === null)
+        const p = order().find((i) => run.cp[i] === null && !run.cached[i])
         if (p === undefined) {
           if (!BACKGROUND_FILL) {
             await pause(run, 60000)
@@ -879,7 +922,7 @@ export const useHumanBars = (
             ).length
             if (
               allKidsKnown() &&
-              run.value.every((v) => v !== null) &&
+              run.value.every((v, i) => v !== null || run.cached[i]) &&
               waiting === 0
             )
               return
@@ -1106,7 +1149,7 @@ export const useHumanBars = (
             console.warn('[human bars] likely moves failed:', error),
           )
         }
-        const ownLeft = run.value.some((v) => v === null)
+        const ownLeft = run.value.some((v, i) => v === null && !run.cached[i])
         // Those of the other plies once every position has its own.
         const kidPly = ownLeft ? undefined : order().find((p) => kidTodo(p))
         if (kidPly !== undefined) {
@@ -1123,6 +1166,7 @@ export const useHumanBars = (
           .filter(
             (i) =>
               run.value[i] === null &&
+              !run.cached[i] &&
               (i === run.target ||
                 run.cp[i] !== null ||
                 i === run.sfJob?.ply ||
@@ -1133,7 +1177,7 @@ export const useHumanBars = (
           if (
             !ownLeft &&
             kidsInFlight.size === 0 &&
-            run.kids.every((ks) => ks !== undefined)
+            run.kids.every((ks, i) => ks !== undefined || run.cached[i])
           )
             return
           await pause(run, 1000)
@@ -1310,19 +1354,13 @@ export const useHumanBars = (
     /** A /v1/bars request is in flight. */
     waitingForServer: run?.sending ?? false,
     /**
-     * No bars have come back for this game yet: the server's first answer
-     * waits for the players' Lichess profiles.
+     * No bars have come back for this game yet (the first request waits for
+     * the players' Lichess profiles).
      */
     firstAnswerPending: (run?.barsDone ?? 0) === 0,
     /**
-     * The bars shown use the players' profiles; they are redone once the
-     * server has fetched the players' recent games.
-     */
-    upgradePending: run?.upgradePending ?? false,
-    /**
-     * The players' form behind the bars on screen: "none" when the server
-     * could not get their Lichess profiles in time (it keeps trying while
-     * upgradePending), "prof", "g50".
+     * The players' form behind the bars on screen: "prof" (their Lichess
+     * profiles) or "none" (Lichess did not answer for one of them).
      */
     shownForm: (ply !== null && run?.barsForm[ply]) || null,
     ply,
