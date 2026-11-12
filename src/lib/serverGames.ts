@@ -16,7 +16,8 @@ import { UnfinishedGame } from 'src/lib/unfinishedGame'
  * Which it is for a player is the server's decision (a share of players that
  * can be changed without a deploy), told in the account request as
  * `server_games`. NEXT_PUBLIC_SERVER_GAMES overrides it for a build: '1' is
- * everyone, '0' nobody.
+ * everyone, '0' nobody. One browser can override it for itself (see
+ * browserSetting below).
  */
 const BUILD_SETTING = process.env.NEXT_PUBLIC_SERVER_GAMES
 
@@ -27,7 +28,24 @@ const BUILD_SETTING = process.env.NEXT_PUBLIC_SERVER_GAMES
 export const serverGamesFor = (user: User | null): boolean | undefined => {
   if (BUILD_SETTING === '1') return true
   if (BUILD_SETTING === '0') return false
+  const here = browserSetting()
+  if (here !== undefined) return here
   return user ? !!user.serverGames : undefined
+}
+
+// A browser can be put in or out whatever the server's share says, to try
+// the server's games on the live site before the share reaches it (or to
+// step out): in the console, localStorage.setItem('maia.serverGames', '1')
+// (or '0'; removeItem to follow the server again).
+const BROWSER_SETTING_KEY = 'maia.serverGames'
+const browserSetting = (): boolean | undefined => {
+  try {
+    const value = window.localStorage.getItem(BROWSER_SETTING_KEY)
+    return value === '1' ? true : value === '0' ? false : undefined
+  } catch {
+    // No storage (private mode, or not in a browser): follow the server.
+    return undefined
+  }
 }
 
 export interface ServerClock {

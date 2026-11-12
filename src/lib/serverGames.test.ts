@@ -145,6 +145,19 @@ describe('a game the server holds', () => {
     expect(serverGamesFor({ ...guest, serverGames: true })).toBe(true)
   })
 
+  it('can be switched on or off for one browser, whatever the server says', () => {
+    const guest = { clientId: 'c1', displayName: 'Guest', serverGames: false }
+    window.localStorage.setItem('maia.serverGames', '1')
+    expect(serverGamesFor(guest)).toBe(true)
+    // Known at once: no need to wait for the account request.
+    expect(serverGamesFor(null)).toBe(true)
+    window.localStorage.setItem('maia.serverGames', '0')
+    expect(serverGamesFor({ ...guest, serverGames: true })).toBe(false)
+    window.localStorage.removeItem('maia.serverGames')
+    expect(serverGamesFor({ ...guest, serverGames: true })).toBe(true)
+    expect(serverGamesFor(null)).toBeUndefined()
+  })
+
   it('is described for the setup dialog', () => {
     expect(describeServerGame(game())).toBe('Maia 1500, 5+3, move 2')
     expect(
