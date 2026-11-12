@@ -50,6 +50,7 @@ jest.mock('src/api/serverGames', () => {
     resignServerGame: (...args: unknown[]) => resignServerGame(...args),
     flagServerGame: jest.fn(),
     skipDelayServerGame: jest.fn(),
+    fetchServerGame: jest.fn(),
   }
 })
 

@@ -163,6 +163,8 @@ export const useVsMaiaPlayController = (
 
   const makePlayerMove = async (moveUci: string, moveTimeOverride?: number) => {
     if (serverHeld) {
+      // Not a move in the game (made on an earlier position): ignored.
+      if (!server.canPlay(moveUci)) return
       const thinkMs = moveTimeOverride ?? server.thinkMs()
       // Charged here too, so that Maia's clock is the one running while its
       // reply is on the way; the server's answer sets both clocks right.

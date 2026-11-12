@@ -2,8 +2,10 @@ import { Chess } from 'chess.ts'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Color } from 'src/types'
+import { MoveRequestError } from 'src/api/play'
 import {
   ServerGameConflict,
+  fetchServerGame,
   flagServerGame,
   resignServerGame,
   sendServerMove,
@@ -99,15 +101,35 @@ export const useServerTurns = (options: Options) => {
     [],
   )
 
-  /** Shows the player's move at once and sends it. */
+  /**
+   * Whether the move can be played where the game stands. The board may be
+   * showing an earlier position (the player stepped back through the moves),
+   * and a move made there is not a move in the game.
+   */
+  const canPlay = useCallback(
+    (moveUci: string) => {
+      const tip = new Chess(controller.gameTree.getLastMainlineNode().fen)
+      return !!tip.move(moveUci, { sloppy: true })
+    },
+    [controller.gameTree],
+  )
+
+  /**
+   * Shows the player's move at once and sends it. A move that can't be
+   * played where the game stands is ignored, as it is in a game the browser
+   * runs: sent, the server refused it (400) and every move after it was a
+   * ply out until the game was redrawn.
+   */
   const sendMove = useCallback(
     (moveUci: string, think: number) => {
+      if (!canPlay(moveUci)) return false
       const ply = plyRef.current
       plyRef.current += 1
       controller.addMoveWithTime(moveUci, think)
       setOutgoing({ ply, uci: moveUci, thinkMs: think, attempt: 0 })
+      return true
     },
-    [controller.addMoveWithTime],
+    [controller.addMoveWithTime, canPlay],
   )
 
   /** Brain games: sends the piece the player named; the move comes back. */
@@ -151,11 +173,20 @@ export const useServerTurns = (options: Options) => {
           return
         }
         latest.current.onSendFailed?.()
+        const retry = () =>
+          setOutgoing((move) => move && { ...move, attempt: move.attempt + 1 })
+        // The server won't take this move or piece (400): sending it again
+        // can't help, so the board is drawn again from the game as the
+        // server has it.
+        if (error instanceof MoveRequestError && error.status === 400) {
+          fetchServerGame(id)
+            .then((game) => latest.current.onServerResync?.(game))
+            .catch(() => reportMaiaMoveFailed(error, retry))
+          return
+        }
         // Sending the same move again is safe: the server answers with the
         // reply it already made, if it made one.
-        reportMaiaMoveFailed(error, () =>
-          setOutgoing((move) => move && { ...move, attempt: move.attempt + 1 }),
-        )
+        reportMaiaMoveFailed(error, retry)
       })
     return () => {
       canceled = true
@@ -296,5 +327,5 @@ export const useServerTurns = (options: Options) => {
       })
   }, [id])
 
-  return { serverHeld, thinkMs, sendMove, sendPiece, show, resign }
+  return { serverHeld, thinkMs, canPlay, sendMove, sendPiece, show, resign }
 }

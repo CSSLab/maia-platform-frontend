@@ -174,6 +174,9 @@ export const useHandBrainController = (
 
   const makePlayerMove = useCallback(
     async (moveUci: string) => {
+      // Not a move in the game (made on an earlier position): ignored.
+      if (serverHeld && !server.canPlay(moveUci)) return
+
       const chess = new Chess(controller.currentNode.fen)
       const destinationSquare = moveUci.slice(2, 4)
       const isCapture = !!chess.get(destinationSquare)
@@ -190,7 +193,14 @@ export const useHandBrainController = (
 
       playMoveSound(isCapture)
     },
-    [controller, playMoveSound, serverHeld, server.thinkMs, server.sendMove],
+    [
+      controller,
+      playMoveSound,
+      serverHeld,
+      server.thinkMs,
+      server.sendMove,
+      server.canPlay,
+    ],
   )
 
   useEffect(() => {
