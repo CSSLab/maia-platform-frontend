@@ -57,6 +57,14 @@ describe('MaiaDownloadPrompt', () => {
     expect(startMaiaDownload).toHaveBeenCalledWith(expect.any(Function), 'wall')
   })
 
+  it("can't start a second download while one is under way", () => {
+    setup('downloading', { withoutAsking: false })
+    const button = screen.getByRole('button', { name: /Downloading/ })
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(startMaiaDownload).not.toHaveBeenCalled()
+  })
+
   it('blocks the page on a phone even before the page wants Maia', () => {
     setup('no-cache', { withoutAsking: false, wanted: false })
     expect(screen.getByTestId('download-modal')).toBeInTheDocument()

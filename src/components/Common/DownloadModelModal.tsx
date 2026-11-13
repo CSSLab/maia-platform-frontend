@@ -137,20 +137,15 @@ export const DownloadModelModal: React.FC<Props> = ({
                 <p>Return Home</p>
               </Link>
 
-              <div
-                tabIndex={0}
-                role="button"
+              <button
+                type="button"
+                disabled={isDownloading || progress >= 100}
                 className={`flex h-8 select-none items-center gap-2 whitespace-nowrap rounded px-3 text-sm text-white transition-all duration-200 md:h-10 md:px-4 ${
                   isDownloading || progress >= 100
                     ? 'cursor-not-allowed border border-human-4/30 bg-human-4/50'
                     : 'cursor-pointer border border-glass-border bg-human-4 hover:bg-human-3'
                 }`}
                 onClick={handleDownload}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    handleDownload()
-                  }
-                }}
               >
                 {isDownloading ? (
                   <span className="material-symbols-outlined animate-spin text-lg md:text-xl">
@@ -168,7 +163,7 @@ export const DownloadModelModal: React.FC<Props> = ({
                     ? 'Downloading...'
                     : `Download Maia-3 (${MAIA_DOWNLOAD_MB}MB)`}
                 </p>
-              </div>
+              </button>
             </div>
           </div>
         </div>
