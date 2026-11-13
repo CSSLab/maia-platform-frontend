@@ -31,6 +31,7 @@ export const MaiaEngineContext = React.createContext<MaiaEngine>({
   downloadModel: async () => {
     throw new Error('poorly provided MaiaEngineContext, missing downloadModel')
   },
+  downloadFailed: false,
 })
 
 export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
@@ -41,6 +42,7 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
   const [status, setStatus] = useState<MaiaStatus>('loading')
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [downloadFailed, setDownloadFailed] = useState(false)
   const toastId = useRef<string | null>(null)
   const loadingToastTimerRef = useRef<number | null>(null)
 
@@ -66,11 +68,13 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
 
   const downloadModel = useCallback(async () => {
     try {
+      setDownloadFailed(false)
       setStatus('downloading')
       await maia.downloadModel()
       return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to download model')
+      setDownloadFailed(true)
       setStatus('error')
       return false
     }
@@ -199,6 +203,7 @@ export const MaiaEngineContextProvider: React.FC<{ children: ReactNode }> = ({
         status,
         progress,
         downloadModel,
+        downloadFailed,
       }}
     >
       {children}

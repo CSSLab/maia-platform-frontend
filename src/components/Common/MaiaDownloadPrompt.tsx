@@ -11,7 +11,10 @@ import {
 import { MaiaEngine } from 'src/types'
 
 interface Props {
-  engine: Pick<MaiaEngine, 'maia' | 'status' | 'progress' | 'downloadModel'>
+  engine: Pick<
+    MaiaEngine,
+    'maia' | 'status' | 'progress' | 'downloadModel' | 'downloadFailed'
+  >
   /** False until the page has a use for Maia, as during a puzzle. */
   wanted?: boolean
 }
@@ -29,11 +32,9 @@ export const MaiaDownloadPrompt: React.FC<Props> = ({
   engine,
   wanted = true,
 }: Props) => {
-  const { maia, status, progress, downloadModel } = engine
+  const { maia, status, progress, downloadModel, downloadFailed } = engine
   const needed = status === 'no-cache' || status === 'downloading'
   const autoStarted = useRef(false)
-  const downloadSeen = useRef(false)
-  if (status === 'downloading') downloadSeen.current = true
 
   const usesWall = needed && !downloadsWithoutAsking()
   const auto = status === 'no-cache' && wanted && !usesWall
@@ -59,7 +60,10 @@ export const MaiaDownloadPrompt: React.FC<Props> = ({
   }
 
   const downloading = status === 'downloading'
-  const failed = status === 'error' && downloadSeen.current
+  // The engine remembers a failed download, so the card offers another try
+  // wherever the download started: in the prompt that blocked the page, which
+  // is gone once it fails, or on another screen of the same page.
+  const failed = status === 'error' && downloadFailed
 
   return (
     <AnimatePresence>

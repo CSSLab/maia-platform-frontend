@@ -30,7 +30,7 @@ const setup = (
   const downloadModel = jest.fn().mockResolvedValue(true)
   const view = render(
     <MaiaDownloadPrompt
-      engine={{ status, progress: 0, downloadModel }}
+      engine={{ status, progress: 0, downloadModel, downloadFailed: false }}
       wanted={wanted}
     />,
   )
@@ -55,6 +55,14 @@ describe('MaiaDownloadPrompt', () => {
       fireEvent.click(screen.getByRole('button', { name: /Download/ }))
     })
     expect(startMaiaDownload).toHaveBeenCalledWith(expect.any(Function), 'wall')
+  })
+
+  it("can't start a second download while one is under way", () => {
+    setup('downloading', { withoutAsking: false })
+    const button = screen.getByRole('button', { name: /Downloading/ })
+    expect(button).toBeDisabled()
+    fireEvent.click(button)
+    expect(startMaiaDownload).not.toHaveBeenCalled()
   })
 
   it('blocks the page on a phone even before the page wants Maia', () => {
@@ -87,20 +95,53 @@ describe('MaiaDownloadPrompt', () => {
   it('offers to try again after a failed download', async () => {
     const downloadModel = jest.fn().mockResolvedValue(false)
     ;(downloadsWithoutAsking as jest.Mock).mockReturnValue(true)
-    const { rerender } = render(
+    render(
       <MaiaDownloadPrompt
-        engine={{ status: 'downloading', progress: 0, downloadModel }}
-      />,
-    )
-    rerender(
-      <MaiaDownloadPrompt
-        engine={{ status: 'error', progress: 0, downloadModel }}
+        engine={{
+          status: 'error',
+          progress: 0,
+          downloadModel,
+          downloadFailed: true,
+        }}
       />,
     )
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     })
     expect(startMaiaDownload).toHaveBeenCalledWith(downloadModel, 'tap')
+  })
+
+  // A phone's prompt goes away when its download fails; the card that
+  // replaces it, maybe on another screen, never saw the download.
+  it('offers to try again after a phone prompt failed', () => {
+    ;(downloadsWithoutAsking as jest.Mock).mockReturnValue(false)
+    render(
+      <MaiaDownloadPrompt
+        engine={{
+          status: 'error',
+          progress: 0,
+          downloadModel: jest.fn(),
+          downloadFailed: true,
+        }}
+        wanted={false}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+    expect(screen.queryByTestId('download-modal')).not.toBeInTheDocument()
+  })
+
+  it('says nothing of a download when Maia failed some other way', () => {
+    render(
+      <MaiaDownloadPrompt
+        engine={{
+          status: 'error',
+          progress: 0,
+          downloadModel: jest.fn(),
+          downloadFailed: false,
+        }}
+      />,
+    )
+    expect(screen.queryByTestId('maia-download-card')).not.toBeInTheDocument()
   })
 
   it('shows nothing once Maia is ready', () => {

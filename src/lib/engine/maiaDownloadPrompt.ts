@@ -74,9 +74,6 @@ export const forgetMaiaModelSaved = () => {
   }
 }
 
-/** What the download uses, sent compressed: 41.7 MB. */
-export const MAIA_DOWNLOAD_MB = 42
-
 export type MaiaDownloadTrigger = 'wall' | 'auto' | 'tap' | 'panel'
 
 /** Starts the download and records how it went. */

@@ -2,6 +2,7 @@
 
 import { capture } from 'src/lib/posthogClient'
 import { STOCKFISH_ENGINE } from 'src/constants/analysis'
+import { MAIA_DOWNLOAD_MB, MAIA_DOWNLOAD_MODEL } from 'src/constants/common'
 
 type EventProperties = Record<string, unknown>
 
@@ -29,8 +30,8 @@ export const trackDownloadModelInitiated = (
   trigger: 'wall' | 'auto' | 'tap' | 'panel',
 ) => {
   safeTrack('download_model_initiated', {
-    model_type: 'maia2',
-    model_size_mb: 90,
+    model_type: MAIA_DOWNLOAD_MODEL,
+    model_size_mb: MAIA_DOWNLOAD_MB,
     page,
     trigger,
   })
@@ -64,7 +65,7 @@ export const trackDownloadModelCompleted = (
   page: string,
 ) => {
   safeTrack('download_model_completed', {
-    model_type: 'maia2',
+    model_type: MAIA_DOWNLOAD_MODEL,
     download_time_seconds: downloadTimeSeconds,
     page,
   })
