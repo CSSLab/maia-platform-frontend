@@ -30,6 +30,7 @@ import {
 } from 'src/lib/serverGames'
 import { useServerGames } from 'src/hooks/useServerGames'
 import { useStartConfirmation } from 'src/hooks/useStartConfirmation'
+import { useQueryBoolean } from 'src/hooks/useQueryBoolean'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 
@@ -172,7 +173,6 @@ const PlayMaiaPage: NextPage = () => {
     timeControl,
     isBrain,
     sampleMoves,
-    simulateMaiaTime: simulateMaiaTimeQuery,
     startFen,
     practice,
     returnTo,
@@ -182,10 +182,10 @@ const PlayMaiaPage: NextPage = () => {
     modalSubtitle,
   } = router.query
 
-  const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
-    simulateMaiaTimeQuery === 'true' || simulateMaiaTimeQuery === undefined
-      ? true
-      : false,
+  // Maia takes thinking time unless the address says not to.
+  const [simulateMaiaTime, setSimulateMaiaTime] = useQueryBoolean(
+    'simulateMaiaTime',
+    true,
   )
   const returnToLabel = useMemo(() => {
     if (typeof returnTo !== 'string') return undefined

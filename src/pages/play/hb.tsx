@@ -33,6 +33,7 @@ import {
 } from 'src/lib/serverGames'
 import { useServerGames } from 'src/hooks/useServerGames'
 import { useStartConfirmation } from 'src/hooks/useStartConfirmation'
+import { useQueryBoolean } from 'src/hooks/useQueryBoolean'
 import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
 interface Props {
@@ -113,15 +114,13 @@ const PlayHandBrainPage: NextPage = () => {
     timeControl,
     isBrain,
     sampleMoves,
-    simulateMaiaTime: simulateMaiaTimeQuery,
     startFen,
   } = router.query
 
-  // simulateMaiaTime can be configured in setup modal, default to true if not specified
-  const [simulateMaiaTime, setSimulateMaiaTime] = useState<boolean>(
-    simulateMaiaTimeQuery === 'true' || simulateMaiaTimeQuery === undefined
-      ? true
-      : false,
+  // Maia takes thinking time unless the address says not to.
+  const [simulateMaiaTime, setSimulateMaiaTime] = useQueryBoolean(
+    'simulateMaiaTime',
+    true,
   )
 
   // A position from the address is checked as the setup dialog checks one.
