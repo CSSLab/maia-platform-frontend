@@ -19,3 +19,7 @@ export const MAIA3_OPPONENT_RATINGS = Array.from({ length: 21 }, (_, i) => {
 
 /** The shorter side of a phone's screen is at most this. */
 export const PHONE_BREAKPOINT_PX = 670
+
+/** The Maia model browsers download, and what it takes, sent compressed: 41.7 MB. */
+export const MAIA_DOWNLOAD_MODEL = 'maia3'
+export const MAIA_DOWNLOAD_MB = 42

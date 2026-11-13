@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useState, useEffect, useRef, useSyncExternalStore } from 'react'
+import { MAIA_DOWNLOAD_MB } from 'src/constants/common'
 import { trackDownloadModelModalShown } from 'src/lib/analytics'
 import {
-  MAIA_DOWNLOAD_MB,
   downloadTimeLeft,
   startMaiaDownload,
 } from 'src/lib/engine/maiaDownloadPrompt'

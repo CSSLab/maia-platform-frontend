@@ -11,12 +11,9 @@ import {
   ColorSanMapping,
   GameNode,
 } from 'src/types'
-import { MAIA_MODELS } from 'src/constants/common'
+import { MAIA_DOWNLOAD_MB, MAIA_MODELS } from 'src/constants/common'
 import { MaiaEngineContext, WindowSizeContext } from 'src/contexts'
-import {
-  MAIA_DOWNLOAD_MB,
-  startMaiaDownload,
-} from 'src/lib/engine/maiaDownloadPrompt'
+import { startMaiaDownload } from 'src/lib/engine/maiaDownloadPrompt'
 import type { TablebaseResult } from 'src/lib/tablebase'
 
 type DescriptionSegment =
