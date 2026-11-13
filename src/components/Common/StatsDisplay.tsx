@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AllStats, SingleStats } from 'src/hooks/useStats'
-import { ProvisionalMark } from './Rating'
+import { ProvisionalMark, RatedUnit } from './Rating'
 
 interface SingleProps {
   stats: SingleStats | undefined
@@ -68,6 +68,9 @@ interface Props {
   isGame?: boolean
   embedded?: boolean
   hideEmbeddedBorder?: boolean
+  // What a rated result is called, for the "?"'s explanation: games when
+  // isGame, otherwise said generally unless given.
+  unit?: RatedUnit
 }
 
 export const StatsDisplay: React.FC<Props> = ({
@@ -76,6 +79,7 @@ export const StatsDisplay: React.FC<Props> = ({
   isGame,
   embedded = false,
   hideEmbeddedBorder = false,
+  unit = isGame ? 'games' : undefined,
 }: Props) => {
   const [cachedRating, setCachedRating] = useState<number | undefined>(0)
 
@@ -100,9 +104,7 @@ export const StatsDisplay: React.FC<Props> = ({
           className={`flex flex-row items-center text-2xl font-bold ${cachedRating === undefined && 'opacity-0'} ${stats.rating === undefined && 'opacity-50'}`}
         >
           {cachedRating || 0}
-          {stats.provisional ? (
-            <ProvisionalMark own unit={isGame ? 'games' : undefined} />
-          ) : null}
+          {stats.provisional ? <ProvisionalMark own unit={unit} /> : null}
           {stats.rating != undefined && stats.lastRating != undefined ? (
             <RatingDiffDisplay diff={stats.rating - stats.lastRating} />
           ) : null}

@@ -74,6 +74,27 @@ export const parseRatingCertainty = (
   lastPlayed: lastPlayedOf(data[`${mode}_last_played`]),
 })
 
+const RATED_MODES: RatedMode[] = ['play', 'hand', 'brain', 'puzzles', 'turing']
+
+/**
+ * The days within which each leaderboard's players were active, from the
+ * leaderboard response's `window_days` ({mode: days}). A mode the backend
+ * hasn't recorded a window for yet is left out.
+ */
+export const parseWindowDays = (
+  value: unknown,
+): Partial<Record<RatedMode, number>> => {
+  const windows: Partial<Record<RatedMode, number>> = {}
+  if (typeof value !== 'object' || value === null) return windows
+  for (const mode of RATED_MODES) {
+    const days = (value as Record<string, unknown>)[mode]
+    if (typeof days === 'number' && Number.isInteger(days) && days > 0) {
+      windows[mode] = days
+    }
+  }
+  return windows
+}
+
 export const daysSince = (date: Date, now: Date = new Date()): number =>
   Math.max(0, (now.getTime() - date.getTime()) / DAY_MS)
 

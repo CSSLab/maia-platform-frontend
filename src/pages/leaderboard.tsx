@@ -5,6 +5,7 @@ import { fetchLeaderboard } from 'src/api'
 import { LeaderboardData } from 'src/types'
 import { LeaderboardColumn, TimeAgo } from 'src/components'
 import { parseTimeMs } from 'src/lib/relativeTime'
+import { parseWindowDays } from 'src/lib/ratingUtils'
 import { LeaderboardProvider } from 'src/components/Leaderboard/LeaderboardContext'
 
 type Ranking = { display_name: string; elo: number }[]
@@ -39,7 +40,7 @@ const Leaderboard: React.FC = () => {
           COLUMNS.map((column) => [column.id, lb[column.key]]),
         ),
       )
-      setWindowDays(lb.window_days ?? {})
+      setWindowDays(parseWindowDays(lb.window_days))
     } catch (err) {
       console.error('Error fetching leaderboard:', err)
       setError(true)

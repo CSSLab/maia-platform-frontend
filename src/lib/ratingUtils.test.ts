@@ -2,6 +2,7 @@ import {
   daysSince,
   leaderboardEligibility,
   parseRatingCertainty,
+  parseWindowDays,
 } from './ratingUtils'
 
 describe('parseRatingCertainty', () => {
@@ -131,5 +132,40 @@ describe('daysSince', () => {
         new Date('2026-11-10T00:00:00Z'),
       ),
     ).toBe(0)
+  })
+})
+
+describe('parseWindowDays', () => {
+  it("reads each board's window as the backend sends it", () => {
+    // auth/leaderboard (CSSLab/maia-platform-backend#293): 7 days for play
+    // and puzzles, 30 for the others, wider when too few players qualify.
+    expect(
+      parseWindowDays({
+        play: 7,
+        hand: 30,
+        brain: 30,
+        puzzles: 14,
+        turing: 30,
+      }),
+    ).toEqual({ play: 7, hand: 30, brain: 30, puzzles: 14, turing: 30 })
+  })
+
+  it('is empty before the backend has recorded the windows', () => {
+    expect(parseWindowDays({})).toEqual({})
+    expect(parseWindowDays(undefined)).toEqual({})
+    expect(parseWindowDays(null)).toEqual({})
+  })
+
+  it('leaves out modes it does not know and days that are not usable', () => {
+    expect(
+      parseWindowDays({
+        play: 7,
+        hand: '30',
+        brain: 0,
+        puzzles: 7.5,
+        turing: null,
+        blitz: 7,
+      }),
+    ).toEqual({ play: 7 })
   })
 })

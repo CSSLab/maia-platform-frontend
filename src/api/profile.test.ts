@@ -88,4 +88,21 @@ describe('fetchPlayerStats', () => {
     replyWith(withoutTime)
     expect((await fetchPlayerStats('alice')).joinedAt).toBeNull()
   })
+
+  it('reads whether each rating is provisional', async () => {
+    replyWith({
+      ...OLD_REPLY,
+      play_provisional: false,
+      hand_provisional: true,
+      brain_provisional: true,
+      puzzles_provisional: false,
+      turing_provisional: true,
+    })
+    const stats = await fetchPlayerStats('alice')
+    expect(stats.regularCertainty.provisional).toBe(false)
+    expect(stats.handCertainty.provisional).toBe(true)
+    expect(stats.brainCertainty.provisional).toBe(true)
+    expect(stats.trainCertainty.provisional).toBe(false)
+    expect(stats.botNotCertainty.provisional).toBe(true)
+  })
 })

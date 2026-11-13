@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchLeaderboard } from 'src/api'
+import { parseWindowDays } from 'src/lib/ratingUtils'
 import {
   LeaderboardData,
   LeaderboardStatus,
@@ -104,7 +105,7 @@ export const useLeaderboardStatus = (displayName?: string) => {
           displayName,
         )
         setStatus(leaderboardStatus)
-        setWindowDays(cacheRef.current.data.window_days ?? {})
+        setWindowDays(parseWindowDays(cacheRef.current.data.window_days))
         setLoading(false)
         return
       }
@@ -123,7 +124,7 @@ export const useLeaderboardStatus = (displayName?: string) => {
         displayName,
       )
       setStatus(leaderboardStatus)
-      setWindowDays(leaderboardData.window_days ?? {})
+      setWindowDays(parseWindowDays(leaderboardData.window_days))
     } catch (err) {
       console.error('Error fetching leaderboard status:', err)
       setError('Failed to fetch leaderboard data')

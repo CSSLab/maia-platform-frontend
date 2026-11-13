@@ -1,5 +1,6 @@
 import {
   fetchGameMove,
+  fetchPlayPlayerStats,
   MoveRequestError,
   retryUnlessRejected,
   startGame,
@@ -120,5 +121,49 @@ describe('startGame', () => {
     expect(error.status).toBe(401)
     // start_game, the account request, start_game again: once only.
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('fetchPlayPlayerStats', () => {
+  // play/get_player_stats (CSSLab/maia-platform-backend#293).
+  const STATS = {
+    play_games_played: 3,
+    hand_games_played: 40,
+    brain_games_played: 0,
+    play_won: 1,
+    play_drawn: 0,
+    hand_won: 22,
+    hand_drawn: 3,
+    brain_won: 0,
+    brain_drawn: 0,
+    play_elo: 1540,
+    hand_elo: 1610,
+    brain_elo: 1500,
+  }
+
+  it('reads whether each rating is provisional', async () => {
+    respond(200, {
+      ...STATS,
+      play_provisional: true,
+      hand_provisional: false,
+      brain_provisional: true,
+    })
+    expect(await fetchPlayPlayerStats()).toMatchObject({
+      playElo: 1540,
+      playProvisional: true,
+      handElo: 1610,
+      handProvisional: false,
+      brainElo: 1500,
+      brainProvisional: true,
+    })
+  })
+
+  it('takes a rating as settled when the backend does not say', async () => {
+    respond(200, STATS)
+    expect(await fetchPlayPlayerStats()).toMatchObject({
+      playProvisional: false,
+      handProvisional: false,
+      brainProvisional: false,
+    })
   })
 })
