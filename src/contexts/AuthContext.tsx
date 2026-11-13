@@ -8,6 +8,11 @@ import {
   trackLoggedOut,
 } from 'src/lib/analytics'
 import { registerProperties } from 'src/lib/posthogClient'
+import {
+  fetchLoginOriginProof,
+  isVercelPreview,
+  lichessLoginUrl,
+} from 'src/lib/previewLogin'
 
 interface IAuthContext {
   user: User | null
@@ -113,9 +118,11 @@ export const AuthContextProvider: React.FC<{ children: ReactNode }> = ({
       const back = returnTo
         ? new URL(returnTo, window.location.origin).toString()
         : window.location.toString()
-      window.location.assign(
-        connectLichessUrl + '?redirect_url=' + encodeURIComponent(back),
-      )
+      const go = (proof?: string | null) =>
+        window.location.assign(lichessLoginUrl(connectLichessUrl, back, proof))
+      // A Vercel preview first proves to the backend that it is ours.
+      if (isVercelPreview()) void fetchLoginOriginProof().then(go)
+      else go()
     },
     [],
   )
