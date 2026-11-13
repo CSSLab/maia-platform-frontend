@@ -36,6 +36,8 @@ export interface MaiaEngine {
   progress: number
   /** Whether the model downloaded. */
   downloadModel: () => Promise<boolean>
+  /** The last download didn't finish, on any page since this one loaded. */
+  downloadFailed: boolean
 }
 
 export interface StockfishEngine {

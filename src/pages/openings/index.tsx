@@ -2019,6 +2019,9 @@ const OpeningsPage: NextPage = () => {
             ? mobilePlayLayout()
             : desktopPlayLayout()}
       </TreeControllerContext.Provider>
+      {/* A download that failed, here or while choosing drills, can be
+          tried again without leaving the drill. */}
+      <MaiaDownloadPrompt engine={maiaEngine} />
 
       {/* Performance Modal */}
       <AnimatePresence>
