@@ -1,5 +1,5 @@
 import React from 'react'
-import { LeaderboardEntry } from 'src/components'
+import { LeaderboardEntry } from './LeaderboardEntry'
 
 interface Props {
   id: 'regular' | 'puzzles' | 'turing' | 'hand' | 'brain'
@@ -9,7 +9,8 @@ interface Props {
     display_name: string
     elo: number
   }[]
-  // Days within which the board's players last played.
+  // Days within which the board's players last played (the backend's
+  // window_days), said in the header.
   windowDays?: number
 }
 
@@ -44,10 +45,13 @@ export const LeaderboardColumn: React.FC<Props> = ({
         <span className="material-symbols-outlined material-symbols-filled text-2xl text-white/70">
           {getIconForType(id)}
         </span>
-        <h2 className="text-base font-bold uppercase text-white/95">{name}</h2>
+        <h2 className="whitespace-nowrap text-base font-bold uppercase text-white/95">
+          {name}
+        </h2>
+        {/* Wraps onto a second line in a narrow column. */}
         {windowDays !== undefined && (
-          <p className="ml-auto text-xs text-white/50">
-            Last {windowDays} days
+          <p className="ml-auto text-right text-xs leading-tight text-white/50">
+            Active in the last {windowDays} days
           </p>
         )}
       </div>

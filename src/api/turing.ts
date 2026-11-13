@@ -100,7 +100,11 @@ export const submitTuringGuess = async (
   const baseTimeInMinutes = parseInt(split[0], 10) / 60
   const timeControl = `${baseTimeInMinutes}+${split[1]}`
   const turingElo = data['turing_elo']
-  const turingProvisional = data['turing_provisional']
+  // null (or missing) when the backend doesn't say.
+  const turingProvisional =
+    typeof data['turing_provisional'] === 'boolean'
+      ? data['turing_provisional']
+      : undefined
 
   return {
     bot,

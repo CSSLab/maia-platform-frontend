@@ -1,6 +1,7 @@
 import {
   checkPuzzleResponse,
   fetchPuzzleData,
+  fetchTrainingPlayerStats,
   PuzzleUnavailableError,
 } from './train'
 
@@ -118,5 +119,40 @@ describe('checkPuzzleResponse', () => {
     )
     // A 200 that isn't JSON is more likely a proxy's page than an answer.
     expect(reasonOf(() => checkPuzzleResponse(200, undefined))).toBe('error')
+  })
+})
+
+describe('fetchTrainingPlayerStats', () => {
+  const realFetch = global.fetch
+  afterEach(() => {
+    global.fetch = realFetch
+  })
+
+  const reply = (body: object) => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(respond(200, body)) as unknown as typeof fetch
+  }
+
+  // puzzle/get_player_stats names the flag puzzle_provisional, as its other
+  // fields are puzzle_* (CSSLab/maia-platform-backend#293).
+  it('reads whether the puzzle rating is provisional', async () => {
+    reply({
+      total_puzzles: 4,
+      puzzles_solved: 2,
+      puzzle_elo: 1480,
+      puzzle_provisional: true,
+    })
+    expect(await fetchTrainingPlayerStats()).toEqual({
+      totalPuzzles: 4,
+      puzzlesSolved: 2,
+      rating: 1480,
+      provisional: true,
+    })
+  })
+
+  it('takes the rating as settled when the backend does not say', async () => {
+    reply({ total_puzzles: 400, puzzles_solved: 250, puzzle_elo: 1720 })
+    expect((await fetchTrainingPlayerStats()).provisional).toBe(false)
   })
 })

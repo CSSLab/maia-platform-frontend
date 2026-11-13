@@ -1203,7 +1203,7 @@ const Train: React.FC<Props> = ({
             solutionMoveSan={solutionMoveSan}
           />
 
-          <StatsDisplay stats={stats} />
+          <StatsDisplay stats={stats} unit="puzzles" />
         </motion.div>
 
         <motion.div
@@ -1677,7 +1677,7 @@ const Train: React.FC<Props> = ({
                 solutionMoveSan={solutionMoveSan}
               />
             </div>
-            <StatsDisplay stats={stats} />
+            <StatsDisplay stats={stats} unit="puzzles" />
             <div
               id="analysis"
               className="flex w-full flex-col gap-1 overflow-hidden"
