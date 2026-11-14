@@ -430,8 +430,10 @@ export const Header: React.FC = () => {
           aria-label="Discord"
           title="Discord"
           // The icon is an SVG with only a viewBox: without a size here it
-          // collapses to nothing. Sized and coloured like the bell beside it.
-          className="flex items-center text-primary/80 transition-colors duration-200 hover:text-primary [&>svg]:h-[18px] [&>svg]:w-6 [&>svg]:fill-current"
+          // collapses to nothing. It takes the bell's 24px box, drawn a little
+          // smaller than the box, because a solid logo looks heavier than the
+          // outlined bell and account icons beside it.
+          className="flex h-6 w-6 items-center justify-center text-primary/80 transition-colors duration-200 hover:text-primary [&>svg]:h-[15px] [&>svg]:w-5 [&>svg]:fill-current"
         >
           {DiscordIcon}
         </a>
