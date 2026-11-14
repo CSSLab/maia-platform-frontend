@@ -9,12 +9,15 @@ import {
   X_URL,
 } from 'src/lib/communityLinks'
 import { DiscordIcon, XIcon } from './Icons'
+import { CommunityPlatform, trackCommunityLinkClicked } from 'src/lib/analytics'
 
 // Define footer data structure
 interface FooterLink {
   href: string
   text: string
   icon?: ReactNode
+  // Community links report their clicks under this platform.
+  platform?: CommunityPlatform
 }
 
 // A Material symbol, or a brand's SVG drawn at the same size and colour.
@@ -99,16 +102,19 @@ export const Footer: React.FC = () => {
         {
           href: DISCORD_URL,
           text: 'Discord',
+          platform: 'discord',
           icon: brand(DiscordIcon),
         },
         {
           href: X_URL,
           text: X_HANDLE,
+          platform: 'x',
           icon: brand(XIcon),
         },
         {
           href: `mailto:${CONTACT_EMAIL}`,
           text: CONTACT_EMAIL,
+          platform: 'email',
           icon: symbol('mail'),
         },
       ],
@@ -161,6 +167,11 @@ export const Footer: React.FC = () => {
                   <a
                     key={linkIndex}
                     href={link.href}
+                    onClick={() => {
+                      const { platform } = link
+                      if (platform)
+                        trackCommunityLinkClicked(platform, 'footer')
+                    }}
                     {...(link.href.startsWith('mailto:')
                       ? {}
                       : { target: '_blank', rel: 'noreferrer' })}

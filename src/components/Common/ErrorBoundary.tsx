@@ -4,7 +4,10 @@ import dynamic from 'next/dynamic'
 import { Component } from 'react'
 import { Header } from './Header'
 import { Footer } from './Footer'
-import { trackErrorEncountered } from 'src/lib/analytics'
+import {
+  trackCommunityLinkClicked,
+  trackErrorEncountered,
+} from 'src/lib/analytics'
 import { ModalContextProvider } from 'src/contexts/ModalContext'
 import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
 import { DISCORD_URL } from 'src/lib/communityLinks'
@@ -145,6 +148,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
                   <Link
                     href={DISCORD_URL}
+                    onClick={() =>
+                      trackCommunityLinkClicked('discord', 'error_page')
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center rounded-lg border border-human-3 px-6 py-3 transition duration-200 hover:bg-human-3/20"

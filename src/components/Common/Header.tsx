@@ -10,6 +10,7 @@ import { PlayType } from 'src/types'
 import { useRouter } from 'next/router'
 import { DiscordIcon } from './Icons'
 import { DISCORD_URL } from 'src/lib/communityLinks'
+import { trackCommunityLinkClicked } from 'src/lib/analytics'
 import {
   FocusEvent,
   KeyboardEvent,
@@ -425,6 +426,7 @@ export const Header: React.FC = () => {
           target="_blank"
           rel="noreferrer"
           href={DISCORD_URL}
+          onClick={() => trackCommunityLinkClicked('discord', 'header')}
           aria-label="Discord"
           title="Discord"
           // The icon is an SVG with only a viewBox: without a size here it
@@ -537,7 +539,10 @@ export const Header: React.FC = () => {
               rel="noreferrer"
               href={DISCORD_URL}
               className="uppercase"
-              onClick={() => setShowMenu(false)}
+              onClick={() => {
+                trackCommunityLinkClicked('discord', 'mobile_menu')
+                setShowMenu(false)
+              }}
             >
               Discord
             </a>

@@ -7,6 +7,7 @@ import { Post } from 'src/types'
 import { Markdown } from 'src/components'
 import { DiscordIcon } from 'src/components/Common/Icons'
 import { DISCORD_URL } from 'src/lib/communityLinks'
+import { trackCommunityLinkClicked } from 'src/lib/analytics'
 import { getSortedPostsData, getPostData } from 'src/lib/blog/posts'
 
 const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
@@ -121,6 +122,7 @@ const BlogPost = ({ post }: BlogPostProps) => {
           </div>
           <a
             href={DISCORD_URL}
+            onClick={() => trackCommunityLinkClicked('discord', 'blog_post')}
             target="_blank"
             rel="noreferrer"
             className="mt-10 flex w-full items-center gap-3 rounded-md border border-glass-border bg-glass px-4 py-3 transition-colors duration-200 hover:bg-glass-strong lg:max-w-[80ch]"
