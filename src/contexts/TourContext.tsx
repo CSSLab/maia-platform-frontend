@@ -5,7 +5,10 @@ import React, {
   useCallback,
   useMemo,
   useEffect,
+  useRef,
 } from 'react'
+import { trackTourEnded, trackTourStarted } from 'src/lib/analytics'
+import { whenPageCloses } from 'src/lib/posthogClient'
 import dynamic from 'next/dynamic'
 import type { Step } from 'react-joyride'
 
@@ -72,6 +75,18 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
     currentTourId: undefined,
     ready: false,
   })
+
+  // The running tour as last drawn, for reporting how it ends.
+  const tourNow = useRef(tourState)
+  tourNow.current = tourState
+  const reportEnd = useCallback((outcome: 'finished' | 'skipped' | 'left') => {
+    const { isActive, currentTourId, currentStep, steps } = tourNow.current
+    if (!isActive || !currentTourId) return
+    trackTourEnded(currentTourId, outcome, currentStep + 1, steps.length)
+    // Reported once, though the state ending it is drawn later.
+    tourNow.current = { ...tourNow.current, isActive: false }
+  }, [])
+  useEffect(() => whenPageCloses(() => reportEnd('left')), [reportEnd])
 
   // Mark as client-side after hydration
   useEffect(() => {
@@ -245,7 +260,8 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
 
   // Helper function to actually start the tour
   const doStartTour = useCallback(
-    (tourId: string, steps: TourStep[]) => {
+    (tourId: string, steps: TourStep[], manual: boolean) => {
+      trackTourStarted(tourId, steps.length, manual)
       setTourState((prevState) => {
         const stateCompletedTours = prevState.completedTours
         const localStorageCompletedTours = isClient
@@ -310,7 +326,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
             const retryElement = document.getElementById(firstTargetId)
             if (retryElement) {
               clearInterval(retryInterval)
-              doStartTour(tourId, steps)
+              doStartTour(tourId, steps, forceRestart)
             } else if (attempts >= maxAttempts) {
               clearInterval(retryInterval)
             }
@@ -320,7 +336,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
       }
 
       // Start the tour immediately
-      doStartTour(tourId, steps)
+      doStartTour(tourId, steps, forceRestart)
     },
     [
       isClient,
@@ -357,6 +373,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
   }, [])
 
   const endTour = useCallback(() => {
+    reportEnd('finished')
     setTourState((prev) => {
       const currentTourId = prev.currentTourId || 'analysis'
 
@@ -380,9 +397,10 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
         currentTourId: undefined,
       }
     })
-  }, [isClient])
+  }, [isClient, reportEnd])
 
   const skipTour = useCallback(() => {
+    reportEnd('skipped')
     setTourState((prev) => {
       const currentTourId = prev.currentTourId || 'analysis'
 
@@ -406,7 +424,7 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
         currentTourId: undefined,
       }
     })
-  }, [isClient])
+  }, [isClient, reportEnd])
 
   const isStepActive = useCallback(
     (stepId: string) => {
@@ -575,11 +593,13 @@ export const TourProvider: React.FC<TourProviderProps> = ({ children }) => {
       }
 
       // react-joyride's STATUS.FINISHED and STATUS.SKIPPED
-      if (status === 'finished' || status === 'skipped') {
+      if (status === 'skipped') {
+        skipTour()
+      } else if (status === 'finished') {
         endTour()
       }
     },
-    [endTour, scrollToTooltipMobile],
+    [endTour, skipTour, scrollToTooltipMobile],
   )
 
   const contextValue: TourContextType = useMemo(

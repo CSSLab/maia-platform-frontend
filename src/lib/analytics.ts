@@ -726,30 +726,27 @@ export const trackLoggedOut = () => {
   safeTrack('logged_out')
 }
 
+/** A guided tour began: on a first visit to a page, or asked for again. */
 export const trackTourStarted = (
   tourId: string,
-  page: string,
-  isFirstTime: boolean,
+  steps: number,
+  manual: boolean,
 ) => {
-  safeTrack('tour_started', {
-    tour_id: tourId,
-    page,
-    is_first_time: isFirstTime,
-  })
+  safeTrack('tour_started', { tour_id: tourId, steps, manual })
 }
 
-export const trackTourStepCompleted = (tourId: string, stepNumber: number) => {
-  safeTrack('tour_step_completed', {
-    tour_id: tourId,
-    step_number: stepNumber,
-  })
-}
-
-export const trackTourCompleted = (tourId: string, totalSteps: number) => {
-  safeTrack('tour_completed', {
-    tour_id: tourId,
-    total_steps: totalSteps,
-  })
+/**
+ * How a guided tour ended: `finished` with its last button, `skipped` with
+ * its close button, or `left` with the page closed during it. `step` counts
+ * from 1.
+ */
+export const trackTourEnded = (
+  tourId: string,
+  outcome: 'finished' | 'skipped' | 'left',
+  step: number,
+  steps: number,
+) => {
+  safeTrack('tour_ended', { tour_id: tourId, outcome, step, steps })
 }
 
 export const trackHelpButtonClicked = (page: string) => {
