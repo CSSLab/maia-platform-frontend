@@ -37,23 +37,45 @@ interface MaiaOptions {
   onStoredAsBytes?: (message: string) => void
 }
 
+interface InferenceOutput {
+  logitsMove: Float32Array
+  logitsValue: Float32Array
+  /** Pooled representation (batch x 512); null if the model lacks `repr`. */
+  repr: Float32Array | null
+}
+
+/** Raw Maia3 outputs for one position, as used by the human bars. */
+export interface Maia3RawOutput {
+  /** Softmax of the value logits: [loss, draw, win] for the side to move. */
+  value: [number, number, number]
+  /** Pooled representation (512 floats); null if the model lacks `repr`. */
+  repr: Float32Array | null
+  /** Move probabilities by UCI move, when asked for (`policy: true`). */
+  policy?: Record<string, number>
+}
+
+export const MAIA3_REPR_DIM = 512
+
 interface PendingInference {
-  resolve: (value: {
-    logitsMove: Float32Array
-    logitsValue: Float32Array
-  }) => void
+  resolve: (value: InferenceOutput) => void
   reject: (error: Error) => void
 }
 
 export interface MaiaInferenceOptions {
+  /** Higher runs first; equal priorities run in request order. */
+  priority?: number
   /** Drops the request if it is aborted before it reaches the worker. */
   signal?: AbortSignal
 }
+
+/** Request priorities: the site's own analysis runs at `normal`. */
+export const MAIA_PRIORITY = { background: -1, normal: 0 } as const
 
 interface QueuedInference extends PendingInference {
   id: number
   message: Record<string, unknown>
   transfer: Transferable[]
+  priority: number
   signal?: AbortSignal
 }
 
@@ -90,8 +112,9 @@ class Maia {
   private storage: MaiaModelStorage
   private pendingInferences: Map<number, PendingInference> = new Map()
   /**
-   * Requests wait here and go to the worker one at a time, so stale ones can
-   * be dropped (the worker would otherwise run every queued request in order).
+   * Requests wait here and go to the worker one at a time, so a request can
+   * jump ahead of lower-priority ones and stale ones can be dropped (the
+   * worker would otherwise run every queued request in order).
    */
   private queue: QueuedInference[] = []
   private inFlightId: number | null = null
@@ -175,6 +198,7 @@ class Maia {
             pending.resolve({
               logitsMove: new Float32Array(msg.logitsMove),
               logitsValue: new Float32Array(msg.logitsValue),
+              repr: msg.repr ? new Float32Array(msg.repr) : null,
             })
             this.pendingInferences.delete(msg.id)
           }
@@ -264,11 +288,11 @@ class Maia {
     eloOppos: Float32Array,
     batchSize: number,
     options: MaiaInferenceOptions = {},
-  ): Promise<{ logitsMove: Float32Array; logitsValue: Float32Array }> {
+  ): Promise<InferenceOutput> {
     if (!this.worker) {
       return Promise.reject(new Error('Worker not initialized'))
     }
-    const { signal } = options
+    const { signal, priority = MAIA_PRIORITY.normal } = options
     if (signal?.aborted) return Promise.reject(abortError())
 
     const id = this.nextRequestId++
@@ -286,6 +310,7 @@ class Maia {
           batchSize,
         },
         transfer: [tokens.buffer, eloSelfs.buffer, eloOppos.buffer],
+        priority,
         signal,
         resolve,
         reject,
@@ -306,11 +331,17 @@ class Maia {
     })
   }
 
-  /** Sends the oldest queued request when the worker is free. */
+  /** Sends the highest-priority queued request when the worker is free. */
   private pumpInferences() {
     if (this.inFlightId !== null || !this.worker) return
-    const job = this.queue.shift()
-    if (!job) return
+    let best = -1
+    for (let i = 0; i < this.queue.length; i++) {
+      if (best < 0 || this.queue[i].priority > this.queue[best].priority) {
+        best = i
+      }
+    }
+    if (best < 0) return
+    const [job] = this.queue.splice(best, 1)
     this.pendingInferences.set(job.id, {
       resolve: job.resolve,
       reject: job.reject,
@@ -415,6 +446,83 @@ class Maia {
 
     return { result: results, time: end - start }
   }
+
+  /**
+   * Raw Maia3 outputs for a batch of positions: the value probabilities
+   * [loss, draw, win] for the side to move and the pooled representation;
+   * with `policy: true` also the move probabilities (the human bars' likely
+   * moves), otherwise the policy post-processing is skipped.
+   */
+  async batchEvaluateMaia3Raw(
+    boards: string[],
+    eloSelfs: number[],
+    eloOppos: number[],
+    options?: MaiaInferenceOptions & { policy?: boolean },
+  ): Promise<Maia3RawOutput[]> {
+    const batchSize = boards.length
+    if (batchSize === 0) return []
+
+    const combinedTokens = new Float32Array(batchSize * 64 * 12)
+    const legal: Float32Array[] = []
+    for (let i = 0; i < batchSize; i++) {
+      const { boardTokens, legalMoves } = preprocessMaia3(boards[i])
+      combinedTokens.set(boardTokens, i * 64 * 12)
+      legal.push(legalMoves)
+    }
+
+    const { logitsMove, logitsValue, repr } = await this.runInference(
+      combinedTokens,
+      Float32Array.from(eloSelfs),
+      Float32Array.from(eloOppos),
+      batchSize,
+      options,
+    )
+
+    const moveLogitsPerItem = 4352
+    const out: Maia3RawOutput[] = []
+    for (let i = 0; i < batchSize; i++) {
+      const value = logitsValue.subarray(i * 3, i * 3 + 3)
+      out.push({
+        value: maia3ValueSoftmax(value),
+        repr: repr
+          ? repr.slice(i * MAIA3_REPR_DIM, (i + 1) * MAIA3_REPR_DIM)
+          : null,
+        ...(options?.policy
+          ? {
+              policy: processOutputsMaia3(
+                boards[i],
+                new Tensor(
+                  'float32',
+                  logitsMove.slice(
+                    i * moveLogitsPerItem,
+                    (i + 1) * moveLogitsPerItem,
+                  ),
+                  [moveLogitsPerItem],
+                ),
+                new Tensor('float32', value.slice(), [3]),
+                legal[i],
+              ).policy,
+            }
+          : {}),
+      })
+    }
+    return out
+  }
+}
+
+/**
+ * Softmax over one position's value logits [loss, draw, win] (side to move),
+ * computed in float64.
+ */
+export function maia3ValueSoftmax(
+  logits: ArrayLike<number>,
+): [number, number, number] {
+  const m = Math.max(logits[0], logits[1], logits[2])
+  const e0 = Math.exp(logits[0] - m)
+  const e1 = Math.exp(logits[1] - m)
+  const e2 = Math.exp(logits[2] - m)
+  const sum = e0 + e1 + e2
+  return [e0 / sum, e1 / sum, e2 / sum]
 }
 
 /**

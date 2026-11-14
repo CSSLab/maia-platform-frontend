@@ -51,6 +51,7 @@ import {
   AnalysisStockfishEvalBar,
 } from 'src/components/Analysis/BoardChrome'
 import { MovesByRating } from 'src/components/Analysis/MovesByRating'
+import { HumanBarPanel } from 'src/components/Analysis/HumanBarPanel'
 import { AnalysisGameList } from 'src/components/Analysis/AnalysisGameList'
 import { GameLoadFailure } from 'src/components/Analysis/GameLoadFailure'
 import { MaiaDownloadPrompt } from 'src/components/Common/MaiaDownloadPrompt'
@@ -80,6 +81,8 @@ import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
 import {
   useAnalysisController,
   useBoardWheelNavigation,
+  useHumanBars,
+  useLocalStorage,
   useTablebase,
 } from 'src/hooks'
 import { tourConfigs } from 'src/constants/tours'
@@ -94,6 +97,14 @@ import {
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { MAIA_MODELS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
+import { isPhone } from 'src/lib/engine/maiaDownloadPrompt'
+import {
+  engineChance,
+  moveMark,
+  SMALL_NET_TO_SF19,
+  usualBlunderRiskIn5,
+} from 'src/lib/humanBar'
+import { GameGraph } from 'src/components/Analysis/GameGraph'
 import { formatMaiaName } from 'src/lib/maiaNames'
 import { playerLabel } from 'src/lib/pgn'
 import { cpToWinrate, parseLichessPgn } from 'src/lib'
@@ -113,6 +124,12 @@ const EVAL_BAR_RANGE = 4
 // Whether the first game since the page loaded has been opened (see
 // analysisPlace).
 let placeChecked = false
+
+/**
+ * The room the board's size allows for under the board with the game graph:
+ * what the blunder meter's section takes, so the board stays the size it was.
+ */
+const GAME_GRAPH_SECTION_PX = 99
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
   'maia_custom_pgn_result_overrides'
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -409,6 +426,7 @@ const AnalysisPage: React.FC<AnalysisPageProps> = ({ onGameShown }) => {
       setAnalyzedGame({
         ...game,
         type: 'lichess',
+        pgn,
       })
       setCurrentId([id, 'lichess'])
 
@@ -739,6 +757,90 @@ const Analysis: React.FC<Props> = ({
     // the engine effects see that the position is already analysed.
     if (storedAnalysisRevision > 0) refreshAnalysis()
   }, [storedAnalysisRevision, refreshAnalysis])
+  // Off by default on phones until they are measured on a real one: nothing
+  // may slow Stockfish there, and memory is tight.
+  const [showHumanBars, setShowHumanBars] = useLocalStorage<boolean>(
+    'analysis-show-human-bars',
+    !isPhone(),
+  )
+  const humanBars = useHumanBars(
+    analyzedGame,
+    controller.currentNode,
+    showHumanBars,
+    analysisEnabled && !controller.learnFromMistakes.state.isActive,
+  )
+  // Design step 1: the human chance goes in the left bar; the panel stays out
+  // so that nothing else on today's page changes.
+  const showHumanBarPanel = false
+  const humanBarOnScreen =
+    humanBars.available && showHumanBars && humanBars.ply !== null
+      ? humanBars.bars[humanBars.ply]
+      : undefined
+  const humanBarsOnPage =
+    humanBars.available &&
+    showHumanBars &&
+    humanBars.status !== 'unavailable' &&
+    humanBars.status !== 'off'
+  const { rating: whiteRating = 1500 } = analyzedGame.whitePlayer
+  const { rating: blackRating = 1500 } = analyzedGame.blackPlayer
+  // The server's evals are already on SF19's scale; a forced mate fills the bar.
+  const engineBarAt = useCallback(
+    (cpw: number) => {
+      if (Math.abs(cpw) >= 9000) return cpw > 0 ? 1 : 0
+      const [w, d] = engineChance(
+        cpw / 100,
+        whiteRating,
+        blackRating,
+        humanBars.timeControl,
+      )
+      return w + d / 2
+    },
+    [whiteRating, blackRating, humanBars.timeControl],
+  )
+  const usualRiskIn5 = useMemo(
+    () => ({
+      white: usualBlunderRiskIn5(whiteRating, humanBars.timeControl),
+      black: usualBlunderRiskIn5(blackRating, humanBars.timeControl),
+    }),
+    [whiteRating, blackRating, humanBars.timeControl],
+  )
+  // Main-line moves' marks from the human bars' two costs (practical LOG
+  // §91), for the move list and the game graph: the move into node i.
+  const { markOf: humanBarMarkOf, mainline: humanBarMainline } = humanBars
+  const mainlineIndex = useMemo(
+    () => new Map(humanBarMainline.map((node, i) => [node, i] as const)),
+    [humanBarMainline],
+  )
+  const markAt = useCallback(
+    (i: number) => (i > 0 ? humanBarMarkOf(i - 1) : undefined),
+    [humanBarMarkOf],
+  )
+  const markOfNode = useCallback(
+    (node: GameNode) => {
+      const i = mainlineIndex.get(node)
+      return i === undefined ? undefined : markAt(i)
+    },
+    [mainlineIndex, markAt],
+  )
+  const humanBarExpected =
+    humanBars.available &&
+    showHumanBars &&
+    humanBars.ply !== null &&
+    (humanBars.status === 'running' || humanBars.status === 'waiting-maia')
+  const humanBarLockedMessage = controller.learnFromMistakes.state.isActive
+    ? 'Hidden during Learn from Mistakes'
+    : !analysisEnabled
+      ? 'Analysis hidden'
+      : null
+  const selectHumanBarPly = useCallback(
+    (ply: number) => {
+      const node = humanBars.mainline[ply]
+      if (node && !controller.learnFromMistakes.state.isActive) {
+        controller.goToNode(node)
+      }
+    },
+    [humanBars.mainline, controller],
+  )
   const userGamePovOrientation = useMemo(() => {
     if (!['play', 'hand', 'brain'].includes(analyzedGame.type)) {
       return null
@@ -765,16 +867,28 @@ const Analysis: React.FC<Props> = ({
       return []
     }
 
+    // With the human bars' marks on, the badge reads on their objective tiers
+    // (?! 5-10 points, ? from 10, ?? from 15); it is Maia's move at the level
+    // picked, not these players', so it has no practical part (no !?).
+    const { move } = controller.topHumanMoveBadge
+    const loss =
+      controller.currentNode?.analysis?.stockfish?.winrate_loss_vec?.[move]
     return [
       {
         square: controller.topHumanMoveBadge.square,
         classification: controller.topHumanMoveBadge.classification,
+        mark:
+          humanBarsOnPage && loss !== undefined && Number.isFinite(loss)
+            ? moveMark(Math.abs(loss) * 100)
+            : undefined,
       },
     ]
   }, [
     analysisEnabled,
     controller.showTopMoveBadges,
     controller.topHumanMoveBadge,
+    controller.currentNode,
+    humanBarsOnPage,
   ])
 
   useEffect(() => {
@@ -1296,10 +1410,30 @@ const Analysis: React.FC<Props> = ({
   }, [rawStockfishEvalBar])
 
   const evalPositionPercent = useMemo(() => {
+    if (humanBarsOnPage) {
+      if (displayedStockfishEvalBar.label.startsWith('M')) {
+        return displayedStockfishEvalBar.pawns > 0 ? 100 : 0
+      }
+      const [w, d] = engineChance(
+        displayedStockfishEvalBar.displayPawns * SMALL_NET_TO_SF19,
+        whiteRating,
+        blackRating,
+        humanBars.timeControl,
+      )
+      return (w + d / 2) * 100
+    }
     const normalized =
       (displayedStockfishEvalBar.pawns + EVAL_BAR_RANGE) / (EVAL_BAR_RANGE * 2)
     return Math.max(0, Math.min(1, normalized)) * 100
-  }, [displayedStockfishEvalBar.pawns])
+  }, [
+    blackRating,
+    displayedStockfishEvalBar.displayPawns,
+    displayedStockfishEvalBar.label,
+    displayedStockfishEvalBar.pawns,
+    humanBars.timeControl,
+    humanBarsOnPage,
+    whiteRating,
+  ])
 
   const displayedStockfishEvalText = useMemo(() => {
     if (!displayedStockfishEvalBar.hasEval) {
@@ -1353,6 +1487,19 @@ const Analysis: React.FC<Props> = ({
       return { hasValue: true, percent, label: `${percent.toFixed(1)}%` }
     }
 
+    // Maia's chance that White wins, for these two players, their clocks and
+    // this position. While it is on its way the bar keeps its last reading
+    // rather than jumping to a number from another model.
+    if (humanBarOnScreen) {
+      const percent = Math.max(0, Math.min(100, humanBarOnScreen.W * 100))
+      return {
+        hasValue: true,
+        percent,
+        label: `${(Math.round(percent * 10) / 10).toFixed(1)}%`,
+      }
+    }
+    if (humanBarExpected) return { hasValue: false, percent: 50, label: '--' }
+
     if (
       stockfishEval?.model_move &&
       stockfishEval.mate_vec &&
@@ -1401,6 +1548,8 @@ const Analysis: React.FC<Props> = ({
     controller.moveEvaluation?.maia,
     controller.moveEvaluation?.stockfish,
     currentTurnForBars,
+    humanBarExpected,
+    humanBarOnScreen,
     isCurrentPositionCheckmateForBars,
     isInFirst10PlyForBars,
   ])
@@ -1477,14 +1626,16 @@ const Analysis: React.FC<Props> = ({
     const extraGapPx = 4 // gap-1 between the top text strip and the board row
     const measuredNonBoardHeightPx =
       desktopMiddleMeasuredHeights.boardHeaderStripPx +
-      desktopMiddleMeasuredHeights.blunderMeterSectionPx +
+      (humanBarsOnPage
+        ? GAME_GRAPH_SECTION_PX
+        : desktopMiddleMeasuredHeights.blunderMeterSectionPx) +
       extraGapPx
 
     return Math.max(
       320,
       Math.floor(targetColumnHeightPx - measuredNonBoardHeightPx),
     )
-  }, [desktopMiddleMeasuredHeights, height])
+  }, [desktopMiddleMeasuredHeights, height, humanBarsOnPage])
   const desktopBoardSizeCss = useMemo(() => {
     const heightCapCss =
       desktopBoardHeightCapPx !== null ? `${desktopBoardHeightCapPx}px` : '72vh'
@@ -1845,6 +1996,16 @@ const Analysis: React.FC<Props> = ({
               <NestedGameInfo />
             </GameInfo>
           </div>
+          {showHumanBarPanel ? (
+            <div className="w-full shrink-0 overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+              <HumanBarPanel
+                state={humanBars}
+                onSelectPly={selectHumanBarPly}
+                onHide={() => setShowHumanBars(false)}
+                lockedMessage={humanBarLockedMessage}
+              />
+            </div>
+          ) : null}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
             <UnderlineTabs
               tabs={ANALYSIS_LEFT_PANEL_TABS}
@@ -1867,6 +2028,7 @@ const Analysis: React.FC<Props> = ({
                     game={analyzedGame}
                     termination={analyzedGame.termination}
                     showAnnotations={true}
+                    markOf={humanBarsOnPage ? markOfNode : undefined}
                     disableKeyboardNavigation={
                       controller.gameAnalysis.progress.isAnalyzing ||
                       controller.learnFromMistakes.state.isActive
@@ -1972,6 +2134,7 @@ const Analysis: React.FC<Props> = ({
                     <AnalysisArrowLegend
                       labelMode="short"
                       className="gap-x-3 text-[10px]"
+                      hidePlayed={humanBarsOnPage}
                     />
                     <div className="absolute right-[12%] top-1/2 -translate-y-1/2">
                       <MaterialBalance
@@ -2020,7 +2183,10 @@ const Analysis: React.FC<Props> = ({
                       }
                       setCurrentSquare={setCurrentSquare}
                       shapes={(() => {
-                        const baseShapes = [...playedMoveShapes]
+                        // Two arrows are enough next to the move list.
+                        const baseShapes = humanBarsOnPage
+                          ? []
+                          : [...playedMoveShapes]
 
                         // Add analysis arrows only when analysis is enabled
                         if (analysisEnabled) {
@@ -2072,6 +2238,7 @@ const Analysis: React.FC<Props> = ({
                   </div>
                   <div className="pointer-events-none flex justify-center py-1">
                     <AnalysisStockfishEvalBar
+                      percentScale={humanBarsOnPage}
                       hasEval={renderedStockfishEvalBar.hasEval}
                       displayText={renderedStockfishEvalText}
                       labelPositionTop={smoothedEvalVerticalPositionLabel}
@@ -2083,9 +2250,18 @@ const Analysis: React.FC<Props> = ({
                 </div>
               </div>
             </div>
-            <div ref={desktopBlunderMeterSectionRef} className="shrink-0 pt-3">
+            <div
+              ref={humanBarsOnPage ? undefined : desktopBlunderMeterSectionRef}
+              className={
+                humanBarsOnPage
+                  ? 'flex min-h-0 flex-1 flex-col gap-2 pt-3'
+                  : 'shrink-0 pt-3'
+              }
+            >
               <AnalysisCompactBlunderMeter
+                marks={humanBarsOnPage}
                 variant="desktop"
+                hideMoves={humanBarsOnPage}
                 data={compactBlunderMeterData}
                 colorSanMapping={controller.colorSanMapping}
                 playedMove={
@@ -2095,6 +2271,23 @@ const Analysis: React.FC<Props> = ({
                 hover={analysisEnabled ? hover : mockHover}
                 makeMove={analysisEnabled ? makeMove : mockMakeMove}
               />
+              {humanBarsOnPage ? (
+                <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-glass-border bg-glass">
+                  {/* It would give the game away while analysis is hidden. */}
+                  {analysisEnabled &&
+                  !controller.learnFromMistakes.state.isActive ? (
+                    <GameGraph
+                      bars={humanBars.bars}
+                      mainline={humanBars.mainline}
+                      ply={humanBars.ply}
+                      usual={usualRiskIn5}
+                      onSelectPly={selectHumanBarPly}
+                      markAt={markAt}
+                      engineAt={engineBarAt}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </motion.div>
@@ -2108,6 +2301,9 @@ const Analysis: React.FC<Props> = ({
           hideDetailedBlunderMeter={true}
           desktopContentHeightCss={desktopSidebarContentHeightCss}
           tablebase={tablebase}
+          overviewShare={
+            humanBarsOnPage ? (height < 850 ? 0.6 : 0.56) : undefined
+          }
           containerStyle={{
             width: 'clamp(23rem, 27vw, 26rem)',
             minWidth: '23rem',
@@ -2147,6 +2343,10 @@ const Analysis: React.FC<Props> = ({
                 onStopLearnFromMistakes={handleStopLearnFromMistakes}
                 onSelectPlayer={handleSelectPlayer}
                 lastMoveResult={lastMoveResult}
+                showHumanBars={humanBars.available ? showHumanBars : undefined}
+                setShowHumanBars={
+                  humanBars.available ? setShowHumanBars : undefined
+                }
               />
             </div>
           }
@@ -2365,6 +2565,7 @@ const Analysis: React.FC<Props> = ({
                 </div>
                 <div className="pointer-events-none flex min-h-0 min-w-0 justify-center self-stretch">
                   <AnalysisStockfishEvalBar
+                    percentScale={humanBarsOnPage}
                     hasEval={renderedStockfishEvalBar.hasEval}
                     displayText={renderedStockfishEvalText}
                     labelPositionTop={smoothedEvalVerticalPositionLabel}
@@ -2374,6 +2575,7 @@ const Analysis: React.FC<Props> = ({
                 </div>
               </div>
               <AnalysisCompactBlunderMeter
+                marks={humanBarsOnPage}
                 className="mb-1.5 mt-3 w-full max-w-[560px]"
                 data={compactBlunderMeterData}
                 colorSanMapping={controller.colorSanMapping}
@@ -2417,6 +2619,7 @@ const Analysis: React.FC<Props> = ({
                   game={analyzedGame}
                   termination={analyzedGame.termination}
                   showAnnotations={true}
+                  markOf={humanBarsOnPage ? markOfNode : undefined}
                   forceMobileLayout={useMobileStyleAnalysisLayout}
                   disableKeyboardNavigation={
                     controller.gameAnalysis.progress.isAnalyzing ||
@@ -2428,6 +2631,17 @@ const Analysis: React.FC<Props> = ({
                 />
               </div>
             </div>
+            {showHumanBarPanel ? (
+              <div className="w-full border-t border-glass-border bg-glass backdrop-blur-md">
+                <HumanBarPanel
+                  state={humanBars}
+                  onSelectPly={selectHumanBarPly}
+                  onHide={() => setShowHumanBars(false)}
+                  lockedMessage={humanBarLockedMessage}
+                  variant="mobile"
+                />
+              </div>
+            ) : null}
             <div className="flex w-full flex-col overflow-hidden">
               <div className="relative border-t border-glass-border bg-glass backdrop-blur-md">
                 <SimplifiedAnalysisOverview
@@ -2611,6 +2825,10 @@ const Analysis: React.FC<Props> = ({
               onStopLearnFromMistakes={handleStopLearnFromMistakes}
               onSelectPlayer={handleSelectPlayer}
               lastMoveResult={lastMoveResult}
+              showHumanBars={humanBars.available ? showHumanBars : undefined}
+              setShowHumanBars={
+                humanBars.available ? setShowHumanBars : undefined
+              }
             />
           </motion.div>
         )}

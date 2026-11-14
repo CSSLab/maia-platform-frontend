@@ -32,6 +32,8 @@ export interface AnalyzedGame extends BaseGame {
   createdAt?: number | null
   /** When it ended; only stored games that finished since the backend kept it. */
   endedAt?: number | null
+  /** Source PGN as imported (Lichess games), with [%clk] comments if any. */
+  pgn?: string
 }
 
 export interface MaiaEvaluation {
@@ -77,6 +79,8 @@ export interface StockfishEvaluation {
   winrate_loss_vec?: { [key: string]: number }
   mate_vec?: { [key: string]: number }
   is_checkmate?: boolean
+  /** From the shared analysis cache, which does not say which engine made it. */
+  from_cache?: boolean
   /**
    * Set while the search goes on: `depth` is that of the deepest line so far,
    * and the position is not done even if it has reached the target depth.

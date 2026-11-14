@@ -42,6 +42,17 @@ const DEFAULT_MAIA_MODEL_SETTING: MaiaModelSetting = {
   defaultModel: MAIA_MODELS[0],
 }
 
+/** The analysis page's level before anyone picks one: the two players' level. */
+const defaultMaiaModelFor = (game: AnalyzedGame) => {
+  const { rating: white } = game.whitePlayer
+  const { rating: black } = game.blackPlayer
+  if (!white || !black) return MAIA_MODELS[0]
+  const level = Math.round((white + black) / 200) * 100
+  const model = `maia_kdd_${level}`
+  if (MAIA_MODELS.includes(model)) return model
+  return level < 1000 ? MAIA_MODELS[0] : MAIA_MODELS[MAIA_MODELS.length - 1]
+}
+
 export const useAnalysisController = (
   game: AnalyzedGame,
   initialOrientation?: 'white' | 'black',
@@ -74,9 +85,12 @@ export const useAnalysisController = (
   })
 
   const [currentMove, setCurrentMove] = useState<[string, string] | null>()
+  // Until someone picks a level: the level of the two players in this game.
   const [currentMaiaModel, setCurrentMaiaModel] = useLocalStorage(
     maiaModelSetting.storageKey,
-    maiaModelSetting.defaultModel,
+    maiaModelSetting === DEFAULT_MAIA_MODEL_SETTING
+      ? defaultMaiaModelFor(game)
+      : maiaModelSetting.defaultModel,
   )
   const [showTopMoveBadges, setShowTopMoveBadges] = useLocalStorage<boolean>(
     'analysis-show-top-move-badges',
@@ -270,6 +284,7 @@ export const useAnalysisController = (
 
     return {
       square: topHumanMove.slice(2, 4),
+      move: topHumanMove,
       classification,
     }
   }, [controller.currentNode, moveEvaluation, currentMaiaModel])

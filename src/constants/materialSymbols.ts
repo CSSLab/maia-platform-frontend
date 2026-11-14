@@ -43,6 +43,7 @@ export const MATERIAL_SYMBOLS = [
   'feedback',
   'first_page',
   'format_list_bulleted',
+  'groups',
   'hand_gesture',
   'help',
   'history',

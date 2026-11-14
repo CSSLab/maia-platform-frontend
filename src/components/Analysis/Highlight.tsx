@@ -388,8 +388,8 @@ export const Highlight: React.FC<Props> = ({
 
   const useCompactMobileColumnTitles = isMobile || simplified
   const maiaRating = currentMaiaModel.replace('maia_kdd_', '')
-  const mobileMaiaColumnTitle = `Maia-3 ${maiaRating}: Human Moves`
-  const mobileStockfishColumnTitle = 'SF 19: Engine Moves'
+  const mobileMaiaColumnTitle = `Maia ${maiaRating}`
+  const mobileStockfishColumnTitle = 'Stockfish 19'
   const compactTitleRowClass = 'grid h-11 place-items-center'
   const splitTitleRowClass = 'grid h-12 place-items-center'
   const compactTitleTextClass = 'font-semibold leading-none'
