@@ -9,7 +9,8 @@ import {
   BoardController,
 } from 'src/components'
 import { useUnload } from 'src/hooks/useUnload'
-import { LEAVE_GAME_ABORT } from 'src/lib/leaveGame'
+import { trackLeaveGamePromptAnswered } from 'src/lib/analytics'
+import { LEAVE_GAME_ABORT, leaveGameDestination } from 'src/lib/leaveGame'
 import { useRouter } from 'next/router'
 import type { DrawShape } from 'chessground/draw'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
@@ -122,7 +123,15 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
       // The game's own page changing its address (a new game's id) isn't
       // leaving.
       if (url.split('?')[0] === router.pathname) return
-      if (window.confirm(LEAVE_GAME_QUESTION)) return
+      const leave = window.confirm(LEAVE_GAME_QUESTION)
+      trackLeaveGamePromptAnswered(
+        game.id,
+        playType === 'handAndBrain' ? 'hand_and_brain' : 'vs_maia',
+        !leave,
+        plyCount,
+        leaveGameDestination(url),
+      )
+      if (leave) return
       // How a route change is called off in the pages router: the event that
       // ends it, then an error that stops it (swallowed below).
       router.events.emit('routeChangeError', LEAVE_GAME_ABORT, url)
@@ -137,7 +146,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
       router.events.off('routeChangeStart', onRouteChangeStart)
       window.removeEventListener('unhandledrejection', ignoreAbort)
     }
-  }, [gameInProgress, router])
+  }, [gameInProgress, router, game.id, playType, plyCount])
 
   const availableMovesMapped = useMemo(() => {
     const result = new Map()

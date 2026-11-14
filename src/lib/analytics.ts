@@ -562,6 +562,27 @@ export const trackPlayGameEnded = (
   })
 }
 
+/**
+ * The answer to "Leave it?", asked when a player clicks away to another page
+ * of the site with a game in progress. `destination` is the first path
+ * segment only.
+ */
+export const trackLeaveGamePromptAnswered = (
+  gameId: string,
+  gameType: PlayGameType,
+  stayed: boolean,
+  plyCount: number,
+  destination: string,
+) => {
+  safeTrack('leave_game_prompt_answered', {
+    game_id: gameId,
+    game_type: gameType,
+    stayed,
+    ply_count: plyCount,
+    destination,
+  })
+}
+
 // Navigation & Feature Discovery Events
 export const trackHomepageFeatureClicked = (
   feature:
