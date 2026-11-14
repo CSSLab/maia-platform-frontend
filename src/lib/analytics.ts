@@ -675,6 +675,29 @@ export const trackSettingChanged = (
   safeTrack('setting_changed', { setting, value })
 }
 
+/**
+ * The play setup dialog went away without a game: `closed` with its close
+ * button, `navigated` to another page, or `page_closed`. With what it was
+ * set to, and whether the player had a game in progress to go back to.
+ */
+export const trackPlaySetupLeft = (
+  how: 'closed' | 'navigated' | 'page_closed',
+  gameType: PlayGameType,
+  maiaVersion: string,
+  timeControl: string,
+  hadGameInProgress: boolean,
+  seconds: number,
+) => {
+  safeTrack('play_setup_left', {
+    how,
+    game_type: gameType,
+    maia_version: maiaVersion,
+    time_control: timeControl,
+    had_game_in_progress: hadGameInProgress,
+    seconds,
+  })
+}
+
 // Navigation & Feature Discovery Events
 export const trackHomepageFeatureClicked = (
   feature:
