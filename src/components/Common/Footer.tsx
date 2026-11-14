@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { ReactNode } from 'react'
 // Imported, so its address names its contents and browsers keep it a year.
 import maiaLogo from 'public/maia-ios-icon.png'
 import {
@@ -7,13 +8,24 @@ import {
   X_HANDLE,
   X_URL,
 } from 'src/lib/communityLinks'
+import { DiscordIcon, XIcon } from './Icons'
 
 // Define footer data structure
 interface FooterLink {
   href: string
   text: string
-  icon?: string
+  icon?: ReactNode
 }
+
+// A Material symbol, or a brand's SVG drawn at the same size and colour.
+const symbol = (name: string) => (
+  <span className="material-symbols-outlined !text-sm md:!text-xs">{name}</span>
+)
+const brand = (svg: ReactNode) => (
+  <span className="flex h-3.5 w-3.5 items-center justify-center md:h-3 md:w-3 [&>svg]:h-full [&>svg]:w-full [&>svg]:fill-current">
+    {svg}
+  </span>
+)
 
 interface FooterSection {
   title: string
@@ -82,22 +94,22 @@ export const Footer: React.FC = () => {
       ],
     },
     {
-      title: 'Contact',
+      title: 'Community',
       links: [
         {
           href: DISCORD_URL,
-          text: 'Discord Community',
-          icon: 'link',
-        },
-        {
-          href: `mailto:${CONTACT_EMAIL}`,
-          text: CONTACT_EMAIL,
-          icon: 'mail',
+          text: 'Discord',
+          icon: brand(DiscordIcon),
         },
         {
           href: X_URL,
           text: X_HANDLE,
-          icon: 'link',
+          icon: brand(XIcon),
+        },
+        {
+          href: `mailto:${CONTACT_EMAIL}`,
+          text: CONTACT_EMAIL,
+          icon: symbol('mail'),
         },
       ],
     },
@@ -156,9 +168,7 @@ export const Footer: React.FC = () => {
                   >
                     {link.icon ? (
                       <div className="flex items-center gap-1.5 text-secondary transition duration-200 hover:text-primary/80">
-                        <span className="material-symbols-outlined !text-sm md:!text-xs">
-                          {link.icon}
-                        </span>
+                        {link.icon}
                         <p className="text-sm md:text-xs">{link.text}</p>
                       </div>
                     ) : (
