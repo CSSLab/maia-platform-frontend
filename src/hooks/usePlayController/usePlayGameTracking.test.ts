@@ -3,6 +3,7 @@ import { PlayGameConfig, Termination } from 'src/types'
 import {
   trackPlayGameEnded,
   trackPlayGameFirstMoves,
+  trackPlayGamePageLeft,
   trackPlayGameStarted,
 } from 'src/lib/analytics'
 import { usePlayGameTracking } from './usePlayGameTracking'
@@ -11,6 +12,7 @@ jest.mock('src/lib/analytics', () => ({
   trackPlayGameStarted: jest.fn(),
   trackPlayGameFirstMoves: jest.fn(),
   trackPlayGameEnded: jest.fn(),
+  trackPlayGamePageLeft: jest.fn(),
 }))
 
 const config: PlayGameConfig = {
@@ -123,5 +125,23 @@ describe('usePlayGameTracking', () => {
     rerender({ id: 'game-1', moveCount: 12, termination: loss })
 
     expect(trackPlayGameEnded).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports leaving the page of a game in progress, and not of one over', () => {
+    const { rerender } = setup('game-1')
+    rerender({ id: 'game-1', moveCount: 7 })
+    window.dispatchEvent(new Event('pagehide'))
+    expect(trackPlayGamePageLeft).toHaveBeenCalledWith(
+      'game-1',
+      'vs_maia',
+      'maia_kdd_1500',
+      false,
+      7,
+    )
+
+    jest.clearAllMocks()
+    rerender({ id: 'game-1', moveCount: 8, termination: win })
+    window.dispatchEvent(new Event('pagehide'))
+    expect(trackPlayGamePageLeft).not.toHaveBeenCalled()
   })
 })

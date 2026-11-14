@@ -20,6 +20,12 @@ import {
   storeCustomGame,
 } from 'src/api'
 import {
+  endAnalysisVisit,
+  noteAnalysisPosition,
+  noteAnalysisTool,
+  startAnalysisVisit,
+} from 'src/lib/analysisVisit'
+import {
   AnalyzedGame,
   MaiaEvaluation,
   StockfishEvaluation,
@@ -693,6 +699,34 @@ const Analysis: React.FC<Props> = ({
     !isOthersGame,
   )
   const autoSave = isOthersGame ? undefined : controller.gameAnalysis.autoSave
+
+  // One visit for each game opened here, reported as it ends (see
+  // src/lib/analysisVisit).
+  const visitKey = `${analyzedGame.type}/${analyzedGame.id}/${analyzedGame.gameIndex ?? ''}`
+  useEffect(() => {
+    startAnalysisVisit(
+      analyzedGame.type,
+      analyzedGame.tree.getMainLine().length - 1,
+    )
+  }, [visitKey])
+  useEffect(() => () => endAnalysisVisit('navigated'), [])
+  useEffect(() => {
+    let ply = 0
+    for (let node = controller.currentNode?.parent; node; node = node.parent) {
+      ply++
+    }
+    if (controller.currentNode) {
+      noteAnalysisPosition(controller.currentNode.fen, ply)
+    }
+  }, [controller.currentNode])
+  const shownMaiaModel = useRef<string | null>(null)
+  useEffect(() => {
+    const model = controller.currentMaiaModel
+    if (shownMaiaModel.current && model !== shownMaiaModel.current) {
+      noteAnalysisTool('maia_rating')
+    }
+    shownMaiaModel.current = model
+  }, [controller.currentMaiaModel])
   const { refreshAnalysis } = controller
   // Exact endgame results (7 pieces or fewer) from the Lichess tablebase.
   // Not during Learn from mistakes, where it would give the answer away.
@@ -863,6 +897,7 @@ const Analysis: React.FC<Props> = ({
   )
 
   const handleLearnFromMistakes = useCallback(() => {
+    noteAnalysisTool('learn_mistakes')
     controller.learnFromMistakes.start()
     setAnalysisEnabled(false) // Auto-disable analysis when starting learn mode
   }, [controller.learnFromMistakes])
@@ -996,6 +1031,7 @@ const Analysis: React.FC<Props> = ({
     })
 
     if (moveAttempt) {
+      noteAnalysisTool('board_move')
       const newFen = chess.fen()
 
       const moveString =

@@ -1,4 +1,5 @@
 import { useContext, useEffect, useState } from 'react'
+import { usePostGameCtas } from 'src/hooks/usePostGameCtas'
 
 import { PlayedGame } from 'src/types'
 import { ResignationConfirmModal } from 'src/components'
@@ -101,6 +102,17 @@ export const PlayControls: React.FC<Props> = ({
   // Practice actions ask first, so a stray tap doesn't undo a move: the
   // first tap turns the button into a confirm button, the second acts.
   const [confirming, setConfirming] = useState<PracticeAction | null>(null)
+  const postGameClick = usePostGameCtas(
+    game.id,
+    'vs_maia',
+    false,
+    gameOver
+      ? [
+          ...(game.id ? (['analyze'] as const) : []),
+          ...(playAgain ? (['play_again'] as const) : []),
+        ]
+      : [],
+  )
   useEffect(() => {
     if (!confirming) return
     const timeout = setTimeout(() => setConfirming(null), CONFIRM_TIMEOUT_MS)
@@ -124,6 +136,7 @@ export const PlayControls: React.FC<Props> = ({
           {game.id ? (
             <button
               onClick={() => {
+                postGameClick('analyze')
                 window.open(`/analysis/${game.id}/play`, '_blank')
               }}
               className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
@@ -133,7 +146,10 @@ export const PlayControls: React.FC<Props> = ({
           ) : null}
           {playAgain ? (
             <button
-              onClick={playAgain}
+              onClick={() => {
+                postGameClick('play_again')
+                playAgain()
+              }}
               className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
             >
               PLAY AGAIN

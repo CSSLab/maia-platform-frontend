@@ -27,6 +27,8 @@ import {
   serverGamePage,
 } from 'src/lib/serverGames'
 import { useServerGames } from 'src/hooks/useServerGames'
+import { trackPlaySetupLeft } from 'src/lib/analytics'
+import { whenPageCloses } from 'src/lib/posthogClient'
 import { checkStartPosition } from 'src/lib/startPosition'
 import {
   INCREMENT_SECONDS_STEPS,
@@ -130,8 +132,38 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   const [interactive, setInteractive] = useState(false)
   useEffect(() => setInteractive(true), [])
 
+  // Leaving the dialog without a game is reported once: `outcome` is set by
+  // starting, continuing or resuming a game, or by leaving. `choice` is what
+  // the dialog is set to, kept up to date below.
+  const outcome = useRef<'game' | 'left' | null>(null)
+  const openedAt = useRef(Date.now())
+  const choice = useRef({ maiaVersion: '', timeControl: '', hadGame: false })
+  const reportLeft = useCallback(
+    (how: 'closed' | 'navigated' | 'page_closed') => {
+      if (outcome.current) return
+      outcome.current = 'left'
+      trackPlaySetupLeft(
+        how,
+        props.playType === 'againstMaia' ? 'vs_maia' : 'hand_and_brain',
+        choice.current.maiaVersion,
+        choice.current.timeControl,
+        choice.current.hadGame,
+        Math.round((Date.now() - openedAt.current) / 1000),
+      )
+    },
+    [props.playType],
+  )
+  useEffect(() => {
+    const stopWatching = whenPageCloses(() => reportLeft('page_closed'))
+    return () => {
+      stopWatching()
+      reportLeft('navigated')
+    }
+  }, [reportLeft])
+
   const { onClose } = props
   const dismissModal = useCallback(() => {
+    reportLeft('closed')
     setPlaySetupModalProps(undefined)
     onClose?.()
 
@@ -149,6 +181,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     router.pathname,
     setPlaySetupModalProps,
     onClose,
+    reportLeft,
   ])
 
   const forcedPlayerColor = props.forcedPlayerColor
@@ -217,6 +250,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
   const continueUnfinishedGame = useCallback(() => {
     if (!unfinishedGame) return
     const { config } = unfinishedGame
+    outcome.current = 'game'
     setPlaySetupModalProps(undefined)
     onClose?.()
     push({
@@ -253,6 +287,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
 
   const resumeOpenServerGame = useCallback(() => {
     if (!openServerGame) return
+    outcome.current = 'game'
     setPlaySetupModalProps(undefined)
     onClose?.()
     // The game's page asks the server for a game and is given this one.
@@ -350,6 +385,11 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
     [],
   )
   const isUnlimited = timeControl === 'unlimited'
+  choice.current = {
+    maiaVersion,
+    timeControl,
+    hadGame: !!unfinishedGame || !!openServerGame,
+  }
 
   const start = useCallback(
     (color: Color | undefined) => {
@@ -375,6 +415,7 @@ export const PlaySetupModal: React.FC<PlaySetupModalProps> = (
         return
       }
 
+      outcome.current = 'game'
       setPlaySetupModalProps(undefined)
       onClose?.()
       // A new game resigns any unfinished one (on the backend, as it starts).

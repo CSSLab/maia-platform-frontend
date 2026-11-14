@@ -1,6 +1,8 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { MaiaEngineContext } from 'src/contexts'
 import { MaiaModelStorage } from 'src/lib/engine/storage'
+import { trackSettingChanged } from 'src/lib/analytics'
+import { startMaiaDownload } from 'src/lib/engine/maiaDownloadPrompt'
 
 interface StorageInfo {
   supported: boolean
@@ -41,6 +43,7 @@ export const MaiaModelSettings: React.FC = () => {
     setIsDeleting(true)
     try {
       await storage.clearAllStorage()
+      trackSettingChanged('maia_model', 'deleted')
       // Refresh storage info
       const info = await storage.getStorageInfo()
       setStorageInfo(info)
@@ -52,7 +55,7 @@ export const MaiaModelSettings: React.FC = () => {
   }
 
   const handleRedownloadModel = () => {
-    downloadModel()
+    startMaiaDownload(downloadModel, 'settings')
   }
 
   const formatBytes = (bytes: number): string => {

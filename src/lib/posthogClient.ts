@@ -27,6 +27,27 @@ export const capture = (event: string, properties?: Properties) => {
   }
 }
 
+// PostHog sends what is waiting when the page closes (pagehide), from its own
+// listener; an event tracked by a listener added after it would be left
+// behind. This one is added first, before PostHog loads, and runs these.
+const closingHandlers = new Set<() => void>()
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => {
+    for (const handler of Array.from(closingHandlers)) handler()
+  })
+}
+
+/**
+ * Runs `handler` as the page closes, in time for what it tracks to be sent.
+ * Returns its removal.
+ */
+export const whenPageCloses = (handler: () => void) => {
+  closingHandlers.add(handler)
+  return () => {
+    closingHandlers.delete(handler)
+  }
+}
+
 export const loadPostHog = () => {
   // Crawlers, link scanners and test scripts aren't visitors: without
   // PostHog their events stay in `pending` and are never sent.

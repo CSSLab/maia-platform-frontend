@@ -1,10 +1,12 @@
 import { useContext, useEffect, useRef } from 'react'
 import { AuthContext } from 'src/contexts/AuthContext'
+import { whenPageCloses } from 'src/lib/posthogClient'
 import { PlayGameConfig, Termination } from 'src/types'
 import {
   PlayGameType,
   trackPlayGameEnded,
   trackPlayGameFirstMoves,
+  trackPlayGamePageLeft,
   trackPlayGameStarted,
 } from 'src/lib/analytics'
 
@@ -84,4 +86,22 @@ export const usePlayGameTracking = (
       Math.round((Date.now() - tracked.current.startedAt) / 1000),
     )
   }, [id, termination, moveCount])
+
+  // Leaving the page of a game in progress for good (not to another page of
+  // the site, which asks first).
+  const plies = useRef(moveCount)
+  plies.current = moveCount
+  const inProgress = !!id && !termination
+  useEffect(() => {
+    if (!inProgress) return
+    return whenPageCloses(() =>
+      trackPlayGamePageLeft(
+        id,
+        gameType,
+        config.maiaVersion,
+        config.isBrain,
+        plies.current,
+      ),
+    )
+  }, [inProgress, id])
 }

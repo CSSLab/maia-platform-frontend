@@ -27,7 +27,7 @@ export const trackDownloadModelModalShown = (
 
 export const trackDownloadModelInitiated = (
   page: string,
-  trigger: 'wall' | 'auto' | 'tap' | 'panel',
+  trigger: 'wall' | 'auto' | 'tap' | 'panel' | 'settings',
 ) => {
   safeTrack('download_model_initiated', {
     model_type: MAIA_DOWNLOAD_MODEL,
@@ -325,15 +325,22 @@ export const trackDrillCompleted = (
   })
 }
 
-export const trackDrillSessionCompleted = (
-  totalDrills: number,
-  averagePerformance: number,
-  totalTimeSeconds: number,
+/**
+ * A run of drills ended (drills go on until the player stops): `reconfigured`
+ * for new drills chosen, `left` for the page left or closed. `drillsCompleted`
+ * counts the drills played to their end.
+ */
+export const trackDrillSessionEnded = (
+  outcome: 'reconfigured' | 'left',
+  drillsInQueue: number,
+  drillsCompleted: number,
+  seconds: number,
 ) => {
-  safeTrack('drill_session_completed', {
-    total_drills: totalDrills,
-    average_performance: averagePerformance,
-    total_time_seconds: totalTimeSeconds,
+  safeTrack('drill_session_ended', {
+    outcome,
+    drills_in_queue: drillsInQueue,
+    drills_completed: drillsCompleted,
+    seconds,
   })
 }
 
@@ -436,13 +443,21 @@ export const trackPuzzleCompleted = (
   })
 }
 
-export const trackPuzzleAnalysisUnlocked = (
+/**
+ * The player gave up on a puzzle and was shown its solution, after
+ * `wrongGuesses` wrong moves. (puzzle_completed says "forfeit" both for this
+ * and for a wrong first move, so it can't tell them apart.)
+ */
+export const trackPuzzleSolutionShown = (
   puzzleId: string,
-  analysisTimeSpentSeconds: number,
+  wrongGuesses: number,
+  time: { seconds: number; hiddenSeconds: number } | null,
 ) => {
-  safeTrack('puzzle_analysis_unlocked', {
+  safeTrack('puzzle_solution_shown', {
     puzzle_id: puzzleId,
-    analysis_time_spent_seconds: analysisTimeSpentSeconds,
+    wrong_guesses: wrongGuesses,
+    time_taken_seconds: time?.seconds ?? null,
+    time_hidden_seconds: time?.hiddenSeconds ?? null,
   })
 }
 
@@ -562,6 +577,141 @@ export const trackPlayGameEnded = (
   })
 }
 
+/**
+ * The answer to "Leave it?", asked when a player clicks away to another page
+ * of the site with a game in progress. `destination` is the first path
+ * segment only.
+ */
+export const trackLeaveGamePromptAnswered = (
+  gameId: string,
+  gameType: PlayGameType,
+  stayed: boolean,
+  plyCount: number,
+  destination: string,
+) => {
+  safeTrack('leave_game_prompt_answered', {
+    game_id: gameId,
+    game_type: gameType,
+    stayed,
+    ply_count: plyCount,
+    destination,
+  })
+}
+
+/**
+ * The page of a game in progress closed: the tab closed or reloaded, or the
+ * browser went to another site. (Another page of this site asks first; see
+ * trackLeaveGamePromptAnswered.) The game itself goes on, so a later event
+ * with the same game_id means the player came back.
+ */
+export const trackPlayGamePageLeft = (
+  gameId: string,
+  gameType: PlayGameType,
+  maiaVersion: string,
+  isBrain: boolean,
+  plyCount: number,
+) => {
+  safeTrack('play_game_page_left', {
+    game_id: gameId,
+    game_type: gameType,
+    is_brain: isBrain,
+    maia_version: maiaVersion,
+    ply_count: plyCount,
+  })
+}
+
+/** What a finished game offers next. Same events as the post-game panel. */
+export type PostGameCta = 'analyze' | 'play_again'
+
+export const trackPostGameCtaShown = (
+  cta: PostGameCta,
+  gameId: string,
+  gameType: PlayGameType,
+  isBrain: boolean,
+) => {
+  safeTrack('post_game_cta_shown', {
+    cta,
+    game_id: gameId,
+    game_type: gameType,
+    is_brain: isBrain,
+  })
+}
+
+export const trackPostGameCtaClicked = (
+  cta: PostGameCta,
+  gameId: string,
+  gameType: PlayGameType,
+  isBrain: boolean,
+) => {
+  safeTrack('post_game_cta_clicked', {
+    cta,
+    game_id: gameId,
+    game_type: gameType,
+    is_brain: isBrain,
+  })
+}
+
+/**
+ * "Return Home" on the prompt that blocks a page until Maia is downloaded:
+ * leaving rather than downloading. `downloading` if a download was under way.
+ */
+export const trackDownloadPromptLeft = (
+  page: string,
+  downloading: boolean,
+  progress: number,
+) => {
+  safeTrack('download_prompt_left', { page, downloading, progress })
+}
+
+/**
+ * A setting changed on the settings page: sound (on/off), board theme, or the
+ * downloaded Maia model deleted. (Downloading it again from there is a
+ * download_model_initiated with trigger "settings".)
+ */
+export const trackSettingChanged = (
+  setting: 'sound' | 'board_theme' | 'maia_model',
+  value: string | boolean,
+) => {
+  safeTrack('setting_changed', { setting, value })
+}
+
+/**
+ * The play setup dialog went away without a game: `closed` with its close
+ * button, `navigated` to another page, or `page_closed`. With what it was
+ * set to, and whether the player had a game in progress to go back to.
+ */
+export const trackPlaySetupLeft = (
+  how: 'closed' | 'navigated' | 'page_closed',
+  gameType: PlayGameType,
+  maiaVersion: string,
+  timeControl: string,
+  hadGameInProgress: boolean,
+  seconds: number,
+) => {
+  safeTrack('play_setup_left', {
+    how,
+    game_type: gameType,
+    maia_version: maiaVersion,
+    time_control: timeControl,
+    had_game_in_progress: hadGameInProgress,
+    seconds,
+  })
+}
+
+/** What one visit to a game on the analysis page came to (analysisVisit). */
+export const trackAnalysisVisitEnded = (visit: {
+  how: 'next_game' | 'navigated' | 'page_closed'
+  game_source: string
+  game_plies: number
+  seconds: number
+  seconds_visible: number
+  positions_viewed: number
+  deepest_ply: number
+  tools: string[]
+}) => {
+  safeTrack('analysis_visit_ended', visit)
+}
+
 // Navigation & Feature Discovery Events
 export const trackHomepageFeatureClicked = (
   feature:
@@ -640,30 +790,27 @@ export const trackLoggedOut = () => {
   safeTrack('logged_out')
 }
 
+/** A guided tour began: on a first visit to a page, or asked for again. */
 export const trackTourStarted = (
   tourId: string,
-  page: string,
-  isFirstTime: boolean,
+  steps: number,
+  manual: boolean,
 ) => {
-  safeTrack('tour_started', {
-    tour_id: tourId,
-    page,
-    is_first_time: isFirstTime,
-  })
+  safeTrack('tour_started', { tour_id: tourId, steps, manual })
 }
 
-export const trackTourStepCompleted = (tourId: string, stepNumber: number) => {
-  safeTrack('tour_step_completed', {
-    tour_id: tourId,
-    step_number: stepNumber,
-  })
-}
-
-export const trackTourCompleted = (tourId: string, totalSteps: number) => {
-  safeTrack('tour_completed', {
-    tour_id: tourId,
-    total_steps: totalSteps,
-  })
+/**
+ * How a guided tour ended: `finished` with its last button, `skipped` with
+ * its close button, or `left` with the page closed during it. `step` counts
+ * from 1.
+ */
+export const trackTourEnded = (
+  tourId: string,
+  outcome: 'finished' | 'skipped' | 'left',
+  step: number,
+  steps: number,
+) => {
+  safeTrack('tour_ended', { tour_id: tourId, outcome, step, steps })
 }
 
 export const trackHelpButtonClicked = (page: string) => {
