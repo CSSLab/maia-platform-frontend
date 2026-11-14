@@ -2,6 +2,7 @@ import {
   fetchNotifications,
   fetchUnreadNotificationCount,
   markNotificationsRead,
+  recordNotificationClick,
   safeNotificationLink,
 } from './notifications'
 
@@ -131,6 +132,29 @@ describe('markNotificationsRead', () => {
       headers: { 'Content-Type': 'application/json' },
       body: '{"ids":["a1","b2"]}',
     })
+  })
+})
+
+describe('recordNotificationClick', () => {
+  it('posts the id, in a request that outlives the page', () => {
+    fetchMock.mockReturnValueOnce(Promise.resolve({ ok: true, status: 204 }))
+    recordNotificationClick('a1')
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/notifications/clicked', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"id":"a1"}',
+      keepalive: true,
+    })
+  })
+
+  it('never fails', async () => {
+    fetchMock.mockReturnValueOnce(Promise.reject(new Error('offline')))
+    expect(() => recordNotificationClick('a1')).not.toThrow()
+    await Promise.resolve()
+    fetchMock.mockImplementationOnce(() => {
+      throw new TypeError('no fetch')
+    })
+    expect(() => recordNotificationClick('a1')).not.toThrow()
   })
 })
 

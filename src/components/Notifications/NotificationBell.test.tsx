@@ -13,6 +13,8 @@ jest.mock('src/lib/analytics', () => ({
   trackNotificationsOpened: jest.fn(),
   trackNotificationClicked: jest.fn(),
 }))
+jest.mock('src/api', () => ({ recordNotificationClick: jest.fn() }))
+const { recordNotificationClick } = jest.requireMock('src/api')
 
 const notification = (
   overrides: Partial<SiteNotification> = {},
@@ -141,6 +143,8 @@ describe('the list', () => {
     expect(link).toHaveTextContent('You are #3 on the Puzzles leaderboard.')
     fireEvent.click(link)
     expect(onOpenChange).toHaveBeenLastCalledWith(false)
+    // The backend is told which account clicked through.
+    expect(recordNotificationClick).toHaveBeenCalledWith('a')
   })
 
   it('opens another site in a new tab', () => {
@@ -152,6 +156,8 @@ describe('the list', () => {
     expect(link).toHaveAttribute('href', 'https://lichess.org/@/maia1')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noreferrer')
+    fireEvent.click(link)
+    expect(recordNotificationClick).toHaveBeenCalledWith('a')
   })
 
   it('is plain text without a link', () => {
