@@ -78,3 +78,22 @@ export const markNotificationsRead = async (ids: string[]): Promise<number> => {
   )
   return parseCount(data.unread_count)
 }
+
+/**
+ * Tells the backend that the account followed this notification's link, so it
+ * knows who clicked through, not only who opened the bell. It is sent as the
+ * visitor leaves for the link (keepalive lets it finish after the page goes),
+ * and nothing waits on it or minds if it fails.
+ */
+export const recordNotificationClick = (id: string): void => {
+  try {
+    fetch(buildUrl('notifications/clicked'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+      keepalive: true,
+    }).catch(() => undefined)
+  } catch {
+    // No fetch: the click goes unrecorded.
+  }
+}

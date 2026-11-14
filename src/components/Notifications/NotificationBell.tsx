@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { recordNotificationClick } from 'src/api'
 import { TimeAgo } from 'src/components/Common/TimeAgo'
 import { NotificationsStatus } from 'src/hooks/useNotifications'
 import {
@@ -41,7 +42,7 @@ const NotificationRow = ({
   notification: SiteNotification
   onFollow: () => void
 }) => {
-  const { kind, title, body, link, createdAt, read } = notification
+  const { id, kind, title, body, link, createdAt, read } = notification
   const content = (
     <>
       <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center">
@@ -72,6 +73,7 @@ const NotificationRow = ({
   if (!link) return <div className={className}>{content}</div>
   const follow = () => {
     trackNotificationClicked(kind, !read)
+    recordNotificationClick(id)
     onFollow()
   }
   return link.startsWith('/') ? (
