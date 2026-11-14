@@ -28,6 +28,7 @@ import {
   trackPuzzleStarted,
   trackPuzzleMoveAttempted,
   trackPuzzleCompleted,
+  trackPuzzleSolutionShown,
 } from 'src/lib/analytics'
 import {
   PuzzlesShell,
@@ -262,6 +263,11 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
       }
 
       if (status === 'forfeit') {
+        trackPuzzleSolutionShown(
+          gameId,
+          userGuesses.length,
+          readPuzzleClock(gameId),
+        )
         setPreviousGameResults((prev) => {
           return prev.map((game, index) => {
             return index === puzzleIdx

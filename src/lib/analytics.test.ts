@@ -3,6 +3,7 @@ import {
   trackDownloadModelCompleted,
   trackDownloadModelInitiated,
   trackLeaveGamePromptAnswered,
+  trackPuzzleSolutionShown,
 } from './analytics'
 import { leaveGameDestination } from './leaveGame'
 
@@ -56,5 +57,16 @@ describe('the answer to leaving a game in progress', () => {
     expect(leaveGameDestination('/')).toBe('/')
     expect(leaveGameDestination('/analysis/abc123/play')).toBe('/analysis')
     expect(leaveGameDestination('/puzzles#x')).toBe('/puzzles')
+  })
+})
+
+it('reports a puzzle given up, with the wrong moves before it', () => {
+  jest.clearAllMocks()
+  trackPuzzleSolutionShown('p1', 2, { seconds: 40, hiddenSeconds: 0 })
+  expect(capture).toHaveBeenCalledWith('puzzle_solution_shown', {
+    puzzle_id: 'p1',
+    wrong_guesses: 2,
+    time_taken_seconds: 40,
+    time_hidden_seconds: 0,
   })
 })

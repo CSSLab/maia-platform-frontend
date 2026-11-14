@@ -436,13 +436,21 @@ export const trackPuzzleCompleted = (
   })
 }
 
-export const trackPuzzleAnalysisUnlocked = (
+/**
+ * The player gave up on a puzzle and was shown its solution, after
+ * `wrongGuesses` wrong moves. (puzzle_completed says "forfeit" both for this
+ * and for a wrong first move, so it can't tell them apart.)
+ */
+export const trackPuzzleSolutionShown = (
   puzzleId: string,
-  analysisTimeSpentSeconds: number,
+  wrongGuesses: number,
+  time: { seconds: number; hiddenSeconds: number } | null,
 ) => {
-  safeTrack('puzzle_analysis_unlocked', {
+  safeTrack('puzzle_solution_shown', {
     puzzle_id: puzzleId,
-    analysis_time_spent_seconds: analysisTimeSpentSeconds,
+    wrong_guesses: wrongGuesses,
+    time_taken_seconds: time?.seconds ?? null,
+    time_hidden_seconds: time?.hiddenSeconds ?? null,
   })
 }
 
