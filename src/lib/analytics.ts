@@ -27,7 +27,7 @@ export const trackDownloadModelModalShown = (
 
 export const trackDownloadModelInitiated = (
   page: string,
-  trigger: 'wall' | 'auto' | 'tap' | 'panel' | 'settings',
+  trigger: 'wall' | 'auto' | 'tap' | 'panel' | 'settings' | 'offer',
 ) => {
   safeTrack('download_model_initiated', {
     model_type: MAIA_DOWNLOAD_MODEL,
