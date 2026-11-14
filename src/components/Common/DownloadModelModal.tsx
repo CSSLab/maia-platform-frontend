@@ -2,7 +2,10 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useState, useEffect, useRef, useSyncExternalStore } from 'react'
 import { MAIA_DOWNLOAD_MB } from 'src/constants/common'
-import { trackDownloadModelModalShown } from 'src/lib/analytics'
+import {
+  trackDownloadModelModalShown,
+  trackDownloadPromptLeft,
+} from 'src/lib/analytics'
 import {
   downloadTimeLeft,
   startMaiaDownload,
@@ -129,6 +132,13 @@ export const DownloadModelModal: React.FC<Props> = ({
             <div className="order-1 flex flex-row flex-wrap-reverse justify-end gap-2 md:order-2">
               <Link
                 href="/"
+                onClick={() =>
+                  trackDownloadPromptLeft(
+                    window.location.pathname,
+                    isDownloading,
+                    progress,
+                  )
+                }
                 className="group flex h-8 cursor-pointer select-none items-center gap-2 rounded border border-glass-border bg-glass px-3 text-sm text-white/90 transition-all duration-200 hover:bg-glass-strong md:h-10 md:px-4"
               >
                 <span className="material-symbols-outlined text-base text-secondary group-hover:text-primary md:text-lg">

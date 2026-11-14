@@ -583,6 +583,71 @@ export const trackLeaveGamePromptAnswered = (
   })
 }
 
+/**
+ * The page of a game in progress closed: the tab closed or reloaded, or the
+ * browser went to another site. (Another page of this site asks first; see
+ * trackLeaveGamePromptAnswered.) The game itself goes on, so a later event
+ * with the same game_id means the player came back.
+ */
+export const trackPlayGamePageLeft = (
+  gameId: string,
+  gameType: PlayGameType,
+  maiaVersion: string,
+  isBrain: boolean,
+  plyCount: number,
+) => {
+  safeTrack('play_game_page_left', {
+    game_id: gameId,
+    game_type: gameType,
+    is_brain: isBrain,
+    maia_version: maiaVersion,
+    ply_count: plyCount,
+  })
+}
+
+/** What a finished game offers next. Same events as the post-game panel. */
+export type PostGameCta = 'analyze' | 'play_again'
+
+export const trackPostGameCtaShown = (
+  cta: PostGameCta,
+  gameId: string,
+  gameType: PlayGameType,
+  isBrain: boolean,
+) => {
+  safeTrack('post_game_cta_shown', {
+    cta,
+    game_id: gameId,
+    game_type: gameType,
+    is_brain: isBrain,
+  })
+}
+
+export const trackPostGameCtaClicked = (
+  cta: PostGameCta,
+  gameId: string,
+  gameType: PlayGameType,
+  isBrain: boolean,
+) => {
+  safeTrack('post_game_cta_clicked', {
+    cta,
+    game_id: gameId,
+    game_type: gameType,
+    is_brain: isBrain,
+  })
+}
+
+/**
+ * "Return Home" on the prompt that blocks a page until Maia is downloaded:
+ * leaving rather than downloading. `downloading` if a download was under way.
+ */
+export const trackDownloadPromptLeft = (
+  page: string,
+  downloading: boolean,
+  progress: number,
+) => {
+  safeTrack('download_prompt_left', { page, downloading, progress })
+}
+
 // Navigation & Feature Discovery Events
 export const trackHomepageFeatureClicked = (
   feature:

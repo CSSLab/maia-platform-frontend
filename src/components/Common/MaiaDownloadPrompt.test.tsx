@@ -5,6 +5,7 @@ import {
   startMaiaDownload,
 } from 'src/lib/engine/maiaDownloadPrompt'
 import { MaiaStatus } from 'src/types'
+import { trackDownloadPromptLeft } from 'src/lib/analytics'
 
 jest.mock('src/lib/engine/maiaDownloadPrompt', () => ({
   ...jest.requireActual('src/lib/engine/maiaDownloadPrompt'),
@@ -14,6 +15,7 @@ jest.mock('src/lib/engine/maiaDownloadPrompt', () => ({
 
 jest.mock('src/lib/analytics', () => ({
   trackDownloadModelModalShown: jest.fn(),
+  trackDownloadPromptLeft: jest.fn(),
 }))
 
 const setup = (
@@ -63,6 +65,12 @@ describe('MaiaDownloadPrompt', () => {
     expect(button).toBeDisabled()
     fireEvent.click(button)
     expect(startMaiaDownload).not.toHaveBeenCalled()
+  })
+
+  it('reports leaving the prompt for the home page', () => {
+    setup('downloading', { withoutAsking: false })
+    fireEvent.click(screen.getByText('Return Home'))
+    expect(trackDownloadPromptLeft).toHaveBeenCalledWith('/', true, 0)
   })
 
   it('blocks the page on a phone even before the page wants Maia', () => {

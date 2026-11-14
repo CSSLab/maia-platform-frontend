@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable jsx-a11y/alt-text */
 import { useState } from 'react'
+import { usePostGameCtas } from 'src/hooks/usePostGameCtas'
 import { PieceSymbol } from 'chess.ts'
 
 import { BaseGame, Color } from 'src/types'
@@ -55,6 +56,17 @@ export const HandBrainPlayControls: React.FC<Props> = ({
   setSimulateMaiaTime,
 }: Props) => {
   const [showResignConfirm, setShowResignConfirm] = useState(false)
+  const postGameClick = usePostGameCtas(
+    game.id,
+    'hand_and_brain',
+    isBrain,
+    gameOver
+      ? [
+          ...(game.id ? (['analyze'] as const) : []),
+          ...(playAgain ? (['play_again'] as const) : []),
+        ]
+      : [],
+  )
 
   const handleResignClick = () => {
     setShowResignConfirm(true)
@@ -83,6 +95,7 @@ export const HandBrainPlayControls: React.FC<Props> = ({
             {game.id ? (
               <button
                 onClick={() => {
+                  postGameClick('analyze')
                   window.open(
                     `/analysis/${game.id}/${isBrain ? 'brain' : 'hand'}`,
                     '_blank',
@@ -95,7 +108,10 @@ export const HandBrainPlayControls: React.FC<Props> = ({
             ) : null}
             {playAgain ? (
               <button
-                onClick={playAgain}
+                onClick={() => {
+                  postGameClick('play_again')
+                  playAgain()
+                }}
                 className="flex w-full items-center justify-center rounded border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
               >
                 PLAY AGAIN
