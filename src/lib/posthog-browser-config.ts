@@ -4,12 +4,20 @@ import {
   type PostHogConfig,
 } from 'posthog-js'
 
+import { LEAVE_GAME_ABORT } from 'src/lib/leaveGame'
+
 const EXTENSION_URL =
   /^(chrome|moz|safari|safari-web|ms-browser)-extension:\/\//
 
 type ExceptionList = {
+  value?: string
   stacktrace?: { frames?: { filename?: string }[] }
 }[]
+
+const exceptionList = (event: CaptureResult) =>
+  event.event === '$exception'
+    ? ((event.properties?.$exception_list as ExceptionList | undefined) ?? [])
+    : []
 
 /**
  * An error thrown only by browser extensions' code, not the site's. Extensions
@@ -18,14 +26,21 @@ type ExceptionList = {
  * a request through /ingest. An error with any frame from the site is kept.
  */
 const isExtensionError = (event: CaptureResult) => {
-  if (event.event !== '$exception') return false
-  const list = event.properties?.$exception_list as ExceptionList | undefined
-  const frames = list?.flatMap((e) => e.stacktrace?.frames ?? []) ?? []
+  const frames = exceptionList(event).flatMap((e) => e.stacktrace?.frames ?? [])
   return (
     frames.length > 0 &&
     frames.every((f) => !!f.filename && EXTENSION_URL.test(f.filename))
   )
 }
+
+/**
+ * A player choosing to stay in their game when asked about leaving it: the
+ * page change is called off by throwing, which PostHog records as an
+ * unhandled rejection ("Non-Error promise rejection captured with value:
+ * ..."), about 100 players a day.
+ */
+const isLeaveGameDeclined = (event: CaptureResult) =>
+  exceptionList(event).some((e) => e.value?.includes(LEAVE_GAME_ABORT))
 
 export const dropUnwantedEvents = (event: CaptureResult | null) => {
   if (!event) {
@@ -35,7 +50,8 @@ export const dropUnwantedEvents = (event: CaptureResult | null) => {
   if (
     event.event === '$autocapture' ||
     event.event === COPY_AUTOCAPTURE_EVENT ||
-    isExtensionError(event)
+    isExtensionError(event) ||
+    isLeaveGameDeclined(event)
   ) {
     return null
   }

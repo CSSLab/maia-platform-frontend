@@ -9,6 +9,7 @@ import {
   BoardController,
 } from 'src/components'
 import { useUnload } from 'src/hooks/useUnload'
+import { LEAVE_GAME_ABORT } from 'src/lib/leaveGame'
 import { useRouter } from 'next/router'
 import type { DrawShape } from 'chessground/draw'
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
@@ -23,8 +24,6 @@ import { pgnTimeControl } from 'src/lib/timeControl'
 
 const LEAVE_GAME_QUESTION =
   'You have a game in progress. Leave it? (Its clock keeps running; you can come back to it from Play.)'
-// Thrown to call off a route change the player declined; not a failure.
-const LEAVE_GAME_ABORT = 'Stayed in the game: route change called off'
 
 interface Props {
   boardShapes?: DrawShape[]

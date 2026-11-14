@@ -43,6 +43,15 @@ describe('dropUnwantedEvents', () => {
     expect(dropUnwantedEvents(noFile)).toBe(noFile)
   })
 
+  it('drops a player staying in their game, which calls off leaving it', () => {
+    const stayed = exception()
+    ;(stayed.properties.$exception_list as { value: string }[])[0] = {
+      value:
+        'Non-Error promise rejection captured with value: Stayed in the game: route change called off',
+    }
+    expect(dropUnwantedEvents(stayed)).toBeNull()
+  })
+
   it('still drops autocapture and keeps other events', () => {
     expect(
       dropUnwantedEvents({ event: '$autocapture' } as CaptureResult),
