@@ -840,3 +840,20 @@ export const trackNotificationsOpened = (unreadCount: number) => {
 export const trackNotificationClicked = (kind: string, unread: boolean) => {
   safeTrack('notification_clicked', { kind, unread })
 }
+
+// Links to Maia's community outside the site (Discord, X, email)
+export type CommunityPlatform = 'discord' | 'x' | 'email'
+export type CommunityLinkPlacement =
+  | 'header'
+  | 'mobile_menu'
+  | 'footer'
+  | 'blog_post'
+  | 'error_page'
+  | 'server_error_page'
+
+export const trackCommunityLinkClicked = (
+  platform: CommunityPlatform,
+  placement: CommunityLinkPlacement,
+) => {
+  safeTrack('community_link_clicked', { platform, placement })
+}

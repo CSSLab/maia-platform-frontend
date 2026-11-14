@@ -5,6 +5,9 @@ import { GetStaticPaths, GetStaticProps } from 'next'
 
 import { Post } from 'src/types'
 import { Markdown } from 'src/components'
+import { DiscordIcon } from 'src/components/Common/Icons'
+import { DISCORD_URL } from 'src/lib/communityLinks'
+import { trackCommunityLinkClicked } from 'src/lib/analytics'
 import { getSortedPostsData, getPostData } from 'src/lib/blog/posts'
 
 const OG_IMAGE_URL = 'https://www.maiachess.com/assets/og-maia.png'
@@ -117,6 +120,25 @@ const BlogPost = ({ post }: BlogPostProps) => {
           <div className="prose prose-invert w-full max-w-none leading-relaxed md:prose-lg prose-headings:mb-2 prose-a:text-human-2 hover:prose-a:underline prose-ul:list-inside prose-ul:list-disc prose-img:mb-2 prose-hr:my-8 prose-hr:opacity-20 lg:max-w-[80ch]">
             <Markdown>{post.content}</Markdown>
           </div>
+          <a
+            href={DISCORD_URL}
+            onClick={() => trackCommunityLinkClicked('discord', 'blog_post')}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-10 flex w-full items-center gap-3 rounded-md border border-glass-border bg-glass px-4 py-3 transition-colors duration-200 hover:bg-glass-strong lg:max-w-[80ch]"
+          >
+            <span className="flex h-5 w-6 shrink-0 items-center justify-center text-primary/80 [&>svg]:h-full [&>svg]:w-full [&>svg]:fill-current">
+              {DiscordIcon}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="text-sm font-medium text-primary">
+                Talk about this post on Discord
+              </span>
+              <span className="text-xs text-secondary">
+                Questions, ideas and bug reports are all welcome.
+              </span>
+            </span>
+          </a>
         </div>
       </div>
     </>

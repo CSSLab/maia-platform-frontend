@@ -5,6 +5,8 @@ import { useRouter } from 'next/router'
 import Chessground from '@react-chess/chessground'
 
 import { AuthContext } from 'src/contexts'
+import { DISCORD_URL } from 'src/lib/communityLinks'
+import { trackCommunityLinkClicked } from 'src/lib/analytics'
 
 // Pages come here when a request to the Maia server fails, whatever the
 // reason, so this page offers another try rather than a sign-in wall.
@@ -73,7 +75,10 @@ export default function Error401Page() {
             target="_blank"
             rel="noreferrer"
             className="underline"
-            href="https://discord.gg/Az93GqEAs7"
+            href={DISCORD_URL}
+            onClick={() =>
+              trackCommunityLinkClicked('discord', 'server_error_page')
+            }
           >
             Discord
           </a>

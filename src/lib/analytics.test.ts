@@ -1,5 +1,6 @@
 import { capture } from 'src/lib/posthogClient'
 import {
+  trackCommunityLinkClicked,
   trackDownloadModelCompleted,
   trackDownloadModelInitiated,
   trackLeaveGamePromptAnswered,
@@ -68,5 +69,17 @@ it('reports a puzzle given up, with the wrong moves before it', () => {
     wrong_guesses: 2,
     time_taken_seconds: 40,
     time_hidden_seconds: 0,
+  })
+})
+
+describe('Community link events', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('name the platform and where on the site the link was', () => {
+    trackCommunityLinkClicked('discord', 'blog_post')
+    expect(capture).toHaveBeenCalledWith('community_link_clicked', {
+      platform: 'discord',
+      placement: 'blog_post',
+    })
   })
 })
