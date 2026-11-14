@@ -11,6 +11,7 @@ import {
   useRef,
   useContext,
 } from 'react'
+import { whenPageCloses } from 'src/lib/posthogClient'
 import { useTreeController } from '../useTreeController'
 import {
   MoveAnalysis,
@@ -27,6 +28,7 @@ import {
 import { useSound } from 'src/hooks/useSound'
 import {
   trackDrillCompleted,
+  trackDrillSessionEnded,
   trackDrillSessionStarted,
 } from 'src/lib/analytics'
 import { MAIA_MODELS } from 'src/constants/common'
@@ -424,9 +426,41 @@ export const useOpeningDrillController = (
     }
   }, [currentMaiaModel, setCurrentMaiaModel])
 
+  // The run of drills under way, reported when it ends: new drills chosen,
+  // or the page left.
+  const session = useRef<{
+    queue: number
+    completed: number
+    startedAt: number
+  } | null>(null)
+  const endSession = useCallback((outcome: 'reconfigured' | 'left') => {
+    const s = session.current
+    if (!s) return
+    session.current = null
+    trackDrillSessionEnded(
+      outcome,
+      s.queue,
+      s.completed,
+      Math.round((Date.now() - s.startedAt) / 1000),
+    )
+  }, [])
+  useEffect(() => {
+    const stopWatching = whenPageCloses(() => endSession('left'))
+    return () => {
+      stopWatching()
+      endSession('left')
+    }
+  }, [endSession])
+
   useEffect(() => {
     if (!expandedSelections.length) return
 
+    endSession('reconfigured')
+    session.current = {
+      queue: expandedSelections.length,
+      completed: 0,
+      startedAt: Date.now(),
+    }
     trackDrillSessionStarted(
       expandedSelections.length,
       Array.from(new Set(expandedSelections.map((s) => s.opening.name))),
@@ -1404,6 +1438,7 @@ export const useOpeningDrillController = (
         if (!enrichedPerformanceData) {
           return
         }
+        if (session.current) session.current.completed += 1
         trackDrillCompleted(
           drillGame.selection.opening.name,
           drillGame.selection.maiaVersion,

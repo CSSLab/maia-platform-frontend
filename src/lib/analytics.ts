@@ -325,15 +325,22 @@ export const trackDrillCompleted = (
   })
 }
 
-export const trackDrillSessionCompleted = (
-  totalDrills: number,
-  averagePerformance: number,
-  totalTimeSeconds: number,
+/**
+ * A run of drills ended (drills go on until the player stops): `reconfigured`
+ * for new drills chosen, `left` for the page left or closed. `drillsCompleted`
+ * counts the drills played to their end.
+ */
+export const trackDrillSessionEnded = (
+  outcome: 'reconfigured' | 'left',
+  drillsInQueue: number,
+  drillsCompleted: number,
+  seconds: number,
 ) => {
-  safeTrack('drill_session_completed', {
-    total_drills: totalDrills,
-    average_performance: averagePerformance,
-    total_time_seconds: totalTimeSeconds,
+  safeTrack('drill_session_ended', {
+    outcome,
+    drills_in_queue: drillsInQueue,
+    drills_completed: drillsCompleted,
+    seconds,
   })
 }
 
