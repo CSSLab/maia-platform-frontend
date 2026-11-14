@@ -7,6 +7,7 @@ import { Footer } from './Footer'
 import { trackErrorEncountered } from 'src/lib/analytics'
 import { ModalContextProvider } from 'src/contexts/ModalContext'
 import { MATERIAL_SYMBOLS_STYLESHEET } from 'src/constants/materialSymbols'
+import { DISCORD_URL } from 'src/lib/communityLinks'
 
 const ErrorChessground = dynamic(() => import('@react-chess/chessground'), {
   ssr: false,
@@ -143,7 +144,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   </Link>
 
                   <Link
-                    href="https://discord.gg/hHb6gqFpxZ"
+                    href={DISCORD_URL}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center rounded-lg border border-human-3 px-6 py-3 transition duration-200 hover:bg-human-3/20"

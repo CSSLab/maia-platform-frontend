@@ -9,6 +9,7 @@ import maiaLogo from 'public/maia-ios-icon.png'
 import { PlayType } from 'src/types'
 import { useRouter } from 'next/router'
 import { DiscordIcon } from './Icons'
+import { DISCORD_URL } from 'src/lib/communityLinks'
 import {
   FocusEvent,
   KeyboardEvent,
@@ -423,7 +424,7 @@ export const Header: React.FC = () => {
         <a
           target="_blank"
           rel="noreferrer"
-          href="https://discord.gg/Az93GqEAs7"
+          href={DISCORD_URL}
           aria-label="Discord"
           title="Discord"
           // The icon is an SVG with only a viewBox: without a size here it
@@ -534,7 +535,7 @@ export const Header: React.FC = () => {
             <a
               target="_blank"
               rel="noreferrer"
-              href="https://discord.gg/Az93GqEAs7"
+              href={DISCORD_URL}
               className="uppercase"
               onClick={() => setShowMenu(false)}
             >

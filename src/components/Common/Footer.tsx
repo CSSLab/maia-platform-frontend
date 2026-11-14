@@ -1,6 +1,12 @@
 import Image from 'next/image'
 // Imported, so its address names its contents and browsers keep it a year.
 import maiaLogo from 'public/maia-ios-icon.png'
+import {
+  CONTACT_EMAIL,
+  DISCORD_URL,
+  X_HANDLE,
+  X_URL,
+} from 'src/lib/communityLinks'
 
 // Define footer data structure
 interface FooterLink {
@@ -79,18 +85,18 @@ export const Footer: React.FC = () => {
       title: 'Contact',
       links: [
         {
-          href: 'https://discord.gg/hHb6gqFpxZ',
+          href: DISCORD_URL,
           text: 'Discord Community',
           icon: 'link',
         },
         {
-          href: 'mailto:maiachess@cs.toronto.edu',
-          text: 'maiachess@cs.toronto.edu',
+          href: `mailto:${CONTACT_EMAIL}`,
+          text: CONTACT_EMAIL,
           icon: 'mail',
         },
         {
-          href: 'https://x.com/maiachess',
-          text: '@maiachess',
+          href: X_URL,
+          text: X_HANDLE,
           icon: 'link',
         },
       ],
