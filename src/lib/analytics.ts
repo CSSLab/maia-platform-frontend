@@ -698,6 +698,20 @@ export const trackPlaySetupLeft = (
   })
 }
 
+/** What one visit to a game on the analysis page came to (analysisVisit). */
+export const trackAnalysisVisitEnded = (visit: {
+  how: 'next_game' | 'navigated' | 'page_closed'
+  game_source: string
+  game_plies: number
+  seconds: number
+  seconds_visible: number
+  positions_viewed: number
+  deepest_ply: number
+  tools: string[]
+}) => {
+  safeTrack('analysis_visit_ended', visit)
+}
+
 // Navigation & Feature Discovery Events
 export const trackHomepageFeatureClicked = (
   feature:

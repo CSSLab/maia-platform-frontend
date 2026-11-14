@@ -1,4 +1,5 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
+import { noteAnalysisTool } from 'src/lib/analysisVisit'
 import toast from 'react-hot-toast'
 import { useContext, useEffect, useState } from 'react'
 
@@ -118,6 +119,7 @@ export const ExportGame: React.FC<Props> = (props) => {
   ])
 
   const copy = (content: string) => {
+    noteAnalysisTool('export')
     navigator.clipboard.writeText(content)
     if (type === 'analysis') {
       toast.success('Copied to clipboard')
