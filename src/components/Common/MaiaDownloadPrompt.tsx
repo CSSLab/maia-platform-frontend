@@ -8,6 +8,7 @@ import {
   downloadsWithoutAsking,
   startMaiaDownload,
 } from 'src/lib/engine/maiaDownloadPrompt'
+import { MAIA_DOWNLOAD_MB } from 'src/constants/common'
 import { MaiaEngine } from 'src/types'
 
 interface Props {
@@ -17,6 +18,14 @@ interface Props {
   >
   /** False until the page has a use for Maia, as during a puzzle. */
   wanted?: boolean
+  /**
+   * False for a page that is used without Maia, such as puzzles: a phone is
+   * asked with the card, once Maia is wanted, rather than with the prompt
+   * that blocks the page. With that prompt, phones completed a puzzle in 38%
+   * of visits, against 71% for those who could continue without Maia (Nov
+   * 2026).
+   */
+  blocking?: boolean
 }
 
 /**
@@ -26,18 +35,23 @@ interface Props {
  * blocks the page: in a week-long comparison (Nov 2026) it beat a prompt with
  * "Continue without Maia" on phones, with more of them getting Maia (61%
  * against 51%), playing (25% against 20%) and analysing (55% against 48%).
- * Once a download has started, a small card shows how it's going.
+ * Once a download has started, a small card shows how it's going. A page used
+ * without Maia (`blocking` false) asks with that card instead.
  */
 export const MaiaDownloadPrompt: React.FC<Props> = ({
   engine,
   wanted = true,
+  blocking = true,
 }: Props) => {
   const { maia, status, progress, downloadModel, downloadFailed } = engine
   const needed = status === 'no-cache' || status === 'downloading'
   const autoStarted = useRef(false)
 
-  const usesWall = needed && !downloadsWithoutAsking()
-  const auto = status === 'no-cache' && wanted && !usesWall
+  const asks = needed && !downloadsWithoutAsking()
+  const usesWall = asks && blocking
+  const auto = status === 'no-cache' && wanted && !asks
+  // Asked with the card instead (see `blocking`).
+  const offered = status === 'no-cache' && asks && !blocking && wanted
 
   useEffect(() => {
     if (auto && !autoStarted.current) {
@@ -67,7 +81,7 @@ export const MaiaDownloadPrompt: React.FC<Props> = ({
 
   return (
     <AnimatePresence>
-      {downloading || failed ? (
+      {downloading || failed || offered ? (
         <motion.div
           className="fixed inset-x-3 bottom-3 z-[60] md:inset-x-auto md:right-4 md:w-[22rem]"
           initial={{ y: 10, opacity: 0 }}
@@ -83,6 +97,17 @@ export const MaiaDownloadPrompt: React.FC<Props> = ({
                 <p className="font-medium text-white/90">Downloading Maia-3</p>
                 <MaiaDownloadProgress maia={maia} />
               </>
+            ) : offered ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-white/90">Maia-3 for this review</p>
+                <button
+                  type="button"
+                  onClick={() => startMaiaDownload(downloadModel, 'offer')}
+                  className="h-8 shrink-0 rounded border border-glass-border bg-human-4 px-3 font-medium text-white"
+                >
+                  Download ({MAIA_DOWNLOAD_MB} MB)
+                </button>
+              </div>
             ) : (
               <>
                 <p className="text-white/90">
