@@ -1868,6 +1868,7 @@ const Train: React.FC<Props> = ({
       <MaiaDownloadPrompt
         engine={analysisController.maia}
         wanted={analysisEnabled}
+        blocking={false}
       />
       <TrainingControllerContext.Provider value={controller}>
         {/* No fade-in when the puzzle replaces the shell, which already shows

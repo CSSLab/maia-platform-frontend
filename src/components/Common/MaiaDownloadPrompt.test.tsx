@@ -23,9 +23,11 @@ const setup = (
   {
     withoutAsking = true,
     wanted,
+    blocking,
   }: {
     withoutAsking?: boolean
     wanted?: boolean
+    blocking?: boolean
   } = {},
 ) => {
   ;(downloadsWithoutAsking as jest.Mock).mockReturnValue(withoutAsking)
@@ -34,6 +36,7 @@ const setup = (
     <MaiaDownloadPrompt
       engine={{ status, progress: 0, downloadModel, downloadFailed: false }}
       wanted={wanted}
+      blocking={blocking}
     />,
   )
   return { downloadModel, ...view }
@@ -150,6 +153,46 @@ describe('MaiaDownloadPrompt', () => {
       />,
     )
     expect(screen.queryByTestId('maia-download-card')).not.toBeInTheDocument()
+  })
+
+  it("lets a phone use a page that doesn't need Maia, then asks with the card", async () => {
+    const { rerender, downloadModel } = setup('no-cache', {
+      withoutAsking: false,
+      wanted: false,
+      blocking: false,
+    })
+    expect(screen.queryByTestId('download-modal')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('maia-download-card')).not.toBeInTheDocument()
+
+    rerender(
+      <MaiaDownloadPrompt
+        engine={{
+          status: 'no-cache',
+          progress: 0,
+          downloadModel,
+          downloadFailed: false,
+        }}
+        wanted
+        blocking={false}
+      />,
+    )
+    expect(screen.queryByTestId('download-modal')).not.toBeInTheDocument()
+    expect(startMaiaDownload).not.toHaveBeenCalled()
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /Download \(42 MB\)/ }),
+      )
+    })
+    expect(startMaiaDownload).toHaveBeenCalledWith(downloadModel, 'offer')
+  })
+
+  it('still downloads without asking on a desktop, once wanted', async () => {
+    const { downloadModel } = setup('no-cache', {
+      wanted: true,
+      blocking: false,
+    })
+    await act(async () => undefined)
+    expect(startMaiaDownload).toHaveBeenCalledWith(downloadModel, 'auto')
   })
 
   it('shows nothing once Maia is ready', () => {
