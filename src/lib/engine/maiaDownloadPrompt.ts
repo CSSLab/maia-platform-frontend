@@ -74,7 +74,7 @@ export const forgetMaiaModelSaved = () => {
   }
 }
 
-export type MaiaDownloadTrigger = 'wall' | 'auto' | 'tap' | 'panel'
+export type MaiaDownloadTrigger = 'wall' | 'auto' | 'tap' | 'panel' | 'settings'
 
 /** Starts the download and records how it went. */
 export const startMaiaDownload = async (

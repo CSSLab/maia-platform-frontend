@@ -4,6 +4,13 @@ import {
   saveUserSettings,
   UserSettings,
 } from 'src/lib/settings'
+import { trackSettingChanged } from 'src/lib/analytics'
+
+// The name each setting is reported under.
+const REPORTED_AS = {
+  soundEnabled: 'sound',
+  chessboardTheme: 'board_theme',
+} as const
 
 interface SettingsContextType {
   settings: UserSettings
@@ -45,6 +52,12 @@ export const SettingsProvider: React.FC<Props> = ({ children }) => {
     const newSettings = {
       ...settings,
       [key]: value,
+    }
+    if (settings[key] !== value && key in REPORTED_AS) {
+      trackSettingChanged(
+        REPORTED_AS[key as keyof typeof REPORTED_AS],
+        value as string | boolean,
+      )
     }
     setSettings(newSettings)
     saveUserSettings(newSettings)

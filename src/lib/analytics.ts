@@ -27,7 +27,7 @@ export const trackDownloadModelModalShown = (
 
 export const trackDownloadModelInitiated = (
   page: string,
-  trigger: 'wall' | 'auto' | 'tap' | 'panel',
+  trigger: 'wall' | 'auto' | 'tap' | 'panel' | 'settings',
 ) => {
   safeTrack('download_model_initiated', {
     model_type: MAIA_DOWNLOAD_MODEL,
@@ -646,6 +646,18 @@ export const trackDownloadPromptLeft = (
   progress: number,
 ) => {
   safeTrack('download_prompt_left', { page, downloading, progress })
+}
+
+/**
+ * A setting changed on the settings page: sound (on/off), board theme, or the
+ * downloaded Maia model deleted. (Downloading it again from there is a
+ * download_model_initiated with trigger "settings".)
+ */
+export const trackSettingChanged = (
+  setting: 'sound' | 'board_theme' | 'maia_model',
+  value: string | boolean,
+) => {
+  safeTrack('setting_changed', { setting, value })
 }
 
 // Navigation & Feature Discovery Events
