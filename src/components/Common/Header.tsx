@@ -82,6 +82,24 @@ export const Header: React.FC = () => {
 
   // Every account has notifications, a guest's too.
   const notifications = useNotifications(user?.clientId)
+  const discordLink = (
+    <a
+      target="_blank"
+      rel="noreferrer"
+      href={DISCORD_URL}
+      onClick={() => trackCommunityLinkClicked('discord', 'header')}
+      aria-label="Discord"
+      title="Discord"
+      // The icon is an SVG with only a viewBox: without a size here it
+      // collapses to nothing. It takes the bell's 24px box, drawn a little
+      // smaller than the box, because a solid logo looks heavier than the
+      // outlined bell and account icons beside it.
+      className="flex h-6 w-6 items-center justify-center text-primary/80 transition-colors duration-200 hover:text-primary [&>svg]:h-[15px] [&>svg]:w-5 [&>svg]:fill-current"
+    >
+      {DiscordIcon}
+    </a>
+  )
+
   const notificationBell = (
     <NotificationBell
       unreadCount={notifications.unreadCount}
@@ -422,21 +440,7 @@ export const Header: React.FC = () => {
       </div>
       <div className="hidden flex-row items-center gap-3 md:flex">
         <ConnectButtonSlot />
-        <a
-          target="_blank"
-          rel="noreferrer"
-          href={DISCORD_URL}
-          onClick={() => trackCommunityLinkClicked('discord', 'header')}
-          aria-label="Discord"
-          title="Discord"
-          // The icon is an SVG with only a viewBox: without a size here it
-          // collapses to nothing. It takes the bell's 24px box, drawn a little
-          // smaller than the box, because a solid logo looks heavier than the
-          // outlined bell and account icons beside it.
-          className="flex h-6 w-6 items-center justify-center text-primary/80 transition-colors duration-200 hover:text-primary [&>svg]:h-[15px] [&>svg]:w-5 [&>svg]:fill-current"
-        >
-          {DiscordIcon}
-        </a>
+        {discordLink}
         {user?.lichessId && (
           <LeaderboardNavBadge
             status={leaderboardStatus}
@@ -459,6 +463,9 @@ export const Header: React.FC = () => {
       </Link>
       <div className="flex flex-row items-center gap-3">
         <ConnectButtonSlot />
+        {/* Below 360px the title would wrap to make room; there Discord
+            stays in the menu only. */}
+        <span className="hidden min-[360px]:contents">{discordLink}</span>
         {notificationBell}
         <button
           aria-label="Open navigation menu"
