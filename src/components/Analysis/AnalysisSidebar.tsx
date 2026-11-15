@@ -39,6 +39,8 @@ interface Props {
   desktopContentHeightCss?: string
   /** The tablebase's result for the current position (see useTablebase). */
   tablebase?: TablebaseResult | null
+  /** The moves' share of the wide layout's height; the rating chart takes the rest. */
+  overviewShare?: number
   itemVariants?: {
     hidden: {
       opacity: number
@@ -76,6 +78,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
   footerContent,
   desktopContentHeightCss = '85vh',
   tablebase = null,
+  overviewShare = 0.5,
   itemVariants,
 }) => {
   // The sidebar has a layout for xl screens and one below, and CSS shows
@@ -260,7 +263,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
           <div
             className="desktop-analysis-big-row-1-container relative flex gap-3"
             style={{
-              height: `calc((${desktopContentHeightCss} - 0.75rem) / 2)`,
+              height: `calc((${desktopContentHeightCss} - 0.75rem) * ${overviewShare})`,
             }}
           >
             <div className="flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass-strong backdrop-blur-md">
@@ -283,7 +286,7 @@ export const AnalysisSidebar: React.FC<Props> = ({
           <div
             className="desktop-analysis-big-row-2-container relative flex flex-row gap-3"
             style={{
-              height: `calc((${desktopContentHeightCss} - 0.75rem) / 2)`,
+              height: `calc((${desktopContentHeightCss} - 0.75rem) * ${1 - overviewShare})`,
             }}
           >
             <div className="relative flex h-full w-full flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">

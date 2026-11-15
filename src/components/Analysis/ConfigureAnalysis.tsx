@@ -30,6 +30,9 @@ interface Props {
     isSaving: boolean
     status: 'saving' | 'unsaved' | 'saved'
   }
+  /** Shown only when set (games that can have human bars). */
+  showHumanBars?: boolean
+  setShowHumanBars?: (show: boolean) => void
 }
 
 export const ConfigureAnalysis: React.FC<Props> = ({
@@ -50,6 +53,8 @@ export const ConfigureAnalysis: React.FC<Props> = ({
   isAnalysisInProgress = false,
   isLearnFromMistakesActive = false,
   autoSave,
+  showHumanBars,
+  setShowHumanBars,
 }: Props) => {
   return (
     <div className="flex w-full flex-col items-start justify-start gap-1.5 rounded-md p-3 text-white/90">
@@ -139,6 +144,30 @@ export const ConfigureAnalysis: React.FC<Props> = ({
           <span className="sr-only">Toggle top move board badges</span>
         </label>
       </div>
+      {setShowHumanBars && (
+        <div className="flex w-full items-center justify-between rounded border border-glass-border bg-glass px-2.5 py-2">
+          <div className="flex flex-col">
+            <span className="text-xs text-white/90">Show human bars</span>
+            <span className="text-[11px] text-white/60">
+              Chances for these two players, computed in your browser
+            </span>
+          </div>
+          <label
+            htmlFor="analysis-human-bars-toggle"
+            className="relative inline-flex cursor-pointer items-center"
+          >
+            <input
+              id="analysis-human-bars-toggle"
+              type="checkbox"
+              checked={!!showHumanBars}
+              onChange={() => setShowHumanBars(!showHumanBars)}
+              className="peer sr-only"
+            />
+            <div className="peer h-5 w-9 rounded-full bg-white/10 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-white/20 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500/40 peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:after:bg-red-400"></div>
+            <span className="sr-only">Toggle human bars</span>
+          </label>
+        </div>
+      )}
       {autoSave && game.type !== 'tournament' && (
         <div className="mt-2 w-full">
           <div className="flex items-center gap-1.5">

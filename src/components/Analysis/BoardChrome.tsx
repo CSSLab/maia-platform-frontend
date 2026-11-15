@@ -11,6 +11,7 @@ interface AnalysisArrowLegendProps {
   layout?: ArrowLegendLayout
   labelMode?: ArrowLegendLabelMode
   className?: string
+  hidePlayed?: boolean
 }
 
 interface AnalysisStockfishEvalBarProps {
@@ -23,6 +24,8 @@ interface AnalysisStockfishEvalBarProps {
   range?: number
   bubbleMinWidthPx?: number
   desktopSize?: 'compact' | 'expanded'
+  /** Marked 0-100 like the human bar, whose scale the bubble then rides. */
+  percentScale?: boolean
 }
 
 interface AnalysisCompactBlunderMeterProps {
@@ -34,6 +37,15 @@ interface AnalysisCompactBlunderMeterProps {
   makeMove: (move: string) => void
   className?: string
   variant?: CompactBlunderMeterVariant
+  /** Just the strip: the move lists next to the board already name the moves. */
+  hideMoves?: boolean
+  /**
+   * The human bars' marks are on (practical LOG §91, §94): the bands read as
+   * the marks do, the red one a mistake or worse (?, from 10 points; ?? from
+   * 15), the yellow one an inaccuracy, which has no mark (?! is the human
+   * side's: a mistake that is still a close try for these players).
+   */
+  marks?: boolean
 }
 
 interface AnalysisMaiaWinrateBarProps {
@@ -100,6 +112,7 @@ export const AnalysisArrowLegend: React.FC<AnalysisArrowLegendProps> = ({
   layout = 'horizontal',
   labelMode = 'full',
   className,
+  hidePlayed = false,
 }) => {
   const isVertical = layout === 'vertical'
   const containerClass = isVertical
@@ -112,7 +125,9 @@ export const AnalysisArrowLegend: React.FC<AnalysisArrowLegendProps> = ({
 
   return (
     <div className={[containerClass, className].filter(Boolean).join(' ')}>
-      {ARROW_LEGEND_ITEMS.map((item) => (
+      {ARROW_LEGEND_ITEMS.filter(
+        (item) => !hidePlayed || item.shortLabel !== 'Played',
+      ).map((item) => (
         <span
           key={item.key}
           className={
@@ -144,6 +159,7 @@ export const AnalysisStockfishEvalBar: React.FC<
   range = 4,
   bubbleMinWidthPx,
   desktopSize = 'compact',
+  percentScale = false,
 }) => {
   const isDesktop = variant === 'desktop'
   const isExpandedDesktop = isDesktop && desktopSize === 'expanded'
@@ -185,14 +201,14 @@ export const AnalysisStockfishEvalBar: React.FC<
             }}
           />
           {Array.from(
-            { length: range * 2 - 1 },
-            (_, index) => range - 1 - index,
+            { length: (percentScale ? 5 : range) * 2 - 1 },
+            (_, index) => (percentScale ? 5 : range) - 1 - index,
           ).map((value) => (
             <div
               key={`sf-tick-${value}`}
               className="absolute inset-x-0 -translate-y-1/2"
               style={{
-                top: `${((range - value) / (range * 2)) * 100}%`,
+                top: `${(((percentScale ? 5 : range) - value) / ((percentScale ? 5 : range) * 2)) * 100}%`,
                 height: value === 0 ? '2px' : '1px',
                 backgroundColor:
                   value === 0
@@ -204,12 +220,12 @@ export const AnalysisStockfishEvalBar: React.FC<
           <div
             className={`absolute left-1/2 top-0 -translate-x-1/2 font-bold leading-none text-black/90 [text-shadow:0_1px_1px_rgb(255_255_255_/_0.5)] ${tickTextClass}`}
           >
-            +{range}
+            {percentScale ? '100' : `+${range}`}
           </div>
           <div
             className={`absolute bottom-0 left-1/2 -translate-x-1/2 font-bold leading-none text-white/95 [text-shadow:0_1px_1px_rgb(0_0_0_/_0.55)] ${tickTextClass}`}
           >
-            -{range}
+            {percentScale ? '0' : `-${range}`}
           </div>
           {disabled ? (
             <div className="absolute inset-0 bg-backdrop/25" />
@@ -349,6 +365,8 @@ export const AnalysisCompactBlunderMeter: React.FC<
   makeMove,
   className,
   variant = 'mobile',
+  hideMoves = false,
+  marks = false,
 }) => {
   const isDesktop = variant === 'desktop'
   const sanLabelCacheRef = useRef<Record<string, string>>({})
@@ -401,11 +419,11 @@ export const AnalysisCompactBlunderMeter: React.FC<
   const segments: SegmentConfig[] = [
     {
       key: 'blunder',
-      label: 'Blunders',
-      mobileLabel: 'Blunders',
+      label: marks ? 'Mistakes' : 'Blunders',
+      mobileLabel: marks ? 'Mistakes' : 'Blunders',
       probability: data.blunderMoves.probability,
       topMoves: getTopCategoryMoves(data.blunderMoves.moves),
-      badge: '??',
+      badge: marks ? '?' : '??',
       bgClass: 'bg-[#d73027]',
       badgeClass: isDesktop
         ? 'border-[#7f1813] bg-white/95 text-[#d73027]'
@@ -415,11 +433,11 @@ export const AnalysisCompactBlunderMeter: React.FC<
     },
     {
       key: 'ok',
-      label: 'Mistakes',
-      mobileLabel: 'Mistakes',
+      label: marks ? 'Inaccuracies' : 'Mistakes',
+      mobileLabel: marks ? 'Inaccurate' : 'Mistakes',
       probability: data.okMoves.probability,
       topMoves: getTopCategoryMoves(data.okMoves.moves),
-      badge: '?!',
+      badge: marks ? '' : '?!',
       bgClass: 'bg-[#fee08b]',
       badgeClass: isDesktop
         ? 'border-[#8f6b00] bg-white/95 text-[#8f6b00]'
@@ -550,11 +568,13 @@ export const AnalysisCompactBlunderMeter: React.FC<
             >
               {segment.probability >= 7 ? (
                 <>
-                  <span
-                    className={`inline-flex items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
-                  >
-                    {segment.badge}
-                  </span>
+                  {segment.badge ? (
+                    <span
+                      className={`inline-flex items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
+                    >
+                      {segment.badge}
+                    </span>
+                  ) : null}
                   <span
                     className={`font-bold leading-none ${percentTextClass} ${segment.pctClass}`}
                   >
@@ -566,88 +586,95 @@ export const AnalysisCompactBlunderMeter: React.FC<
           ))}
         </div>
       </div>
-      <div className="w-full">
-        {isDesktop ? (
-          <div className="flex items-start gap-1 py-1">
-            <div
-              aria-hidden="true"
-              className={`shrink-0 ${barLabelWidthClass}`}
-            />
-            <div className="grid min-w-0 flex-1 grid-cols-3 gap-3 pl-2">
-              {segments.map((segment) => (
-                <div key={`maia-top-moves-${segment.key}`} className="min-w-0">
-                  <div
-                    className={`mb-1.5 text-sm font-extrabold tracking-[0.01em] xl:text-base ${segment.moveClass}`}
-                  >
-                    {segment.label}
-                  </div>
-                  <div
-                    className={`min-w-0 text-sm font-medium leading-snug xl:text-base ${segment.moveClass}`}
-                  >
-                    {segment.topMoves.length ? (
-                      <div className="flex flex-col items-start gap-1">
-                        {segment.topMoves.map((topMove) =>
-                          renderTopMoveButton(segment.key, topMove),
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-primary/60">-</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div
-            className={`flex min-h-[38px] items-start gap-2.5 pt-1 font-semibold leading-snug tracking-[0.01em] ${metaTextClass}`}
-          >
-            {segments.map((segment) => (
+      {hideMoves ? null : (
+        <div className="w-full">
+          {isDesktop ? (
+            <div className="flex items-start gap-1 py-1">
               <div
-                key={`maia-top-moves-${segment.key}`}
-                className={`flex min-w-0 flex-1 items-start ${segment.moveClass}`}
-              >
-                <span
-                  className={`mr-1.5 inline-flex shrink-0 items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
-                  aria-hidden="true"
+                aria-hidden="true"
+                className={`shrink-0 ${barLabelWidthClass}`}
+              />
+              <div className="grid min-w-0 flex-1 grid-cols-3 gap-3 pl-2">
+                {segments.map((segment) => (
+                  <div
+                    key={`maia-top-moves-${segment.key}`}
+                    className="min-w-0"
+                  >
+                    <div
+                      className={`mb-1.5 text-sm font-extrabold tracking-[0.01em] xl:text-base ${segment.moveClass}`}
+                    >
+                      {segment.label}
+                    </div>
+                    <div
+                      className={`min-w-0 text-sm font-medium leading-snug xl:text-base ${segment.moveClass}`}
+                    >
+                      {segment.topMoves.length ? (
+                        <div className="flex flex-col items-start gap-1">
+                          {segment.topMoves.map((topMove) =>
+                            renderTopMoveButton(segment.key, topMove),
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-primary/60">-</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`flex min-h-[38px] items-start gap-2.5 pt-1 font-semibold leading-snug tracking-[0.01em] ${metaTextClass}`}
+            >
+              {segments.map((segment) => (
+                <div
+                  key={`maia-top-moves-${segment.key}`}
+                  className={`flex min-w-0 flex-1 items-start ${segment.moveClass}`}
                 >
-                  {segment.badge}
-                </span>
-                {segment.topMoves.length ? (
-                  segment.topMoves.length >= 3 ? (
-                    <span className="flex min-w-0 flex-col gap-0.5 leading-tight">
+                  {segment.badge ? (
+                    <span
+                      className={`mr-1.5 inline-flex shrink-0 items-center justify-center rounded-full border-2 font-bold leading-none shadow-sm ${badgeSizeClass} ${segment.badgeClass}`}
+                      aria-hidden="true"
+                    >
+                      {segment.badge}
+                    </span>
+                  ) : null}
+                  {segment.topMoves.length ? (
+                    segment.topMoves.length >= 3 ? (
+                      <span className="flex min-w-0 flex-col gap-0.5 leading-tight">
+                        <span className="-mx-[6px] inline-flex min-w-0 items-baseline whitespace-nowrap px-[6px]">
+                          {renderMobileMoveSequence(
+                            segment.key,
+                            segment.topMoves.slice(0, 2),
+                            0,
+                          )}
+                        </span>
+                        <span className="-mx-[6px] inline-flex min-w-0 items-baseline whitespace-nowrap px-[6px]">
+                          {renderMobileMoveSequence(
+                            segment.key,
+                            segment.topMoves.slice(2),
+                            2,
+                          )}
+                        </span>
+                      </span>
+                    ) : (
                       <span className="-mx-[6px] inline-flex min-w-0 items-baseline whitespace-nowrap px-[6px]">
                         {renderMobileMoveSequence(
                           segment.key,
-                          segment.topMoves.slice(0, 2),
+                          segment.topMoves,
                           0,
                         )}
                       </span>
-                      <span className="-mx-[6px] inline-flex min-w-0 items-baseline whitespace-nowrap px-[6px]">
-                        {renderMobileMoveSequence(
-                          segment.key,
-                          segment.topMoves.slice(2),
-                          2,
-                        )}
-                      </span>
-                    </span>
+                    )
                   ) : (
-                    <span className="-mx-[6px] inline-flex min-w-0 items-baseline whitespace-nowrap px-[6px]">
-                      {renderMobileMoveSequence(
-                        segment.key,
-                        segment.topMoves,
-                        0,
-                      )}
-                    </span>
-                  )
-                ) : (
-                  '-'
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                    '-'
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

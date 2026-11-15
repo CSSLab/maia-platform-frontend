@@ -10,7 +10,10 @@
  *   { type: 'status', status }
  *   { type: 'progress', progress }
  *   { type: 'error', message, id? }
- *   { type: 'inference-result', id, logitsMove, logitsValue }
+ *   { type: 'inference-result', id, logitsMove, logitsValue, repr? }
+ *
+ * `repr` (batch x 512 float32, the pooled representation used by the human
+ * bars) is included only when the loaded model has that output.
  */
 
 // ONNX Runtime asks for a shared WebAssembly memory that may grow to 4 GB,
@@ -215,7 +218,10 @@ self.onmessage = async (e) => {
       case 'download': {
         postMessage({ type: 'status', status: 'downloading' })
         postMessage({ type: 'progress', progress: 0 })
-        const response = await fetch(modelUrl)
+        // 'no-cache' revalidates with the server, so a model file replaced at
+        // the same URL (with a bumped modelVersion) is not served stale from
+        // the HTTP cache.
+        const response = await fetch(modelUrl, { cache: 'no-cache' })
         if (!response.ok) throw new Error('Failed to fetch model')
 
         let buffer
@@ -319,6 +325,10 @@ self.onmessage = async (e) => {
 
         const logitsMove = new Float32Array(result.logits_move.data)
         const logitsValue = new Float32Array(result.logits_value.data)
+        const repr = result.repr ? new Float32Array(result.repr.data) : null
+
+        const transfer = [logitsMove.buffer, logitsValue.buffer]
+        if (repr) transfer.push(repr.buffer)
 
         postMessage(
           {
@@ -326,8 +336,9 @@ self.onmessage = async (e) => {
             id,
             logitsMove: logitsMove.buffer,
             logitsValue: logitsValue.buffer,
+            repr: repr ? repr.buffer : null,
           },
-          [logitsMove.buffer, logitsValue.buffer],
+          transfer,
         )
         break
       }

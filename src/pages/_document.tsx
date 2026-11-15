@@ -29,7 +29,7 @@ const EARLY_REQUESTS = `(function () {
   var match = /^\\/analysis\\/([^/]+)\\/lichess\\/?$/.exec(location.pathname)
   if (!match) return
   var id = decodeURIComponent(match[1])
-  var request = fetch('https://lichess.org/game/export/' + id, {
+  var request = fetch('https://lichess.org/game/export/' + id + '?clocks=true&evals=true&opening=true', {
     headers: { Accept: 'application/x-chess-pgn' },
   }).then(function (res) {
     return res.ok ? res.text() : ''

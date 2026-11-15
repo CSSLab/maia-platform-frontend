@@ -3,6 +3,7 @@
 import { GameNode, Termination, BaseGame } from 'src/types'
 import { TreeControllerContext, WindowSizeContext } from 'src/contexts'
 import { MoveClassificationIcon } from 'src/components/Common/MoveIcons'
+import type { MoveMark } from 'src/lib/humanBar'
 import React, { useContext, useMemo, Fragment, useEffect, useRef } from 'react'
 
 interface Props {
@@ -18,6 +19,11 @@ interface Props {
   restrictNavigationBefore?: GameNode
   forceMobileLayout?: boolean
   scrollToTopSignal?: number
+  /**
+   * Main-line moves' marks from the human bars (practical LOG §91): a mark,
+   * null for none, undefined to show the site's own classification.
+   */
+  markOf?: (node: GameNode) => MoveMark | null | undefined
 }
 
 const getMoveClassification = (node: GameNode | null) => {
@@ -54,6 +60,7 @@ export const MovesContainer: React.FC<
     restrictNavigationBefore,
     forceMobileLayout,
     scrollToTopSignal,
+    markOf,
     embedded = true,
     heightClass = 'h-48',
   } = props as Props & { embedded?: boolean; heightClass?: string }
@@ -308,6 +315,9 @@ export const MovesContainer: React.FC<
                   {shouldShowIndicators(pair.whiteMove) && (
                     <MoveClassificationIcon
                       classification={getMoveClassification(pair.whiteMove)}
+                      mark={
+                        pair.whiteMove ? markOf?.(pair.whiteMove) : undefined
+                      }
                       size="medium"
                       onClick={() => {
                         if (pair.whiteMove?.parent) {
@@ -348,6 +358,9 @@ export const MovesContainer: React.FC<
                   {shouldShowIndicators(pair.blackMove) && (
                     <MoveClassificationIcon
                       classification={getMoveClassification(pair.blackMove)}
+                      mark={
+                        pair.blackMove ? markOf?.(pair.blackMove) : undefined
+                      }
                       size="medium"
                       onClick={() => {
                         if (pair.blackMove?.parent) {
@@ -422,6 +435,7 @@ export const MovesContainer: React.FC<
               {shouldShowIndicators(whiteNode) && (
                 <MoveClassificationIcon
                   classification={getMoveClassification(whiteNode)}
+                  mark={whiteNode ? markOf?.(whiteNode) : undefined}
                   size="medium"
                   onClick={() => {
                     if (whiteNode?.parent) {
@@ -464,6 +478,7 @@ export const MovesContainer: React.FC<
               {shouldShowIndicators(blackNode) && (
                 <MoveClassificationIcon
                   classification={getMoveClassification(blackNode)}
+                  mark={blackNode ? markOf?.(blackNode) : undefined}
                   size="medium"
                   onClick={() => {
                     if (blackNode?.parent) {

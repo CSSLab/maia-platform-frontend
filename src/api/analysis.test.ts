@@ -38,7 +38,7 @@ describe('fetchPgnOfLichessGame', () => {
     await expect(fetchPgnOfLichessGame('W2114ZgI')).resolves.toBe(PGN)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0][0]).toBe(
-      'https://lichess.org/game/export/W2114ZgI',
+      'https://lichess.org/game/export/W2114ZgI?clocks=true&evals=true&opening=true',
     )
   })
 

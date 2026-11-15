@@ -57,7 +57,7 @@ export const streamLichessGames = async (
   onMessage: (data: any) => void,
 ) => {
   const stream = fetch(
-    `https://lichess.org/api/games/user/${username}?max=100&pgnInJson=true`,
+    `https://lichess.org/api/games/user/${username}?max=100&pgnInJson=true&clocks=true`,
     {
       headers: {
         Accept: 'application/x-ndjson',
@@ -68,6 +68,9 @@ export const streamLichessGames = async (
 }
 
 const looksLikePgn = (text: string) => /^\s*\[\w+\s+"/.test(text)
+
+// Asked for explicitly: Lichess's single-game export no longer includes clock times by default, and the human bars need them
+const EXPORT_OPTIONS = '?clocks=true&evals=true&opening=true'
 
 /**
  * A game for the analysis page couldn't be loaded. `status`: the HTTP status
@@ -99,7 +102,7 @@ export const fetchPgnOfLichessGame = async (
 ): Promise<string> => {
   try {
     const text = await (early ??
-      fetch(`https://lichess.org/game/export/${id}`, {
+      fetch(`https://lichess.org/game/export/${id}${EXPORT_OPTIONS}`, {
         headers: {
           Accept: 'application/x-chess-pgn',
         },
@@ -113,7 +116,7 @@ export const fetchPgnOfLichessGame = async (
   // which fails CORS. Its export by ids still serves them, and with these
   // options returns the same PGN as the single-game export.
   const res = await fetch(
-    'https://lichess.org/api/games/export/_ids?clocks=true&evals=true&opening=true',
+    `https://lichess.org/api/games/export/_ids${EXPORT_OPTIONS}`,
     {
       method: 'POST',
       headers: {

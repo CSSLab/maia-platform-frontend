@@ -6,6 +6,7 @@ import type { Key } from 'chessground/types'
 import Chessground from '@react-chess/chessground'
 import { BaseGame, GameNode, Color } from 'src/types'
 import { MoveClassificationIcon } from 'src/components/Common/MoveIcons'
+import type { MoveMark } from 'src/lib/humanBar'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
 import { useCallback, useMemo, Dispatch, SetStateAction } from 'react'
 
@@ -19,6 +20,8 @@ interface MoveClassification {
 interface DestinationBadge {
   square: string
   classification: MoveClassification
+  /** The human bars' mark for it (see MoveClassificationIcon); undefined: the site's. */
+  mark?: MoveMark | null
 }
 
 interface Props {
@@ -227,6 +230,7 @@ export const GameBoard: React.FC<Props> = ({
                 <div className="absolute right-0 top-0">
                   <MoveClassificationIcon
                     classification={badge.classification}
+                    mark={badge.mark}
                     size="small"
                     className="pointer-events-none !ml-0 !h-3.5 !w-3.5 !text-[9px]"
                   />
