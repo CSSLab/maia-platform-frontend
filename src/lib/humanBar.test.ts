@@ -10,6 +10,7 @@ import {
   likelyMoves,
   moveMark,
   parsePgnHeaders,
+  timeControlOfPgn,
   engineChance,
   parsePgnMainline,
   usualBlunderRiskIn5,
@@ -226,5 +227,24 @@ describe('move marks', () => {
     expect(moveMark(30, { move: 46, top: 50 })).toBe('?!')
     expect(moveMark(12, { move: 44, top: 50 })).toBe('?')
     expect(moveMark(30, { move: 40, top: 50 })).toBe('??')
+  })
+})
+
+describe('any-position bar time control', () => {
+  const pgn = (tc?: string) =>
+    `[Event "Rated Blitz game"]\n${tc === undefined ? '' : `[TimeControl "${tc}"]\n`}\n1. e4 e5 *`
+
+  it('takes base+increment', () => {
+    expect(timeControlOfPgn(pgn('180+2'))).toBe('180+2')
+    expect(timeControlOfPgn(pgn('5400+30'))).toBe('5400+30')
+    expect(timeControlOfPgn(pgn('0+1'))).toBe('0+1')
+  })
+
+  it('is null without one, for unlimited games and other formats', () => {
+    expect(timeControlOfPgn(undefined)).toBeNull()
+    expect(timeControlOfPgn(pgn())).toBeNull()
+    expect(timeControlOfPgn(pgn('-'))).toBeNull()
+    expect(timeControlOfPgn(pgn('0+0'))).toBeNull()
+    expect(timeControlOfPgn(pgn('40/5400+30:1800+30'))).toBeNull()
   })
 })

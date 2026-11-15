@@ -110,6 +110,21 @@ const parseStartMs = (
   )
 }
 
+/**
+ * A game's time control from its PGN as the any-position bar takes it,
+ * "base+increment" in seconds, or null when it has none (an unlimited or
+ * correspondence game, a position set up by hand, or another format, such as
+ * "40/5400+30").
+ */
+export const timeControlOfPgn = (pgn: string | undefined): string | null => {
+  if (!pgn) return null
+  const tc = parsePgnHeaders(pgn).TimeControl
+  const m = tc?.match(/^(\d{1,5})\+(\d{1,3})$/)
+  return m && Number(m[1]) + 40 * Number(m[2]) > 0
+    ? `${Number(m[1])}+${Number(m[2])}`
+    : null
+}
+
 export type HumanBarSetup =
   | { ok: true; game: HumanBarGameInfo; clocks: number[] }
   | { ok: false; reason: string }

@@ -1,4 +1,6 @@
 import {
+  AnyPositionRequest,
+  AnyPositionResponse,
   HumanBarCachedResponse,
   HumanBarProfile,
   HumanBarRequest,
@@ -156,4 +158,20 @@ export const fetchCachedHumanBars = async (
   } catch {
     return null
   }
+}
+
+/**
+ * The any-position bar (POST /v1/position): White / draw / Black for players
+ * of one rating, from the position alone (its eval, move number, material
+ * and Maia's read at that rating), with the game's time control if it has
+ * one. For positions the players' own bars don't cover.
+ */
+export const fetchAnyPositionBars = async (
+  body: AnyPositionRequest,
+): Promise<AnyPositionResponse> => {
+  const data = await post<AnyPositionResponse>('/v1/position', body)
+  if (!data || !Array.isArray(data.positions)) {
+    throw new Error('Unexpected response from the human-bar server')
+  }
+  return data
 }

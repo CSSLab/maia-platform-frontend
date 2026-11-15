@@ -74,6 +74,7 @@ import { Chess, PieceSymbol } from 'chess.ts'
 import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
 import {
   useAnalysisController,
+  useAnyPositionBar,
   useBoardWheelNavigation,
   useHumanBars,
   useLocalStorage,
@@ -89,13 +90,14 @@ import {
   isAnalysisMenuRequest,
 } from 'src/constants/analysis'
 import type { DrawBrushes, DrawShape } from 'chessground/draw'
-import { MAIA_MODELS } from 'src/constants/common'
+import { MAIA_MODELS, MAIA_RATINGS } from 'src/constants/common'
 import { applyEngineAnalysisData } from 'src/lib/analysis'
 import { isPhone } from 'src/lib/engine/maiaDownloadPrompt'
 import {
   engineChance,
   moveMark,
   SMALL_NET_TO_SF19,
+  timeControlOfPgn,
   usualBlunderRiskIn5,
 } from 'src/lib/humanBar'
 import { GameGraph } from 'src/components/Analysis/GameGraph'
@@ -738,8 +740,13 @@ const Analysis: React.FC<Props> = ({
   // Design step 1: the human chance goes in the left bar; the panel stays out
   // so that nothing else on today's page changes.
   const showHumanBarPanel = false
+  // The players' own bar is for main-line positions; a variation's position
+  // gets the any-position bar below (it used to show its main-line parent's).
   const humanBarOnScreen =
-    humanBars.available && showHumanBars && humanBars.ply !== null
+    humanBars.available &&
+    showHumanBars &&
+    humanBars.ply !== null &&
+    !humanBars.inVariation
       ? humanBars.bars[humanBars.ply]
       : undefined
   const humanBarsOnPage =
@@ -792,7 +799,25 @@ const Analysis: React.FC<Props> = ({
     humanBars.available &&
     showHumanBars &&
     humanBars.ply !== null &&
+    !humanBars.inVariation &&
     (humanBars.status === 'running' || humanBars.status === 'waiting-maia')
+  // Wherever the players' own bars don't run (other games, variations, the
+  // bars switched off): the any-position bar, for players of the rating
+  // picked in the Maia dropdown, with the game's time control if it has one.
+  const anyPositionRating =
+    MAIA_RATINGS[MAIA_MODELS.indexOf(controller.currentMaiaModel)] ?? null
+  const anyPositionTimeControl = useMemo(
+    () => timeControlOfPgn(analyzedGame.pgn),
+    [analyzedGame.pgn],
+  )
+  const anyPosition = useAnyPositionBar(
+    controller.currentNode,
+    anyPositionRating,
+    anyPositionTimeControl,
+    analysisEnabled &&
+      !controller.learnFromMistakes.state.isActive &&
+      !(humanBarsOnPage && humanBars.ply !== null && !humanBars.inVariation),
+  )
   const humanBarLockedMessage = controller.learnFromMistakes.state.isActive
     ? 'Hidden during Learn from Mistakes'
     : !analysisEnabled
@@ -1464,6 +1489,21 @@ const Analysis: React.FC<Props> = ({
     }
     if (humanBarExpected) return { hasValue: false, percent: 50, label: '--' }
 
+    // Elsewhere, from move 6: the any-position bar at the picked rating (its
+    // heads saw no earlier position), holding its last reading meanwhile.
+    if (!isInFirst10PlyForBars) {
+      if (anyPosition.bar) {
+        const percent = Math.max(0, Math.min(100, anyPosition.bar.W * 100))
+        return {
+          hasValue: true,
+          percent,
+          label: `${(Math.round(percent * 10) / 10).toFixed(1)}%`,
+        }
+      }
+      if (anyPosition.expected)
+        return { hasValue: false, percent: 50, label: '--' }
+    }
+
     if (
       stockfishEval?.model_move &&
       stockfishEval.mate_vec &&
@@ -1509,6 +1549,8 @@ const Analysis: React.FC<Props> = ({
 
     return { hasValue: false, percent: 50, label: '--' }
   }, [
+    anyPosition.bar,
+    anyPosition.expected,
     controller.moveEvaluation?.maia,
     controller.moveEvaluation?.stockfish,
     currentTurnForBars,

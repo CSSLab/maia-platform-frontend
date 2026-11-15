@@ -144,3 +144,39 @@ export interface HumanBarCachedResponse {
   form?: string
   plies: HumanBarCachedPly[]
 }
+
+/** One position for the any-position bar (POST /v1/position). */
+export interface AnyPositionInput {
+  fen: string
+  /** Plies from the start (from the FEN's move number). */
+  ply: number
+  /** Stockfish's eval for the side to move; mates as sign * (10000 - N). */
+  cp: number
+  depth: number
+  /** Maia's [loss, draw, win] for the side to move, at the request's rating. */
+  value: [number, number, number]
+  /** Base64 of Maia's 512 float32 repr, at the request's rating. */
+  repr: string
+}
+
+export interface AnyPositionRequest {
+  engine: string
+  maia_model: string
+  white_elo: number
+  black_elo: number
+  /** "base+increment" in seconds when the game has one, else null. */
+  time_control: string | null
+  positions: AnyPositionInput[]
+}
+
+/** White wins / draw / Black wins, for each position sent. */
+export interface AnyPositionBar {
+  W: number
+  Dr: number
+  L: number
+}
+
+export interface AnyPositionResponse {
+  model: string
+  positions: AnyPositionBar[]
+}

@@ -67,7 +67,7 @@ const MAX_FAILURES = 3
  * P87, P89).
  */
 const SITE_EVAL_MIN_DEPTH = 10
-const SITE_EVAL_FINAL_DEPTH = 18
+export const SITE_EVAL_FINAL_DEPTH = 18
 /** How long the position on screen waits for the site's eval before searching itself. */
 const SITE_EVAL_WAIT_MS = 1500
 /** A site search that has not finished by now is taken to have stopped. */
@@ -77,8 +77,8 @@ const SITE_SEARCH_GIVE_UP_MS = 60000
  * get a small search of their own: about what depth 12 costs (median 14k
  * nodes), and the server maps its eval as depth 12.
  */
-const FALLBACK_NODES = 14000
-const FALLBACK_DEPTH = 12
+export const FALLBACK_NODES = 14000
+export const FALLBACK_DEPTH = 12
 /**
  * The bar shown looks one move ahead (practical LOG §90): half the
  * position's own bar, half the Maia-weighted average of the bars after
@@ -224,7 +224,7 @@ const isAbort = (error: unknown) =>
  * it is at least SITE_EVAL_MIN_DEPTH deep (model_optimal_cp is from White's
  * side); mates as sign * (10000 - N), like encodeSideToMoveScore.
  */
-const siteEvalOf = (node: GameNode | undefined) => {
+export const siteEvalOf = (node: GameNode | undefined) => {
   const sf = node?.analysis?.stockfish
   // The shared cache does not say which engine made its evals (Stockfish 17's
   // are on another scale), so the bars take only this page's own.
