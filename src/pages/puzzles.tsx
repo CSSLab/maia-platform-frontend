@@ -86,6 +86,8 @@ const statsLoader = async () => {
 
 interface PuzzleUnavailableProps {
   reason: PuzzleUnavailableReason
+  // For 'paused': how long until the server gives a new puzzle.
+  retryAfterSeconds?: number
   onRetry: () => void
   // Back to the puzzles of this visit, when there are some.
   onBack?: () => void
@@ -94,17 +96,39 @@ interface PuzzleUnavailableProps {
 // In place of the puzzle when none could be loaded. This used to be /401,
 // whose "Try again" came back here to fail again: a player who has attempted
 // every puzzle would never get out of it.
+// "about 3 minutes", from the server's Retry-After.
+const waitText = (seconds?: number) => {
+  if (!seconds) return 'a little while'
+  if (seconds < 90) return 'about a minute'
+  if (seconds < 90 * 60) return `about ${Math.round(seconds / 60)} minutes`
+  const hours = Math.round(seconds / 3600)
+  return `about ${hours} hour${hours === 1 ? '' : 's'}`
+}
+
 const PuzzleUnavailable: React.FC<PuzzleUnavailableProps> = ({
   reason,
+  retryAfterSeconds,
   onRetry,
   onBack,
 }) => (
   <div className="flex min-h-[60vh] w-full items-center justify-center px-4 py-16">
     <div className="flex max-w-md flex-col items-center gap-3 rounded-md border border-glass-border bg-glass p-6 text-center backdrop-blur-md">
       <span className="material-symbols-outlined text-4xl text-human-3">
-        {reason === 'exhausted' ? 'check_circle' : 'error'}
+        {reason === 'exhausted'
+          ? 'check_circle'
+          : reason === 'paused'
+            ? 'hourglass_empty'
+            : 'error'}
       </span>
-      {reason === 'exhausted' ? (
+      {reason === 'paused' ? (
+        <>
+          <h1 className="text-xl font-bold">Time for a short break</h1>
+          <p className="text-sm text-secondary">
+            You&apos;ve gone through a lot of puzzles in a short time. Your next
+            one will be ready in {waitText(retryAfterSeconds)}.
+          </p>
+        </>
+      ) : reason === 'exhausted' ? (
         <>
           <h1 className="text-xl font-bold">
             You&apos;ve attempted every puzzle we have
@@ -167,6 +191,7 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
   // Why the latest puzzle couldn't be loaded, while that is shown.
   const [puzzleError, setPuzzleError] =
     useState<PuzzleUnavailableReason | null>(null)
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number>()
   const [lastAttemptedMove, setLastAttemptedMove] = useState<string | null>(
     null,
   )
@@ -198,6 +223,9 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
     } catch (e) {
       console.error('Could not load a puzzle:', e)
       setPuzzleError(e instanceof PuzzleUnavailableError ? e.reason : 'error')
+      setRetryAfterSeconds(
+        e instanceof PuzzleUnavailableError ? e.retryAfterSeconds : undefined,
+      )
       setLoadingGame(false)
       return
     }
@@ -372,6 +400,7 @@ const TrainPage: React.FC<TrainPageProps> = ({ onPuzzleShown }) => {
     return (
       <PuzzleUnavailable
         reason={puzzleError}
+        retryAfterSeconds={retryAfterSeconds}
         onRetry={getNewGame}
         onBack={
           trainingGames.length > 0 ? () => setPuzzleError(null) : undefined
