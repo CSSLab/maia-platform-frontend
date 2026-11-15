@@ -73,6 +73,8 @@ import type { Key } from 'chessground/types'
 import { Chess, PieceSymbol } from 'chess.ts'
 import { AnimatePresence, motion, useSpring, useTransform } from 'framer-motion'
 import {
+  ANY_POSITION_MIN_PLY,
+  plyOf,
   useAnalysisController,
   useAnyPositionBar,
   useBoardWheelNavigation,
@@ -1457,10 +1459,7 @@ const Analysis: React.FC<Props> = ({
 
   const isInFirst10PlyForBars = useMemo(() => {
     if (!controller.currentNode) return false
-    const moveNumber = controller.currentNode.moveNumber
-    const turn = controller.currentNode.turn
-    const plyFromStart = (moveNumber - 1) * 2 + (turn === 'b' ? 1 : 0)
-    return plyFromStart < 10
+    return plyOf(controller.currentNode.fen) < ANY_POSITION_MIN_PLY
   }, [controller.currentNode])
 
   const rawMaiaWhiteWinBar = useMemo(() => {

@@ -68,9 +68,16 @@ const fallbackEngine = async () => {
   return engine
 }
 
-/** Plies from the start, from the position's move number and side to move. */
-export const plyOf = (node: Pick<GameNode, 'moveNumber' | 'turn'>) =>
-  (node.moveNumber - 1) * 2 + (node.turn === 'b' ? 1 : 0)
+/**
+ * Plies from the start, from the FEN's full-move number and side to move.
+ * (Not GameNode.moveNumber: that is the number of the move just played, so
+ * with White to move it is one less than the FEN's.)
+ */
+export const plyOf = (fen: string) => {
+  const [, turn, , , , full] = fen.split(' ')
+  const n = Number.parseInt(full ?? '', 10)
+  return (Number.isFinite(n) && n > 0 ? n - 1 : 0) * 2 + (turn === 'b' ? 1 : 0)
+}
 
 /**
  * The site won't search a position whose cached eval is at its final depth,
@@ -100,7 +107,7 @@ export const useAnyPositionBar = (
   const maia = useContext(MaiaEngineContext)
   const [, bump] = useReducer((x: number) => x + 1, 0)
   const fen = node?.fen
-  const ply = node ? plyOf(node) : -1
+  const ply = node ? plyOf(node.fen) : -1
   const key =
     enabled &&
     getHumanBarBaseUrl() &&
