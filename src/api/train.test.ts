@@ -112,6 +112,19 @@ describe('checkPuzzleResponse', () => {
     ).toBe('exhausted')
   })
 
+  it('reads a 429 as a pause, with how long to wait', () => {
+    let error: unknown
+    try {
+      checkPuzzleResponse(429, { detail: 'Too many puzzles' }, '125')
+    } catch (e) {
+      error = e
+    }
+    expect(error).toBeInstanceOf(PuzzleUnavailableError)
+    expect((error as PuzzleUnavailableError).reason).toBe('paused')
+    expect((error as PuzzleUnavailableError).retryAfterSeconds).toBe(125)
+    expect(reasonOf(() => checkPuzzleResponse(429, null, null))).toBe('paused')
+  })
+
   it('counts other failures as errors', () => {
     expect(reasonOf(() => checkPuzzleResponse(500, null))).toBe('error')
     expect(reasonOf(() => checkPuzzleResponse(401, { detail: 'x' }))).toBe(

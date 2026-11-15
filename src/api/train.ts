@@ -13,14 +13,17 @@ declare global {
 
 /**
  * Why no puzzle came: the visitor has attempted every puzzle there is
- * ('exhausted'), or the request failed ('error'), which another try may fix.
+ * ('exhausted'), has been given new ones faster than a person goes through
+ * them and must wait ('paused', for `retryAfterSeconds`), or the request
+ * failed ('error'), which another try may fix.
  */
-export type PuzzleUnavailableReason = 'exhausted' | 'error'
+export type PuzzleUnavailableReason = 'exhausted' | 'paused' | 'error'
 
 export class PuzzleUnavailableError extends Error {
   constructor(
     readonly reason: PuzzleUnavailableReason,
     message: string,
+    readonly retryAfterSeconds?: number,
   ) {
     super(message)
     this.name = 'PuzzleUnavailableError'
@@ -36,8 +39,23 @@ export class PuzzleUnavailableError extends Error {
  * (an empty or puzzle-less body, or "not found") counts as having run out;
  * other failures (server errors, a lost session, no connection) as errors.
  */
-export const checkPuzzleResponse = (status: number, data: any) => {
+export const checkPuzzleResponse = (
+  status: number,
+  data: any,
+  retryAfter?: string | null,
+) => {
   if (status >= 200 && status < 300 && data?.puzzle_id) return data
+
+  // The server gives new puzzles only as fast as a person goes through them
+  // (the backend's puzzle/puzzle_pace.py), and says how long to wait.
+  if (status === 429) {
+    const seconds = Number(retryAfter)
+    throw new PuzzleUnavailableError(
+      'paused',
+      `new_puzzle: HTTP 429${retryAfter ? ` (retry after ${retryAfter} s)` : ''}`,
+      Number.isFinite(seconds) && seconds > 0 ? seconds : undefined,
+    )
+  }
 
   const detail =
     typeof data?.detail === 'string'
@@ -76,7 +94,11 @@ export const fetchPuzzleData = async () => {
     throw new PuzzleUnavailableError('error', String(error))
   }
   const data = await res.json().catch(() => undefined)
-  return checkPuzzleResponse(res.status, data)
+  return checkPuzzleResponse(
+    res.status,
+    data,
+    res.status === 429 ? res.headers.get('Retry-After') : null,
+  )
 }
 
 export const fetchPuzzle = async () => {
