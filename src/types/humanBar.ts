@@ -180,3 +180,20 @@ export interface AnyPositionResponse {
   model: string
   positions: AnyPositionBar[]
 }
+
+/**
+ * The opening book at every Maia rating (GET /v1/book): how many games
+ * Lichess players of each rating played each move from a position, pooled
+ * over neighbouring ratings. The page blends them with Maia's moves as a
+ * prior worth K games. No moves when the book doesn't have the position.
+ */
+export interface OpeningBook {
+  book: string
+  K: number
+  sd: number
+  ratings: number[]
+  /** Games at each rating (the sum over moves). */
+  games: number[]
+  /** Games with each move (UCI) at each rating. */
+  moves: Record<string, number[]>
+}

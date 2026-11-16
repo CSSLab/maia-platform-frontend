@@ -1,4 +1,6 @@
 import { Chess } from 'chess.ts'
+import { fetchOpeningBook } from 'src/api'
+import { blendWithBook } from 'src/lib/openingBook'
 import { startTransition, useEffect, useContext, useRef, useState } from 'react'
 import {
   analysisMaiaStage,
@@ -33,6 +35,18 @@ const STOCKFISH_RENDER_INTERVAL_MS = 150
  * inference, and the last position's moves came later.
  */
 const ANALYSIS_DELAY_MS = 50
+
+/**
+ * The opening book (every rating, 600-2600; 362,000 positions with at least
+ * 200 games in six months of Lichess blitz, rapid and classical) has the
+ * positions of the first five moves (plies 0-10). Blended with Maia, it
+ * predicted held-out players' moves there better than Maia alone at every
+ * rating (loss 1.468 vs 1.521 nats, top-1 51.7% vs 50.4%), and its
+ * moves-by-rating curves are as smooth as Maia's. Maia's moves wait for it
+ * at most this long; it usually answers well before Maia does.
+ */
+const BOOK_LAST_MOVE = 5
+const OPENING_BOOK_TIMEOUT_MS = 1500
 
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
@@ -188,12 +202,17 @@ export const useEngineAnalysis = (
       inProgressAnalyses.add(nodeFen)
 
       try {
-        // Maia's own moves at every rating, in the opening too. The opening
-        // book used to replace them for the first five moves, but it has only
-        // 1100-1900, so the moves-by-rating chart stepped at 1000 -> 1100 and
-        // 1900 -> 2000 (6 points for the median position of the book's
-        // common lines, up to 32; Maia's own step there is 1.5) with a plateau
-        // between, and Maia's moves changed source at move 6.
+        // In the first five moves every rating's moves are Maia's blended
+        // with the opening book at that rating (lib/openingBook). The old
+        // book replaced Maia's moves at 1100-1900 only, its only ratings, so
+        // the moves-by-rating chart stepped at 1000 -> 1100 and 1900 -> 2000
+        // (6 points for the median position of its common lines, up to 32;
+        // Maia's own step there is 1.5) with a plateau between.
+        const bookPromise =
+          currentNode.moveNumber <= BOOK_LAST_MOVE
+            ? fetchOpeningBook(nodeFen, OPENING_BOOK_TIMEOUT_MS)
+            : Promise.resolve(null)
+
         for (const stage of stages) {
           const missing = stage.filter(
             (model) => !currentNode.analysis.maia?.[model],
@@ -218,6 +237,22 @@ export const useEngineAnalysis = (
           }
 
           if (maiaCancelled) return
+
+          const book = await bookPromise
+          if (maiaCancelled) return
+          if (book) {
+            for (const model of missing) {
+              const rating = MAIA_RATINGS[MAIA_MODELS.indexOf(model)]
+              maiaEvaluations[model] = {
+                ...maiaEvaluations[model],
+                policy: blendWithBook(
+                  maiaEvaluations[model].policy,
+                  book,
+                  rating,
+                ) as MaiaEvaluation['policy'],
+              }
+            }
+          }
 
           currentNode.addMaiaAnalysis(
             { ...currentNode.analysis.maia, ...maiaEvaluations },
