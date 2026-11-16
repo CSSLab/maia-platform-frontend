@@ -1,25 +1,34 @@
 /**
- * The geometry of the Moves by Rating chart: which moves are drawn and how,
- * and where their names go. Pure, so it can be tested without rendering.
+ * The geometry of the Moves by Rating chart: how each move is drawn and where
+ * its names go. Pure, so it can be tested without rendering.
  *
- * Every rating in the data (600 to 2600 on the analysis page) is a point. A move that never reaches 5% at
- * any rating is left off. The moves that matter at the rating chosen in the
- * Maia menu (its three most played, and Stockfish's best) are drawn in their
- * colour over a soft wash of it; their line widths nest (the most played
- * widest, underneath, each next one thinner on top) so a move that runs along
- * another still shows. Every other move is a thin grey line.
+ * The plot area is the same at every rating and in every position: labels fit
+ * around the data, never the data around the labels. Every rating in the data
+ * (600 to 2600 on the analysis page) is a point. A move that never reaches 5%
+ * at any rating is left off; every other move is drawn in its colour over a
+ * soft wash of it, and named. Line widths nest by share at the rating chosen in
+ * the Maia menu (the most played widest, underneath, each next one thinner on
+ * top) so a move that runs along another still shows.
  *
- * Names: each coloured move is named at the right end of its line, and also
- * beside its point at the chosen rating with its share, but only where that
- * fits in clear space (no line through the name, none between it and its
- * point, no other name); moves bunched together there are named at the right
- * only, with their share in the hover readout.
+ * Names, in the move's colour:
+ * - at the right end of every line;
+ * - at the chosen rating, beside the move's point with its share, where that
+ *   fits in clear space (no line through it, none between it and its point,
+ *   no other name); bunched moves keep their share in the hover readout;
+ * - at a strong peak inside the range (a move most played at middle ratings),
+ *   just above it, where that fits.
  */
 
 export const MIN_SHARE = 5
 export const RATINGS = Array.from({ length: 21 }, (_, i) => 600 + 100 * i)
 /** Line widths, by share at the chosen rating (most played first). */
-export const NESTED_WIDTHS = [4, 2.75, 1.75, 1.25]
+export const NESTED_WIDTHS = [4, 3, 2.25, 1.75, 1.5, 1.25]
+
+// The plot area's margins: fixed, whatever the rating or the moves.
+const LEFT = 66
+const RIGHT = 64
+const TOP = 18
+const BOTTOM = 28
 
 export interface ChartLine {
   key: string
@@ -45,6 +54,18 @@ export interface MarkerLabel {
   /** The point it names. */
   px: number
   py: number
+  /** At the last rating the name is already beside the point: share only. */
+  shareOnly: boolean
+}
+
+export interface PeakLabel {
+  key: string
+  /** The text's centre. */
+  x: number
+  y: number
+  /** The point of the line it names. */
+  px: number
+  py: number
 }
 
 export interface Layout {
@@ -56,19 +77,16 @@ export interface Layout {
   bottom: number
   domain: number
   index: number
-  /** The chosen rating is at the right edge: shares go with the right names. */
-  edge: boolean
   ratings: number[]
   /** The last point's index. */
   last: number
   x: (i: number) => number
   y: (v: number) => number
+  /** The moves drawn, most played at the chosen rating first. */
   kept: ChartLine[]
-  /** The coloured moves, most played at the chosen rating first. */
-  focus: ChartLine[]
-  grey: ChartLine[]
   markerLabels: MarkerLabel[]
-  rightLabels: { key: string; y: number; lineY: number }[]
+  peakLabels: PeakLabel[]
+  rightLabels: { key: string; y: number; lineY: number; size: number }[]
   markerTitleLeft: boolean
   /** Font size of the moves' names and shares (px). */
   nameSize: number
@@ -111,10 +129,23 @@ const Y_TITLE_SHORT = 'Maia %'
 const Y_TITLE_MAX_PX = 13
 const Y_TITLE_MIN_PX = 10
 
+/**
+ * The index of a strong peak inside the range, or -1: the move's largest
+ * share, at least two ratings from either end, and well above both ends (by
+ * 8 points and by a quarter of the peak).
+ */
+export const interiorPeak = (values: number[]) => {
+  const last = values.length - 1
+  const top = Math.max(...values)
+  const i = values.indexOf(top)
+  if (i < 2 || i > last - 2) return -1
+  const rise = top - Math.max(values[0], values[last])
+  return rise >= Math.max(8, 0.25 * top) ? i : -1
+}
+
 export const buildLayout = (
   lines: ChartLine[],
   selectedRating: number,
-  stockfishBest: string | undefined,
   width: number,
   height: number,
   ratings: number[] = RATINGS,
@@ -127,34 +158,15 @@ export const buildLayout = (
     )
       index = i
   })
-  // Near the right end there is no room beside the points: the shares go
-  // with the names at the right.
-  const edge = index >= last - 2
-  const kept = lines.filter((l) => peak(l) >= MIN_SHARE)
-  const ranked = [...kept].sort((a, b) => b.values[index] - a.values[index])
-  const focusSet = new Set(ranked.slice(0, 3))
-  for (const l of kept) if (l.key === stockfishBest) focusSet.add(l)
-  const focus = ranked.filter((l) => focusSet.has(l))
-  const grey = kept.filter((l) => !focusSet.has(l))
+  const kept = lines
+    .filter((l) => peak(l) >= MIN_SHARE)
+    .sort((a, b) => b.values[index] - a.values[index])
 
-  // Names at 13px (12px on a narrow chart): the old chart's legend named the
-  // moves at 14px, its line ends at 11px, which read small.
   const nameSize = width < 380 ? 12 : 13
-  const left = 54
-  // Room at the right for the longest name (and its share at the edge).
-  const right =
-    20 +
-    Math.max(
-      24,
-      ...focus.map((l) =>
-        labelWidth(
-          edge ? `${l.san} ${shareText(l.values[index])}` : l.san,
-          nameSize,
-        ),
-      ),
-    )
-  const top = 14
-  const bottom = 20
+  const left = LEFT
+  const right = RIGHT
+  const top = TOP
+  const bottom = BOTTOM
   const domain = Math.max(0, ...kept.flatMap((l) => l.values)) > 60 ? 100 : 60
   const x = (i: number) => left + (i / last) * (width - left - right)
   const y = (v: number) => top + (1 - v / domain) * (height - top - bottom)
@@ -164,83 +176,133 @@ export const buildLayout = (
     const f = Math.min(1, Math.max(0, t - i))
     return y(l.values[i] + f * (l.values[i + 1] - l.values[i]))
   }
-
-  // The title of the marker sits on the side the labels don't prefer.
-  const prefer: 1 | -1 = index <= last / 2 ? 1 : -1
-  const markerTitleLeft = prefer > 0 || edge
-  const placed: Box[] = [
-    markerTitleLeft
-      ? { l: x(index) - 67, r: x(index) - 5, t: top - 12, b: top - 1 }
-      : { l: x(index) + 5, r: x(index) + 67, t: top - 12, b: top - 1 },
-  ]
-  const markerLabels: MarkerLabel[] = []
-  if (!edge) {
-    for (const l of focus) {
-      const text = `${l.san} ${shareText(l.values[index])}`
-      const tw = labelWidth(text, nameSize)
-      const th = nameSize + 3
-      const py = y(l.values[index])
-      const spots: [1 | -1, number][] = [
-        [prefer, 0],
-        [-prefer as 1 | -1, 0],
-        [prefer, -(nameSize + 1)],
-        [-prefer as 1 | -1, -(nameSize + 1)],
-        [prefer, -(2 * nameSize)],
-        [-prefer as 1 | -1, -(2 * nameSize)],
-      ]
-      for (const [side, dy] of spots) {
-        const cy = py + dy
-        const bx = side > 0 ? x(index) + 8 : x(index) - 8 - tw
-        const box = { l: bx, r: bx + tw, t: cy - th / 2, b: cy + th / 2 }
-        if (box.l < left || box.r > width - right || box.t < 2) continue
-        if (box.b > height - bottom) continue
-        let ok = !placed.some(
-          (p) =>
-            p.l < box.r + 2 &&
-            box.l < p.r + 2 &&
-            p.t < box.b + 1 &&
-            box.t < p.b + 1,
-        )
-        for (const o of kept) {
-          for (let px = box.l; px <= box.r && ok; px += 2) {
-            const oy = lineAt(o, px)
-            if (oy > box.t - 1 && oy < box.b + 1) ok = false
-          }
-        }
-        // Nothing between the name and its own line.
-        for (const o of kept) {
-          if (!ok || o === l) continue
-          const cx = (box.l + box.r) / 2
-          const oy = lineAt(o, cx)
-          const own = lineAt(l, cx)
-          if (oy > Math.min(box.b, own) - 1 && oy < Math.max(box.t, own) + 1) {
-            ok = false
-          }
-        }
-        if (!ok) continue
-        placed.push(box)
-        markerLabels.push({
-          key: l.key,
-          side,
-          x: side > 0 ? box.l + 2 : box.r - 2,
-          y: cy,
-          px: x(index),
-          py,
-        })
-        break
+  const th = nameSize + 3
+  const placed: Box[] = []
+  const overlaps = (box: Box) =>
+    placed.some(
+      (p) =>
+        p.l < box.r + 2 &&
+        box.l < p.r + 2 &&
+        p.t < box.b + 1 &&
+        box.t < p.b + 1,
+    )
+  /** No line through the box, and none between it and its own line. */
+  const clear = (box: Box, own: ChartLine) => {
+    for (const o of kept) {
+      for (let px = box.l; px <= box.r; px += 2) {
+        if (px < x(0) || px > x(last)) continue
+        const oy = lineAt(o, px)
+        if (oy > box.t - 1 && oy < box.b + 1) return false
       }
     }
+    const cx = Math.min(x(last), Math.max(x(0), (box.l + box.r) / 2))
+    const ownY = lineAt(own, cx)
+    for (const o of kept) {
+      if (o === own) continue
+      const oy = lineAt(o, cx)
+      if (oy > Math.min(box.b, ownY) - 1 && oy < Math.max(box.t, ownY) + 1) {
+        return false
+      }
+    }
+    return true
   }
 
+  // Right-end names first: their places are fixed. A name too long for the
+  // margin is set smaller.
   const rightLabels = spread(
-    focus.map((l) => ({ key: l.key, y: y(l.values[last]) })),
+    kept.map((l) => ({ key: l.key, y: y(l.values[last]), san: l.san })),
     nameSize + 2,
     top,
     height - bottom,
-  ).map((it) => ({ key: it.key, y: it.ly, lineY: it.y }))
+  ).map((it) => {
+    const room = right - 14
+    const size = Math.min(nameSize, room / (0.64 * it.san.length))
+    placed.push({
+      l: x(last) + 10,
+      r: x(last) + 12 + labelWidth(it.san, size),
+      t: it.ly - th / 2,
+      b: it.ly + th / 2,
+    })
+    return { key: it.key, y: it.ly, lineY: it.y, size }
+  })
 
-  // The axis title is centred on the axis, as large as it is tall allows, and
-  // shortened on a short chart.
+  // The marker's title sits on the side the labels don't prefer. Labels may
+  // use the strip above the plot, clear of it.
+  const prefer: 1 | -1 = index <= last / 2 ? 1 : -1
+  const markerTitleLeft = prefer > 0
+  placed.push(
+    markerTitleLeft
+      ? { l: x(index) - 67, r: x(index) - 5, t: top - 14, b: top - 3 }
+      : { l: x(index) + 5, r: x(index) + 67, t: top - 14, b: top - 3 },
+  )
+
+  const markerLabels: MarkerLabel[] = []
+  const shareOnly = index === last
+  for (const l of kept) {
+    const text = shareOnly
+      ? shareText(l.values[index])
+      : `${l.san} ${shareText(l.values[index])}`
+    const tw = labelWidth(text, nameSize)
+    const py = y(l.values[index])
+    const sides: (1 | -1)[] = shareOnly ? [-1] : [prefer, -prefer as 1 | -1]
+    const spots: [1 | -1, number][] = [
+      0,
+      -(nameSize + 1),
+      -2 * nameSize,
+    ].flatMap((dy) => sides.map((side): [1 | -1, number] => [side, dy]))
+    for (const [side, dy] of spots) {
+      const cy = py + dy
+      const bx = side > 0 ? x(index) + 8 : x(index) - 8 - tw
+      const box = { l: bx, r: bx + tw, t: cy - th / 2, b: cy + th / 2 }
+      if (box.l < left - 4 || box.r > width - 2 || box.t < 2) continue
+      if (box.b > height - bottom) continue
+      if (overlaps(box) || !clear(box, l)) continue
+      placed.push(box)
+      markerLabels.push({
+        key: l.key,
+        side,
+        x: side > 0 ? box.l + 2 : box.r - 2,
+        y: cy,
+        px: x(index),
+        py,
+        shareOnly,
+      })
+      break
+    }
+  }
+
+  // A strong peak inside the range is named just above it (never under a
+  // line), unless the move is already named beside that point.
+  const peakLabels: PeakLabel[] = []
+  for (const l of kept) {
+    const p = interiorPeak(l.values)
+    if (p < 0) continue
+    if (Math.abs(p - index) <= 1 && markerLabels.some((m) => m.key === l.key)) {
+      continue
+    }
+    const tw = labelWidth(l.san, nameSize)
+    const tries = [0, -1, 1, -2, 2, -3, 3]
+      .map((d) => p + d)
+      .filter((i) => i > 0 && i < last && l.values[i] >= 0.8 * l.values[p])
+    for (const i of tries) {
+      const py = y(l.values[i])
+      const cx = Math.min(Math.max(x(i), left + tw / 2), width - right - tw / 2)
+      const cy = py - nameSize
+      const box = {
+        l: cx - tw / 2,
+        r: cx + tw / 2,
+        t: cy - th / 2,
+        b: cy + th / 2,
+      }
+      if (box.t < 2 || overlaps(box) || !clear(box, l)) continue
+      placed.push(box)
+      peakLabels.push({ key: l.key, x: cx, y: cy, px: x(i), py })
+      break
+    }
+  }
+
+  // The axis title is centred on the axis, as large as it is tall allows,
+  // shortened on a short chart, and kept well clear of the numbers.
   const axisHeight = height - top - bottom
   const fit = (text: string) =>
     Math.min(Y_TITLE_MAX_PX, axisHeight / (text.length * 0.6))
@@ -248,7 +310,7 @@ export const buildLayout = (
   const yTitle = {
     text: yTitleText,
     size: fit(yTitleText),
-    x: 9,
+    x: 12,
     y: top + axisHeight / 2,
   }
 
@@ -278,15 +340,13 @@ export const buildLayout = (
     bottom,
     domain,
     index,
-    edge,
     ratings,
     last,
     x,
     y,
     kept,
-    focus,
-    grey,
     markerLabels,
+    peakLabels,
     rightLabels,
     markerTitleLeft,
     nameSize,
@@ -296,7 +356,6 @@ export const buildLayout = (
   }
 }
 
-/** The move nearest a point of the plot, within 14px of its line. */
 export const nearestMove = (layout: Layout, vx: number, vy: number) => {
   const { x, y, kept, last } = layout
   if (vx < x(0) - 4 || vx > x(last) + 4) return null

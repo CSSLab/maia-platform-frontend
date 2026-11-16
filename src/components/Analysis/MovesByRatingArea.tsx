@@ -17,8 +17,6 @@ export interface MovesByRatingAreaProps {
   displayedPositionKey?: string
   /** The rating chosen in the Maia menu (the home page's demo: 1500). */
   selectedRating?: number
-  /** Stockfish's best move (UCI), drawn in colour when it is in the chart. */
-  stockfishBest?: string
 }
 
 // The panel behind the chart: halos and rings in this colour keep names and
@@ -27,11 +25,11 @@ const PANEL = '#1e1d22'
 const GRID = 'rgba(255, 255, 255, 0.07)'
 const TICK = 'rgba(255, 255, 255, 0.55)'
 const MARKER = 'rgba(236, 233, 239, 0.4)'
-const GREY = 'rgba(236, 233, 239, 0.24)'
 const SHARE = 'rgba(255, 255, 255, 0.92)'
 const FADED = 0.18
+// As SVG attributes, so the outline is painted under the text.
 const halo = {
-  paintOrder: 'stroke' as const,
+  paintOrder: 'stroke',
   stroke: PANEL,
   strokeWidth: 3,
   strokeLinejoin: 'round' as const,
@@ -46,8 +44,8 @@ const pathOf = (
 
 /**
  * The Moves by Rating chart: each move's probability at every rating from 600
- * to 2600, the moves that matter at the chosen rating in colour (see
- * movesByRatingLayout). Hovering (or tapping) a move brings it to the front
+ * to 2600, in the move's colour over a soft wash of it, named at the line's
+ * end, at the chosen rating and at a strong peak (see movesByRatingLayout). Hovering (or tapping) a move brings it to the front
  * and fades the others; the readout lists every move at the rating under the
  * pointer.
  */
@@ -56,7 +54,6 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
   moveKeys,
   displayedColorSanMapping,
   selectedRating = 1500,
-  stockfishBest,
 }) => {
   const box = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
@@ -107,16 +104,9 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
   const layout = useMemo(
     () =>
       size.w > 120 && size.h > 80 && lines.length
-        ? buildLayout(
-            lines,
-            selectedRating,
-            stockfishBest,
-            size.w,
-            size.h,
-            ratings,
-          )
+        ? buildLayout(lines, selectedRating, size.w, size.h, ratings)
         : null,
-    [lines, selectedRating, stockfishBest, size, ratings],
+    [lines, selectedRating, size, ratings],
   )
 
   useEffect(() => setHover(null), [displayedMoves])
@@ -131,15 +121,21 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
     return <div ref={box} className="relative min-h-0 w-full flex-1" />
   }
 
-  const { x, y, index, focus, grey, kept, last } = layout
+  const { x, y, index, kept, last } = layout
   const lineOf = Object.fromEntries(kept.map((l) => [l.key, l]))
+  const widthOf = Object.fromEntries(
+    kept.map((l, k) => [
+      l.key,
+      NESTED_WIDTHS[Math.min(k, NESTED_WIDTHS.length - 1)],
+    ]),
+  )
   const hot = hover?.move ?? null
   const opacity = (key: string) => (!hot || hot === key ? 1 : FADED)
-  // The hovered move is drawn last, on top of the others.
-  const onTop = (a: ChartLine, b: ChartLine) =>
-    Number(a.key === hot) - Number(b.key === hot)
-  const focusOrder = [...focus].sort(onTop)
-  const greyOrder = [...grey].sort(onTop)
+  // The most played at the chosen rating is drawn first (widest, underneath);
+  // a hovered move last, on top of the others.
+  const order = [...kept].sort(
+    (a, b) => Number(a.key === hot) - Number(b.key === hot),
+  )
 
   const onPointer = (e: React.PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -168,7 +164,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
         height={layout.height}
         className="block touch-pan-y select-none"
         role="img"
-        aria-label={`Moves by rating at Maia ${selectedRating}: ${focus
+        aria-label={`Moves by rating at Maia ${selectedRating}: ${kept
           .map((l) => `${l.san} ${shareText(l.values[index])}`)
           .join(', ')}`}
         onPointerMove={onPointer}
@@ -176,7 +172,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
         onPointerLeave={() => setHover(null)}
       >
         <defs>
-          {focus.map((l) => (
+          {kept.map((l) => (
             <linearGradient
               key={l.key}
               id={`wash-${uid}-${l.key}`}
@@ -186,34 +182,12 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
               y1={Math.min(...l.values.map(y))}
               y2={y(0)}
             >
-              <stop offset="0%" stopColor={l.color} stopOpacity={0.22} />
+              <stop offset="0%" stopColor={l.color} stopOpacity={0.2} />
               <stop offset="100%" stopColor={l.color} stopOpacity={0} />
             </linearGradient>
           ))}
         </defs>
 
-        {layout.yTicks.map((t) => (
-          <g key={t}>
-            <line
-              x1={layout.left}
-              x2={layout.width - layout.right}
-              y1={y(t)}
-              y2={y(t)}
-              stroke={GRID}
-              shapeRendering="crispEdges"
-            />
-            <text
-              x={layout.left - 5}
-              y={y(t)}
-              textAnchor="end"
-              dominantBaseline="central"
-              fill={TICK}
-              fontSize={11}
-            >
-              {t}%
-            </text>
-          </g>
-        ))}
         <text
           x={layout.yTitle.x}
           y={layout.yTitle.y}
@@ -226,11 +200,33 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
         >
           {layout.yTitle.text}
         </text>
+        {layout.yTicks.map((t) => (
+          <g key={t}>
+            <line
+              x1={layout.left}
+              x2={x(last)}
+              y1={y(t)}
+              y2={y(t)}
+              stroke={GRID}
+              shapeRendering="crispEdges"
+            />
+            <text
+              x={layout.left - 8}
+              y={y(t)}
+              textAnchor="end"
+              dominantBaseline="central"
+              fill={TICK}
+              fontSize={11}
+            >
+              {t}%
+            </text>
+          </g>
+        ))}
         {layout.xTicks.map((r) => (
           <text
             key={r}
             x={x(layout.ratings.indexOf(r))}
-            y={layout.height - 5}
+            y={layout.height - 7}
             textAnchor="middle"
             fill={TICK}
             fontSize={11}
@@ -239,7 +235,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
           </text>
         ))}
 
-        {[...focus].reverse().map((l) => (
+        {[...kept].reverse().map((l) => (
           <path
             key={l.key}
             d={pathOf(l.values, x, y) + `L${x(last)},${y(0)}L${x(0)},${y(0)}Z`}
@@ -258,38 +254,22 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
         />
         <text
           x={x(index) + (layout.markerTitleLeft ? -5 : 5)}
-          y={layout.top - 6}
+          y={layout.top - 8}
           textAnchor={layout.markerTitleLeft ? 'end' : 'start'}
           fill={TICK}
           fontSize={10}
-          style={halo}
+          {...halo}
         >
           Maia {selectedRating}
         </text>
 
-        {greyOrder.map((l) => (
-          <path
-            key={l.key}
-            data-move={l.key}
-            d={pathOf(l.values, x, y)}
-            fill="none"
-            stroke={hot === l.key ? l.color : GREY}
-            strokeWidth={hot === l.key ? 2 : 1}
-            strokeLinejoin="round"
-            opacity={opacity(l.key)}
-          />
-        ))}
-        {focusOrder.map((l) => (
+        {order.map((l) => (
           <g key={l.key} data-move={l.key} opacity={opacity(l.key)}>
             <path
               d={pathOf(l.values, x, y)}
               fill="none"
               stroke={l.color}
-              strokeWidth={
-                NESTED_WIDTHS[
-                  Math.min(focus.indexOf(l), NESTED_WIDTHS.length - 1)
-                ]
-              }
+              strokeWidth={widthOf[l.key]}
               strokeLinejoin="round"
               strokeLinecap="round"
             />
@@ -304,10 +284,37 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
           </g>
         ))}
 
+        {layout.peakLabels.map((p) => {
+          const l = lineOf[p.key]
+          return (
+            <g key={`peak-${p.key}`} data-move={p.key} opacity={opacity(p.key)}>
+              <path
+                d={`M${p.px},${p.py - 4}L${p.px},${p.y + layout.nameSize / 2}`}
+                fill="none"
+                stroke={l.color}
+                strokeWidth={1.25}
+                strokeLinecap="round"
+              />
+              <text
+                x={p.x}
+                y={p.y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={layout.nameSize}
+                fontWeight={600}
+                fill={names[p.key]}
+                {...halo}
+              >
+                {l.san}
+              </text>
+            </g>
+          )
+        })}
+
         {layout.markerLabels.map((m) => {
           const l = lineOf[m.key]
           return (
-            <g key={m.key} data-move={m.key} opacity={opacity(m.key)}>
+            <g key={`at-${m.key}`} data-move={m.key} opacity={opacity(m.key)}>
               {m.y !== m.py ? (
                 <path
                   d={`M${m.px + m.side * 3},${m.py - 3}L${m.px + m.side * 7},${m.y}`}
@@ -324,10 +331,12 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                 dominantBaseline="central"
                 fontSize={layout.nameSize}
                 fontWeight={600}
-                style={halo}
+                {...halo}
               >
-                <tspan fill={names[m.key]}>{l.san}</tspan>
-                <tspan fill={SHARE} dx={4} fontWeight={500}>
+                {m.shareOnly ? null : (
+                  <tspan fill={names[m.key]}>{l.san} </tspan>
+                )}
+                <tspan fill={SHARE} fontWeight={500}>
                   {shareText(l.values[index])}
                 </tspan>
               </text>
@@ -338,7 +347,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
         {layout.rightLabels.map((r) => {
           const l = lineOf[r.key]
           return (
-            <g key={r.key} data-move={r.key} opacity={opacity(r.key)}>
+            <g key={`end-${r.key}`} data-move={r.key} opacity={opacity(r.key)}>
               {Math.abs(r.y - r.lineY) > 1 ? (
                 <path
                   d={`M${x(last) + 3},${r.lineY}L${x(last) + 9},${r.y}`}
@@ -353,15 +362,11 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                 x={x(last) + 12}
                 y={r.y}
                 dominantBaseline="central"
-                fontSize={layout.nameSize}
+                fontSize={r.size}
                 fontWeight={600}
+                fill={names[r.key]}
               >
-                <tspan fill={names[r.key]}>{l.san}</tspan>
-                {layout.edge ? (
-                  <tspan fill={SHARE} dx={4} fontWeight={500}>
-                    {shareText(l.values[index])}
-                  </tspan>
-                ) : null}
+                {l.san}
               </text>
             </g>
           )

@@ -1,6 +1,7 @@
 import {
   ChartLine,
   buildLayout,
+  interiorPeak,
   nearestMove,
   spread,
 } from './movesByRatingLayout'
@@ -22,37 +23,44 @@ describe('the moves-by-rating layout', () => {
   const castle = line('O-O', (i) => Math.max(0.2, 11 - 0.6 * i), '#238b45')
   const rook = line('Rh2', (i) => Math.max(0.1, 5.5 - 0.3 * i))
   const tiny = line('Kd2', () => 2)
+  const hump = line('cxd4', (i) => 55 - 0.4 * (i - 11) ** 2, '#238b45')
 
-  it('leaves off moves that never reach 5%', () => {
-    const l = buildLayout([big, red, castle, rook, tiny], 1900, 'O-O', 400, 230)
-    expect(l.kept.map((m) => m.key)).not.toContain('Kd2')
-    expect(l.kept.map((m) => m.key)).toContain('Rh2')
-  })
-
-  it("colours the chosen rating's three most played moves and Stockfish's best, most played first", () => {
-    const l = buildLayout([big, red, castle, rook], 1900, 'Rh2', 400, 230)
-    expect(l.focus.map((m) => m.key)).toEqual(['Qe2', 'Nd2', 'O-O', 'Rh2'])
-    const l2 = buildLayout([big, red, castle, rook], 1900, undefined, 400, 230)
-    expect(l2.grey.map((m) => m.key)).toEqual(['Rh2'])
-  })
-
-  it('names at the chosen rating only moves with clear room, and every coloured move at the right', () => {
-    const l = buildLayout([big, red, castle, rook], 1900, 'O-O', 400, 230)
-    expect(l.markerLabels.map((m) => m.key)).toContain('Qe2')
-    expect(l.markerLabels.length).toBeLessThan(l.focus.length)
+  it('leaves off moves that never reach 5%, and names every other one at its end', () => {
+    const l = buildLayout([big, red, castle, rook, tiny], 1900, 400, 230)
+    expect(l.kept.map((m) => m.key)).toEqual(['Qe2', 'Nd2', 'O-O', 'Rh2'])
     expect(l.rightLabels.map((r) => r.key).sort()).toEqual(
-      l.focus.map((m) => m.key).sort(),
+      ['Nd2', 'O-O', 'Qe2', 'Rh2'].sort(),
     )
   })
 
-  it('puts the shares with the right names when the chosen rating is at the edge', () => {
-    const l = buildLayout([big, red, castle], 2600, undefined, 400, 230)
-    expect(l.edge).toBe(true)
-    expect(l.markerLabels).toEqual([])
+  it('keeps the plot area the same at every rating', () => {
+    const at = (r: number) => buildLayout([big, red, castle], r, 400, 230)
+    for (const r of [600, 1500, 2400, 2600]) {
+      expect(at(r).x(0)).toBe(at(1500).x(0))
+      expect(at(r).x(20)).toBe(at(1500).x(20))
+    }
+  })
+
+  it('names at the chosen rating only moves with clear room', () => {
+    const l = buildLayout([big, red, castle, rook], 1900, 400, 230)
+    expect(l.markerLabels.map((m) => m.key)).toContain('Qe2')
+    expect(l.markerLabels.length).toBeLessThan(l.kept.length)
+  })
+
+  it('gives only the share at the last rating, where the name already is', () => {
+    const l = buildLayout([big, red], 2600, 400, 230)
+    expect(l.markerLabels.every((m) => m.shareOnly && m.side < 0)).toBe(true)
+  })
+
+  it('names a move at a strong peak inside the range', () => {
+    expect(interiorPeak(hump.values)).toBe(11)
+    expect(interiorPeak(big.values)).toBe(-1)
+    const l = buildLayout([hump, big], 2300, 400, 230)
+    expect(l.peakLabels.map((p) => p.key)).toContain('cxd4')
   })
 
   it('finds the move nearest the pointer, within 14px of its line', () => {
-    const l = buildLayout([big, red], 1500, undefined, 400, 230)
+    const l = buildLayout([big, red], 1500, 400, 230)
     expect(nearestMove(l, l.x(10), l.y(big.values[10]) + 3)).toBe('Qe2')
     expect(nearestMove(l, l.x(10), l.y(30))).toBeNull()
   })

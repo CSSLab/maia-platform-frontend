@@ -174,9 +174,6 @@ export const AnalysisSidebar: React.FC<Props> = ({
     colorSanMapping: analysisEnabled ? controller.colorSanMapping : {},
     positionKey: analysisEnabled ? controller.currentNode?.fen : undefined,
     selectedRating: ratingOfModel(controller.currentMaiaModel),
-    stockfishBest: analysisEnabled
-      ? controller.moveEvaluation?.stockfish?.model_move
-      : undefined,
   }
 
   const renderHeader = (

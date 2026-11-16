@@ -1272,9 +1272,6 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                   selectedRating={ratingOfModel(
                     analysisController.currentMaiaModel,
                   )}
-                  stockfishBest={
-                    analysisController.moveEvaluation?.stockfish?.model_move
-                  }
                 />
               </div>
             </div>

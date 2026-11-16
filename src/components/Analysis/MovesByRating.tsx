@@ -9,10 +9,8 @@ interface Props {
   colorSanMapping: ColorSanMapping
   isHomePage?: boolean
   positionKey?: string
-  /** The rating chosen in the Maia menu: its moves are drawn in colour. */
+  /** The rating chosen in the Maia menu: marked, with each move's share. */
   selectedRating?: number
-  /** Stockfish's best move (UCI), also drawn in colour. */
-  stockfishBest?: string
 }
 
 /** The rating of a Maia model name (maia_kdd_1900 -> 1900). */
@@ -34,14 +32,12 @@ const MovesByRatingChart: React.FC<Props> = ({
   isHomePage = false,
   positionKey,
   selectedRating,
-  stockfishBest,
 }: Props) => {
   const [shown, setShown] = useState({
     moves,
     colorSanMapping,
     positionKey,
     selectedRating,
-    stockfishBest,
   })
   if (
     moves?.length &&
@@ -49,8 +45,7 @@ const MovesByRatingChart: React.FC<Props> = ({
     (moves !== shown.moves ||
       colorSanMapping !== shown.colorSanMapping ||
       positionKey !== shown.positionKey ||
-      selectedRating !== shown.selectedRating ||
-      stockfishBest !== shown.stockfishBest)
+      selectedRating !== shown.selectedRating)
   ) {
     // Set while rendering: React renders again before rendering the chart.
     setShown({
@@ -58,7 +53,6 @@ const MovesByRatingChart: React.FC<Props> = ({
       colorSanMapping,
       positionKey,
       selectedRating,
-      stockfishBest,
     })
   }
 
@@ -91,7 +85,6 @@ const MovesByRatingChart: React.FC<Props> = ({
       isHomePage={isHomePage}
       displayedPositionKey={shown.positionKey}
       selectedRating={shown.selectedRating ?? selectedRating}
-      stockfishBest={shown.stockfishBest}
     />
   )
 }
@@ -103,7 +96,6 @@ interface PlotProps {
   isHomePage: boolean
   displayedPositionKey?: string
   selectedRating?: number
-  stockfishBest?: string
 }
 
 const MovesByRatingPlot = memo(function MovesByRatingPlot(props: PlotProps) {
