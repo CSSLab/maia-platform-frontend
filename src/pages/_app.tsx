@@ -1,5 +1,4 @@
 import Head from 'next/head'
-import { Toaster } from 'react-hot-toast'
 import Script from 'next/script'
 import { useEffect } from 'react'
 import type { AppProps } from 'next/app'
@@ -19,6 +18,7 @@ import 'node_modules/chessground/assets/chessground.base.css'
 import 'node_modules/chessground/assets/chessground.brown.css'
 import 'node_modules/chessground/assets/chessground.cburnett.css'
 import { Compose } from 'src/components/Common/Compose'
+import { AppToaster } from 'src/components/Common/AppToaster'
 import { ErrorBoundary } from 'src/components/Common/ErrorBoundary'
 import { FeedbackButton } from 'src/components/Common/FeedbackButton'
 import { Footer } from 'src/components/Common/Footer'
@@ -180,7 +180,7 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <Footer />
             <FeedbackButton />
           </div>
-          <Toaster position="bottom-right" />
+          <AppToaster />
           <Analytics />
           {/* Google Analytics loads once the page has loaded and the browser
               is idle, so it doesn't run while the page is being drawn. */}
