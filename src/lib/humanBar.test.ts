@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { TYPICAL_DANGER_BY_LEVEL } from 'src/constants/typicalDanger'
 import {
+  anyPositionMoveMark,
   buildHumanBarSetup,
   evalAfterMoveFromLine,
   evaluationOrder,
@@ -227,6 +228,36 @@ describe('move marks', () => {
     expect(moveMark(30, { move: 46, top: 50 })).toBe('?!')
     expect(moveMark(12, { move: 44, top: 50 })).toBe('?')
     expect(moveMark(30, { move: 40, top: 50 })).toBe('??')
+  })
+})
+
+describe('any-position marks', () => {
+  const priced = (chances: Record<string, number>, likely: string[]) => ({
+    chances: new Map(Object.entries(chances)),
+    likely,
+  })
+
+  it('has only the objective tiers until the move is priced', () => {
+    expect(anyPositionMoveMark(12, 'e2e4', 'd2d4', undefined)).toBe('?')
+    expect(anyPositionMoveMark(4, 'e2e4', 'd2d4', undefined)).toBeNull()
+    const p = priced({ d2d4: 50 }, ['d2d4'])
+    expect(anyPositionMoveMark(20, 'e2e4', 'd2d4', p)).toBe('??')
+  })
+
+  it("reads the best try over Maia's likely moves, Stockfish's best and the move", () => {
+    // e2e4 is 4 behind the best try (d2d4): ?! for a mistake.
+    const p = priced({ e2e4: 46, d2d4: 50, c2c4: 45 }, ['d2d4', 'c2c4'])
+    expect(anyPositionMoveMark(12, 'e2e4', 'g1f3', p)).toBe('?!')
+    // !? for the best try, 2+ better than Stockfish's move for these players.
+    const q = priced({ e2e4: 52, d2d4: 49, g1f3: 48 }, ['d2d4'])
+    expect(anyPositionMoveMark(6, 'e2e4', 'g1f3', q)).toBe('!?')
+  })
+
+  it('leaves out moves priced there for other variations', () => {
+    // b2b4 (another variation's move) would be the best try at 60, but only
+    // the likely moves, the move itself and Stockfish's best count.
+    const p = priced({ e2e4: 46, d2d4: 50, b2b4: 60 }, ['d2d4'])
+    expect(anyPositionMoveMark(12, 'e2e4', 'd2d4', p)).toBe('?!')
   })
 })
 

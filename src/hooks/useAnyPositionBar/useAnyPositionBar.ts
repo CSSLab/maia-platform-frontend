@@ -17,7 +17,7 @@ import {
   getBatchStockfish,
 } from 'src/lib/engine/stockfishBatch'
 import { float32ToBase64LE, gameOverEval } from 'src/lib/humanBar'
-import type { AnyPositionBar, GameNode } from 'src/types'
+import type { AnyPositionBar, GameNode, MaiaEngine } from 'src/types'
 
 /**
  * The any-position bar (practical LOG §96-97): Maia's chances of White, a
@@ -45,13 +45,19 @@ interface Entry {
 // position and rating (Maia's read), so stepping back or changing the
 // rating back finds them at once.
 const bars = new Map<string, Entry>()
-const maiaReads = new Map<
-  string,
-  { value: [number, number, number]; repr: string }
->()
+/** Maia's read of a position at one rating for both players. */
+export interface MaiaRead {
+  value: [number, number, number]
+  /** Base64 of the 512 little-endian float32 values of the repr. */
+  repr: string
+  /** Maia's move probabilities, when they were asked for. */
+  policy?: Record<string, number>
+}
+const maiaReads = new Map<string, MaiaRead>()
 const failedAt = new Map<string, number>()
 
-const remember = <V>(map: Map<string, V>, key: string, value: V) => {
+/** Keeps the newest MAX_CACHED entries of a session cache. */
+export const remember = <V>(map: Map<string, V>, key: string, value: V) => {
   map.delete(key)
   map.set(key, value)
   if (map.size > MAX_CACHED) {
@@ -60,8 +66,50 @@ const remember = <V>(map: Map<string, V>, key: string, value: V) => {
   }
 }
 
+/**
+ * Maia's reads of `fens` at `rating` (both players), from the session cache
+ * where they are in it (with the policy when `policy` is asked for), the rest
+ * in one batch. Shared by the any-position bar and its marks.
+ */
+export const readMaiaAt = async (
+  maia: NonNullable<MaiaEngine['maia']>,
+  fens: string[],
+  rating: number,
+  options: { policy?: boolean; priority: number; signal?: AbortSignal },
+): Promise<MaiaRead[]> => {
+  const out = fens.map((fen) => {
+    const have = maiaReads.get(`${fen}|${rating}`)
+    return have && (!options.policy || have.policy) ? have : undefined
+  })
+  const missing = fens.flatMap((_, i) => (out[i] ? [] : [i]))
+  if (missing.length > 0) {
+    const outputs = await maia.batchEvaluateMaia3Raw(
+      missing.map((i) => fens[i]),
+      missing.map(() => rating),
+      missing.map(() => rating),
+      {
+        priority: options.priority,
+        signal: options.signal,
+        policy: options.policy,
+      },
+    )
+    outputs.forEach((o, j) => {
+      if (!o?.repr) throw new Error('The Maia model has no repr output')
+      const read: MaiaRead = {
+        value: o.value,
+        repr: float32ToBase64LE(o.repr),
+        ...(options.policy && o.policy ? { policy: o.policy } : {}),
+      }
+      remember(maiaReads, `${fens[missing[j]]}|${rating}`, read)
+      out[missing[j]] = read
+    })
+  }
+  return out as MaiaRead[]
+}
+
 let fallbackReady: Promise<void> | null = null
-const fallbackEngine = async () => {
+/** The page-wide batch Stockfish, after a new game on first use. */
+export const fallbackEngine = async () => {
   const engine = getBatchStockfish()
   if (!fallbackReady) fallbackReady = engine.newGame()
   await fallbackReady
@@ -89,7 +137,7 @@ const cachedOnly = (node: GameNode) => {
   return !!sf?.from_cache && !sf.partial && sf.depth >= SITE_EVAL_FINAL_DEPTH
 }
 
-const isAbort = (error: unknown) =>
+export const isAbort = (error: unknown) =>
   error instanceof DOMException && error.name === 'AbortError'
 
 /**
@@ -133,19 +181,10 @@ export const useAnyPositionBar = (
 
     const run = async (evaluation: { cp: number; depth: number }) => {
       try {
-        const readKey = `${fen}|${rating}`
-        let read = maiaReads.get(readKey)
-        if (!read) {
-          const [out] = await maia.maia!.batchEvaluateMaia3Raw(
-            [fen],
-            [rating],
-            [rating],
-            { priority: MAIA_PRIORITY.normal, signal: controller.signal },
-          )
-          if (!out?.repr) throw new Error('The Maia model has no repr output')
-          read = { value: out.value, repr: float32ToBase64LE(out.repr) }
-          remember(maiaReads, readKey, read)
-        }
+        const [read] = await readMaiaAt(maia.maia!, [fen], rating, {
+          priority: MAIA_PRIORITY.normal,
+          signal: controller.signal,
+        })
         if (controller.signal.aborted) return
         const res = await fetchAnyPositionBars({
           engine: HUMAN_BAR_ENGINE,
@@ -153,7 +192,9 @@ export const useAnyPositionBar = (
           white_elo: rating,
           black_elo: rating,
           time_control: timeControl,
-          positions: [{ fen, ply, ...evaluation, ...read }],
+          positions: [
+            { fen, ply, ...evaluation, value: read.value, repr: read.repr },
+          ],
         })
         const bar = res.positions[0]
         if (!bar) throw new Error('No bar in the answer')
