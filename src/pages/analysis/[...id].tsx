@@ -83,6 +83,7 @@ import {
   plyOf,
   useAnalysisController,
   useAnyPositionBar,
+  useAnyPositionMarks,
   useBoardWheelNavigation,
   useHumanBars,
   useLocalStorage,
@@ -854,6 +855,29 @@ const Analysis: React.FC<Props> = ({
       !controller.learnFromMistakes.state.isActive &&
       !(humanBarsOnPage && humanBars.ply !== null && !humanBars.inVariation),
   )
+  // The move marks everywhere else (practical LOG §98: other games,
+  // variations, Lichess games without clocks, the bars switched off): the same
+  // marks, their practical part from the any-position bar at that rating.
+  const coveredByPlayers = useCallback(
+    (node: GameNode) => humanBarsOnPage && mainlineIndex.has(node),
+    [humanBarsOnPage, mainlineIndex],
+  )
+  const anyPositionMarks = useAnyPositionMarks(
+    analyzedGame.tree,
+    controller.currentNode,
+    anyPositionRating,
+    anyPositionTimeControl,
+    analysisEnabled && !controller.learnFromMistakes.state.isActive,
+    !isPhone(),
+    coveredByPlayers,
+    anyPosition.expected,
+  )
+  const marksOnPage = humanBarsOnPage || anyPositionMarks.on
+  const markOfMove = useCallback(
+    (node: GameNode) =>
+      coveredByPlayers(node) ? markOfNode(node) : anyPositionMarks.markOf(node),
+    [coveredByPlayers, markOfNode, anyPositionMarks],
+  )
   const humanBarLockedMessage = controller.learnFromMistakes.state.isActive
     ? 'Hidden during Learn from Mistakes'
     : !analysisEnabled
@@ -905,7 +929,7 @@ const Analysis: React.FC<Props> = ({
         square: controller.topHumanMoveBadge.square,
         classification: controller.topHumanMoveBadge.classification,
         mark:
-          humanBarsOnPage && loss !== undefined && Number.isFinite(loss)
+          marksOnPage && loss !== undefined && Number.isFinite(loss)
             ? moveMark(Math.abs(loss) * 100)
             : undefined,
       },
@@ -915,7 +939,7 @@ const Analysis: React.FC<Props> = ({
     controller.showTopMoveBadges,
     controller.topHumanMoveBadge,
     controller.currentNode,
-    humanBarsOnPage,
+    marksOnPage,
   ])
 
   useEffect(() => {
@@ -2069,7 +2093,7 @@ const Analysis: React.FC<Props> = ({
                     game={analyzedGame}
                     termination={analyzedGame.termination}
                     showAnnotations={true}
-                    markOf={humanBarsOnPage ? markOfNode : undefined}
+                    markOf={marksOnPage ? markOfMove : undefined}
                     disableKeyboardNavigation={
                       controller.gameAnalysis.progress.isAnalyzing ||
                       controller.learnFromMistakes.state.isActive
@@ -2300,7 +2324,7 @@ const Analysis: React.FC<Props> = ({
               }
             >
               <AnalysisCompactBlunderMeter
-                marks={humanBarsOnPage}
+                marks={marksOnPage}
                 variant="desktop"
                 hideMoves={humanBarsOnPage}
                 data={compactBlunderMeterData}
@@ -2616,7 +2640,7 @@ const Analysis: React.FC<Props> = ({
                 </div>
               </div>
               <AnalysisCompactBlunderMeter
-                marks={humanBarsOnPage}
+                marks={marksOnPage}
                 className="mb-1.5 mt-3 w-full max-w-[560px]"
                 data={compactBlunderMeterData}
                 colorSanMapping={controller.colorSanMapping}
@@ -2660,7 +2684,7 @@ const Analysis: React.FC<Props> = ({
                   game={analyzedGame}
                   termination={analyzedGame.termination}
                   showAnnotations={true}
-                  markOf={humanBarsOnPage ? markOfNode : undefined}
+                  markOf={marksOnPage ? markOfMove : undefined}
                   forceMobileLayout={useMobileStyleAnalysisLayout}
                   disableKeyboardNavigation={
                     controller.gameAnalysis.progress.isAnalyzing ||

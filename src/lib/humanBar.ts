@@ -288,6 +288,40 @@ export const moveMark = (
   return objective < 15 ? '?' : '??'
 }
 
+/** What the any-position marks priced at one position, for one rating and time control. */
+export interface AnyPositionPriced {
+  /** The mover's chance (0-100) after each move priced there, by UCI. */
+  chances: ReadonlyMap<string, number>
+  /** Maia's likely moves there (to 95%, at most 12), by UCI. */
+  likely: readonly string[]
+}
+
+/**
+ * A move's mark from the any-position bar (practical LOG §98): moveMark with
+ * the practical cost read from what was priced at the position before it, for
+ * players of the rating picked on the page. The best practical try is over
+ * Maia's likely moves, Stockfish's best and the move itself, as on the
+ * players' bars (not over moves priced there for other variations). Only the
+ * objective tiers until the move is priced.
+ */
+export const anyPositionMoveMark = (
+  objective: number,
+  move: string,
+  bestMove: string | undefined,
+  priced: AnyPositionPriced | undefined,
+): MoveMark | null => {
+  const mine = priced?.chances.get(move)
+  if (!priced || mine === undefined) return moveMark(objective)
+  const tries = [...priced.likely, move, ...(bestMove ? [bestMove] : [])]
+    .map((uci) => priced.chances.get(uci))
+    .filter((x): x is number => x !== undefined)
+  return moveMark(objective, {
+    move: mine,
+    top: Math.max(...tries),
+    best: bestMove ? priced.chances.get(bestMove) : undefined,
+  })
+}
+
 /** The position after a move given in UCI (e.g. "e7e8q"), or null if it is not legal there. */
 export const fenAfterMove = (fen: string, uci: string): string | null => {
   const board = new Chess(fen)

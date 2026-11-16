@@ -66,7 +66,7 @@ const MAX_FAILURES = 3
  * the server's map onto the bars' scale depends on it (practical LOG §86,
  * P87, P89).
  */
-const SITE_EVAL_MIN_DEPTH = 10
+export const SITE_EVAL_MIN_DEPTH = 10
 export const SITE_EVAL_FINAL_DEPTH = 18
 /** How long the position on screen waits for the site's eval before searching itself. */
 const SITE_EVAL_WAIT_MS = 1500
@@ -376,7 +376,7 @@ const addBestMoveKid = (
  * such an eval is only shown until the site's own search of that position
  * replaces it (the bars' map treats it as depth 8, the shallowest it has).
  */
-const PARENT_LINE_MIN_DEPTH = 6
+export const PARENT_LINE_MIN_DEPTH = 6
 
 /**
  * Ply p's eval from the site's search of the ply before it: that search's
