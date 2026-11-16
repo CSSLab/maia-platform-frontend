@@ -135,6 +135,12 @@ let placeChecked = false
  * what the blunder meter's section takes, so the board stays the size it was.
  */
 const GAME_GRAPH_SECTION_PX = 99
+/**
+ * The game graph under the board (each player's chance and blunder danger
+ * over the game) is off for now: it went live by mistake (11-16). True puts
+ * it back under the players' bars, with the room it takes.
+ */
+const GAME_GRAPH_ON = false
 const CUSTOM_PGN_RESULT_OVERRIDES_STORAGE_KEY =
   'maia_custom_pgn_result_overrides'
 const DEFAULT_STOCKFISH_EVAL_BAR = {
@@ -791,6 +797,7 @@ const Analysis: React.FC<Props> = ({
     showHumanBars &&
     humanBars.status !== 'unavailable' &&
     humanBars.status !== 'off'
+  const gameGraphOnPage = humanBarsOnPage && GAME_GRAPH_ON
   const { rating: whiteRating = 1500 } = analyzedGame.whitePlayer
   const { rating: blackRating = 1500 } = analyzedGame.blackPlayer
   // The server's evals are already on SF19's scale; a forced mate fills the bar.
@@ -1691,7 +1698,7 @@ const Analysis: React.FC<Props> = ({
     const extraGapPx = 4 // gap-1 between the top text strip and the board row
     const measuredNonBoardHeightPx =
       desktopMiddleMeasuredHeights.boardHeaderStripPx +
-      (humanBarsOnPage
+      (gameGraphOnPage
         ? GAME_GRAPH_SECTION_PX
         : desktopMiddleMeasuredHeights.blunderMeterSectionPx) +
       extraGapPx
@@ -1700,7 +1707,7 @@ const Analysis: React.FC<Props> = ({
       320,
       Math.floor(targetColumnHeightPx - measuredNonBoardHeightPx),
     )
-  }, [desktopMiddleMeasuredHeights, height, humanBarsOnPage])
+  }, [desktopMiddleMeasuredHeights, height, gameGraphOnPage])
   const desktopBoardSizeCss = useMemo(() => {
     const heightCapCss =
       desktopBoardHeightCapPx !== null ? `${desktopBoardHeightCapPx}px` : '72vh'
@@ -2316,9 +2323,9 @@ const Analysis: React.FC<Props> = ({
               </div>
             </div>
             <div
-              ref={humanBarsOnPage ? undefined : desktopBlunderMeterSectionRef}
+              ref={gameGraphOnPage ? undefined : desktopBlunderMeterSectionRef}
               className={
-                humanBarsOnPage
+                gameGraphOnPage
                   ? 'flex min-h-0 flex-1 flex-col gap-2 pt-3'
                   : 'shrink-0 pt-3'
               }
@@ -2326,7 +2333,7 @@ const Analysis: React.FC<Props> = ({
               <AnalysisCompactBlunderMeter
                 marks={marksOnPage}
                 variant="desktop"
-                hideMoves={humanBarsOnPage}
+                hideMoves={gameGraphOnPage}
                 data={compactBlunderMeterData}
                 colorSanMapping={controller.colorSanMapping}
                 playedMove={
@@ -2336,7 +2343,7 @@ const Analysis: React.FC<Props> = ({
                 hover={analysisEnabled ? hover : mockHover}
                 makeMove={analysisEnabled ? makeMove : mockMakeMove}
               />
-              {humanBarsOnPage ? (
+              {gameGraphOnPage ? (
                 <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-glass-border bg-glass">
                   {/* It would give the game away while analysis is hidden. */}
                   {analysisEnabled &&
