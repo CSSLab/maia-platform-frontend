@@ -1,37 +1,14 @@
 import { render } from '@testing-library/react'
 import { MovesByRating } from './MovesByRating'
 
-// Each AreaChart render is one chart redraw.
+// Each render of the chart itself (MovesByRatingArea) is one chart redraw.
 const charts: unknown[] = []
-jest.mock('recharts', () => {
-  const Empty = () => null
-  const Pass = ({ children }: { children?: React.ReactNode }) => <>{children}</>
-  return {
-    Area: Empty,
-    XAxis: Empty,
-    YAxis: Empty,
-    Legend: Empty,
-    Tooltip: Empty,
-    CartesianGrid: Empty,
-    ResponsiveContainer: Pass,
-    AreaChart: ({ data }: { data: unknown }) => {
-      charts.push(data)
-      return null
-    },
-  }
-})
-
-// MovesByRating loads the chart (MovesByRatingArea) with next/dynamic; here
-// it renders at once.
-jest.mock(
-  'next/dynamic',
-  () => () =>
-    function MovesByRatingArea(props: Record<string, unknown>) {
-      const { createElement } = jest.requireActual('react')
-      const chart = jest.requireActual('./MovesByRatingArea')
-      return createElement(chart.MovesByRatingArea, props)
-    },
-)
+jest.mock('./MovesByRatingArea', () => ({
+  MovesByRatingArea: ({ displayedMoves }: { displayedMoves: unknown }) => {
+    charts.push(displayedMoves)
+    return null
+  },
+}))
 
 const moves = (e2e4: number) => [
   { rating: 600, e2e4, d2d4: 20 },

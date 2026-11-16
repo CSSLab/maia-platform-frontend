@@ -31,6 +31,7 @@ import { PromotionOverlay } from 'src/components/Board/PromotionOverlay'
 import {
   AnalysisSidebar,
   MovesByRating,
+  ratingOfModel,
   SimplifiedAnalysisOverview,
 } from 'src/components/Analysis'
 import { ConfigurableScreens } from 'src/components/Analysis/ConfigurableScreens'
@@ -1268,6 +1269,12 @@ export const BroadcastAnalysis: React.FC<Props> = ({
                   moves={analysisController.movesByRating}
                   colorSanMapping={analysisController.colorSanMapping}
                   positionKey={analysisController.currentNode?.fen}
+                  selectedRating={ratingOfModel(
+                    analysisController.currentMaiaModel,
+                  )}
+                  stockfishBest={
+                    analysisController.moveEvaluation?.stockfish?.model_move
+                  }
                 />
               </div>
             </div>

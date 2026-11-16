@@ -1,16 +1,13 @@
-import {
-  Area,
-  XAxis,
-  YAxis,
-  Legend,
-  Tooltip,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-} from 'recharts'
-import { useContext, useEffect, useRef } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ColorSanMapping } from 'src/types'
-import { WindowSizeContext } from 'src/contexts'
+import {
+  ChartLine,
+  NESTED_WIDTHS,
+  buildLayout,
+  nameColor,
+  nearestMove,
+  shareText,
+} from './movesByRatingLayout'
 
 export interface MovesByRatingAreaProps {
   displayedMoves: { [key: string]: number }[] | undefined
@@ -18,321 +15,387 @@ export interface MovesByRatingAreaProps {
   displayedColorSanMapping: ColorSanMapping
   isHomePage: boolean
   displayedPositionKey?: string
+  /** The rating chosen in the Maia menu (the home page's demo: 1500). */
+  selectedRating?: number
+  /** Stockfish's best move (UCI), drawn in colour when it is in the chart. */
+  stockfishBest?: string
 }
 
-// The Moves by Rating chart itself: recharts and its d3 helpers (~320 KB of
-// JavaScript, uncompressed), which MovesByRating loads after the page.
-const Y_TITLE = 'Maia Probability'
-const Y_TITLE_SHORT = 'Maia %'
-/** Width of a character of the title, as a share of its font size (semibold). */
-const Y_TITLE_CHAR_EM = 0.6
-/** The smallest font the title shrinks to before it shortens. */
-const Y_TITLE_MIN_PX = 10
+// The panel behind the chart: halos and rings in this colour keep names and
+// points clear of the lines.
+const PANEL = '#1e1d22'
+const GRID = 'rgba(255, 255, 255, 0.07)'
+const TICK = 'rgba(255, 255, 255, 0.55)'
+const MARKER = 'rgba(236, 233, 239, 0.4)'
+const GREY = 'rgba(236, 233, 239, 0.24)'
+const SHARE = 'rgba(255, 255, 255, 0.92)'
+const FADED = 0.18
+const halo = {
+  paintOrder: 'stroke' as const,
+  stroke: PANEL,
+  strokeWidth: 3,
+  strokeLinejoin: 'round' as const,
+}
+
+const pathOf = (
+  values: number[],
+  x: (i: number) => number,
+  y: (v: number) => number,
+) =>
+  'M' + values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('L')
 
 /**
- * The y-axis title, centred on the axis and as large as the axis is tall: on
- * a short chart (the analysis page's sidebar with the players' bars, 1280x720)
- * the full title at 14px ran off the top.
+ * The Moves by Rating chart: each move's probability at every rating from 600
+ * to 2600, the moves that matter at the chosen rating in colour (see
+ * movesByRatingLayout). Hovering (or tapping) a move brings it to the front
+ * and fades the others; the readout lists every move at the rating under the
+ * pointer.
  */
-const YAxisTitle = ({
-  viewBox,
-  fontSize,
-}: {
-  viewBox?: { x: number; y: number; width: number; height: number }
-  fontSize: number
-}) => {
-  if (!viewBox) return null
-  const fit = (text: string) =>
-    Math.min(fontSize, viewBox.height / (text.length * Y_TITLE_CHAR_EM))
-  const full = fit(Y_TITLE) >= Y_TITLE_MIN_PX
-  const text = full ? Y_TITLE : Y_TITLE_SHORT
-  const x = viewBox.x + 15
-  const y = viewBox.y + viewBox.height / 2
-  return (
-    <text
-      x={x}
-      y={y}
-      transform={`rotate(-90 ${x} ${y})`}
-      textAnchor="middle"
-      dominantBaseline="central"
-      fill="#FE7F6D"
-      fontWeight={600}
-      fontSize={fit(text)}
-    >
-      {text}
-    </text>
-  )
-}
-
 export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
   displayedMoves,
   moveKeys,
   displayedColorSanMapping,
-  isHomePage,
-  displayedPositionKey,
+  selectedRating = 1500,
+  stockfishBest,
 }) => {
-  const { isMobile } = useContext(WindowSizeContext)
-  const lastRenderedPositionKeyRef = useRef(displayedPositionKey)
-  const shouldAnimateSeries =
-    !!displayedPositionKey &&
-    displayedPositionKey !== lastRenderedPositionKeyRef.current
+  const box = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ w: 0, h: 0 })
+  const [hover, setHover] = useState<{
+    i: number
+    move: string | null
+  } | null>(null)
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
 
   useEffect(() => {
-    if (!displayedPositionKey) return
-    lastRenderedPositionKeyRef.current = displayedPositionKey
-  }, [displayedPositionKey])
+    const el = box.current
+    if (!el) return
+    const measure = () =>
+      setSize({
+        w: Math.floor(el.clientWidth),
+        h: Math.floor(el.clientHeight),
+      })
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
-  const maxValue = displayedMoves
-    ? Math.max(
-        ...displayedMoves.flatMap((move) =>
-          Object.entries(move)
-            .filter(([key]) => key !== 'rating')
-            .map(([, value]) => value as number),
-        ),
-      )
-    : 100
+  // The ratings the data has (600-2600 on the analysis page; the home page's
+  // demo has 1100-1900).
+  const ratings = useMemo(
+    () =>
+      [...new Set((displayedMoves ?? []).map((row) => Number(row.rating)))]
+        .filter((r) => Number.isFinite(r))
+        .sort((a, b) => a - b),
+    [displayedMoves],
+  )
+  const lines = useMemo<ChartLine[]>(() => {
+    if (ratings.length < 2) return []
+    const byRating = new Map(
+      (displayedMoves ?? []).map((row) => [Number(row.rating), row]),
+    )
+    return moveKeys
+      .filter((key) => displayedColorSanMapping[key])
+      .map((key) => ({
+        key,
+        san: displayedColorSanMapping[key].san,
+        color: displayedColorSanMapping[key].color,
+        values: ratings.map((r) => Number(byRating.get(r)?.[key]) || 0),
+      }))
+  }, [displayedMoves, ratings, moveKeys, displayedColorSanMapping])
 
-  const domainMax = maxValue > 60 ? 100 : 60
-  const domain = [0, domainMax]
+  const layout = useMemo(
+    () =>
+      size.w > 120 && size.h > 80 && lines.length
+        ? buildLayout(
+            lines,
+            selectedRating,
+            stockfishBest,
+            size.w,
+            size.h,
+            ratings,
+          )
+        : null,
+    [lines, selectedRating, stockfishBest, size, ratings],
+  )
+
+  useEffect(() => setHover(null), [displayedMoves])
+
+  const names = useMemo(
+    () =>
+      Object.fromEntries(lines.map((l) => [l.key, nameColor(l.color, PANEL)])),
+    [lines],
+  )
+
+  if (!layout) {
+    return <div ref={box} className="relative min-h-0 w-full flex-1" />
+  }
+
+  const { x, y, index, focus, grey, kept, last } = layout
+  const lineOf = Object.fromEntries(kept.map((l) => [l.key, l]))
+  const hot = hover?.move ?? null
+  const opacity = (key: string) => (!hot || hot === key ? 1 : FADED)
+  // The hovered move is drawn last, on top of the others.
+  const onTop = (a: ChartLine, b: ChartLine) =>
+    Number(a.key === hot) - Number(b.key === hot)
+  const focusOrder = [...focus].sort(onTop)
+  const greyOrder = [...grey].sort(onTop)
+
+  const onPointer = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const vx = e.clientX - r.left
+    const vy = e.clientY - r.top
+    let i = 0
+    for (let k = 1; k <= last; k++) {
+      if (Math.abs(x(k) - vx) < Math.abs(x(i) - vx)) i = k
+    }
+    const named = (e.target as Element)
+      .closest?.('[data-move]')
+      ?.getAttribute('data-move')
+    setHover({ i, move: named ?? nearestMove(layout, vx, vy) })
+  }
+
+  const readout = hover
+    ? [...kept].sort((a, b) => b.values[hover.i] - a.values[hover.i])
+    : []
+  const tipX = hover ? x(hover.i) : 0
+  const tipOnLeft = tipX > layout.width / 2
 
   return (
-    <ResponsiveContainer width="100%" height="90%">
-      <AreaChart
-        data={displayedMoves}
-        margin={{
-          left: 0,
-          right: isMobile ? 40 : 50,
-          bottom: 0,
-          top: isMobile ? 5 : 0,
-        }}
+    <div ref={box} className="relative min-h-0 w-full flex-1">
+      <svg
+        width={layout.width}
+        height={layout.height}
+        className="block touch-pan-y select-none"
+        role="img"
+        aria-label={`Moves by rating at Maia ${selectedRating}: ${focus
+          .map((l) => `${l.san} ${shareText(l.values[index])}`)
+          .join(', ')}`}
+        onPointerMove={onPointer}
+        onPointerDown={onPointer}
+        onPointerLeave={() => setHover(null)}
       >
-        <CartesianGrid strokeDasharray="3 3" stroke="#3C3C3C" />
-        <XAxis
-          dataKey="rating"
-          axisLine={false}
-          tick={{
-            fill: 'white',
-            fontSize: 11,
-          }}
-          tickMargin={4}
-          ticks={
-            isMobile
-              ? [600, 1000, 1400, 1800, 2200, 2600]
-              : [600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600]
-          }
-        />
-        <YAxis
-          yAxisId="left"
-          orientation="left"
-          axisLine={false}
-          domain={domain}
-          tick={{
-            fill: 'white',
-            fontSize: 11,
-          }}
-          label={<YAxisTitle fontSize={isHomePage ? 12 : 14} />}
-          tickCount={isMobile ? 4 : 5}
-          tickMargin={isMobile ? 1 : 2}
-          tickLine={false}
-          tickFormatter={(value) => `${value}%`}
-        />
         <defs>
-          {displayedMoves &&
-            moveKeys.map((move) => {
-              return (
-                <linearGradient
-                  key={`color${move}`}
-                  id={`color${move}`}
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="5%"
-                    stopColor={displayedColorSanMapping[move]?.color ?? '#fff'}
-                    stopOpacity={0.5}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={displayedColorSanMapping[move]?.color ?? '#fff'}
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-              )
-            })}
+          {focus.map((l) => (
+            <linearGradient
+              key={l.key}
+              id={`wash-${uid}-${l.key}`}
+              gradientUnits="userSpaceOnUse"
+              x1={0}
+              x2={0}
+              y1={Math.min(...l.values.map(y))}
+              y2={y(0)}
+            >
+              <stop offset="0%" stopColor={l.color} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={l.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
         </defs>
-        {displayedMoves &&
-          // First, collect all the end points and sort them by y-position
-          (() => {
-            const lastIndex = displayedMoves.length - 1
 
-            // Define the type for end points
-            interface EndPoint {
-              move: string
-              value: number
-              san: string
-              color: string
-              yPosition?: number // Actual y-coordinate after rendering
-              adjustment?: number
-            }
+        {layout.yTicks.map((t) => (
+          <g key={t}>
+            <line
+              x1={layout.left}
+              x2={layout.width - layout.right}
+              y1={y(t)}
+              y2={y(t)}
+              stroke={GRID}
+              shapeRendering="crispEdges"
+            />
+            <text
+              x={layout.left - 5}
+              y={y(t)}
+              textAnchor="end"
+              dominantBaseline="central"
+              fill={TICK}
+              fontSize={10}
+            >
+              {t}%
+            </text>
+          </g>
+        ))}
+        {layout.xTicks.map((r) => (
+          <text
+            key={r}
+            x={x(layout.ratings.indexOf(r))}
+            y={layout.height - 5}
+            textAnchor="middle"
+            fill={TICK}
+            fontSize={10}
+          >
+            {r}
+          </text>
+        ))}
 
-            const endPoints = moveKeys
-              .map((move) => {
-                const value = displayedMoves[lastIndex][move] as number
-                return {
-                  move,
-                  value,
-                  san: displayedColorSanMapping[move]?.san || move,
-                  color: displayedColorSanMapping[move]?.color ?? '#fff',
-                } as EndPoint
-              })
-              .sort((a, b) => a.value - b.value) // Sort by value (y-position)
+        {[...focus].reverse().map((l) => (
+          <path
+            key={l.key}
+            d={pathOf(l.values, x, y) + `L${x(last)},${y(0)}L${x(0)},${y(0)}Z`}
+            fill={`url(#wash-${uid}-${l.key})`}
+            opacity={!hot || hot === l.key ? 1 : 0.15}
+          />
+        ))}
 
-            // Return the original map function with adjusted positions
-            return moveKeys.map((move, index) => {
-              const endPoint = endPoints.find((ep) => ep.move === move)
-              const san = endPoint?.san || move
+        <line
+          x1={x(index)}
+          x2={x(index)}
+          y1={layout.top - 4}
+          y2={y(0)}
+          stroke={MARKER}
+          shapeRendering="crispEdges"
+        />
+        <text
+          x={x(index) + (layout.markerTitleLeft ? -5 : 5)}
+          y={layout.top - 6}
+          textAnchor={layout.markerTitleLeft ? 'end' : 'start'}
+          fill={TICK}
+          fontSize={10}
+          style={halo}
+        >
+          Maia {selectedRating}
+        </text>
 
-              return (
-                <Area
-                  key={index}
-                  yAxisId="left"
-                  dataKey={move}
-                  dot={{
-                    r: isMobile ? 2 : 3,
-                    stroke: displayedColorSanMapping[move]?.color ?? '#fff',
-                    strokeWidth: isMobile ? 2 : 3,
-                  }}
-                  stroke={displayedColorSanMapping[move]?.color ?? '#fff'}
-                  fill={`url(#color${move})`}
-                  strokeWidth={isMobile ? 2 : 3}
-                  animationDuration={300}
-                  isAnimationActive={shouldAnimateSeries}
-                  name={san}
-                  label={(props: {
-                    x: number
-                    y: number
-                    index: number
-                    width: number
-                    height: number
-                  }) => {
-                    if (props.index !== lastIndex) return null
+        {greyOrder.map((l) => (
+          <path
+            key={l.key}
+            data-move={l.key}
+            d={pathOf(l.values, x, y)}
+            fill="none"
+            stroke={hot === l.key ? l.color : GREY}
+            strokeWidth={hot === l.key ? 2 : 1}
+            strokeLinejoin="round"
+            opacity={opacity(l.key)}
+          />
+        ))}
+        {focusOrder.map((l) => (
+          <g key={l.key} data-move={l.key} opacity={opacity(l.key)}>
+            <path
+              d={pathOf(l.values, x, y)}
+              fill="none"
+              stroke={l.color}
+              strokeWidth={
+                NESTED_WIDTHS[
+                  Math.min(focus.indexOf(l), NESTED_WIDTHS.length - 1)
+                ]
+              }
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+            <circle
+              cx={x(index)}
+              cy={y(l.values[index])}
+              r={3.5}
+              fill={l.color}
+              stroke={PANEL}
+              strokeWidth={1.5}
+            />
+          </g>
+        ))}
 
-                    if (endPoint) {
-                      endPoint.yPosition = props.y
-                    }
-
-                    const positionedEndPoints = endPoints.filter(
-                      (ep) => ep.yPosition !== undefined,
-                    )
-
-                    positionedEndPoints.sort(
-                      (a, b) => (a.yPosition || 0) - (b.yPosition || 0),
-                    )
-
-                    const currentIndex = positionedEndPoints.findIndex(
-                      (ep) => ep.move === move,
-                    )
-
-                    let adjustment = 0
-                    const minLabelHeight = isMobile ? 14 : 16
-
-                    if (currentIndex > 0) {
-                      const prevEndPoint = positionedEndPoints[currentIndex - 1]
-                      const prevY = prevEndPoint.yPosition || 0
-                      const prevAdjustment = prevEndPoint.adjustment || 0
-                      const adjustedPrevY = prevY - prevAdjustment
-
-                      if (props.y - adjustedPrevY < minLabelHeight) {
-                        adjustment =
-                          minLabelHeight - (props.y - adjustedPrevY) + 2
-                      }
-                    }
-
-                    if (endPoint) {
-                      endPoint.adjustment = adjustment
-                    }
-
-                    return (
-                      <text
-                        x={props.x + (isMobile ? 6 : 10)}
-                        y={props.y - adjustment}
-                        dy={isMobile ? 3 : 4}
-                        fontSize={11}
-                        fontWeight={600}
-                        fill={displayedColorSanMapping[move]?.color ?? '#fff'}
-                        textAnchor="start"
-                      >
-                        {san}
-                      </text>
-                    )
-                  }}
+        {layout.markerLabels.map((m) => {
+          const l = lineOf[m.key]
+          return (
+            <g key={m.key} data-move={m.key} opacity={opacity(m.key)}>
+              {m.y !== m.py ? (
+                <path
+                  d={`M${m.px + m.side * 3},${m.py - 3}L${m.px + m.side * 7},${m.y}`}
+                  fill="none"
+                  stroke={l.color}
+                  strokeWidth={1.25}
+                  strokeLinecap="round"
                 />
-              )
-            })
-          })()}
-        <Tooltip
-          content={({ payload }) => {
-            return (
-              <div
-                className="flex w-32 flex-col rounded-md border border-glass-border pb-2 text-white/90"
-                style={{
-                  background:
-                    'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), #171214',
-                }}
+              ) : null}
+              <text
+                x={m.x}
+                y={m.y}
+                textAnchor={m.side > 0 ? 'start' : 'end'}
+                dominantBaseline="central"
+                fontSize={11}
+                fontWeight={600}
+                style={halo}
               >
-                <div className="flex px-3 py-2">
-                  {payload ? (
-                    <p className="text-sm">{payload[0]?.payload.rating}</p>
-                  ) : null}
-                </div>
-                {payload?.map((point) => {
-                  const san = point.name
-                  const prob = Math.round((point.value as number) * 10) / 10
+                <tspan fill={names[m.key]}>{l.san}</tspan>
+                <tspan fill={SHARE} dx={4} fontWeight={500}>
+                  {shareText(l.values[index])}
+                </tspan>
+              </text>
+            </g>
+          )
+        })}
 
-                  return (
-                    <div
-                      key={san}
-                      className="flex items-center justify-between px-3"
-                    >
-                      <p
-                        style={{
-                          color: point.color ?? '#fff',
-                        }}
-                        className="text-xs"
-                      >
-                        {san}
-                      </p>
-                      <p
-                        style={{
-                          color: point.color ?? '#fff',
-                        }}
-                        className="font-mono text-xs"
-                      >
-                        {prob}%
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
-            )
+        {layout.rightLabels.map((r) => {
+          const l = lineOf[r.key]
+          return (
+            <g key={r.key} data-move={r.key} opacity={opacity(r.key)}>
+              {Math.abs(r.y - r.lineY) > 1 ? (
+                <path
+                  d={`M${x(last) + 3},${r.lineY}L${x(last) + 9},${r.y}`}
+                  fill="none"
+                  stroke={l.color}
+                  strokeWidth={1.25}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : null}
+              <text
+                x={x(last) + 12}
+                y={r.y}
+                dominantBaseline="central"
+                fontSize={11}
+                fontWeight={600}
+              >
+                <tspan fill={names[r.key]}>{l.san}</tspan>
+                {layout.edge ? (
+                  <tspan fill={SHARE} dx={4} fontWeight={500}>
+                    {shareText(l.values[index])}
+                  </tspan>
+                ) : null}
+              </text>
+            </g>
+          )
+        })}
+
+        {hover ? (
+          <line
+            x1={tipX}
+            x2={tipX}
+            y1={layout.top}
+            y2={y(0)}
+            stroke="rgba(236, 233, 239, 0.5)"
+            shapeRendering="crispEdges"
+            pointerEvents="none"
+          />
+        ) : null}
+      </svg>
+
+      {hover ? (
+        <div
+          className="pointer-events-none absolute flex w-32 flex-col rounded-md border border-glass-border pb-2 text-white/90"
+          style={{
+            top: layout.top,
+            left: tipOnLeft ? undefined : tipX + 12,
+            right: tipOnLeft ? layout.width - tipX + 12 : undefined,
+            background:
+              'radial-gradient(ellipse 110% 90% at 20% 10%, rgba(239, 68, 68, 0.10) 0%, rgba(239, 68, 68, 0.06) 35%, transparent 75%), #171214',
           }}
-        />
-        <Legend
-          align="right"
-          verticalAlign="top"
-          wrapperStyle={{
-            top: isMobile ? -10 : -14,
-            right: isMobile ? 10 : 20,
-            fontSize: 14,
-          }}
-          iconSize={0}
-          formatter={(value: string) => {
-            return displayedColorSanMapping[value as string]?.san ?? value
-          }}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
+        >
+          <p className="px-3 py-2 text-sm">{layout.ratings[hover.i]}</p>
+          {readout.map((l) => (
+            <div
+              key={l.key}
+              className="flex items-center justify-between px-3"
+              style={{ opacity: hot && hot !== l.key ? 0.4 : 1 }}
+            >
+              <p className="text-xs" style={{ color: names[l.key] }}>
+                {l.san}
+              </p>
+              <p className="text-xs font-semibold tabular-nums">
+                {shareText(l.values[hover.i])}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }

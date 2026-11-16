@@ -2,6 +2,7 @@ import {
   Highlight,
   BlunderMeter,
   MovesByRating,
+  ratingOfModel,
   SimplifiedAnalysisOverview,
   SimplifiedBlunderMeter,
 } from 'src/components/Analysis'
@@ -172,6 +173,10 @@ export const AnalysisSidebar: React.FC<Props> = ({
     moves: analysisEnabled ? controller.movesByRating : undefined,
     colorSanMapping: analysisEnabled ? controller.colorSanMapping : {},
     positionKey: analysisEnabled ? controller.currentNode?.fen : undefined,
+    selectedRating: ratingOfModel(controller.currentMaiaModel),
+    stockfishBest: analysisEnabled
+      ? controller.moveEvaluation?.stockfish?.model_move
+      : undefined,
   }
 
   const renderHeader = (
