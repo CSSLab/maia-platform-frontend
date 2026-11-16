@@ -1,5 +1,6 @@
 import { Chess } from 'chess.ts'
-import { fetchOpeningBookMoves } from 'src/api'
+import { fetchOpeningBook } from 'src/api'
+import { blendWithBook } from 'src/lib/openingBook'
 import { startTransition, useEffect, useContext, useRef, useState } from 'react'
 import {
   analysisMaiaStage,
@@ -34,9 +35,18 @@ const STOCKFISH_RENDER_INTERVAL_MS = 150
  * inference, and the last position's moves came later.
  */
 const ANALYSIS_DELAY_MS = 50
-// Longest wait for the opening book before showing Maia's own moves. The
-// book usually answers in 0.1-0.3s, sooner than Maia itself.
-const OPENING_BOOK_TIMEOUT_MS = 2500
+
+/**
+ * The opening book (every rating, 600-2600; 362,000 positions with at least
+ * 200 games in six months of Lichess blitz, rapid and classical) has the
+ * positions of the first five moves (plies 0-10). Blended with Maia, it
+ * predicted held-out players' moves there better than Maia alone at every
+ * rating (loss 1.468 vs 1.521 nats, top-1 51.7% vs 50.4%), and its
+ * moves-by-rating curves are as smooth as Maia's. Maia's moves wait for it
+ * at most this long; it usually answers well before Maia does.
+ */
+const BOOK_LAST_MOVE = 5
+const OPENING_BOOK_TIMEOUT_MS = 1500
 
 export const useEngineAnalysis = (
   currentNode: GameNode | null,
@@ -125,28 +135,6 @@ export const useEngineAnalysis = (
     return maiaEvaluations
   }
 
-  // The book only reorders Maia's moves in the opening: if it fails (offline,
-  // or the server down) or is slow, Maia's own moves are shown instead of
-  // none at all.
-  async function fetchOpeningBook(board: Chess) {
-    let timer: number | undefined
-    try {
-      return await Promise.race([
-        fetchOpeningBookMoves(board.fen()),
-        new Promise<null>((resolve) => {
-          timer = window.setTimeout(
-            () => resolve(null),
-            OPENING_BOOK_TIMEOUT_MS,
-          )
-        }),
-      ])
-    } catch {
-      return null
-    } finally {
-      window.clearTimeout(timer)
-    }
-  }
-
   useEffect(() => {
     if (!currentNode || !enabled) return
 
@@ -214,9 +202,15 @@ export const useEngineAnalysis = (
       inProgressAnalyses.add(nodeFen)
 
       try {
-        const openingBookPromise =
-          currentNode.moveNumber <= 5
-            ? fetchOpeningBook(board)
+        // In the first five moves every rating's moves are Maia's blended
+        // with the opening book at that rating (lib/openingBook). The old
+        // book replaced Maia's moves at 1100-1900 only, its only ratings, so
+        // the moves-by-rating chart stepped at 1000 -> 1100 and 1900 -> 2000
+        // (6 points for the median position of its common lines, up to 32;
+        // Maia's own step there is 1.5) with a plateau between.
+        const bookPromise =
+          currentNode.moveNumber <= BOOK_LAST_MOVE
+            ? fetchOpeningBook(nodeFen, OPENING_BOOK_TIMEOUT_MS)
             : Promise.resolve(null)
 
         for (const stage of stages) {
@@ -225,7 +219,7 @@ export const useEngineAnalysis = (
           )
           if (missing.length === 0) continue
 
-          let maiaEvaluations: { [key: string]: MaiaEvaluation } = {}
+          const maiaEvaluations: { [key: string]: MaiaEvaluation } = {}
           try {
             for (let i = 0; i < missing.length; i += MAIA_BATCH_SIZE) {
               Object.assign(
@@ -244,29 +238,22 @@ export const useEngineAnalysis = (
 
           if (maiaCancelled) return
 
-          const openingBookMoves = await openingBookPromise
-
-          if (openingBookMoves && currentNode.moveNumber <= 5) {
-            const analysis: { [key: string]: MaiaEvaluation } = {}
+          const book = await bookPromise
+          if (maiaCancelled) return
+          if (book) {
             for (const model of missing) {
-              const policySource = Object.keys(openingBookMoves[model] || {})
-                .length
-                ? openingBookMoves[model]
-                : maiaEvaluations[model].policy
-
-              const sortedPolicy = Object.entries(policySource).sort(
-                ([, a], [, b]) => (b as number) - (a as number),
-              )
-
-              analysis[model] = {
-                value: maiaEvaluations[model].value,
-                policy: Object.fromEntries(
-                  sortedPolicy,
+              const rating = MAIA_RATINGS[MAIA_MODELS.indexOf(model)]
+              maiaEvaluations[model] = {
+                ...maiaEvaluations[model],
+                policy: blendWithBook(
+                  maiaEvaluations[model].policy,
+                  book,
+                  rating,
                 ) as MaiaEvaluation['policy'],
               }
             }
-            maiaEvaluations = analysis
           }
+
           currentNode.addMaiaAnalysis(
             { ...currentNode.analysis.maia, ...maiaEvaluations },
             currentMaiaModel,

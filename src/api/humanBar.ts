@@ -5,6 +5,7 @@ import {
   HumanBarProfile,
   HumanBarRequest,
   HumanBarResponse,
+  OpeningBook,
 } from 'src/types'
 
 /** The bars of a few positions take well under a second; allow for a busy server. */
@@ -174,4 +175,32 @@ export const fetchAnyPositionBars = async (
     throw new Error('Unexpected response from the human-bar server')
   }
   return data
+}
+
+/**
+ * The opening book at every rating for a position (GET /v1/book), or null
+ * when the book doesn't have it, the bars server is off or doesn't answer
+ * within `timeoutMs`: Maia's own moves are then shown.
+ */
+export const fetchOpeningBook = async (
+  fen: string,
+  timeoutMs: number,
+): Promise<OpeningBook | null> => {
+  const baseUrl = getHumanBarBaseUrl()
+  if (!baseUrl) return null
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(
+      `${baseUrl}/v1/book?${new URLSearchParams({ fen })}`,
+      { signal: controller.signal },
+    )
+    if (!res.ok) return null
+    const book = (await res.json()) as OpeningBook
+    return book && Object.keys(book.moves ?? {}).length ? book : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
 }

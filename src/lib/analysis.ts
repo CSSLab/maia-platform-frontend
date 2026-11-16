@@ -288,17 +288,20 @@ export const applyEngineAnalysisData = (
 ): void => {
   const mainLine = gameTree.getMainLine()
 
+  // Stored Maia isn't put back: the analysis page runs Maia again. What is
+  // stored carries no model version and is never replaced once there, and
+  // some of it isn't Maia-3's: until 11-16 the first five moves stored the
+  // opening book's shares at 1100-1900 (the book has no other ratings), and
+  // games analysed before Maia-3 (03-27) stored Maia-2 at those ratings, to which
+  // Maia-3 then added the rest. Either showed in the moves-by-rating chart as
+  // a plateau between 1100 and 1900.
   analysisData.forEach((positionData) => {
-    const { ply, maia, stockfish } = positionData
+    const { ply, stockfish } = positionData
 
     if (ply >= 0 && ply < mainLine.length) {
       const node = mainLine[ply]
 
       if (node.fen === positionData.fen) {
-        if (maia) {
-          node.addMaiaAnalysis(maia)
-        }
-
         if (stockfish) {
           const stockfishEval = reconstructCachedStockfishAnalysis(
             stockfish.cp_vec,
