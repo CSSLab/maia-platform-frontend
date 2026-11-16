@@ -70,6 +70,10 @@ export interface Layout {
   markerLabels: MarkerLabel[]
   rightLabels: { key: string; y: number; lineY: number }[]
   markerTitleLeft: boolean
+  /** Font size of the moves' names and shares (px). */
+  nameSize: number
+  /** The y-axis title, as large as the axis is tall allows. */
+  yTitle: { text: string; size: number; x: number; y: number }
   yTicks: number[]
   xTicks: number[]
 }
@@ -99,8 +103,13 @@ export const spread = <T extends { y: number }>(
 export const shareText = (v: number) =>
   (v < 0.05 ? '<0.1' : v >= 9.95 ? String(Math.round(v)) : v.toFixed(1)) + '%'
 
-/** An estimate of a name-and-share label's width at 11px. */
-const labelWidth = (text: string) => 6.6 * text.length + 4
+/** An estimate of a semibold label's width (0.64 em a character). */
+const labelWidth = (text: string, size: number) => 0.64 * size * text.length + 4
+
+const Y_TITLE = 'Maia Probability'
+const Y_TITLE_SHORT = 'Maia %'
+const Y_TITLE_MAX_PX = 13
+const Y_TITLE_MIN_PX = 10
 
 export const buildLayout = (
   lines: ChartLine[],
@@ -128,8 +137,22 @@ export const buildLayout = (
   const focus = ranked.filter((l) => focusSet.has(l))
   const grey = kept.filter((l) => !focusSet.has(l))
 
-  const left = 40
-  const right = edge ? 74 : 50
+  // Names at 13px (12px on a narrow chart): the old chart's legend named the
+  // moves at 14px, its line ends at 11px, which read small.
+  const nameSize = width < 380 ? 12 : 13
+  const left = 54
+  // Room at the right for the longest name (and its share at the edge).
+  const right =
+    20 +
+    Math.max(
+      24,
+      ...focus.map((l) =>
+        labelWidth(
+          edge ? `${l.san} ${shareText(l.values[index])}` : l.san,
+          nameSize,
+        ),
+      ),
+    )
   const top = 14
   const bottom = 20
   const domain = Math.max(0, ...kept.flatMap((l) => l.values)) > 60 ? 100 : 60
@@ -154,16 +177,16 @@ export const buildLayout = (
   if (!edge) {
     for (const l of focus) {
       const text = `${l.san} ${shareText(l.values[index])}`
-      const tw = labelWidth(text)
-      const th = 13
+      const tw = labelWidth(text, nameSize)
+      const th = nameSize + 3
       const py = y(l.values[index])
       const spots: [1 | -1, number][] = [
         [prefer, 0],
         [-prefer as 1 | -1, 0],
-        [prefer, -11],
-        [-prefer as 1 | -1, -11],
-        [prefer, -20],
-        [-prefer as 1 | -1, -20],
+        [prefer, -(nameSize + 1)],
+        [-prefer as 1 | -1, -(nameSize + 1)],
+        [prefer, -(2 * nameSize)],
+        [-prefer as 1 | -1, -(2 * nameSize)],
       ]
       for (const [side, dy] of spots) {
         const cy = py + dy
@@ -211,10 +234,23 @@ export const buildLayout = (
 
   const rightLabels = spread(
     focus.map((l) => ({ key: l.key, y: y(l.values[last]) })),
-    12,
+    nameSize + 2,
     top,
     height - bottom,
   ).map((it) => ({ key: it.key, y: it.ly, lineY: it.y }))
+
+  // The axis title is centred on the axis, as large as it is tall allows, and
+  // shortened on a short chart.
+  const axisHeight = height - top - bottom
+  const fit = (text: string) =>
+    Math.min(Y_TITLE_MAX_PX, axisHeight / (text.length * 0.6))
+  const yTitleText = fit(Y_TITLE) >= Y_TITLE_MIN_PX ? Y_TITLE : Y_TITLE_SHORT
+  const yTitle = {
+    text: yTitleText,
+    size: fit(yTitleText),
+    x: 9,
+    y: top + axisHeight / 2,
+  }
 
   const short = height < 200
   const yTicks =
@@ -253,6 +289,8 @@ export const buildLayout = (
     markerLabels,
     rightLabels,
     markerTitleLeft,
+    nameSize,
+    yTitle,
     yTicks,
     xTicks,
   }

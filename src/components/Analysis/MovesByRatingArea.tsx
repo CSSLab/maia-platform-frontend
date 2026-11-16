@@ -208,12 +208,24 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
               textAnchor="end"
               dominantBaseline="central"
               fill={TICK}
-              fontSize={10}
+              fontSize={11}
             >
               {t}%
             </text>
           </g>
         ))}
+        <text
+          x={layout.yTitle.x}
+          y={layout.yTitle.y}
+          transform={`rotate(-90 ${layout.yTitle.x} ${layout.yTitle.y})`}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="#FE7F6D"
+          fontWeight={600}
+          fontSize={layout.yTitle.size}
+        >
+          {layout.yTitle.text}
+        </text>
         {layout.xTicks.map((r) => (
           <text
             key={r}
@@ -221,7 +233,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
             y={layout.height - 5}
             textAnchor="middle"
             fill={TICK}
-            fontSize={10}
+            fontSize={11}
           >
             {r}
           </text>
@@ -310,7 +322,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                 y={m.y}
                 textAnchor={m.side > 0 ? 'start' : 'end'}
                 dominantBaseline="central"
-                fontSize={11}
+                fontSize={layout.nameSize}
                 fontWeight={600}
                 style={halo}
               >
@@ -341,7 +353,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                 x={x(last) + 12}
                 y={r.y}
                 dominantBaseline="central"
-                fontSize={11}
+                fontSize={layout.nameSize}
                 fontWeight={600}
               >
                 <tspan fill={names[r.key]}>{l.san}</tspan>
