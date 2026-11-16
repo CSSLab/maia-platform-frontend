@@ -23,7 +23,7 @@ import {
 import {
   FALLBACK_DEPTH,
   FALLBACK_NODES,
-  PARENT_LINE_MIN_DEPTH,
+  kidStage,
   SITE_EVAL_FINAL_DEPTH,
   SITE_EVAL_MIN_DEPTH,
   siteEvalOf,
@@ -60,7 +60,7 @@ import type { GameNode, GameTree, MaiaEngine } from 'src/types'
 /** The site marks a move once its search of the position before it is this deep (GameNode's own classification). */
 const MARK_DEPTH = 12
 /** Maia batches for the priced moves, kept small: the site's own Maia request waits for one in flight. */
-const KID_MAIA_BATCH = 4
+const KID_MAIA_BATCH = 2
 /** The endpoint's limit on positions per request. */
 const MAX_POSITIONS = 32
 const RETRY_AFTER_MS = 30000
@@ -69,6 +69,8 @@ const IDLE_MS = 1500
 
 interface Priced {
   chances: Map<string, number>
+  /** The depth of the eval behind each chance (deeper wins: priced again at a later kidStage). */
+  depths: Map<string, number>
   likely: string[]
   /** Maia's likely moves are known (the policy was read). */
   hasLikely: boolean
@@ -87,22 +89,22 @@ const markingSearch = (node: GameNode) => {
 }
 
 /**
- * The eval of the position after `uci` for its side to move, as the players'
- * bars take it: the position's own site eval if the move was played and
- * searched, else the site's line for the move at the position before it
- * (this page's engine, not the shared cache), else the bars' small search.
+ * The deepest eval on hand, without searching, of the position after `uci`
+ * for its side to move: the position's own site eval if the move was played
+ * and searched, or the site's line for the move at the position before it
+ * (this page's engine, not the shared cache); null if there is none.
  */
-const evalAfter = async (
+const evalOnHand = (
   parent: GameNode,
   uci: string,
   fen: string,
   child: GameNode | undefined,
-  signal: AbortSignal,
-): Promise<{ cp: number; depth: number }> => {
+): { cp: number; depth: number } | null => {
   const over = gameOverEval(fen)
   if (over !== null) return { cp: over, depth: SITE_EVAL_FINAL_DEPTH }
+  let best: { cp: number; depth: number } | null = null
   const own = child ? siteEvalOf(child) : null
-  if (own) return { cp: own.cp, depth: own.depth }
+  if (own) best = { cp: own.cp, depth: own.depth }
   const sf = parent.analysis?.stockfish
   if (sf && !sf.from_cache && sf.depth >= SITE_EVAL_MIN_DEPTH) {
     const line = sf.cp_vec?.[uci]
@@ -110,9 +112,9 @@ const evalAfter = async (
     if (
       line !== undefined &&
       Number.isFinite(line) &&
-      depth >= PARENT_LINE_MIN_DEPTH
+      (!best || depth > best.depth)
     ) {
-      return {
+      best = {
         cp: evalAfterMoveFromLine(
           line,
           sf.mate_vec?.[uci],
@@ -122,15 +124,55 @@ const evalAfter = async (
       }
     }
   }
+  return best
+}
+
+/**
+ * The eval a move is priced from: the deepest on hand when it is at least as
+ * deep as the bars' own search (the floor, practical LOG §98), else that
+ * search.
+ */
+const evalAfter = async (
+  parent: GameNode,
+  uci: string,
+  fen: string,
+  child: GameNode | undefined,
+  signal: AbortSignal,
+): Promise<{ cp: number; depth: number }> => {
+  const onHand = evalOnHand(parent, uci, fen, child)
+  if (onHand && kidStage(onHand.depth) >= 1) return onHand
   const engine = await fallbackEngine()
   const result = await engine.evaluate(fen, FALLBACK_NODES, signal)
   return { cp: encodeSideToMoveScore(result), depth: FALLBACK_DEPTH }
 }
 
+/** The depth of the deepest eval on hand after `uci` (as evalOnHand, without building the position); -1 if none. */
+const depthOnHand = (parent: GameNode, uci: string) => {
+  const child = parent.children.find((c) => c.move === uci)
+  let depth = (child ? siteEvalOf(child)?.depth : undefined) ?? -1
+  const sf = parent.analysis?.stockfish
+  if (sf && !sf.from_cache && sf.depth >= SITE_EVAL_MIN_DEPTH) {
+    const line = sf.cp_vec?.[uci]
+    if (line !== undefined && Number.isFinite(line)) {
+      depth = Math.max(depth, sf.root_move_depth_vec?.[uci] ?? sf.depth)
+    }
+  }
+  return depth
+}
+
+/** The moves priced at `parent` with a deeper eval on hand at a later stage than their chance's: priced again (deeper wins). */
+const deeperOnHand = (parent: GameNode, entry: Priced) =>
+  [...entry.depths].flatMap(([uci, was]) =>
+    kidStage(was) < 2 && kidStage(depthOnHand(parent, uci)) > kidStage(was)
+      ? [uci]
+      : [],
+  )
+
 /**
  * Prices at `parent` Maia's likely moves, Stockfish's best and `moves` (those
- * not priced yet): their evals, Maia's reads at `rating`, one request.
- * Returns whether it got anything new (the likely moves or a move's chance).
+ * not priced yet, and again those with a deeper eval on hand): their evals,
+ * Maia's reads at `rating`, one request. Returns whether it got anything new
+ * (the likely moves, a move's chance, or a deeper one).
  */
 const priceAt = async (
   maia: NonNullable<MaiaEngine['maia']>,
@@ -139,14 +181,17 @@ const priceAt = async (
   rating: number,
   timeControl: string | null,
   signal: AbortSignal,
+  /** Resolves once the bar of the position on screen is in (searches and Maia reads wait for it). */
+  yieldToBar: () => Promise<void>,
 ): Promise<boolean> => {
   const key = keyOf(parent.fen, rating, timeControl)
   const entry: Priced = priced.get(key) ?? {
     chances: new Map(),
+    depths: new Map(),
     likely: [],
     hasLikely: false,
   }
-  const before = entry.chances.size + (entry.hasLikely ? 1 : 0)
+  let progressed = !entry.hasLikely
   if (!entry.hasLikely) {
     const [read] = await readMaiaAt(maia, [parent.fen], rating, {
       policy: true,
@@ -157,10 +202,11 @@ const priceAt = async (
     entry.hasLikely = true
   }
   const best = markingSearch(parent)?.model_move
+  const again = new Set(deeperOnHand(parent, entry))
   const want = [
     ...new Set([...moves, ...(best ? [best] : []), ...entry.likely]),
   ]
-    .filter((uci) => !entry.chances.has(uci))
+    .filter((uci) => !entry.chances.has(uci) || again.has(uci))
     .slice(0, MAX_POSITIONS)
   const kids = want.flatMap((uci) => {
     const child = parent.children.find((c) => c.move === uci)
@@ -170,10 +216,12 @@ const priceAt = async (
   if (kids.length > 0) {
     const evals: { cp: number; depth: number }[] = []
     for (const k of kids) {
+      await yieldToBar()
       evals.push(await evalAfter(parent, k.uci, k.fen, k.child, signal))
     }
     const reads: MaiaRead[] = []
     for (let i = 0; i < kids.length; i += KID_MAIA_BATCH) {
+      await yieldToBar()
       reads.push(
         ...(await readMaiaAt(
           maia,
@@ -202,14 +250,19 @@ const priceAt = async (
     const whiteMoves = parent.fen.split(' ')[1] === 'w'
     res.positions.forEach((bar, i) => {
       if (!kids[i]) return
-      entry.chances.set(
-        kids[i].uci,
-        100 * ((whiteMoves ? bar.W : bar.L) + bar.Dr / 2),
-      )
+      const { uci } = kids[i]
+      if (
+        (entry.depths.get(uci) ?? -1) < evals[i].depth ||
+        !entry.chances.has(uci)
+      ) {
+        progressed = true
+      }
+      entry.chances.set(uci, 100 * ((whiteMoves ? bar.W : bar.L) + bar.Dr / 2))
+      entry.depths.set(uci, evals[i].depth)
     })
   }
   remember(priced, key, entry)
-  return entry.chances.size + (entry.hasLikely ? 1 : 0) > before
+  return progressed
 }
 
 /** Every node of the tree, depth first from the start. */
@@ -277,7 +330,8 @@ const nextJob = (
       !entry ||
       !entry.hasLikely ||
       !entry.chances.has(move) ||
-      (!!sf.model_move && !entry.chances.has(sf.model_move))
+      (!!sf.model_move && !entry.chances.has(sf.model_move)) ||
+      deeperOnHand(parent, entry).length > 0
     if (!due) continue
     // Every move from there that needs a mark, in the one request.
     const moves = parent.children.flatMap((c) =>
@@ -340,6 +394,11 @@ export const useAnyPositionMarks = (
         const timer = setTimeout(done, IDLE_MS)
         wakeRef.current = done
       })
+    // A job under way pauses between its searches and Maia reads while the
+    // bar of the position on screen is on its way (they share the CPU).
+    const yieldToBar = async () => {
+      while (holdRef.current && !signal.aborted) await idle()
+    }
     const loop = async () => {
       while (!signal.aborted) {
         if (holdRef.current) {
@@ -366,6 +425,7 @@ export const useAnyPositionMarks = (
             rating,
             timeControl,
             signal,
+            yieldToBar,
           )
           if (signal.aborted) return
           // A round that added nothing (a move that makes no position)
