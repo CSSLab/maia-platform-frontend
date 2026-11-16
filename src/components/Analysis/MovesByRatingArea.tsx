@@ -22,6 +22,48 @@ export interface MovesByRatingAreaProps {
 
 // The Moves by Rating chart itself: recharts and its d3 helpers (~320 KB of
 // JavaScript, uncompressed), which MovesByRating loads after the page.
+const Y_TITLE = 'Maia Probability'
+const Y_TITLE_SHORT = 'Maia %'
+/** Width of a character of the title, as a share of its font size (semibold). */
+const Y_TITLE_CHAR_EM = 0.6
+/** The smallest font the title shrinks to before it shortens. */
+const Y_TITLE_MIN_PX = 10
+
+/**
+ * The y-axis title, centred on the axis and as large as the axis is tall: on
+ * a short chart (the analysis page's sidebar with the players' bars, 1280x720)
+ * the full title at 14px ran off the top.
+ */
+const YAxisTitle = ({
+  viewBox,
+  fontSize,
+}: {
+  viewBox?: { x: number; y: number; width: number; height: number }
+  fontSize: number
+}) => {
+  if (!viewBox) return null
+  const fit = (text: string) =>
+    Math.min(fontSize, viewBox.height / (text.length * Y_TITLE_CHAR_EM))
+  const full = fit(Y_TITLE) >= Y_TITLE_MIN_PX
+  const text = full ? Y_TITLE : Y_TITLE_SHORT
+  const x = viewBox.x + 15
+  const y = viewBox.y + viewBox.height / 2
+  return (
+    <text
+      x={x}
+      y={y}
+      transform={`rotate(-90 ${x} ${y})`}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fill="#FE7F6D"
+      fontWeight={600}
+      fontSize={fit(text)}
+    >
+      {text}
+    </text>
+  )
+}
+
 export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
   displayedMoves,
   moveKeys,
@@ -88,16 +130,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
             fill: 'white',
             fontSize: 11,
           }}
-          label={{
-            value: 'Maia Probability',
-            angle: -90,
-            fill: '#FE7F6D',
-            position: 'insideLeft',
-            dy: 46,
-            offset: 15,
-            fontWeight: 600,
-            fontSize: isHomePage ? 12 : 14,
-          }}
+          label={<YAxisTitle fontSize={isHomePage ? 12 : 14} />}
           tickCount={isMobile ? 4 : 5}
           tickMargin={isMobile ? 1 : 2}
           tickLine={false}
