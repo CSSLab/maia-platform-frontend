@@ -72,6 +72,75 @@ const levelOf = (r: number, v: VariantParams): number => {
   return Math.min(hi, Math.max(lo, m))
 }
 
+/**
+ * The levels the review evaluates Maia at. The other levels are filled in by
+ * monotone cubic (PCHIP) interpolation of log p (fillLevels). Against all 21
+ * levels this keeps the error and the ranges and moves the estimate ~5 points
+ * per game (maia3-private code/played_like/sparse_levels.py). 800 keeps the
+ * ranges honest below 1000.
+ */
+export const PLAYED_LIKE_EVAL_LEVELS: number[] = [
+  600, 800, 1100, 1500, 1900, 2300, 2600,
+]
+
+const sign = (v: number) => (v > 0 ? 1 : v < 0 ? -1 : 0)
+
+/** End-point slope, as scipy's PchipInterpolator. */
+const pchipEdge = (h0: number, h1: number, m0: number, m1: number) => {
+  const d = ((2 * h0 + h1) * m0 - h0 * m1) / (h0 + h1)
+  if (sign(d) !== sign(m0)) return 0
+  if (sign(m0) !== sign(m1) && Math.abs(d) > 3 * Math.abs(m0)) return 3 * m0
+  return d
+}
+
+/** Monotone cubic (Fritsch-Carlson) interpolation, as scipy's PchipInterpolator. */
+const pchip = (x: number[], y: number[], at: number[]): number[] => {
+  const n = x.length
+  const h = x.slice(1).map((v, k) => v - x[k])
+  const m = h.map((hk, k) => (y[k + 1] - y[k]) / hk)
+  const d = new Array<number>(n).fill(0)
+  if (n === 2) {
+    d[0] = d[1] = m[0]
+  } else {
+    for (let k = 1; k < n - 1; k++) {
+      if (sign(m[k - 1]) !== sign(m[k]) || m[k - 1] === 0 || m[k] === 0)
+        continue
+      const w1 = 2 * h[k] + h[k - 1]
+      const w2 = h[k] + 2 * h[k - 1]
+      d[k] = (w1 + w2) / (w1 / m[k - 1] + w2 / m[k])
+    }
+    d[0] = pchipEdge(h[0], h[1], m[0], m[1])
+    d[n - 1] = pchipEdge(h[n - 2], h[n - 3], m[n - 2], m[n - 3])
+  }
+  return at.map((v) => {
+    let k = 0
+    while (k < n - 2 && v > x[k + 1]) k++
+    const t = (v - x[k]) / h[k]
+    const t2 = t * t
+    const t3 = t2 * t
+    return (
+      (2 * t3 - 3 * t2 + 1) * y[k] +
+      (t3 - 2 * t2 + t) * h[k] * d[k] +
+      (-2 * t3 + 3 * t2) * y[k + 1] +
+      (t3 - t2) * h[k] * d[k + 1]
+    )
+  })
+}
+
+/**
+ * Maia's probability of the move at every level of PLAYED_LIKE_LEVELS, from
+ * its probability at `evalLevels` (PCHIP in log p).
+ */
+export const fillLevels = (
+  probsAtEvalLevels: number[],
+  evalLevels: number[] = PLAYED_LIKE_EVAL_LEVELS,
+): number[] =>
+  pchip(
+    evalLevels,
+    probsAtEvalLevels.map((p) => Math.log(Math.max(p, 1e-12))),
+    PLAYED_LIKE_LEVELS,
+  ).map((lp) => Math.min(1, Math.exp(lp)))
+
 export interface PlayedLikeMove {
   /** Index of the move in the game (0 = White's first move). */
   ply: number
@@ -310,21 +379,33 @@ export const estimatePlayedLike = (
   }
 }
 
-/** Maia's probability of `uci` at each level, from a position's Maia evaluations keyed maia_kdd_<level>. */
+/**
+ * Maia's probability of `uci` at every level, from a position's Maia
+ * evaluations keyed maia_kdd_<level>: all 21 levels when the analysis has
+ * them, otherwise filled in from PLAYED_LIKE_EVAL_LEVELS. Null when those
+ * aren't all there.
+ */
 export const probsByLevel = (
   maia: { [model: string]: { policy: { [move: string]: number } } } | undefined,
   uci: string,
-): { probs: number[]; nLegal: number } | null => {
+): { probs: number[]; nLegal: number; filled: boolean } | null => {
   if (!maia) return null
-  const probs: number[] = []
-  let nLegal = 0
-  for (const level of PLAYED_LIKE_LEVELS) {
-    const policy = maia[`maia_kdd_${level}`]?.policy
-    if (!policy) return null
-    probs.push(policy[uci] ?? 0)
-    nLegal = Math.max(nLegal, Object.keys(policy).length)
+  const read = (levels: number[]) => {
+    const probs: number[] = []
+    let nLegal = 0
+    for (const level of levels) {
+      const policy = maia[`maia_kdd_${level}`]?.policy
+      if (!policy) return null
+      probs.push(policy[uci] ?? 0)
+      nLegal = Math.max(nLegal, Object.keys(policy).length)
+    }
+    return { probs, nLegal }
   }
-  return { probs, nLegal }
+  const all = read(PLAYED_LIKE_LEVELS)
+  if (all) return { ...all, filled: false }
+  const some = read(PLAYED_LIKE_EVAL_LEVELS)
+  if (!some) return null
+  return { probs: fillLevels(some.probs), nLegal: some.nLegal, filled: true }
 }
 
 /**

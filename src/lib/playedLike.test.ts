@@ -1,10 +1,12 @@
 import {
+  PLAYED_LIKE_EVAL_LEVELS,
   PLAYED_LIKE_LEVELS,
   PLAYED_LIKE_MIN_MOVES,
   PlayedLikeMove,
   clockInputs,
   describeContribution,
   estimatePlayedLike,
+  fillLevels,
   probsByLevel,
   variantFor,
 } from './playedLike'
@@ -141,6 +143,67 @@ describe('parity with the Python reference (maia3-private code/played_like)', ()
         expect(top.ply).toBe(exp.top_ply)
         expect(top.shift).toBeCloseTo(exp.top_shift, 1)
         expect(top.typical).toBeCloseTo(exp.top_typical, 1)
+      })
+    })
+  })
+})
+
+describe('7 evaluated levels, filled in by PCHIP', () => {
+  it('fills like scipy', () => {
+    expect(parity.eval_levels).toEqual(PLAYED_LIKE_EVAL_LEVELS)
+    parity.fills.forEach((f) => {
+      const got = fillLevels(f.log_p_eval.map(Math.exp))
+      got.forEach((p, j) =>
+        expect(Math.log(p)).toBeCloseTo(f.log_p_filled[j], 9),
+      )
+    })
+  })
+
+  it('keeps the evaluated levels and stays between them', () => {
+    const at = [0.05, 0.08, 0.2, 0.31, 0.3, 0.42, 0.5]
+    const got = fillLevels(at)
+    expect(got).toHaveLength(PLAYED_LIKE_LEVELS.length)
+    PLAYED_LIKE_EVAL_LEVELS.forEach((l, i) =>
+      expect(got[PLAYED_LIKE_LEVELS.indexOf(l)]).toBeCloseTo(at[i], 12),
+    )
+    got.forEach((p) => {
+      expect(p).toBeGreaterThanOrEqual(0.05 - 1e-12)
+      expect(p).toBeLessThanOrEqual(0.5 + 1e-12)
+    })
+  })
+
+  it('falls back to the evaluated levels when the analysis has only those', () => {
+    const maia: { [k: string]: { policy: { [m: string]: number } } } = {}
+    PLAYED_LIKE_EVAL_LEVELS.forEach((l, i) => {
+      maia[`maia_kdd_${l}`] = { policy: { e2e4: 0.1 + i / 20, d2d4: 0.3 } }
+    })
+    const r = probsByLevel(maia, 'e2e4')!
+    expect(r.filled).toBe(true)
+    expect(r.probs).toHaveLength(PLAYED_LIKE_LEVELS.length)
+    expect(r.probs[PLAYED_LIKE_LEVELS.indexOf(1100)]).toBeCloseTo(0.2)
+    delete maia.maia_kdd_800
+    expect(probsByLevel(maia, 'e2e4')).toBeNull()
+  })
+
+  type Case = (typeof parity.cases)[number]
+  const evalIdx = PLAYED_LIKE_EVAL_LEVELS.map((l) =>
+    PLAYED_LIKE_LEVELS.indexOf(l),
+  )
+  parity.cases.forEach((c: Case, i: number) => {
+    ;(['book', 'sf', 'full'] as const).forEach((variant) => {
+      it(`matches the Python reference, case ${i}, ${variant}`, () => {
+        const exp = c.expected_eval_levels[variant]
+        const moves = (c.moves as PlayedLikeMove[]).map((m) => ({
+          ...m,
+          probs: fillLevels(evalIdx.map((j) => m.probs[j])),
+        }))
+        const e = estimatePlayedLike(moves, { variant })!
+        expect(e.mean).toBeCloseTo(exp.mean, 1)
+        expect(Math.abs(e.lo80 - exp.lo80)).toBeLessThanOrEqual(10)
+        expect(Math.abs(e.hi80 - exp.hi80)).toBeLessThanOrEqual(10)
+        expect(e.contributions[0].ply).toBe(exp.top_ply)
+        expect(e.contributions[0].shift).toBeCloseTo(exp.top_shift, 1)
+        expect(e.contributions[0].typical).toBeCloseTo(exp.top_typical, 1)
       })
     })
   })
