@@ -25,7 +25,6 @@ const PANEL = '#1e1d22'
 const GRID = 'rgba(255, 255, 255, 0.07)'
 const TICK = 'rgba(255, 255, 255, 0.55)'
 const MARKER = 'rgba(236, 233, 239, 0.4)'
-const SHARE = 'rgba(255, 255, 255, 0.92)'
 const FADED = 0.18
 // As SVG attributes, so the outline is painted under the text.
 const halo = {
@@ -45,9 +44,10 @@ const pathOf = (
 /**
  * The Moves by Rating chart: each move's probability at every rating from 600
  * to 2600, in the move's colour over a soft wash of it, named at the line's
- * end, at the chosen rating and at a strong peak (see movesByRatingLayout). Hovering (or tapping) a move brings it to the front
- * and fades the others; the readout lists every move at the rating under the
- * pointer.
+ * end and at a strong peak, its share beside its point at the chosen rating
+ * (see movesByRatingLayout). Hovering (or tapping) a move brings it to the
+ * front and fades the others; the readout lists every move at the rating
+ * under the pointer.
  */
 export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
   displayedMoves,
@@ -333,12 +333,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                 fontWeight={600}
                 {...halo}
               >
-                {m.shareOnly ? null : (
-                  <tspan fill={names[m.key]}>{l.san} </tspan>
-                )}
-                <tspan fill={SHARE} fontWeight={500}>
-                  {shareText(l.values[index])}
-                </tspan>
+                <tspan fill={names[m.key]}>{shareText(l.values[index])}</tspan>
               </text>
             </g>
           )

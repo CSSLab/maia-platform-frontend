@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Chess } from 'chess.ts'
 import { MAIA_MODELS } from 'src/constants/common'
 import { GameNode, MaiaEvaluation, StockfishEvaluation } from 'src/types'
-import { getVerboseMoves, sortStockfishMoves } from './utils'
+import { getVerboseMoves, moveTier, sortStockfishMoves } from './utils'
 
 /**
  * A rating's probability (0-1) of `move`: its own once Maia has answered for
@@ -31,24 +31,28 @@ export const ratingProbability = (
 /** The most moves the moves-by-rating chart draws. */
 export const MAX_CHART_MOVES = 6
 
-/** A natural move: at least 1 in 5 players play it at some rating. */
-export const NATURAL_SHARE = 0.2
+/** A natural move: at least 15% of players play it at some rating. */
+export const NATURAL_SHARE = 0.15
+
+/** A likely blunder: at least 1 in 20 players play it at some rating. */
+export const LIKELY_BLUNDER_SHARE = 0.05
 
 /**
  * The moves the moves-by-rating chart draws: Stockfish's best move, the most
- * played move, and every other move at least 1 in 5 players play at some
+ * played move, and every other move at least 15% of players play at some
  * rating; at most six, those with the highest share at some rating first.
- * Where only one or two moves are natural, only they (and Stockfish's best)
- * are drawn. The same moves at every rating in the Maia menu.
+ * Where there is room and none of them is a blunder (Stockfish's red: loses
+ * more than 10 points of win rate), also the most played blunder that at
+ * least 1 in 20 players play at some rating. The same moves at every rating
+ * in the Maia menu.
  *
  * On 10,000 positions of real games (a 23M Maia's moves at 700-2600,
- * interpolated to the chart's 21 ratings): 1 move 15%, 2 36%, 3 34%, 4 13%,
- * 5 2.3%, 6 0.1% (mean 2.5). Where the most played move has at least 70% at
- * every rating: 1 move 74%, 2 25%, 3 0.7%. Every move that is the most played
- * at some rating with at least 25% is drawn. Half the most played move's
- * share at each rating instead drew 6 in 9% (any move at a rating where
- * no move stands out), and the earlier rule (the menu rating's and
- * Stockfish's top 3 and each rating's top move, if 5% somewhere) up to 9.
+ * interpolated to the chart's 21 ratings): 1 move 7%, 2 23%, 3 31%, 4 25%,
+ * 5 11%, 6 3.3% (mean 3.2); a blunder drawn in 48% of positions, nearly all
+ * of those where one reaches 5% somewhere (22% only through the blunder
+ * rule). Where
+ * the most played move has at least 70% at every rating: 1 move 53%, 2 43%,
+ * 3 3.9%. With 20% and no blunder rule: mean 2.5, a blunder drawn in 20%.
  */
 export const chartMoves = (
   maia: { [model: string]: MaiaEvaluation },
@@ -58,17 +62,26 @@ export const chartMoves = (
   for (const model of MAIA_MODELS)
     for (const [move, p] of Object.entries(maia[model]?.policy ?? {}))
       if (p > (peak.get(move) ?? 0)) peak.set(move, p)
-  const human = [...peak.keys()]
-    .sort((a, b) => peak.get(b)! - peak.get(a)!)
-    .filter((move, i) => i === 0 || peak.get(move)! >= NATURAL_SHARE)
+  const byPeak = [...peak.keys()].sort((a, b) => peak.get(b)! - peak.get(a)!)
+  const human = byPeak.filter(
+    (move, i) => i === 0 || peak.get(move)! >= NATURAL_SHARE,
+  )
 
   const best = stockfish
     ? sortStockfishMoves(stockfish, Object.keys(stockfish.cp_vec))[0]
     : undefined
-  return (best ? [best, ...human.filter((m) => m !== best)] : human).slice(
-    0,
-    MAX_CHART_MOVES,
-  )
+  const moves = (
+    best ? [best, ...human.filter((m) => m !== best)] : human
+  ).slice(0, MAX_CHART_MOVES)
+
+  const isBlunder = (move: string) => moveTier(stockfish, move) === 'blunder'
+  if (moves.length < MAX_CHART_MOVES && !moves.some(isBlunder)) {
+    const blunder = byPeak.find(
+      (move) => isBlunder(move) && peak.get(move)! >= LIKELY_BLUNDER_SHARE,
+    )
+    if (blunder) moves.push(blunder)
+  }
+  return moves
 }
 
 /**

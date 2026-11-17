@@ -10,13 +10,15 @@
  * the Maia menu (the most played widest, underneath, each next one thinner on
  * top) so a move that runs along another still shows.
  *
- * Names, in the move's colour:
+ * Names, in the move's colour, at most twice:
  * - at the right end of every line;
- * - at the chosen rating, beside the move's point with its share, where that
- *   fits in clear space (no line through it, none between it and its point,
- *   no other name); bunched moves keep their share in the hover readout;
  * - at a strong peak inside the range (a move most played at middle ratings),
  *   just above it, where that fits.
+ * At the chosen rating, each move's share beside its point, in the move's
+ * colour (no name: the point is on a named line), where that fits in clear
+ * space (no line through
+ * it, none between it and its point, no other label); bunched moves keep
+ * their share in the hover readout.
  */
 
 export const RATINGS = Array.from({ length: 21 }, (_, i) => 600 + 100 * i)
@@ -50,11 +52,9 @@ export interface MarkerLabel {
   /** Where the text sits: its inner edge (x) and middle (y). */
   x: number
   y: number
-  /** The point it names. */
+  /** The point whose share it gives. */
   px: number
   py: number
-  /** At the last rating the name is already beside the point: share only. */
-  shareOnly: boolean
 }
 
 export interface PeakLabel {
@@ -121,6 +121,35 @@ export const shareText = (v: number) =>
 /** An estimate of a semibold label's width (0.64 em a character). */
 const labelWidth = (text: string, size: number) => 0.64 * size * text.length + 4
 
+/**
+ * The y axis's top: the smallest of these the moves fit under, so the axis
+ * takes one of a few familiar scales rather than a new one each position.
+ */
+export const Y_TOPS = [20, 40, 60, 80, 100]
+/** Each top's ticks: on a chart of normal height, and on a short one. */
+const Y_TICKS: Record<number, [number[], number[]]> = {
+  20: [
+    [0, 5, 10, 15, 20],
+    [0, 10, 20],
+  ],
+  40: [
+    [0, 10, 20, 30, 40],
+    [0, 20, 40],
+  ],
+  60: [
+    [0, 20, 40, 60],
+    [0, 30, 60],
+  ],
+  80: [
+    [0, 20, 40, 60, 80],
+    [0, 40, 80],
+  ],
+  100: [
+    [0, 25, 50, 75, 100],
+    [0, 50, 100],
+  ],
+}
+
 const Y_TITLE = 'Maia Probability'
 const Y_TITLE_SHORT = 'Maia %'
 const Y_TITLE_MAX_PX = 13
@@ -162,7 +191,8 @@ export const buildLayout = (
   const right = RIGHT
   const top = TOP
   const bottom = BOTTOM
-  const domain = Math.max(0, ...kept.flatMap((l) => l.values)) > 60 ? 100 : 60
+  const most = Math.max(0, ...kept.flatMap((l) => l.values))
+  const domain = Y_TOPS.find((t) => most <= t) ?? 100
   const x = (i: number) => left + (i / last) * (width - left - right)
   const y = (v: number) => top + (1 - v / domain) * (height - top - bottom)
   const lineAt = (l: ChartLine, px: number) => {
@@ -231,50 +261,12 @@ export const buildLayout = (
       : { l: x(index) + 5, r: x(index) + 67, t: top - 14, b: top - 3 },
   )
 
-  const markerLabels: MarkerLabel[] = []
-  const shareOnly = index === last
-  for (const l of kept) {
-    const text = shareOnly
-      ? shareText(l.values[index])
-      : `${l.san} ${shareText(l.values[index])}`
-    const tw = labelWidth(text, nameSize)
-    const py = y(l.values[index])
-    const sides: (1 | -1)[] = shareOnly ? [-1] : [prefer, -prefer as 1 | -1]
-    const spots: [1 | -1, number][] = [
-      0,
-      -(nameSize + 1),
-      -2 * nameSize,
-    ].flatMap((dy) => sides.map((side): [1 | -1, number] => [side, dy]))
-    for (const [side, dy] of spots) {
-      const cy = py + dy
-      const bx = side > 0 ? x(index) + 8 : x(index) - 8 - tw
-      const box = { l: bx, r: bx + tw, t: cy - th / 2, b: cy + th / 2 }
-      if (box.l < left - 4 || box.r > width - 2 || box.t < 2) continue
-      if (box.b > height - bottom) continue
-      if (overlaps(box) || !clear(box, l)) continue
-      placed.push(box)
-      markerLabels.push({
-        key: l.key,
-        side,
-        x: side > 0 ? box.l + 2 : box.r - 2,
-        y: cy,
-        px: x(index),
-        py,
-        shareOnly,
-      })
-      break
-    }
-  }
-
   // A strong peak inside the range is named just above it (never under a
-  // line), unless the move is already named beside that point.
+  // line). Names go before the shares at the chosen rating.
   const peakLabels: PeakLabel[] = []
   for (const l of kept) {
     const p = interiorPeak(l.values)
     if (p < 0) continue
-    if (Math.abs(p - index) <= 1 && markerLabels.some((m) => m.key === l.key)) {
-      continue
-    }
     const tw = labelWidth(l.san, nameSize)
     const tries = [0, -1, 1, -2, 2, -3, 3]
       .map((d) => p + d)
@@ -296,6 +288,39 @@ export const buildLayout = (
     }
   }
 
+  // Each move's share at the chosen rating, beside its point. At the last
+  // rating only to the left, where the right-end names aren't.
+  const markerLabels: MarkerLabel[] = []
+  for (const l of kept) {
+    const tw = labelWidth(shareText(l.values[index]), nameSize)
+    const py = y(l.values[index])
+    const sides: (1 | -1)[] =
+      index === last ? [-1] : [prefer, -prefer as 1 | -1]
+    const spots: [1 | -1, number][] = [
+      0,
+      -(nameSize + 1),
+      -2 * nameSize,
+    ].flatMap((dy) => sides.map((side): [1 | -1, number] => [side, dy]))
+    for (const [side, dy] of spots) {
+      const cy = py + dy
+      const bx = side > 0 ? x(index) + 8 : x(index) - 8 - tw
+      const box = { l: bx, r: bx + tw, t: cy - th / 2, b: cy + th / 2 }
+      if (box.l < left - 4 || box.r > width - 2 || box.t < 2) continue
+      if (box.b > height - bottom) continue
+      if (overlaps(box) || !clear(box, l)) continue
+      placed.push(box)
+      markerLabels.push({
+        key: l.key,
+        side,
+        x: side > 0 ? box.l + 2 : box.r - 2,
+        y: cy,
+        px: x(index),
+        py,
+      })
+      break
+    }
+  }
+
   // The axis title is centred on the axis, as large as it is tall allows,
   // shortened on a short chart, and kept well clear of the numbers.
   const axisHeight = height - top - bottom
@@ -309,15 +334,7 @@ export const buildLayout = (
     y: top + axisHeight / 2,
   }
 
-  const short = height < 200
-  const yTicks =
-    domain === 100
-      ? short
-        ? [0, 50, 100]
-        : [0, 25, 50, 75, 100]
-      : short
-        ? [0, 30, 60]
-        : [0, 20, 40, 60]
+  const yTicks = Y_TICKS[domain][height < 200 ? 1 : 0]
   // Every 400 points from the first rating (every 1000 on a narrow chart), and
   // the last.
   const first = ratings[0]

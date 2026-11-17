@@ -95,8 +95,8 @@ describe('chartMoves', () => {
     ])
   })
 
-  it('draws every move at least 1 in 5 players play at some rating', () => {
-    // d2d4 overtakes e2e4 at higher ratings, where c2c4 also passes 20%;
+  it('draws every move at least 15% of players play at some rating', () => {
+    // d2d4 overtakes e2e4 at higher ratings, where c2c4 also passes 15%;
     // g1f3 never does
     const maia = maiaOf((i) => ({
       e2e4: 0.6 - 0.02 * i,
@@ -117,6 +117,34 @@ describe('chartMoves', () => {
         undefined,
       ),
     ).toEqual(['a2a3'])
+  })
+
+  it('adds the most played likely blunder where there is room', () => {
+    // Stockfish: e2e4 best, d2d4 -0.5, g1f3 -1, c2c4 -1.5, d1h5 -2, f2f3 -2.5
+    const sf = stockfishOf('e2e4', 'd2d4', 'g1f3', 'c2c4', 'd1h5', 'f2f3')
+    const policy = { e2e4: 0.8, d2d4: 0.06, d1h5: 0.07, f2f3: 0.06, c2c4: 0.01 }
+    expect(
+      chartMoves(
+        maiaOf(() => policy),
+        sf,
+      ),
+    ).toEqual(['e2e4', 'd1h5'])
+    // under 1 in 20 everywhere: not added
+    const rare = { ...policy, d1h5: 0.04, f2f3: 0.03 }
+    expect(
+      chartMoves(
+        maiaOf(() => rare),
+        sf,
+      ),
+    ).toEqual(['e2e4'])
+    // a blunder already drawn: no second one
+    const natural = { ...policy, e2e4: 0.6, f2f3: 0.25 }
+    expect(
+      chartMoves(
+        maiaOf(() => natural),
+        sf,
+      ),
+    ).toEqual(['e2e4', 'f2f3'])
   })
 
   it("draws at most six, Stockfish's best always among them", () => {

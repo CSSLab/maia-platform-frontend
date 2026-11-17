@@ -78,38 +78,43 @@ export const sortStockfishMoves = (
     return a.localeCompare(b)
   })
 
+/**
+ * Stockfish's tier for a move: good (loses less than 5 points of win rate),
+ * ok, or blunder (loses more than 10); by centipawns (-50 / -150) where the
+ * win rates are missing; undefined for a move Stockfish hasn't evaluated.
+ */
+export const moveTier = (
+  stockfish: StockfishEvaluation | undefined,
+  moveKey: string,
+): 'good' | 'ok' | 'blunder' | undefined => {
+  // Use winrate_loss_vec if available, otherwise fall back to cp_relative_vec
+  const winrateLoss = stockfish?.winrate_loss_vec?.[moveKey]
+  const relativeEval = stockfish?.cp_relative_vec?.[moveKey]
+
+  if (winrateLoss !== undefined) {
+    if (winrateLoss >= -MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD) {
+      return 'good'
+    } else if (
+      winrateLoss >= -MOVE_CLASSIFICATION_THRESHOLDS.BLUNDER_THRESHOLD
+    ) {
+      return 'ok'
+    }
+    return 'blunder'
+  } else if (relativeEval !== undefined) {
+    if (relativeEval >= -50) return 'good'
+    if (relativeEval >= -150) return 'ok'
+    return 'blunder'
+  }
+}
+
 // Unified function to calculate color for a single move
 export const calculateMoveColor = (
   stockfish: StockfishEvaluation | undefined,
   moveKey: string,
 ): string => {
   if (!stockfish) return '#FFF'
-
-  // Use winrate_loss_vec if available, otherwise fall back to cp_relative_vec
-  const winrateLoss = stockfish?.winrate_loss_vec?.[moveKey]
-  const relativeEval = stockfish?.cp_relative_vec[moveKey]
-
-  if (winrateLoss !== undefined) {
-    if (winrateLoss >= -MOVE_CLASSIFICATION_THRESHOLDS.INACCURACY_THRESHOLD) {
-      return COLORS.good[0]
-    } else if (
-      winrateLoss >= -MOVE_CLASSIFICATION_THRESHOLDS.BLUNDER_THRESHOLD
-    ) {
-      return COLORS.ok[0]
-    } else {
-      return COLORS.blunder[0]
-    }
-  } else if (relativeEval !== undefined) {
-    if (relativeEval >= -50) {
-      return COLORS.good[0]
-    } else if (relativeEval >= -150) {
-      return COLORS.ok[0]
-    } else {
-      return COLORS.blunder[0]
-    }
-  }
-
-  return '#FFF'
+  const tier = moveTier(stockfish, moveKey)
+  return tier ? COLORS[tier][0] : '#FFF'
 }
 
 const verboseMovesCache = new Map<string, readonly Move[]>()

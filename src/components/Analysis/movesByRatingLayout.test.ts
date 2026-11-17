@@ -47,28 +47,44 @@ describe('the moves-by-rating layout', () => {
     }
   })
 
-  it('names at the chosen rating only moves with clear room', () => {
+  it('gives shares at the chosen rating only where there is clear room', () => {
     const l = buildLayout([big, red, castle, rook], 1900, 400, 230)
     expect(l.markerLabels.map((m) => m.key)).toContain('Qe2')
     expect(l.markerLabels.length).toBeLessThan(l.kept.length)
   })
 
-  it('gives only the share at the last rating, where the name already is', () => {
+  it('gives the shares at the last rating to the left, away from the names', () => {
     const l = buildLayout([big, red], 2600, 400, 230)
-    expect(l.markerLabels.every((m) => m.shareOnly && m.side < 0)).toBe(true)
+    expect(l.markerLabels.length).toBeGreaterThan(0)
+    expect(l.markerLabels.every((m) => m.side < 0)).toBe(true)
   })
 
-  it('names a move at a strong peak inside the range', () => {
+  it('names a move at a strong peak inside the range, also at the chosen rating', () => {
     expect(interiorPeak(hump.values)).toBe(11)
     expect(interiorPeak(big.values)).toBe(-1)
-    const l = buildLayout([hump, big], 2300, 400, 230)
-    expect(l.peakLabels.map((p) => p.key)).toContain('cxd4')
+    for (const rating of [2300, 1700]) {
+      const l = buildLayout([hump, big], rating, 400, 230)
+      expect(l.peakLabels.map((p) => p.key)).toContain('cxd4')
+    }
   })
 
   it('finds the move nearest the pointer, within 14px of its line', () => {
     const l = buildLayout([big, red], 1500, 400, 230)
     expect(nearestMove(l, l.x(10), l.y(big.values[10]) + 3)).toBe('Qe2')
     expect(nearestMove(l, l.x(10), l.y(30))).toBeNull()
+  })
+
+  it('tops the y axis at the smallest standard scale the moves fit under', () => {
+    const top = (most: number) =>
+      buildLayout([line('e4', (i) => (i === 10 ? most : 1))], 1500, 400, 230)
+        .domain
+    expect([12, 20, 33, 41, 60, 61, 79.9, 80.1, 100].map(top)).toEqual([
+      20, 20, 40, 60, 60, 80, 80, 100, 100,
+    ])
+    const l = buildLayout([big, red], 1500, 400, 230)
+    expect(l.domain).toBe(100)
+    expect(l.yTicks).toEqual([0, 25, 50, 75, 100])
+    expect(buildLayout([red], 1500, 400, 150).yTicks).toEqual([0, 10, 20])
   })
 
   it('spreads labels at least the gap apart', () => {
