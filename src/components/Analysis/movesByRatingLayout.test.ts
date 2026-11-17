@@ -74,6 +74,19 @@ describe('the moves-by-rating layout', () => {
     expect(nearestMove(l, l.x(10), l.y(30))).toBeNull()
   })
 
+  it('tops the y axis at the smallest standard scale the moves fit under', () => {
+    const top = (most: number) =>
+      buildLayout([line('e4', (i) => (i === 10 ? most : 1))], 1500, 400, 230)
+        .domain
+    expect([12, 20, 33, 41, 60, 61, 79.9, 80.1, 100].map(top)).toEqual([
+      20, 20, 40, 60, 60, 80, 80, 100, 100,
+    ])
+    const l = buildLayout([big, red], 1500, 400, 230)
+    expect(l.domain).toBe(100)
+    expect(l.yTicks).toEqual([0, 25, 50, 75, 100])
+    expect(buildLayout([red], 1500, 400, 150).yTicks).toEqual([0, 10, 20])
+  })
+
   it('spreads labels at least the gap apart', () => {
     const s = spread([{ y: 100 }, { y: 101 }, { y: 102 }], 12, 0, 300)
     expect(s.map((it) => it.ly)).toEqual([100, 112, 124])

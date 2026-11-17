@@ -14,8 +14,9 @@
  * - at the right end of every line;
  * - at a strong peak inside the range (a move most played at middle ratings),
  *   just above it, where that fits.
- * At the chosen rating, each move's share beside its point (no name: the
- * point is on a named line), where that fits in clear space (no line through
+ * At the chosen rating, each move's share beside its point, in the move's
+ * colour (no name: the point is on a named line), where that fits in clear
+ * space (no line through
  * it, none between it and its point, no other label); bunched moves keep
  * their share in the hover readout.
  */
@@ -120,6 +121,35 @@ export const shareText = (v: number) =>
 /** An estimate of a semibold label's width (0.64 em a character). */
 const labelWidth = (text: string, size: number) => 0.64 * size * text.length + 4
 
+/**
+ * The y axis's top: the smallest of these the moves fit under, so the axis
+ * takes one of a few familiar scales rather than a new one each position.
+ */
+export const Y_TOPS = [20, 40, 60, 80, 100]
+/** Each top's ticks: on a chart of normal height, and on a short one. */
+const Y_TICKS: Record<number, [number[], number[]]> = {
+  20: [
+    [0, 5, 10, 15, 20],
+    [0, 10, 20],
+  ],
+  40: [
+    [0, 10, 20, 30, 40],
+    [0, 20, 40],
+  ],
+  60: [
+    [0, 20, 40, 60],
+    [0, 30, 60],
+  ],
+  80: [
+    [0, 20, 40, 60, 80],
+    [0, 40, 80],
+  ],
+  100: [
+    [0, 25, 50, 75, 100],
+    [0, 50, 100],
+  ],
+}
+
 const Y_TITLE = 'Maia Probability'
 const Y_TITLE_SHORT = 'Maia %'
 const Y_TITLE_MAX_PX = 13
@@ -161,7 +191,8 @@ export const buildLayout = (
   const right = RIGHT
   const top = TOP
   const bottom = BOTTOM
-  const domain = Math.max(0, ...kept.flatMap((l) => l.values)) > 60 ? 100 : 60
+  const most = Math.max(0, ...kept.flatMap((l) => l.values))
+  const domain = Y_TOPS.find((t) => most <= t) ?? 100
   const x = (i: number) => left + (i / last) * (width - left - right)
   const y = (v: number) => top + (1 - v / domain) * (height - top - bottom)
   const lineAt = (l: ChartLine, px: number) => {
@@ -303,15 +334,7 @@ export const buildLayout = (
     y: top + axisHeight / 2,
   }
 
-  const short = height < 200
-  const yTicks =
-    domain === 100
-      ? short
-        ? [0, 50, 100]
-        : [0, 25, 50, 75, 100]
-      : short
-        ? [0, 30, 60]
-        : [0, 20, 40, 60]
+  const yTicks = Y_TICKS[domain][height < 200 ? 1 : 0]
   // Every 400 points from the first rating (every 1000 on a narrow chart), and
   // the last.
   const first = ratings[0]

@@ -25,7 +25,6 @@ const PANEL = '#1e1d22'
 const GRID = 'rgba(255, 255, 255, 0.07)'
 const TICK = 'rgba(255, 255, 255, 0.55)'
 const MARKER = 'rgba(236, 233, 239, 0.4)'
-const SHARE = 'rgba(255, 255, 255, 0.92)'
 const FADED = 0.18
 // As SVG attributes, so the outline is painted under the text.
 const halo = {
@@ -334,9 +333,7 @@ export const MovesByRatingArea: React.FC<MovesByRatingAreaProps> = ({
                 fontWeight={600}
                 {...halo}
               >
-                <tspan fill={SHARE} fontWeight={500}>
-                  {shareText(l.values[index])}
-                </tspan>
+                <tspan fill={names[m.key]}>{shareText(l.values[index])}</tspan>
               </text>
             </g>
           )
