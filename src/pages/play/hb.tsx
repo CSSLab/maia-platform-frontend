@@ -1,7 +1,14 @@
 import Head from 'next/head'
 import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
-import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { MoveRequestError, startGameWithRetry } from 'src/api/play'
 import { trackGameStartFailed } from 'src/lib/analytics'
@@ -12,6 +19,7 @@ import { trackGameStartFailed } from 'src/lib/analytics'
 // BoardController) and the page fails to render.
 import {
   Loading,
+  GameInProgressModal,
   GameplayInterface,
   HandBrainPlayControls,
   StartGameConfirmModal,
@@ -27,12 +35,14 @@ import { tourConfigs } from 'src/constants/tours'
 import { createServerGame, fetchServerGame } from 'src/api/serverGames'
 import {
   ServerGame,
+  isAskedForGame,
   serverGameConfig,
   serverGamePage,
   serverGameStart,
 } from 'src/lib/serverGames'
 import { useServerGames } from 'src/hooks/useServerGames'
 import { useStartConfirmation } from 'src/hooks/useStartConfirmation'
+import { useGameInProgressQuestion } from 'src/hooks/useGameInProgressQuestion'
 import { useQueryBoolean } from 'src/hooks/useQueryBoolean'
 import { UnfinishedGame } from 'src/lib/unfinishedGame'
 
@@ -176,6 +186,10 @@ const PlayHandBrainPage: NextPage = () => {
   const [serverGame, setServerGame] = useState<ServerGame>()
   const [resumeGame, setResumeGame] = useState<UnfinishedGame>()
   const [serverGameVersion, setServerGameVersion] = useState(0)
+  // A game the server holds: opened for a game while another is in progress,
+  // the visitor is asked which to play.
+  const inProgressQuestion = useGameInProgressQuestion()
+  const hadGame = useRef(false)
 
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
@@ -194,6 +208,7 @@ const PlayHandBrainPage: NextPage = () => {
 
     // No game is started until it is known who runs this player's games.
     if (serverHeld === undefined) return
+    if (id) hadGame.current = true
 
     let canceled = false
 
@@ -219,8 +234,11 @@ const PlayHandBrainPage: NextPage = () => {
 
     // A game the server holds is created there. If the player already has a
     // game in progress the server answers with that one, which is picked up
-    // where it was (on the play page, if it is a game against Maia alone).
-    async function startServerGame() {
+    // where it was (on the play page, if it is a game against Maia alone):
+    // at once when the page was opened to come back to it, and otherwise if
+    // the visitor says so, rather than resign it for the game asked for
+    // (`resigned`: the game that was, a moment ago).
+    async function startServerGame(resigned?: string) {
       let created
       try {
         created = await createServerGame({
@@ -245,7 +263,28 @@ const PlayHandBrainPage: NextPage = () => {
       }
       if (canceled) return
       const { game, inProgress } = created
+      if (
+        inProgress &&
+        game.game_id !== resigned &&
+        inProgressQuestion.mustAsk(game, playGameConfig, !hadGame.current)
+      ) {
+        inProgressQuestion.ask({
+          game,
+          askedFor: isAskedForGame(game, playGameConfig),
+          continueIt: () => {
+            if (!canceled) showServerGame(game)
+          },
+          startNew: () => {
+            if (!canceled) startServerGame(game.game_id)
+          },
+        })
+        return
+      }
       if (inProgress) toast('Continuing your game in progress')
+      showServerGame(game)
+    }
+
+    function showServerGame(game: ServerGame) {
       if (game.ended_while_away) {
         toast('Your last game ran out of time while you were away', {
           duration: 8000,
@@ -268,6 +307,7 @@ const PlayHandBrainPage: NextPage = () => {
       startServerGame()
       return () => {
         canceled = true
+        inProgressQuestion.close()
       }
     }
 
@@ -381,6 +421,12 @@ const PlayHandBrainPage: NextPage = () => {
           confirm()
         }}
         onCancel={() => router.push('/play')}
+      />
+      <GameInProgressModal
+        game={inProgressQuestion.question?.game}
+        resigning={inProgressQuestion.resigning}
+        onContinue={inProgressQuestion.continueIt}
+        onStartNew={inProgressQuestion.startNew}
       />
     </>
   )

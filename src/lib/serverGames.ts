@@ -165,6 +165,35 @@ export const serverGameStart = (
   }
 }
 
+// A practice game with no position of its own is stored with the usual one.
+const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+const startOf = (fen: string | null | undefined) =>
+  fen && fen !== STARTING_FEN ? fen : ''
+
+/**
+ * Whether the player's game in progress is the game a play page's address
+ * asks for (`asked`): then opening the page may be coming back to it. If it
+ * isn't, the visitor followed a link to another game.
+ */
+export const isAskedForGame = (game: ServerGame, asked: PlayGameConfig) => {
+  const askedType =
+    asked.playType === 'againstMaia' ? 'play' : asked.isBrain ? 'brain' : 'hand'
+  return (
+    game.game_type === askedType &&
+    game.player_color === asked.player &&
+    game.maia_name === asked.maiaVersion &&
+    game.time_control === asked.timeControl &&
+    startOf(game.fen) === startOf(asked.startFen) &&
+    (askedType === 'play'
+      ? game.practice === !!asked.practice
+      : (game.maia_partner_name || '') === (asked.maiaPartnerVersion || ''))
+  )
+}
+
+/** Whether resigning the game costs rating: one from a set position, or a practice game, doesn't. */
+export const isRatedServerGame = (game: ServerGame) =>
+  !game.fen && !game.practice
+
 /** "Maia 1500, 5+3, move 12": an open game, for the setup dialog. */
 export const describeServerGame = (game: ServerGame) => {
   const rating = game.maia_name.replace('maia_kdd_', '')

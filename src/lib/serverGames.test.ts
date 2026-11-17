@@ -2,6 +2,8 @@ import { PlayGameConfig } from 'src/types'
 import {
   ServerGame,
   describeServerGame,
+  isAskedForGame,
+  isRatedServerGame,
   serverClocks,
   serverGameConfig,
   serverGamePage,
@@ -156,6 +158,89 @@ describe('a game the server holds', () => {
     window.localStorage.removeItem('maia.serverGames')
     expect(serverGamesFor({ ...guest, serverGames: true })).toBe(true)
     expect(serverGamesFor(null)).toBeUndefined()
+  })
+
+  it('is the game an address asks for when its settings are the same', () => {
+    const asked: PlayGameConfig = {
+      ...config,
+      player: 'white',
+      maiaVersion: 'maia_kdd_1500',
+      timeControl: '5+3',
+    }
+    expect(isAskedForGame(game(), asked)).toBe(true)
+    // How far the game has got, or its move sampling, doesn't matter.
+    expect(
+      isAskedForGame(game({ ply: 40 }), { ...asked, sampleMoves: true }),
+    ).toBe(true)
+
+    // A link to another position, opponent, colour or time control doesn't
+    // ask for it.
+    const endgame = '8/8/8/4k3/8/8/4K3/7R w - - 0 1'
+    expect(isAskedForGame(game(), { ...asked, startFen: endgame })).toBe(false)
+    expect(
+      isAskedForGame(game({ fen: endgame }), { ...asked, startFen: endgame }),
+    ).toBe(true)
+    expect(
+      isAskedForGame(game({ fen: endgame }), {
+        ...asked,
+        startFen: '8/8/8/4k3/8/8/4K3/7Q w - - 0 1',
+      }),
+    ).toBe(false)
+    expect(isAskedForGame(game(), { ...asked, player: 'black' })).toBe(false)
+    expect(
+      isAskedForGame(game(), { ...asked, maiaVersion: 'maia_kdd_1900' }),
+    ).toBe(false)
+    expect(isAskedForGame(game(), { ...asked, timeControl: '3+0' })).toBe(false)
+    expect(isAskedForGame(game(), { ...asked, practice: true })).toBe(false)
+  })
+
+  it('stores a practice game from the usual position with that position', () => {
+    const asked: PlayGameConfig = {
+      ...config,
+      player: 'white',
+      maiaVersion: 'maia_kdd_1500',
+      timeControl: '5+3',
+      practice: true,
+    }
+    const stored = game({
+      practice: true,
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+    })
+    expect(isAskedForGame(stored, asked)).toBe(true)
+  })
+
+  it('is the hand or brain game an address asks for by its role and partner too', () => {
+    const asked: PlayGameConfig = {
+      ...config,
+      playType: 'handAndBrain',
+      player: 'white',
+      maiaVersion: 'maia_kdd_1500',
+      maiaPartnerVersion: 'maia_kdd_1900',
+      timeControl: '5+3',
+      isBrain: true,
+    }
+    const brain = game({
+      game_type: 'brain',
+      maia_partner_name: 'maia_kdd_1900',
+    })
+    expect(isAskedForGame(brain, asked)).toBe(true)
+    expect(isAskedForGame(brain, { ...asked, isBrain: false })).toBe(false)
+    expect(
+      isAskedForGame(brain, { ...asked, maiaPartnerVersion: 'maia_kdd_1100' }),
+    ).toBe(false)
+    // A game against Maia alone isn't one, nor the other way round.
+    expect(isAskedForGame(game(), asked)).toBe(false)
+    expect(isAskedForGame(brain, { ...asked, playType: 'againstMaia' })).toBe(
+      false,
+    )
+  })
+
+  it('is rated unless it is a practice game or starts from a set position', () => {
+    expect(isRatedServerGame(game())).toBe(true)
+    expect(isRatedServerGame(game({ practice: true }))).toBe(false)
+    expect(
+      isRatedServerGame(game({ fen: '8/8/8/4k3/8/8/4K3/7R w - - 0 1' })),
+    ).toBe(false)
   })
 
   it('is described for the setup dialog', () => {

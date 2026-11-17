@@ -9,7 +9,12 @@ import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { tourConfigs } from 'src/constants/tours'
 import { ModalContext, useTour } from 'src/contexts'
-import { Loading, PlayControls, StartGameConfirmModal } from 'src/components'
+import {
+  GameInProgressModal,
+  Loading,
+  PlayControls,
+  StartGameConfirmModal,
+} from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
 import toast from 'react-hot-toast'
 import { normalizeTimeControl } from 'src/lib/timeControl'
@@ -24,12 +29,14 @@ import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { createServerGame, fetchServerGame } from 'src/api/serverGames'
 import {
   ServerGame,
+  isAskedForGame,
   serverGameConfig,
   serverGamePage,
   serverGameStart,
 } from 'src/lib/serverGames'
 import { useServerGames } from 'src/hooks/useServerGames'
 import { useStartConfirmation } from 'src/hooks/useStartConfirmation'
+import { useGameInProgressQuestion } from 'src/hooks/useGameInProgressQuestion'
 import { useQueryBoolean } from 'src/hooks/useQueryBoolean'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
@@ -259,6 +266,9 @@ const PlayMaiaPage: NextPage = () => {
   // progress, so the visitor is asked before a new game is started.
   const { mustConfirm, confirm } = useStartConfirmation()
   const [askingToStart, setAskingToStart] = useState(false)
+  // A game the server holds: opened for a game while another is in progress,
+  // the visitor is asked which to play.
+  const inProgressQuestion = useGameInProgressQuestion()
 
   useEffect(() => {
     // The game's settings come from the URL's query, which Next fills in
@@ -380,8 +390,11 @@ const PlayMaiaPage: NextPage = () => {
 
     // A game the server holds: it is created there, with Maia's first move
     // if Maia moves first. If the player already has a game in progress the
-    // server answers with that one, which is picked up where it was.
-    async function startServerGame() {
+    // server answers with that one, which is picked up where it was: at
+    // once when the page was opened to come back to it, and otherwise if
+    // the visitor says so, rather than resign it for the game asked for
+    // (`resigned`: the game that was, a moment ago).
+    async function startServerGame(resigned?: string) {
       let created
       try {
         created = await createServerGame({
@@ -405,7 +418,28 @@ const PlayMaiaPage: NextPage = () => {
       }
       if (canceled) return
       const { game, inProgress } = created
+      if (
+        inProgress &&
+        game.game_id !== resigned &&
+        inProgressQuestion.mustAsk(game, playGameConfig, !hadGame.current)
+      ) {
+        inProgressQuestion.ask({
+          game,
+          askedFor: isAskedForGame(game, playGameConfig),
+          continueIt: () => {
+            if (!canceled) showServerGame(game)
+          },
+          startNew: () => {
+            if (!canceled) startServerGame(game.game_id)
+          },
+        })
+        return
+      }
       if (inProgress) toast('Continuing your game in progress')
+      showServerGame(game)
+    }
+
+    function showServerGame(game: ServerGame) {
       if (game.ended_while_away) {
         toast('Your last game ran out of time while you were away', {
           duration: 8000,
@@ -429,6 +463,7 @@ const PlayMaiaPage: NextPage = () => {
 
       return () => {
         canceled = true
+        inProgressQuestion.close()
       }
     }
 
@@ -536,6 +571,12 @@ const PlayMaiaPage: NextPage = () => {
           confirm()
         }}
         onCancel={() => router.push('/play')}
+      />
+      <GameInProgressModal
+        game={inProgressQuestion.question?.game}
+        resigning={inProgressQuestion.resigning}
+        onContinue={inProgressQuestion.continueIt}
+        onStartNew={inProgressQuestion.startNew}
       />
     </>
   )
