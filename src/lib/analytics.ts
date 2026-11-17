@@ -599,6 +599,28 @@ export const trackLeaveGamePromptAnswered = (
 }
 
 /**
+ * The answer to "You have a game in progress", asked when a play page is
+ * opened for a game while the player has another going (see
+ * useGameInProgressQuestion). `same_settings`: the page asked for a game
+ * with the settings of the one in progress.
+ */
+export const trackGameInProgressPromptAnswered = (
+  gameId: string,
+  gameType: PlayGameType,
+  startedNew: boolean,
+  plyCount: number,
+  sameSettings: boolean,
+) => {
+  safeTrack('game_in_progress_prompt_answered', {
+    game_id: gameId,
+    game_type: gameType,
+    started_new: startedNew,
+    ply_count: plyCount,
+    same_settings: sameSettings,
+  })
+}
+
+/**
  * The page of a game in progress closed: the tab closed or reloaded, or the
  * browser went to another site. (Another page of this site asks first; see
  * trackLeaveGamePromptAnswered.) The game itself goes on, so a later event

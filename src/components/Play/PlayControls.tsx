@@ -280,7 +280,8 @@ export const PlayControls: React.FC<Props> = ({
                 <button
                   onClick={handleResignClick}
                   disabled={!resign || !playerActive}
-                  className={`rounded px-3 py-1 text-xs font-medium transition-colors duration-200 ${
+                  // A full-size target for a thumb on a phone.
+                  className={`rounded px-3 py-1 text-xs font-medium transition-colors duration-200 max-md:min-h-11 max-md:min-w-28 max-md:text-sm ${
                     resign && playerActive
                       ? 'text-rose-300 hover:bg-rose-500/10 hover:text-rose-200'
                       : 'cursor-not-allowed text-white/30'
