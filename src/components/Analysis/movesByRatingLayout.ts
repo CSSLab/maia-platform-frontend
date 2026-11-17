@@ -4,8 +4,8 @@
  *
  * The plot area is the same at every rating and in every position: labels fit
  * around the data, never the data around the labels. Every rating in the data
- * (600 to 2600 on the analysis page) is a point. A move that never reaches 5%
- * at any rating is left off; every other move is drawn in its colour over a
+ * (600 to 2600 on the analysis page) is a point. Every move given is drawn
+ * (which moves: chartMoves, in useMoveRecommendations) in its colour over a
  * soft wash of it, and named. Line widths nest by share at the rating chosen in
  * the Maia menu (the most played widest, underneath, each next one thinner on
  * top) so a move that runs along another still shows.
@@ -19,7 +19,6 @@
  *   just above it, where that fits.
  */
 
-export const MIN_SHARE = 5
 export const RATINGS = Array.from({ length: 21 }, (_, i) => 600 + 100 * i)
 /** Line widths, by share at the chosen rating (most played first). */
 export const NESTED_WIDTHS = [4, 3, 2.25, 1.75, 1.5, 1.25]
@@ -96,8 +95,6 @@ export interface Layout {
   xTicks: number[]
 }
 
-const peak = (l: ChartLine) => Math.max(...l.values)
-
 /** Spreads labels at least `gap` apart between `top` and `bottom`. */
 export const spread = <T extends { y: number }>(
   items: T[],
@@ -158,9 +155,7 @@ export const buildLayout = (
     )
       index = i
   })
-  const kept = lines
-    .filter((l) => peak(l) >= MIN_SHARE)
-    .sort((a, b) => b.values[index] - a.values[index])
+  const kept = [...lines].sort((a, b) => b.values[index] - a.values[index])
 
   const nameSize = width < 380 ? 12 : 13
   const left = LEFT

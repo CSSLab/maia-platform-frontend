@@ -25,11 +25,17 @@ describe('the moves-by-rating layout', () => {
   const tiny = line('Kd2', () => 2)
   const hump = line('cxd4', (i) => 55 - 0.4 * (i - 11) ** 2, '#238b45')
 
-  it('leaves off moves that never reach 5%, and names every other one at its end', () => {
-    const l = buildLayout([big, red, castle, rook, tiny], 1900, 400, 230)
-    expect(l.kept.map((m) => m.key)).toEqual(['Qe2', 'Nd2', 'O-O', 'Rh2'])
+  it('draws every move it is given, most played at the chosen rating first, and names each at its end', () => {
+    const l = buildLayout([tiny, big, red, castle, rook], 1900, 400, 230)
+    expect(l.kept.map((m) => m.key)).toEqual([
+      'Qe2',
+      'Nd2',
+      'O-O',
+      'Kd2',
+      'Rh2',
+    ])
     expect(l.rightLabels.map((r) => r.key).sort()).toEqual(
-      ['Nd2', 'O-O', 'Qe2', 'Rh2'].sort(),
+      ['Kd2', 'Nd2', 'O-O', 'Qe2', 'Rh2'].sort(),
     )
   })
 
