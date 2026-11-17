@@ -10,13 +10,14 @@
  * the Maia menu (the most played widest, underneath, each next one thinner on
  * top) so a move that runs along another still shows.
  *
- * Names, in the move's colour:
+ * Names, in the move's colour, at most twice:
  * - at the right end of every line;
- * - at the chosen rating, beside the move's point with its share, where that
- *   fits in clear space (no line through it, none between it and its point,
- *   no other name); bunched moves keep their share in the hover readout;
  * - at a strong peak inside the range (a move most played at middle ratings),
  *   just above it, where that fits.
+ * At the chosen rating, each move's share beside its point (no name: the
+ * point is on a named line), where that fits in clear space (no line through
+ * it, none between it and its point, no other label); bunched moves keep
+ * their share in the hover readout.
  */
 
 export const RATINGS = Array.from({ length: 21 }, (_, i) => 600 + 100 * i)
@@ -50,11 +51,9 @@ export interface MarkerLabel {
   /** Where the text sits: its inner edge (x) and middle (y). */
   x: number
   y: number
-  /** The point it names. */
+  /** The point whose share it gives. */
   px: number
   py: number
-  /** At the last rating the name is already beside the point: share only. */
-  shareOnly: boolean
 }
 
 export interface PeakLabel {
@@ -231,15 +230,41 @@ export const buildLayout = (
       : { l: x(index) + 5, r: x(index) + 67, t: top - 14, b: top - 3 },
   )
 
-  const markerLabels: MarkerLabel[] = []
-  const shareOnly = index === last
+  // A strong peak inside the range is named just above it (never under a
+  // line). Names go before the shares at the chosen rating.
+  const peakLabels: PeakLabel[] = []
   for (const l of kept) {
-    const text = shareOnly
-      ? shareText(l.values[index])
-      : `${l.san} ${shareText(l.values[index])}`
-    const tw = labelWidth(text, nameSize)
+    const p = interiorPeak(l.values)
+    if (p < 0) continue
+    const tw = labelWidth(l.san, nameSize)
+    const tries = [0, -1, 1, -2, 2, -3, 3]
+      .map((d) => p + d)
+      .filter((i) => i > 0 && i < last && l.values[i] >= 0.8 * l.values[p])
+    for (const i of tries) {
+      const py = y(l.values[i])
+      const cx = Math.min(Math.max(x(i), left + tw / 2), width - right - tw / 2)
+      const cy = py - nameSize
+      const box = {
+        l: cx - tw / 2,
+        r: cx + tw / 2,
+        t: cy - th / 2,
+        b: cy + th / 2,
+      }
+      if (box.t < 2 || overlaps(box) || !clear(box, l)) continue
+      placed.push(box)
+      peakLabels.push({ key: l.key, x: cx, y: cy, px: x(i), py })
+      break
+    }
+  }
+
+  // Each move's share at the chosen rating, beside its point. At the last
+  // rating only to the left, where the right-end names aren't.
+  const markerLabels: MarkerLabel[] = []
+  for (const l of kept) {
+    const tw = labelWidth(shareText(l.values[index]), nameSize)
     const py = y(l.values[index])
-    const sides: (1 | -1)[] = shareOnly ? [-1] : [prefer, -prefer as 1 | -1]
+    const sides: (1 | -1)[] =
+      index === last ? [-1] : [prefer, -prefer as 1 | -1]
     const spots: [1 | -1, number][] = [
       0,
       -(nameSize + 1),
@@ -260,38 +285,7 @@ export const buildLayout = (
         y: cy,
         px: x(index),
         py,
-        shareOnly,
       })
-      break
-    }
-  }
-
-  // A strong peak inside the range is named just above it (never under a
-  // line), unless the move is already named beside that point.
-  const peakLabels: PeakLabel[] = []
-  for (const l of kept) {
-    const p = interiorPeak(l.values)
-    if (p < 0) continue
-    if (Math.abs(p - index) <= 1 && markerLabels.some((m) => m.key === l.key)) {
-      continue
-    }
-    const tw = labelWidth(l.san, nameSize)
-    const tries = [0, -1, 1, -2, 2, -3, 3]
-      .map((d) => p + d)
-      .filter((i) => i > 0 && i < last && l.values[i] >= 0.8 * l.values[p])
-    for (const i of tries) {
-      const py = y(l.values[i])
-      const cx = Math.min(Math.max(x(i), left + tw / 2), width - right - tw / 2)
-      const cy = py - nameSize
-      const box = {
-        l: cx - tw / 2,
-        r: cx + tw / 2,
-        t: cy - th / 2,
-        b: cy + th / 2,
-      }
-      if (box.t < 2 || overlaps(box) || !clear(box, l)) continue
-      placed.push(box)
-      peakLabels.push({ key: l.key, x: cx, y: cy, px: x(i), py })
       break
     }
   }

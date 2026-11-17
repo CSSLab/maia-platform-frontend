@@ -47,22 +47,25 @@ describe('the moves-by-rating layout', () => {
     }
   })
 
-  it('names at the chosen rating only moves with clear room', () => {
+  it('gives shares at the chosen rating only where there is clear room', () => {
     const l = buildLayout([big, red, castle, rook], 1900, 400, 230)
     expect(l.markerLabels.map((m) => m.key)).toContain('Qe2')
     expect(l.markerLabels.length).toBeLessThan(l.kept.length)
   })
 
-  it('gives only the share at the last rating, where the name already is', () => {
+  it('gives the shares at the last rating to the left, away from the names', () => {
     const l = buildLayout([big, red], 2600, 400, 230)
-    expect(l.markerLabels.every((m) => m.shareOnly && m.side < 0)).toBe(true)
+    expect(l.markerLabels.length).toBeGreaterThan(0)
+    expect(l.markerLabels.every((m) => m.side < 0)).toBe(true)
   })
 
-  it('names a move at a strong peak inside the range', () => {
+  it('names a move at a strong peak inside the range, also at the chosen rating', () => {
     expect(interiorPeak(hump.values)).toBe(11)
     expect(interiorPeak(big.values)).toBe(-1)
-    const l = buildLayout([hump, big], 2300, 400, 230)
-    expect(l.peakLabels.map((p) => p.key)).toContain('cxd4')
+    for (const rating of [2300, 1700]) {
+      const l = buildLayout([hump, big], rating, 400, 230)
+      expect(l.peakLabels.map((p) => p.key)).toContain('cxd4')
+    }
   })
 
   it('finds the move nearest the pointer, within 14px of its line', () => {
