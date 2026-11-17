@@ -1,5 +1,5 @@
-import dynamic from 'next/dynamic'
 import { memo, useEffect, useMemo, useState } from 'react'
+import { MovesByRatingArea } from './MovesByRatingArea'
 import { analysisChartDrawn } from 'src/lib/analysisTiming'
 import { ColorSanMapping } from 'src/types'
 import { useContentStable } from 'src/hooks/useContentStable'
@@ -9,6 +9,14 @@ interface Props {
   colorSanMapping: ColorSanMapping
   isHomePage?: boolean
   positionKey?: string
+  /** The rating chosen in the Maia menu: marked, with each move's share. */
+  selectedRating?: number
+}
+
+/** The rating of a Maia model name (maia_kdd_1900 -> 1900). */
+export const ratingOfModel = (model: string | undefined) => {
+  const rating = parseInt((model ?? '').replace('maia_kdd_', ''), 10)
+  return Number.isFinite(rating) ? rating : undefined
 }
 
 /**
@@ -23,17 +31,29 @@ const MovesByRatingChart: React.FC<Props> = ({
   colorSanMapping,
   isHomePage = false,
   positionKey,
+  selectedRating,
 }: Props) => {
-  const [shown, setShown] = useState({ moves, colorSanMapping, positionKey })
+  const [shown, setShown] = useState({
+    moves,
+    colorSanMapping,
+    positionKey,
+    selectedRating,
+  })
   if (
     moves?.length &&
     positionKey &&
     (moves !== shown.moves ||
       colorSanMapping !== shown.colorSanMapping ||
-      positionKey !== shown.positionKey)
+      positionKey !== shown.positionKey ||
+      selectedRating !== shown.selectedRating)
   ) {
     // Set while rendering: React renders again before rendering the chart.
-    setShown({ moves, colorSanMapping, positionKey })
+    setShown({
+      moves,
+      colorSanMapping,
+      positionKey,
+      selectedRating,
+    })
   }
 
   useEffect(() => {
@@ -64,6 +84,7 @@ const MovesByRatingChart: React.FC<Props> = ({
       displayedColorSanMapping={shownColorSanMapping}
       isHomePage={isHomePage}
       displayedPositionKey={shown.positionKey}
+      selectedRating={shown.selectedRating ?? selectedRating}
     />
   )
 }
@@ -74,15 +95,8 @@ interface PlotProps {
   displayedColorSanMapping: ColorSanMapping
   isHomePage: boolean
   displayedPositionKey?: string
+  selectedRating?: number
 }
-
-// The chart (recharts, ~320 KB of JavaScript) loads in its own chunk once
-// the page has rendered, so pages draw their game before it; the panel and
-// its heading draw at once, and the chart fills its place.
-const MovesByRatingArea = dynamic(
-  () => import('./MovesByRatingArea').then((mod) => mod.MovesByRatingArea),
-  { ssr: false, loading: () => <div className="h-[90%] w-full" /> },
-)
 
 const MovesByRatingPlot = memo(function MovesByRatingPlot(props: PlotProps) {
   return (

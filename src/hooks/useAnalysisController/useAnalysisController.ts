@@ -193,11 +193,7 @@ export const useAnalysisController = (
     recommendations: moveRecommendations,
     movesByRating: latestMovesByRating,
     moveMap,
-  } = useMoveRecommendations(
-    controller.currentNode || null,
-    moveEvaluation,
-    currentMaiaModel,
-  )
+  } = useMoveRecommendations(controller.currentNode || null, moveEvaluation)
   const movesByRating = useContentStable(latestMovesByRating)
 
   const boardDescription = useBoardDescription(

@@ -28,62 +28,73 @@ export const ratingProbability = (
   return (1 - weight) * value(below) + weight * value(above)
 }
 
+/** The most moves the moves-by-rating chart draws. */
+export const MAX_CHART_MOVES = 6
+
+/** A natural move: at least 1 in 5 players play it at some rating. */
+export const NATURAL_SHARE = 0.2
+
+/**
+ * The moves the moves-by-rating chart draws: Stockfish's best move, the most
+ * played move, and every other move at least 1 in 5 players play at some
+ * rating; at most six, those with the highest share at some rating first.
+ * Where only one or two moves are natural, only they (and Stockfish's best)
+ * are drawn. The same moves at every rating in the Maia menu.
+ *
+ * On 10,000 positions of real games (a 23M Maia's moves at 700-2600,
+ * interpolated to the chart's 21 ratings): 1 move 15%, 2 36%, 3 34%, 4 13%,
+ * 5 2.3%, 6 0.1% (mean 2.5). Where the most played move has at least 70% at
+ * every rating: 1 move 74%, 2 25%, 3 0.7%. Every move that is the most played
+ * at some rating with at least 25% is drawn. Half the most played move's
+ * share at each rating instead drew 6 in 9% (any move at a rating where
+ * no move stands out), and the earlier rule (the menu rating's and
+ * Stockfish's top 3 and each rating's top move, if 5% somewhere) up to 9.
+ */
+export const chartMoves = (
+  maia: { [model: string]: MaiaEvaluation },
+  stockfish: StockfishEvaluation | undefined,
+) => {
+  const peak = new Map<string, number>()
+  for (const model of MAIA_MODELS)
+    for (const [move, p] of Object.entries(maia[model]?.policy ?? {}))
+      if (p > (peak.get(move) ?? 0)) peak.set(move, p)
+  const human = [...peak.keys()]
+    .sort((a, b) => peak.get(b)! - peak.get(a)!)
+    .filter((move, i) => i === 0 || peak.get(move)! >= NATURAL_SHARE)
+
+  const best = stockfish
+    ? sortStockfishMoves(stockfish, Object.keys(stockfish.cp_vec))[0]
+    : undefined
+  return (best ? [best, ...human.filter((m) => m !== best)] : human).slice(
+    0,
+    MAX_CHART_MOVES,
+  )
+}
+
 /**
  * The moves-by-rating chart's data: for each rating, the probability (%) of
- * the selected rating's and Stockfish's top 3 moves and each rating's top
- * move. Drawn once every 400 points from 600 to 2600 have their moves, the
- * ratings in between interpolated until they arrive. On 157 positions of two
- * games, interpolating from every 400 points was within 1.27 percentage
- * points of the rating's own value for 90% of points (at most 7.7), and from
- * every 200 points within 0.45 (at most 2.3). Drawing before that showed the
- * missing ratings at 0%.
+ * each of `chartMoves`. Drawn once every 400 points from 600 to 2600 have
+ * their moves, the ratings in between interpolated until they arrive. On 157
+ * positions of two games, interpolating from every 400 points was within 1.27
+ * percentage points of the rating's own value for 90% of points (at most
+ * 7.7), and from every 200 points within 0.45 (at most 2.3). Drawing before
+ * that showed the missing ratings at 0%.
  */
 export const buildMovesByRating = (
   maia: { [model: string]: MaiaEvaluation } | undefined,
   stockfish: StockfishEvaluation | undefined,
-  currentMaiaModel: string,
 ) => {
   if (!maia) return
   if (!MAIA_MODELS.every((model, i) => i % 4 !== 0 || maia[model]?.policy))
     return
 
-  const candidates: string[][] = []
-
-  // Get top 3 Maia moves from selected rating level
-  if (maia[currentMaiaModel]?.policy) {
-    for (const move of Object.keys(maia[currentMaiaModel].policy).slice(0, 3)) {
-      if (candidates.find((c) => c[0] === move)) continue
-      candidates.push([move, move])
-    }
-  }
-
-  // Get top 3 Stockfish moves
-  if (stockfish) {
-    for (const move of sortStockfishMoves(
-      stockfish,
-      Object.keys(stockfish.cp_vec),
-    ).slice(0, 3)) {
-      if (candidates.find((c) => c[0] === move)) continue
-      candidates.push([move, move])
-    }
-  }
-
-  // Get top Maia move from each rating level
-  for (const rating of MAIA_MODELS) {
-    if (maia[rating]?.policy) {
-      const move = Object.keys(maia[rating].policy)[0]
-      if (move && !candidates.find((c) => c[0] === move)) {
-        candidates.push([move, move])
-      }
-    }
-  }
-
+  const moves = chartMoves(maia, stockfish)
   return MAIA_MODELS.map((rating, index) => {
     const entry: { [key: string]: number } = {
       rating: parseInt(rating.replace('maia_kdd_', '')),
     }
-    for (const move of candidates)
-      entry[move[1]] = (ratingProbability(maia, index, move[0]) ?? 0) * 100
+    for (const move of moves)
+      entry[move] = (ratingProbability(maia, index, move) ?? 0) * 100
     return entry
   })
 }
@@ -94,7 +105,6 @@ export const useMoveRecommendations = (
     maia?: MaiaEvaluation
     stockfish?: StockfishEvaluation
   } | null,
-  currentMaiaModel: string,
 ) => {
   const recommendations = useMemo(() => {
     if (!moveEvaluation) return {}
@@ -155,10 +165,9 @@ export const useMoveRecommendations = (
         ? buildMovesByRating(
             currentNode.analysis.maia,
             moveEvaluation?.stockfish,
-            currentMaiaModel,
           )
         : undefined,
-    [currentMaiaModel, moveEvaluation, currentNode],
+    [moveEvaluation, currentNode],
   )
 
   const moveMap = useMemo(() => {
