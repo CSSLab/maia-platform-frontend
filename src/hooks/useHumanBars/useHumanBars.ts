@@ -152,8 +152,11 @@ interface GameRun {
   kids: (KidRun[] | undefined)[]
   /** The ply's bars on hand were asked for with its likely moves (the mix). */
   mixed: boolean[]
-  /** The shallowest of the site's lines behind the likely moves' evals sent (0: none of the site's). */
-  kidDepth: number[]
+  /**
+   * The depth of the eval behind each move's bar in afterBy (the server's
+   * answer: the deepest any visit sent, practical LOG §98), by UCI move.
+   */
+  afterDepth: (Record<string, number> | undefined)[]
   /** Plies whose bars on hand include the mix. */
   mixDone: number
   /** The bars after each move priced at a ply (W, Dr, L), by UCI move: the marks' practical cost. */
@@ -259,10 +262,53 @@ const siteLinesOf = (node: GameNode | undefined) => {
 }
 
 /**
+ * The stage of the eval behind a priced move's bar (practical LOG §98):
+ * below the bars' own search (the site's quick screening lines), from it on,
+ * from the site's final depth on. Deeper wins: a ply is priced again when
+ * one of its moves has an eval on hand at a later stage than its bar's.
+ */
+export const kidStage = (depth: number) =>
+  depth >= SITE_EVAL_FINAL_DEPTH ? 2 : depth >= FALLBACK_DEPTH ? 1 : 0
+
+/**
+ * The deepest eval on hand of the position after likely move `k` of ply p,
+ * for its side to move: the next ply's own eval (the move played), the
+ * site's line for the move, or the bars' own search (FALLBACK_DEPTH); null
+ * while there is none.
+ */
+const kidEval = (
+  run: GameRun,
+  p: number,
+  k: KidRun,
+  lines: ReturnType<typeof siteLinesOf>,
+): { cp: number; depth: number } | null => {
+  let best: { cp: number; depth: number } | null = null
+  const take = (cp: number, depth: number) => {
+    if (!best || depth > best.depth) best = { cp, depth }
+  }
+  const q = p + 1
+  if (k.played && run.cp[q] !== null) {
+    take(run.cp[q] as number, run.cpDepth[q] || FALLBACK_DEPTH)
+  }
+  const line = lines?.cp_vec?.[k.uci]
+  if (lines && line !== undefined && Number.isFinite(line)) {
+    take(
+      evalAfterMoveFromLine(
+        line,
+        lines.mate_vec?.[k.uci],
+        run.fens[p].split(' ')[1] === 'b',
+      ),
+      lines.root_move_depth_vec?.[k.uci] ?? lines.depth,
+    )
+  }
+  if (k.cp !== null) take(k.cp, FALLBACK_DEPTH)
+  return best
+}
+
+/**
  * The likely moves of ply p as the server wants them, or null while any of
  * their inputs is missing: the move played takes the next ply's inputs, the
- * others their own Maia outputs and the site's line for the move (else their
- * own small search).
+ * others their own Maia outputs; each its deepest eval on hand (kidEval).
  */
 const kidInputs = (
   run: GameRun,
@@ -271,7 +317,6 @@ const kidInputs = (
 ): {
   kids: HumanBarKidInput[]
   ucis: string[]
-  depth: number
   /** The move played and Stockfish's best (from the site's search of the position) are both in. */
   full: boolean
 } | null => {
@@ -281,49 +326,25 @@ const kidInputs = (
   const lines = siteLinesOf(node)
   const ucis: string[] = []
   let full = true
-  const whiteAfter = run.fens[p].split(' ')[1] === 'b'
   const kids: HumanBarKidInput[] = []
-  // The shallowest of the site's lines used (a later, deeper search asks again).
-  let depth = Infinity
   for (const k of ks) {
-    // The move played: whatever the next ply already has (its Maia outputs,
-    // its eval), else what any likely move uses (its own Maia outputs, the
-    // site's line for it), so the mix never waits for the next ply.
+    // The move played: whatever the next ply already has (its Maia outputs),
+    // else what any likely move uses, so the mix never waits for the next ply.
     const q = p + 1
     const value = k.played ? (run.value[q] ?? k.value) : k.value
     const repr = k.played ? (run.repr[q] ?? k.repr) : k.repr
-    // A likely move missing an input holds the request; an extra waits for
-    // a later one (the mix does not need it).
-    const missing = () => {
-      if (!k.extra) return true
+    const evaluation = kidEval(run, p, k, lines)
+    if (!value || !repr || !evaluation) {
+      // A likely move missing an input holds the request; an extra waits
+      // for a later one (the mix does not need it).
+      if (!k.extra) return null
       full = false
-      return false
-    }
-    if (!value || !repr) {
-      if (missing()) return null
-      continue
-    }
-    const line = lines?.cp_vec?.[k.uci]
-    let cp: number
-    let d: number
-    if (k.played && run.cp[q] !== null) {
-      cp = run.cp[q] as number
-      d = run.cpDepth[q] || FALLBACK_DEPTH
-    } else if (lines && line !== undefined && Number.isFinite(line)) {
-      d = lines.root_move_depth_vec?.[k.uci] ?? lines.depth
-      depth = Math.min(depth, d)
-      cp = evalAfterMoveFromLine(line, lines.mate_vec?.[k.uci], whiteAfter)
-    } else if (k.cp !== null) {
-      cp = k.cp
-      d = FALLBACK_DEPTH
-    } else {
-      if (missing()) return null
       continue
     }
     kids.push({
       fen: k.fen,
-      cp,
-      depth: d,
+      cp: evaluation.cp,
+      depth: evaluation.depth,
       value,
       repr,
       prob: k.prob,
@@ -332,12 +353,11 @@ const kidInputs = (
     ucis.push(k.uci)
   }
   // Full only with Stockfish's best among them, which needs the site's search
-  // of the position: the game cache keeps such an answer for good, and the
-  // marks' !? needs that move's bar.
+  // of the position: the marks' !? needs that move's bar.
   const sf = node?.analysis?.stockfish
   const best = sf && sf.depth >= 12 ? sf.model_move : undefined
   full = full && !!best && ks.some((k) => k.uci === best)
-  return { kids, ucis, depth: Number.isFinite(depth) ? depth : 0, full }
+  return { kids, ucis, full }
 }
 
 /**
@@ -406,17 +426,55 @@ const evalFromParentLine = (
   }
 }
 
-/** The likely moves of ply p that still need the bars' own search (no site line for them). */
+/**
+ * The likely moves of ply p that need the bars' own search: none of their
+ * evals on hand is as deep as it (the floor, practical LOG §98: the site's
+ * quick screening lines only stand in until it is done).
+ */
 const kidsToSearch = (run: GameRun, p: number, node: GameNode | undefined) => {
   const ks = run.kids[p]
   if (!ks) return []
   const lines = siteLinesOf(node)
   return ks.filter(
     (k) =>
-      !(k.played && run.cp[p + 1] !== null) &&
-      k.cp === null &&
-      !(lines && Number.isFinite(lines.cp_vec?.[k.uci] ?? NaN)),
+      k.cp === null && kidStage(kidEval(run, p, k, lines)?.depth ?? -1) < 1,
   )
+}
+
+/** A move priced at ply p has an eval on hand at a later stage than its bar's: price the ply again. */
+const upgradeDue = (run: GameRun, p: number, node: GameNode | undefined) => {
+  const used = run.afterDepth[p]
+  const ks = run.kids[p]
+  if (!run.mixed[p] || !used || !ks) return false
+  const lines = siteLinesOf(node)
+  return ks.some((k) => {
+    const was = used[k.uci]
+    if (was === undefined) return false
+    const now = kidEval(run, p, k, lines)
+    return !!now && kidStage(now.depth) > kidStage(was)
+  })
+}
+
+/**
+ * A ply the game cache had in full, with a deeper eval on hand for one of
+ * its moves than the cache's at a later stage: the site's search of the ply
+ * (its lines) or, for the move played, of the next one. Priced again then.
+ */
+const cachedUpgradeDue = (run: GameRun, p: number, nodes: GameNode[]) => {
+  const used = run.afterDepth[p]
+  if (!run.cached[p] || !used) return false
+  const lines = siteLinesOf(nodes[p])
+  const played = nodes[p + 1]?.move
+  const next = siteEvalOf(nodes[p + 1])
+  return Object.entries(used).some(([uci, was]) => {
+    let now = -1
+    const line = lines?.cp_vec?.[uci]
+    if (lines && line !== undefined && Number.isFinite(line)) {
+      now = lines.root_move_depth_vec?.[uci] ?? lines.depth
+    }
+    if (uci === played && next) now = Math.max(now, next.depth)
+    return kidStage(now) > kidStage(was)
+  })
 }
 
 /** Ply p's mix is in, or it has no likely moves to look through. */
@@ -433,7 +491,8 @@ const needsBars = (run: GameRun, p: number, node: GameNode | undefined) =>
   run.stale.has(p) ||
   (run.form !== null && run.barsForm[p] !== run.form) ||
   (!run.mixed[p] && kidInputs(run, p, node) !== null) ||
-  (run.mixed[p] && !run.mixFull[p] && !!kidInputs(run, p, node)?.full)
+  (run.mixed[p] && !run.mixFull[p] && !!kidInputs(run, p, node)?.full) ||
+  upgradeDue(run, p, node)
 
 /** The request for the given plies (each with its index p). */
 export const buildHumanBarRequest = (
@@ -540,7 +599,7 @@ export const useHumanBars = (
       stale: new Set(),
       kids: fens.map(() => undefined),
       mixed: fens.map(() => false),
-      kidDepth: fens.map(() => 0),
+      afterDepth: fens.map(() => undefined),
       mixDone: 0,
       afterBy: fens.map(() => undefined),
       mixFull: fens.map(() => false),
@@ -603,7 +662,7 @@ export const useHumanBars = (
           hasInputs(target, p),
       )
       const kids = new Map<number, HumanBarKidInput[]>()
-      const kidDepth = new Map<number, number>()
+      const kidDepths = new Map<number, number[]>()
       const kidMoves = new Map<number, { ucis: string[]; full: boolean }>()
       const ready: number[] = []
       for (const p of candidates) {
@@ -613,7 +672,10 @@ export const useHumanBars = (
             : null
         if (k) {
           kids.set(p, k.kids)
-          kidDepth.set(p, k.depth)
+          kidDepths.set(
+            p,
+            k.kids.map((kid) => kid.depth),
+          )
           kidMoves.set(p, { ucis: k.ucis, full: k.full })
         } else if (
           target.bars[p] !== undefined &&
@@ -672,7 +734,6 @@ export const useHumanBars = (
               target.stale.delete(bar.p)
               if (kids.has(bar.p)) {
                 target.mixed[bar.p] = true
-                target.kidDepth[bar.p] = kidDepth.get(bar.p) ?? 0
                 const sent = kidMoves.get(bar.p)
                 target.mixFull[bar.p] = sent?.full ?? false
                 if (
@@ -683,6 +744,15 @@ export const useHumanBars = (
                   target.afterBy[bar.p] = Object.fromEntries(
                     sent.ucis.map((uci, i) => [uci, bar.after?.[i]]),
                   ) as Record<string, [number, number, number]>
+                  // The depth behind each: the server's when it says (it
+                  // keeps the deepest any visit sent), else what was sent.
+                  const depths =
+                    bar.after_depth?.length === sent.ucis.length
+                      ? bar.after_depth
+                      : kidDepths.get(bar.p)
+                  target.afterDepth[bar.p] = Object.fromEntries(
+                    sent.ucis.map((uci, i) => [uci, depths?.[i] ?? 0]),
+                  )
                 }
               } else {
                 target.mixed[bar.p] = false
@@ -755,7 +825,20 @@ export const useHumanBars = (
   const siteDepth = currentNode?.analysis?.stockfish?.depth ?? 0
   const siteSearching = !!currentNode?.analysis?.stockfish?.partial
   useEffect(() => {
-    if (!enabled || !run || ply === null || run.cp[ply] === null) return
+    if (!enabled || !run || ply === null) return
+    // Deeper wins (practical LOG §98): a ply the game cache had in full is
+    // priced again once this visit's search is deeper than the cache's, for
+    // this ply's moves or (the move played into it) the one before.
+    let reopened = false
+    for (const x of [ply, ply - 1]) {
+      if (x >= 0 && cachedUpgradeDue(run, x, mainline)) {
+        run.cached[x] = false
+        run.mixed[x] = false
+        reopened = true
+      }
+    }
+    if (reopened) setLaunch((n) => n + 1)
+    if (run.cp[ply] === null) return
     const site = siteEvalOf(mainline[ply])
     if (!site || site.depth < run.cpDepth[ply]) return
     if (!site.settled) {
@@ -765,13 +848,10 @@ export const useHumanBars = (
     const moved = run.cp[ply] !== site.cp
     run.cp[ply] = site.cp
     run.cpDepth[ply] = site.depth
-    // The likely moves' evals come from the same search: a mix made from
-    // shallower lines is asked for again too.
-    const linesDeeper = run.mixed[ply] && run.kidDepth[ply] < site.depth
-    if ((moved || linesDeeper) && run.bars[ply] !== undefined) {
-      run.stale.add(ply)
-    }
-    if (needsBars(run, ply, mainline[ply])) send(run, run.token)
+    if (moved && run.bars[ply] !== undefined) run.stale.add(ply)
+    // This ply's own bar if its eval moved, and any ply whose priced moves
+    // now have deeper evals (this one's lines, the move played into it).
+    send(run, run.token)
   }, [enabled, run, ply, siteDepth, siteSearching, mainline, send])
 
   useEffect(() => {
@@ -804,7 +884,9 @@ export const useHumanBars = (
           engine: HUMAN_BAR_ENGINE,
           maia_model: MAIA_MODEL_VERSION,
         })
-        for (const bar of cached?.plies ?? []) {
+        for (const cachedBar of cached?.plies ?? []) {
+          // (after_depth is by move here: kept in afterDepth, not on the bar.)
+          const { after_depth: afterDepth, ...bar } = cachedBar
           if (!(bar.p >= 0 && bar.p < total) || run.bars[bar.p]) continue
           const mix =
             bar.MW !== undefined &&
@@ -822,7 +904,7 @@ export const useHumanBars = (
           run.barsForm[bar.p] = cached?.form
           if (mix) {
             run.mixed[bar.p] = true
-            run.kidDepth[bar.p] = bar.depth ?? 0
+            run.afterDepth[bar.p] = afterDepth
             run.afterBy[bar.p] = bar.after_by
             run.mixFull[bar.p] = !!bar.full
             // In full: nothing left to compute for this ply.
