@@ -7,6 +7,12 @@ import { NewsItem } from 'src/types'
 // `href` is optional: a page of the site ("/blog/practice-mode") or a full URL.
 export const NEWS_ITEMS: NewsItem[] = [
   {
+    date: '2026-11-24',
+    title:
+      'Watch the World Championship live with Maia: Gukesh vs Sindarov, move by move',
+    href: '/wch',
+  },
+  {
     date: '2026-11-11',
     title: 'A big update to Maia Chess: what\u2019s new across the site',
     href: '/blog/2026-november-update',
