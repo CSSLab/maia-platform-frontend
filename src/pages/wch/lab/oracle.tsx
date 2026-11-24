@@ -54,6 +54,7 @@ import {
   usualThink,
 } from 'src/components/WCh/feed'
 import { buildLive } from 'src/components/WCh/liveAdapter'
+import { summarize } from 'src/components/WCh/summary'
 import { useWchFeed } from 'src/components/WCh/useWchFeed'
 import {
   WchSource,
@@ -806,6 +807,7 @@ export default function OraclePage() {
           shownSan={hoverSan}
           onShow={setHoverSan}
           myGuess={ply ? (guesses[ply.index] ?? null) : null}
+          onJump={(i) => go(i - 1)}
         />
         <MoveStrip
           sel={shown}
@@ -994,6 +996,7 @@ export default function OraclePage() {
                 onHover={setHoverSan}
                 hoverSan={hoverSan}
                 myGuess={ply ? (guesses[ply.index] ?? null) : null}
+                onJump={(i) => go(i - 1)}
                 lastResult={
                   !demo && LIVE > 0 && guesses[LIVE - 1]
                     ? {
@@ -2239,6 +2242,159 @@ const YouTag = () => (
   </span>
 )
 
+/** The result in words: "Sindarov won", "a draw". */
+const resultText = (result: string, white: PlayerId, black: PlayerId) =>
+  result === '1-0'
+    ? `${surname(white)} won`
+    : result === '0-1'
+      ? `${surname(black)} won`
+      : /^(1\/2|½)/.test(result)
+        ? 'a draw'
+        : result
+
+/**
+ * A finished game from Maia's point of view (between games, the right panel
+ * would otherwise be empty): how often each player's Maia called his move,
+ * the moves it least expected, where its win chances swung, the riskiest
+ * positions and the longest thinks. A move opens it on the board.
+ */
+const GameStory: React.FC<{
+  onJump: (index: number) => void
+  compact?: boolean
+}> = ({ onJump, compact }) => {
+  const { plies, white, black } = useWch()
+  const s = useMemo(() => summarize(plies), [plies])
+  const personal = plies.some((p) => p.personal)
+  const maiaOf = (id: PlayerId) => (personal ? `Maia${surname(id)}` : 'Maia')
+  const ids = { white, black }
+
+  const row = (p: LivePly, right: React.ReactNode, note?: React.ReactNode) => (
+    <button
+      key={p.index}
+      onClick={() => onJump(p.index)}
+      className="flex w-full items-center justify-between gap-3 rounded px-2 py-1 text-left hover:bg-glass-stronger"
+    >
+      <span className="flex min-w-0 items-center gap-1.5 text-sm">
+        <span className="font-medium text-white">
+          {moveNo(p.moveNumber, p.color)}
+          {p.san}
+        </span>
+        {p.mark ? <MarkChip mark={p.mark} /> : null}
+        {note ? (
+          <span className="truncate text-xs text-white/50">{note}</span>
+        ) : null}
+      </span>
+      <span className="shrink-0 text-xs tabular-nums text-white/75">
+        {right}
+      </span>
+    </button>
+  )
+  const section = (title: string, hint: string, body: React.ReactNode) => (
+    <section className={compact ? 'mt-2' : 'mt-3'}>
+      <h3
+        className="px-2 text-[11px] font-semibold uppercase tracking-wider text-white/45"
+        title={hint}
+      >
+        {title}
+      </h3>
+      <div className="mt-0.5">{body}</div>
+    </section>
+  )
+
+  return (
+    <div
+      className={`red-scrollbar min-h-0 flex-1 overflow-y-auto pb-3 ${
+        compact ? 'px-1' : 'px-2'
+      }`}
+    >
+      <p className="px-2 text-xs text-white/50">
+        The game through Maia&apos;s eyes. Pick a move to see it on the board.
+      </p>
+      {section(
+        'How often Maia called it',
+        "Each player's Maia: how often its first choice was the move he played",
+        (['white', 'black'] as const).map((side) => {
+          const x = s.sides[side]
+          if (!x.moves) return null
+          return (
+            <div key={side} className="px-2 py-1">
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="font-medium" style={{ color: MAIA }}>
+                  {maiaOf(ids[side])}
+                </span>
+                <span className="tabular-nums text-white/80">
+                  {x.maiaTop} of {x.moves}{' '}
+                  <span className="text-white/45">
+                    ({pct(x.maiaTop / x.moves)})
+                  </span>
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${(x.maiaTop / x.moves) * 100}%`,
+                    background: MAIA,
+                  }}
+                />
+              </div>
+              {x.sfMoves ? (
+                <p className="mt-0.5 text-[11px] text-white/45">
+                  Stockfish&apos;s first choice: {x.sfTop} of {x.sfMoves}
+                </p>
+              ) : null}
+            </div>
+          )
+        }),
+      )}
+      {s.surprises.length
+        ? section(
+            "Moves Maia didn't see coming",
+            'The moves its Maia gave the least chance',
+            s.surprises.map((p) =>
+              row(p, `${pct(p.pPlayed)} · #${p.rank}`, surname(p.mover)),
+            ),
+          )
+        : null}
+      {s.swings.length
+        ? section(
+            'Turning points',
+            "The moves that changed Maia's win chances the most",
+            s.swings.map((w) =>
+              row(
+                w.ply,
+                `${pct(w.before)} → ${pct(w.after)}`,
+                `${surname(w.ply.mover)}'s winning chances`,
+              ),
+            ),
+          )
+        : null}
+      {s.risky.length
+        ? section(
+            'Riskiest positions',
+            'The chance he would blunder there, from his own model, and the move he played',
+            s.risky.map((r) =>
+              row(
+                r.ply,
+                riskPct(r.risk),
+                r.ply.mark ? 'he slipped' : 'he held',
+              ),
+            ),
+          )
+        : null}
+      {s.thinks.length
+        ? section(
+            'Longest thinks',
+            'The moves he spent the most time on',
+            s.thinks.map((p) =>
+              row(p, `${Math.round(p.think / 60)} min`, surname(p.mover)),
+            ),
+          )
+        : null}
+    </div>
+  )
+}
+
 const MovePanel: React.FC<{
   ply: LivePly | null
   cands: (Candidate & { before?: number })[]
@@ -2257,6 +2413,8 @@ const MovePanel: React.FC<{
   myGuess: string | null
   /** Live: your guess for the move just played. */
   lastResult: { san: string; guess: string } | null
+  /** Show a move (its index in the game). */
+  onJump: (index: number) => void
 }> = ({
   ply,
   cands,
@@ -2273,6 +2431,7 @@ const MovePanel: React.FC<{
   hoverSan,
   myGuess,
   lastResult,
+  onJump,
 }) => {
   const data = useWch()
   const { next, personal, hasCrowd } = data
@@ -2291,7 +2450,7 @@ const MovePanel: React.FC<{
       <div className="px-4 pb-2.5 pt-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold leading-6 text-white">
           {over
-            ? `Game over: ${next.over}`
+            ? `Game over: ${resultText(String(next.over), data.white, data.black)}`
             : ply
               ? `Here ${who} played ${moveNo(ply.moveNumber, ply.color)}${ply.san}`
               : playedSan
@@ -2345,7 +2504,9 @@ const MovePanel: React.FC<{
         ) : null}
       </div>
 
-      {over ? null : (
+      {over ? (
+        <GameStory onJump={onJump} />
+      ) : (
         <div className="red-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
           <div className="grid grid-cols-[72px_1fr_40px_56px] items-end gap-2 px-4 pb-1.5 pt-1 text-[10px] text-white/40">
             <span>Move</span>
@@ -2766,6 +2927,8 @@ const MobilePrediction: React.FC<{
   shownSan: string | null
   onShow: (san: string | null) => void
   myGuess: string | null
+  /** Show a move (its index in the game). */
+  onJump: (index: number) => void
 }> = ({
   ply,
   cands,
@@ -2781,6 +2944,7 @@ const MobilePrediction: React.FC<{
   shownSan,
   onShow,
   myGuess,
+  onJump,
 }) => {
   const data = useWch()
   const { next, personal, hasCrowd } = data
@@ -2805,42 +2969,44 @@ const MobilePrediction: React.FC<{
       <div className="flex items-center justify-between gap-2 px-2.5 pb-1 pt-1.5">
         <h2 className="truncate text-[15px] font-semibold text-white">
           {over
-            ? `Game over: ${next.over}`
+            ? `Game over: ${resultText(String(next.over), data.white, data.black)}`
             : ply
               ? `Here ${who} played ${moveNo(ply.moveNumber, ply.color)}${ply.san}`
               : playedSan
                 ? `${who} played ${playedSan}`
                 : `What will ${who} play?`}
         </h2>
-        <div className="flex shrink-0 items-center gap-1.5 text-[10px] text-white/45">
-          <span
-            className="text-[12px] font-semibold"
-            style={{ color: MAIA }}
-            title={
-              personal
-                ? undefined
-                : `Maia-3 at ${LIVE_MAIA_ELO}: the players' own models aren't public yet`
-            }
-          >
-            {personal ? 'Maia %' : `Maia ${LIVE_MAIA_ELO} %`}
-          </span>
-          <span style={{ color: ENGINE }}>SF</span>
-          {ticks ? (
+        {over ? null : (
+          <div className="flex shrink-0 items-center gap-1.5 text-[10px] text-white/45">
             <span
-              className="flex items-center gap-0.5"
-              title="The tick: what a typical 2750 plays here"
+              className="text-[12px] font-semibold"
+              style={{ color: MAIA }}
+              title={
+                personal
+                  ? undefined
+                  : `Maia-3 at ${LIVE_MAIA_ELO}: the players' own models aren't public yet`
+              }
             >
-              <span className="inline-block h-2 w-px bg-white/70" />
-              2750
+              {personal ? 'Maia %' : `Maia ${LIVE_MAIA_ELO} %`}
             </span>
-          ) : null}
-          <button
-            onClick={() => setAll((x) => !x)}
-            className="ml-1 text-white/55"
-          >
-            {all ? 'fewer' : `all ${cands.length}`}
-          </button>
-        </div>
+            <span style={{ color: ENGINE }}>SF</span>
+            {ticks ? (
+              <span
+                className="flex items-center gap-0.5"
+                title="The tick: what a typical 2750 plays here"
+              >
+                <span className="inline-block h-2 w-px bg-white/70" />
+                2750
+              </span>
+            ) : null}
+            <button
+              onClick={() => setAll((x) => !x)}
+              className="ml-1 text-white/55"
+            >
+              {all ? 'fewer' : `all ${cands.length}`}
+            </button>
+          </div>
+        )}
       </div>
       {ply && myGuess ? (
         <p className="px-2.5 pb-1 text-[12px] text-white/60">
@@ -2849,6 +3015,11 @@ const MobilePrediction: React.FC<{
             <span className="ml-1.5 text-emerald-300">and called it</span>
           ) : null}
         </p>
+      ) : null}
+      {over ? (
+        <div className="pb-2">
+          <GameStory onJump={onJump} compact />
+        </div>
       ) : null}
       {!over && cands.length === 0 ? (
         <p className="px-2.5 pb-2 text-[12px] text-white/45">
