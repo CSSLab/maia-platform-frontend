@@ -101,6 +101,8 @@ export interface LivePly {
   risk?: number | null
   /** Live feed: the move's probability at each of RATING_KEYS. */
   ratingShares?: number[]
+  /** Live: the predictions here are the mover's own model (feed or tree). */
+  personal?: boolean
 }
 
 const crowdSplit = (
@@ -247,6 +249,8 @@ export interface WchNext {
   over?: string
   /** Live feed: the mover's chance of a blunder here (0-1). */
   risk?: number | null
+  /** Live: the predictions here are the mover's own model (feed or tree). */
+  personal?: boolean
   /** Live feed: how long the mover usually takes here (seconds). */
   thinkPred?: { median_s: number; p90_s: number } | null
 }
