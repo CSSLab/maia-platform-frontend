@@ -1,9 +1,4 @@
-import {
-  barTimeControl,
-  isOurGame,
-  parseLiveGame,
-  splitGames,
-} from './live'
+import { barTimeControl, isOurGame, parseLiveGame, splitGames } from './live'
 
 const GAME_1 = `[Event "FIDE World Chess Championship 2026"]
 [White "Sindarov, Javokhir"]
