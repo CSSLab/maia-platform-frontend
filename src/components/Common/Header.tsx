@@ -446,29 +446,29 @@ export const Header: React.FC = () => {
               )}
             </AnimatePresence>
           </div>
+          <Link
+            href="/wch"
+            aria-label="World Championship 2026"
+            className={`ml-2 flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold leading-[11px] transition-colors duration-200 ${
+              router.pathname.startsWith('/wch')
+                ? 'border-human-1/70 bg-human-4/30 text-white'
+                : 'border-human-2/50 bg-human-4/15 text-human-1 hover:border-human-1/70 hover:bg-human-4/25 hover:text-white'
+            }`}
+          >
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
+              <span className="absolute h-full w-full animate-ping rounded-full bg-human-1/60" />
+              <span className="relative h-1.5 w-1.5 rounded-full bg-human-1" />
+            </span>
+            <span className="flex flex-col items-center text-center">
+              <span>WORLD</span>
+              <span>CHAMPIONSHIP</span>
+            </span>
+          </Link>
         </div>
       </div>
       <div
         className={`hidden flex-row items-center md:flex ${isCompactDesktopNav ? 'gap-2' : 'gap-3'}`}
       >
-        <Link
-          href="/wch"
-          aria-label="World Championship 2026"
-          className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold leading-[11px] transition-colors duration-200 ${
-            router.pathname.startsWith('/wch')
-              ? 'border-human-1/70 bg-human-4/30 text-white'
-              : 'border-human-2/50 bg-human-4/15 text-human-1 hover:border-human-1/70 hover:bg-human-4/25 hover:text-white'
-          }`}
-        >
-          <span className="relative flex h-1.5 w-1.5 shrink-0">
-            <span className="absolute h-full w-full animate-ping rounded-full bg-human-1/60" />
-            <span className="relative h-1.5 w-1.5 rounded-full bg-human-1" />
-          </span>
-          <span className="flex flex-col items-center text-center">
-            <span>WORLD</span>
-            <span>CHAMPIONSHIP</span>
-          </span>
-        </Link>
         <ConnectButtonSlot />
         {discordLink}
         {user?.lichessId && (
