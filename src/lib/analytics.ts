@@ -742,7 +742,8 @@ export const trackHomepageFeatureClicked = (
     | 'puzzles'
     | 'hand_brain'
     | 'openings'
-    | 'bot_or_not',
+    | 'bot_or_not'
+    | 'wch',
   userAuthenticated: boolean,
 ) => {
   safeTrack('homepage_feature_clicked', {
