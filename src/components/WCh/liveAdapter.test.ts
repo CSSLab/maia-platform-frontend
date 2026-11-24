@@ -153,3 +153,56 @@ describe('the live game from the feed', () => {
     expect(next.candidates[0]?.san).toBe('e5')
   })
 })
+
+describe("the move list's rank", () => {
+  // 31.Rh5 in Game 1: second before Maia's own search, first after it.
+  const before = 'r2r4/1pp2pk1/2n4p/2p2R2/1bP3P1/1P1NB2P/8/3R2K1 w - - 2 31'
+  const after = 'r2r4/1pp2pk1/2n4p/2p4R/1bP3P1/1P1NB2P/8/3R2K1 b - - 3 31'
+  const feedPly = (ply: number, fen: string, extra: object) =>
+    ({ ply, fen, moves: [], ...extra }) as never
+
+  it('ranks the move played by the numbers the panel shows', () => {
+    const feed = new Map([
+      [
+        60,
+        feedPly(60, before, {
+          pk_ready: true,
+          moves: [
+            { uci: 'f5d5', san: 'Rd5', p_elite: 0.49, p_elite_pk: 0.35 },
+            { uci: 'f5h5', san: 'Rh5', p_elite: 0.32, p_elite_pk: 0.48 },
+          ],
+        }),
+      ],
+      [
+        61,
+        feedPly(61, after, {
+          played: { uci: 'f5h5', san: 'Rh5', p_elite: 0.32, rank_elite: 2 },
+        }),
+      ],
+    ])
+    const { plies } = buildLive(
+      {
+        ...game([]),
+        moves: Array.from({ length: 61 }, (_, i) => ({
+          index: i,
+          moveNumber: Math.floor(i / 2) + 1,
+          color: i % 2 ? 'black' : 'white',
+          san: i === 60 ? 'Rh5' : '?',
+          uci: i === 60 ? 'f5h5' : '',
+          fenBefore: i === 60 ? before : START,
+          fen: i === 60 ? after : START,
+          clock: null,
+          eval: null,
+          think: 0,
+        })),
+      } as LiveGame,
+      noEngines,
+      ids,
+      7200,
+      feed,
+      null,
+    )
+    expect(plies[60]).toMatchObject({ rank: 1, pPlayed: 0.48 })
+    expect(plies[60].candidates[0].san).toBe('Rh5')
+  })
+})

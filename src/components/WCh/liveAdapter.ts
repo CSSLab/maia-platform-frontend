@@ -66,9 +66,32 @@ const feedAt = (feed: Feed | undefined, n: number, fen: string) => {
 const num = (v: number | null | undefined) =>
   typeof v === 'number' && Number.isFinite(v) ? v : NaN
 
+/** Whether the feed's position has the own model's search in for every move. */
+const hasPk = (f: FeedPly) =>
+  !!f.pk_ready && f.moves.every((m) => m.p_elite_pk != null)
+
+/**
+ * The move played, ranked by the same numbers the panel shows (after the own
+ * search once in), so the move list and the panel agree. A move outside the
+ * feed's list keeps the feed's own rank and probability.
+ */
+const feedRank = (
+  f: FeedPly,
+  uci: string,
+  scored: { rank_elite?: number | null; p_elite?: number | null } | null,
+) => {
+  const pk = hasPk(f)
+  const p = (m: FeedPly['moves'][number]) =>
+    (pk ? m.p_elite_pk : m.p_elite) ?? 0
+  const mine = f.moves.find((m) => m.uci === uci)
+  if (!mine) return { rank: scored?.rank_elite ?? 0, p: scored?.p_elite ?? 0 }
+  const pm = p(mine)
+  return { rank: 1 + f.moves.filter((m) => p(m) > pm).length, p: pm }
+}
+
 /** The feed's moves: the own model (after its own search once in). */
 const feedCandidates = (f: FeedPly, include?: string): Candidate[] => {
-  const pk = !!f.pk_ready && f.moves.every((m) => m.p_elite_pk != null)
+  const pk = hasPk(f)
   const all = f.moves.map((m) => ({
     uci: m.uci,
     san: m.san,
@@ -158,6 +181,7 @@ export const buildLive = (
     const tRank = tOrder ? tOrder.findIndex((x) => x.uci === m.uci) + 1 : 0
     const fAfter = feedAt(feed, m.index + 1, m.fen)
     const scored = fAfter?.played?.uci === m.uci ? fAfter.played : null
+    const fRank = fBefore ? feedRank(fBefore, m.uci, scored) : null
     const policy = eng.info(m.fenBefore)?.read?.policy
     const order = policy ? Object.keys(policy) : []
     const after = eng.info(m.fen)
@@ -185,18 +209,22 @@ export const buildLive = (
       sf: fBefore?.sf_best
         ? sanOf(m.fenBefore, fBefore.sf_best)
         : bestSan(m.fenBefore, eng),
-      rank: scored
-        ? scored.rank_elite
-        : tOrder
-          ? tRank
-          : policy
-            ? order.indexOf(m.uci) + 1
-            : 0,
-      pPlayed: scored
-        ? scored.p_elite
-        : tOrder
-          ? (tOrder[tRank - 1]?.p_bot ?? 0)
-          : (policy?.[m.uci] ?? 0),
+      rank: fRank
+        ? fRank.rank
+        : scored
+          ? scored.rank_elite
+          : tOrder
+            ? tRank
+            : policy
+              ? order.indexOf(m.uci) + 1
+              : 0,
+      pPlayed: fRank
+        ? fRank.p
+        : scored
+          ? scored.p_elite
+          : tOrder
+            ? (tOrder[tRank - 1]?.p_bot ?? 0)
+            : (policy?.[m.uci] ?? 0),
       crowdPlayed: 0,
       crowdTop: '',
       guesses: 0,
