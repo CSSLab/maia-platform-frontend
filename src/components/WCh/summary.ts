@@ -1,7 +1,7 @@
 /*
  * A finished game from Maia's point of view, for the right panel between
  * games: how often each player's Maia called his move, the moves it least
- * expected, where its win chances swung, the riskiest positions and the
+ * expected, where its win chances swung, the most dangerous positions and the
  * longest thinks. Everything comes from the plies on the page (the research
  * feed's numbers when it's on).
  */
@@ -28,7 +28,7 @@ export interface Swing {
   delta: number
 }
 
-export interface Risky {
+export interface Dangerous {
   ply: LivePly
   /** The chance he'd blunder in the position before this move. */
   risk: number
@@ -41,7 +41,7 @@ export interface GameSummary {
   /** The biggest swings in Maia's win chances, biggest first. */
   swings: Swing[]
   /** The positions where a blunder was likeliest, likeliest first. */
-  risky: Risky[]
+  dangerous: Dangerous[]
   /** The longest thinks, longest first. */
   thinks: LivePly[]
 }
@@ -99,7 +99,7 @@ export const summarize = (plies: LivePly[]): GameSummary => {
   })
   swings.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
 
-  const risky = plies
+  const dangerous = plies
     .flatMap((p) =>
       p.risk != null && p.risk >= RISK_FROM ? [{ ply: p, risk: p.risk }] : [],
     )
@@ -111,5 +111,5 @@ export const summarize = (plies: LivePly[]): GameSummary => {
     .sort((a, b) => b.think - a.think)
     .slice(0, TOP)
 
-  return { sides, surprises, swings: swings.slice(0, TOP), risky, thinks }
+  return { sides, surprises, swings: swings.slice(0, TOP), dangerous, thinks }
 }

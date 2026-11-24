@@ -69,13 +69,13 @@ describe('the game from Maia’s point of view', () => {
     expect(s.swings[0]).toMatchObject({ before: 0.39, after: 0.65 })
   })
 
-  it('lists the riskiest positions and the longest thinks', () => {
+  it('lists the most dangerous positions and the longest thinks', () => {
     const s = summarize([
       ply(0, { risk: 0.01, think: 600 }),
       ply(1, { risk: 0.12, think: 90 }),
       ply(2, { risk: 0.05, think: 1500 }),
     ])
-    expect(s.risky.map((r) => r.ply.index)).toEqual([1, 2])
+    expect(s.dangerous.map((r) => r.ply.index)).toEqual([1, 2])
     expect(s.thinks.map((p) => p.index)).toEqual([2, 0])
   })
 })
