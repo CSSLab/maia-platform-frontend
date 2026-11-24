@@ -94,7 +94,8 @@ export interface LivePly {
   think: number
   clockWhite: number
   clockBlack: number
-  bar: { W: number; D: number; B: number }
+  /** Maia's chances after the move (unknown until computed, live). */
+  bar?: { W: number; D: number; B: number }
   mark?: Mark
 }
 
@@ -226,9 +227,25 @@ export const GAME1: LivePly[] = build()
 const last = GAME1[GAME1.length - 1]
 
 /** The move nobody has played yet: 21. White. */
-export const NEXT = {
+/** The move to come (or, with `over`, the end of the game). */
+export interface WchNext {
+  moveNumber: number
+  color: 'white' | 'black'
+  mover: PlayerId
+  fen: string
+  /** Stockfish's best move (SAN), '' while unknown. */
+  sf: string
+  candidates: Candidate[]
+  guessesSoFar: number
+  /** Seconds the mover has been thinking, null if unknown. */
+  thinkingFor: number | null
+  /** The result, once the game is over. */
+  over?: string
+}
+
+export const NEXT: WchNext = {
   moveNumber: last.moveNumber + 1,
-  color: 'white' as const,
+  color: 'white',
   mover: WHITE,
   fen: last.fen,
   sf: NEXT_PREDICTION.sf,
@@ -246,7 +263,9 @@ export const NEXT = {
 }
 
 export const fmtEval = (e: number) =>
-  `${e > 0 ? '+' : e < 0 ? '−' : ''}${Math.abs(e).toFixed(2)}`
+  Number.isFinite(e)
+    ? `${e > 0 ? '+' : e < 0 ? '−' : ''}${Math.abs(e).toFixed(2)}`
+    : '…'
 
 export const tally = (plies: LivePly[]) => ({
   n: plies.length,

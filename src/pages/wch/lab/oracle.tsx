@@ -13,10 +13,14 @@ import type { DrawShape } from 'chessground/draw'
 import type { Key } from 'chessground/types'
 
 import { AuthContext } from 'src/contexts/AuthContext'
+import { ENGINE_PROVIDERS } from 'src/contexts/pageProviders'
+import { MaiaEngineContext } from 'src/contexts/MaiaEngineContext'
 import { LichessSignInButton } from 'src/components/Common/LichessSignInButton'
+import { MaiaDownloadPrompt } from 'src/components/Common/MaiaDownloadPrompt'
 import { UnderlineTabs } from 'src/components/Common/UnderlineTabs'
 import {
   BASE_SECONDS,
+  PlayerId,
   clockCurve,
   fmtClock,
   pct,
@@ -32,22 +36,31 @@ import {
   RATING_BANDS,
   TOP_GUESSERS,
   WHITE,
+  WchNext,
   afterThinking,
   blunderRisk,
   byRating,
   fmtEval,
   tally,
 } from 'src/components/WCh/game1'
+import { barTimeControl } from 'src/components/WCh/live'
+import { buildLive } from 'src/components/WCh/liveAdapter'
+import { LiveStatus, useWchLive } from 'src/components/WCh/useWchLive'
+import {
+  LIVE_MAIA_ELO,
+  LIVE_RATING_BANDS,
+  useWchEngines,
+} from 'src/components/WCh/useWchEngines'
 import { Flag, MarkChip, WchBoard } from 'src/components/WCh/ui'
 
 const MAIA = 'rgb(254 127 109)'
 const CROWD = '#c8c2bd'
 const ENGINE = 'rgb(90 157 215)'
-const LIVE = GAME1.length
 const PANE_H = 150
 /** Below this many guesses the page doesn't show the count. */
 const MIN_SHOWN_GUESSES = 3
 const BAR_W = 26
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 // --avail-h / --avail-w: the visible area under and beside the page's top
 // (the site header), measured on load and resize; clientWidth leaves out the
@@ -89,21 +102,114 @@ const PANE_TABS: { id: PaneTab; name: string }[] = [
   { id: 'clocks', name: 'Clocks' },
   { id: 'rating', name: 'By rating' },
 ]
+// Live: no blunder-risk model on the site yet.
+const LIVE_TABS = PANE_TABS.filter((t) => t.id !== 'risk')
+
+/** Everything the page's parts need to know about the game on show. */
+interface WchData {
+  mode: 'demo' | 'live'
+  plies: LivePly[]
+  next: WchNext
+  /** plies.length: the index of the move to come. */
+  LIVE: number
+  white: PlayerId
+  black: PlayerId
+  /** The player-specific Maia models (demo); live uses Maia at 2600. */
+  personal: boolean
+  /** Visitors' guesses from a server (demo only so far). */
+  hasCrowd: boolean
+}
+
+const WchCtx = React.createContext<WchData | null>(null)
+const useWch = () => {
+  const data = useContext(WchCtx)
+  if (!data) throw new Error('useWch outside the page')
+  return data
+}
+
+/** Maia's name for a player: his own model, or Maia at its live rating. */
+const maiaName = (data: WchData, id: PlayerId) =>
+  data.personal ? `Maia${surname(id)}` : 'Maia'
+
+type Tally = {
+  n: number
+  maia: number
+  crowd: number | null
+  stockfish: number | null
+}
 
 export default function OraclePage() {
+  const router = useRouter()
+  const demo = router.query.demo === '1'
+  const roundQ =
+    typeof router.query.round === 'string' ? router.query.round : null
+  const gameQ = typeof router.query.game === 'string' ? router.query.game : null
+
   const { user } = useContext(AuthContext)
+  const maiaEngine = useContext(MaiaEngineContext)
   const [demoSignedIn, setDemoSignedIn] = useState(false)
   const signedIn = !!user?.lichessId || demoSignedIn
 
-  const [sel, setSel] = useState(LIVE)
+  const live = useWchLive({
+    enabled: router.isReady && !demo,
+    round: roundQ,
+    game: gameQ,
+  })
+  const liveMoves = useMemo(() => live.game?.moves ?? [], [live.game])
+  const LIVE = demo ? GAME1.length : liveMoves.length
+
+  const [selRaw, setSelRaw] = useState<number | 'live'>('live')
+  const sel = selRaw === 'live' ? LIVE : Math.min(selRaw, LIVE)
+  const isLive = sel === LIVE
   const [preview, setPreview] = useState<number | null>(null)
   const [hoverSan, setHoverSan] = useState<string | null>(null)
-  const [guess, setGuess] = useState<string | null>(null)
-  const [played, setPlayed] = useState(false)
-  const [thinking, setThinking] = useState(NEXT.thinkingFor)
+  const [playedAt, setPlayedAt] = useState<number | null>(null)
+  const played = playedAt !== null
+  const setPlayed = (v: boolean) => setPlayedAt(v ? Date.now() : null)
+  const [tab, setTab] = useState<PaneTab>('chances')
+
+  // Guesses by ply, kept in this browser for the live game.
+  const gameKey = demo ? 'demo' : (live.game?.gameId ?? 'game')
+  const [guesses, setGuesses] = useState<Record<number, string>>({})
+  useEffect(() => {
+    if (demo) return
+    try {
+      const saved = window.localStorage.getItem(`wch-guesses:${gameKey}`)
+      setGuesses(saved ? JSON.parse(saved) : {})
+    } catch {
+      setGuesses({})
+    }
+  }, [demo, gameKey])
+  const setGuess = useCallback(
+    (san: string) => {
+      setGuesses((g) => {
+        const next = { ...g, [LIVE]: san }
+        if (!demo)
+          try {
+            window.localStorage.setItem(
+              `wch-guesses:${gameKey}`,
+              JSON.stringify(next),
+            )
+          } catch {
+            // Kept for the visit only.
+          }
+        return next
+      })
+    },
+    [LIVE, demo, gameKey],
+  )
+  const guess = guesses[LIVE] ?? null
+
+  // The clock: a tick a second.
+  const [now, setNow] = useState(() => Date.now())
+  const [mountedAt] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
   const [guessCount, setGuessCount] = useState(NEXT.guessesSoFar)
   // Demo: ?guesses=N shows the page with N guesses in (and no new ones).
-  const router = useRouter()
   const fixedGuesses =
     typeof router.query.guesses === 'string'
       ? Math.max(0, parseInt(router.query.guesses, 10) || 0)
@@ -111,8 +217,10 @@ export default function OraclePage() {
   useEffect(() => {
     if (fixedGuesses !== null) setGuessCount(fixedGuesses)
   }, [fixedGuesses])
-  const [tab, setTab] = useState<PaneTab>('chances')
-  const isLive = sel === LIVE
+  useEffect(() => {
+    if (!demo || played || fixedGuesses !== null) return
+    setGuessCount((g) => g + (Math.random() < 0.6 ? 1 : 0))
+  }, [now, demo, played, fixedGuesses])
 
   // Both layouts are in the page (CSS shows one), but only one board may be
   // mounted: chessground's arrowhead markers have fixed ids, and a second
@@ -141,20 +249,68 @@ export default function OraclePage() {
     return () => window.removeEventListener('resize', set)
   }, [])
 
-  useEffect(() => {
-    if (played) return
-    const id = window.setInterval(() => {
-      setThinking((t) => t + 1)
-      if (fixedGuesses === null)
-        setGuessCount((g) => g + (Math.random() < 0.6 ? 1 : 0))
-    }, 1000)
-    return () => window.clearInterval(id)
-  }, [played, fixedGuesses])
+  // The engines, on the live game's positions (the one on screen first).
+  const liveFens = useMemo(
+    () => [START_FEN, ...liveMoves.map((m) => m.fen)],
+    [liveMoves],
+  )
+  const focusFen = demo
+    ? null
+    : sel >= LIVE
+      ? (liveMoves[LIVE - 1]?.fen ?? START_FEN)
+      : liveMoves[sel].fenBefore
+  const engines = useWchEngines({
+    enabled: !demo && !!live.game,
+    fens: liveFens,
+    focusFen,
+    timeControl: barTimeControl(live.game?.timeControl ?? null),
+  })
 
-  const go = useCallback((i: number) => {
-    setSel(Math.max(0, Math.min(LIVE, i)))
-    setHoverSan(null)
-  }, [])
+  const ids = {
+    white: live.game?.white ?? WHITE,
+    black: live.game?.black ?? (live.game?.white === BLACK ? WHITE : BLACK),
+  }
+  const startClock = useMemo(() => {
+    const base = live.game?.timeControl?.match(/^(?:\d+\/)?(\d+)/)?.[1]
+    return base ? +base : BASE_SECONDS
+  }, [live.game?.timeControl])
+
+  const built = useMemo(
+    () =>
+      demo
+        ? { plies: GAME1, next: NEXT }
+        : buildLive(live.game, engines, ids, startClock),
+    // engines.version: the engines' results change in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [demo, live.game, engines.version, ids.white, ids.black, startClock],
+  )
+
+  // Seconds the side to move has been thinking.
+  const thinking: number | null = demo
+    ? NEXT.thinkingFor! + Math.floor(((playedAt ?? now) - mountedAt) / 1000)
+    : live.status === 'live' && live.lastMoveAt
+      ? Math.max(0, Math.floor((now - live.lastMoveAt) / 1000))
+      : null
+
+  const data: WchData = {
+    mode: demo ? 'demo' : 'live',
+    plies: built.plies,
+    next: { ...built.next, thinkingFor: thinking },
+    LIVE,
+    white: ids.white,
+    black: ids.black,
+    personal: demo,
+    hasCrowd: demo,
+  }
+  const { plies, next } = data
+
+  const go = useCallback(
+    (i: number) => {
+      setSelRaw(i >= LIVE ? 'live' : Math.max(0, i))
+      setHoverSan(null)
+    },
+    [LIVE],
+  )
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') go(sel - 1)
@@ -164,65 +320,73 @@ export default function OraclePage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [go, sel])
 
-  // The demo's move 21: Maia's first choice.
-  const liveSan = NEXT.candidates[0].san
+  // Demo: the move the demo plays is Maia's first choice.
+  const liveSan = demo ? NEXT.candidates[0].san : ''
   const liveAfter = useMemo(() => {
+    if (!demo) return null
     const c = new Chess(NEXT.fen)
-    const m = c.move(liveSan)
+    const m = c.move(NEXT.candidates[0].san)
     return { fen: c.fen(), uci: m ? m.from + m.to : '' }
-  }, [liveSan])
+  }, [demo])
+  const demoPlayed = demo && played
 
-  const canGuess = isLive && signedIn && !played
-  const ply = isLive ? null : GAME1[sel]
-  const previewPly = preview !== null ? GAME1[preview] : null
+  const canGuess = isLive && signedIn && !demoPlayed && !next.over
+  const ply = isLive ? null : plies[sel]
+  const previewPly = preview !== null ? (plies[preview] ?? null) : null
+  const lastPly = plies[LIVE - 1] ?? null
 
   const boardFen = previewPly
     ? previewPly.fen
     : ply
       ? ply.fen
-      : played
+      : demoPlayed && liveAfter
         ? liveAfter.fen
-        : NEXT.fen
+        : next.fen
   const lastMove = previewPly
     ? previewPly.uci
     : ply
       ? ply.uci
-      : played
+      : demoPlayed && liveAfter
         ? liveAfter.uci
-        : GAME1[LIVE - 1].uci
+        : (lastPly?.uci ?? null)
 
   const dests = useMemo(() => {
     if (!canGuess || previewPly) return undefined
-    const c = new Chess(NEXT.fen)
+    const c = new Chess(next.fen)
     const map = new Map<Key, Key[]>()
     c.moves({ verbose: true }).forEach((m) => {
       map.set(m.from as Key, [...(map.get(m.from as Key) ?? []), m.to as Key])
     })
     return map
-  }, [canGuess, previewPly])
+  }, [canGuess, previewPly, next.fen])
 
   const onBoardMove = (from: string, to: string) => {
-    const c = new Chess(NEXT.fen)
+    const c = new Chess(next.fen)
     const m = c.move({ from, to, promotion: 'q' } as never)
     if (m) setGuess(m.san)
   }
 
   // The position the right panel is about (before its move).
-  const panelFen = ply ? ply.fenBefore : NEXT.fen
-  // While he thinks, Maia's prediction shifts away from the quick moves.
+  const panelFen = ply ? ply.fenBefore : next.fen
+  // Demo: while he thinks, the prediction shifts away from the quick moves.
   const liveCands = useMemo(
     () =>
-      afterThinking(NEXT.candidates, thinking).sort((a, b) => b.maia - a.maia),
-    [thinking],
+      demo
+        ? afterThinking(NEXT.candidates, thinking ?? 0).sort(
+            (a, b) => b.maia - a.maia,
+          )
+        : next.candidates,
+    [demo, thinking, next.candidates],
   )
   const panelCands = ply ? ply.candidates : liveCands
-  const panelSf = ply ? ply.sf : NEXT.sf
+  const panelSf = ply ? ply.sf : next.sf
+  const panelMover = ply ? ply.mover : next.mover
 
   const shapes = useMemo(() => {
     const out: DrawShape[] = []
     if (previewPly) return out
     const arrow = (san: string, brush: string, w?: number) => {
-      const sq = sanToSquares(panelFen, san)
+      const sq = san ? sanToSquares(panelFen, san) : null
       if (sq)
         out.push({
           orig: sq[0] as Key,
@@ -236,11 +400,12 @@ export default function OraclePage() {
       return out
     }
     // After the move, the board shows the new position: arrows only before.
-    if (isLive && played) return out
-    const top = panelCands[0].san
+    if (isLive && (demoPlayed || next.over)) return out
+    const top = panelCands[0]?.san
     const playedSan = ply?.san
-    if (top !== playedSan) arrow(top, 'maia')
-    if (panelSf !== top && panelSf !== playedSan) arrow(panelSf, 'engine', 8)
+    if (top && top !== playedSan) arrow(top, 'maia')
+    if (panelSf && panelSf !== top && panelSf !== playedSan)
+      arrow(panelSf, 'engine', 8)
     if (isLive && guess && guess !== top && guess !== panelSf)
       arrow(guess, 'you')
     return out
@@ -248,7 +413,8 @@ export default function OraclePage() {
     previewPly,
     hoverSan,
     isLive,
-    played,
+    demoPlayed,
+    next.over,
     panelFen,
     panelCands,
     panelSf,
@@ -256,30 +422,115 @@ export default function OraclePage() {
     guess,
   ])
 
-  const base = tally(GAME1)
-  const crowdTopLive = [...NEXT.candidates].sort((a, b) => b.crowd - a.crowd)[0]
-  const score = played
-    ? {
-        n: base.n + 1,
-        maia: base.maia + 1,
-        crowd: base.crowd + (crowdTopLive.san === liveSan ? 1 : 0),
-        stockfish: base.stockfish + (NEXT.sf === liveSan ? 1 : 0),
-      }
-    : base
+  const score: Tally = useMemo(() => {
+    if (demo) {
+      const base = tally(GAME1)
+      const crowdTopLive = [...NEXT.candidates].sort(
+        (a, b) => b.crowd - a.crowd,
+      )[0]
+      return played
+        ? {
+            n: base.n + 1,
+            maia: base.maia + 1,
+            crowd: base.crowd + (crowdTopLive.san === liveSan ? 1 : 0),
+            stockfish: base.stockfish + (NEXT.sf === liveSan ? 1 : 0),
+          }
+        : base
+    }
+    const known = plies.filter((p) => p.rank > 0)
+    const sfKnown = plies.filter((p) => p.sf)
+    return {
+      n: known.length,
+      maia: known.filter((p) => p.rank === 1).length,
+      crowd: null,
+      stockfish:
+        sfKnown.length === plies.length
+          ? sfKnown.filter((p) => p.sf === p.san).length
+          : null,
+    }
+  }, [demo, played, plies, liveSan])
 
-  const shownPly = previewPly ?? ply ?? GAME1[LIVE - 1]
-  const bar = shownPly.bar
+  // Your guesses that a move has settled.
+  const you = useMemo(() => {
+    if (demo)
+      return guess && played
+        ? { right: guess === liveSan ? 1 : 0, of: 1 }
+        : null
+    const settled = Object.entries(guesses).filter(([k]) => +k < LIVE)
+    if (!settled.length) return null
+    return {
+      right: settled.filter(([k, san]) => plies[+k]?.san === san).length,
+      of: settled.length,
+    }
+  }, [demo, guess, played, liveSan, guesses, LIVE, plies])
+
+  const shownPly = previewPly ?? ply ?? lastPly
+  const bar = shownPly?.bar
   const evalNow = previewPly
     ? previewPly.eval
     : ply
       ? ply.eval
-      : played
+      : demoPlayed
         ? NEXT.candidates[0].eval
-        : GAME1[LIVE - 1].eval
+        : (lastPly?.eval ?? 0.2)
 
+  const clockWhite = shownPly?.clockWhite ?? startClock
+  const clockBlack = shownPly?.clockBlack ?? startClock
+  const toMove: Side | null =
+    isLive && !previewPly && !demoPlayed && !next.over && thinking !== null
+      ? next.color
+      : null
   const clockWhiteNow =
-    shownPly.clockWhite - (isLive && !previewPly ? thinking : 0)
-  const whiteOnMove = isLive && !played && !previewPly
+    clockWhite - (toMove === 'white' && thinking !== null ? thinking : 0)
+  const clockBlackNow =
+    clockBlack - (toMove === 'black' && thinking !== null ? thinking : 0)
+
+  const tabs = demo ? PANE_TABS : LIVE_TABS
+  const shownTab = tabs.some((t) => t.id === tab) ? tab : 'chances'
+  const ratingBands = demo ? RATING_BANDS : LIVE_RATING_BANDS
+  const ratingRows = useMemo(() => {
+    if (demo) return byRating(panelCands)
+    const reads = engines.byRating(panelFen)
+    if (!reads) return null
+    const top = panelCands.slice(0, 4)
+    return top.map((c) => {
+      const uci = (() => {
+        const m = new Chess(panelFen).move(c.san)
+        return m ? m.from + m.to + (m.promotion ?? '') : ''
+      })()
+      return { san: c.san, shares: reads.map((r) => r.policy?.[uci] ?? 0) }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo, panelCands, panelFen, engines.version])
+
+  const title = demo
+    ? 'Game 1 of 14, Geneva'
+    : `${live.roundName ?? 'World Championship'}${
+        live.status === 'waiting' && live.startsAt
+          ? `, starts ${new Date(live.startsAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}`
+          : ''
+      }`
+
+  const paneBody = (
+    <>
+      {shownTab === 'chances' ? (
+        <ChancesChart sel={sel} onSelect={go} />
+      ) : shownTab === 'risk' ? (
+        <RiskChart sel={sel} onSelect={go} />
+      ) : shownTab === 'clocks' ? (
+        <ClocksChart sel={sel} startClock={startClock} />
+      ) : (
+        <ByRating rows={ratingRows} bands={ratingBands} />
+      )}
+    </>
+  )
+
+  const footnote = demo
+    ? 'Prototype with an illustrative game and made-up Maia, Stockfish and visitor numbers.'
+    : `Moves and clocks from the Lichess broadcast. Maia (at ${LIVE_MAIA_ELO}) and Stockfish run in your browser; your guesses stay in this browser.`
 
   // The one-column layout (below WIDE_FROM), shown by CSS so it's right on
   // first paint.
@@ -287,22 +538,24 @@ export default function OraclePage() {
     <>
       <div className="flex h-11 items-center gap-2 px-2">
         <PlayerHalf
-          id={WHITE}
+          id={ids.white}
           side="white"
           clock={clockWhiteNow}
-          active={whiteOnMove}
-          thinking={thinking}
+          active={toMove === 'white'}
+          thinking={thinking ?? 0}
         />
         <div className="w-[70px] shrink-0 text-center text-[10px] leading-3">
           <p className="font-semibold text-white/80">World Championship</p>
-          <p className="mt-0.5 text-white/45">2026, Game 1</p>
+          <p className="mt-0.5 text-white/45">
+            {demo ? '2026, Game 1' : (live.roundName ?? '2026')}
+          </p>
         </div>
         <PlayerHalf
-          id={BLACK}
+          id={ids.black}
           side="black"
-          clock={shownPly.clockBlack}
-          active={false}
-          thinking={thinking}
+          clock={clockBlackNow}
+          active={toMove === 'black'}
+          thinking={thinking ?? 0}
           alignRight
         />
       </div>
@@ -318,7 +571,7 @@ export default function OraclePage() {
               lastMove={lastMove}
               shapes={shapes}
               dests={dests}
-              turnColor={dests ? 'white' : undefined}
+              turnColor={dests ? next.color : undefined}
               onMove={onBoardMove}
               coordinates={false}
             />
@@ -335,19 +588,24 @@ export default function OraclePage() {
           ply={ply}
           cands={panelCands}
           sf={panelSf}
-          thinking={thinking}
+          mover={panelMover}
           signedIn={signedIn}
           onDemoSignIn={() => setDemoSignedIn(true)}
           guess={guess}
           onGuess={canGuess ? setGuess : undefined}
-          played={played}
-          onPlay={() => setPlayed(true)}
+          played={demoPlayed}
           guessCount={guessCount}
           liveSan={liveSan}
           shownSan={hoverSan}
           onShow={setHoverSan}
+          myGuess={ply ? (guesses[ply.index] ?? null) : null}
         />
-        <MoveStrip sel={sel} onSelect={go} played={played} liveSan={liveSan} />
+        <MoveStrip
+          sel={sel}
+          onSelect={go}
+          played={demoPlayed}
+          liveSan={liveSan}
+        />
         <div
           className="mx-2 flex flex-col overflow-hidden rounded-md border border-glass-border bg-glass"
           style={{ height: PANE_H + 10 }}
@@ -355,8 +613,8 @@ export default function OraclePage() {
           <div className="flex items-stretch border-b border-glass-border">
             <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto [&>div]:border-b-0 [&_p]:whitespace-nowrap">
               <UnderlineTabs
-                tabs={PANE_TABS}
-                selected={tab}
+                tabs={tabs}
+                selected={shownTab}
                 onSelect={setTab}
                 layoutId="wchPaneTabMobile"
               />
@@ -365,32 +623,14 @@ export default function OraclePage() {
               Maia views
             </span>
           </div>
-          <div className="min-h-0 flex-1 px-2 py-2">
-            {tab === 'chances' ? (
-              <ChancesChart sel={sel} onSelect={go} />
-            ) : tab === 'risk' ? (
-              <RiskChart sel={sel} onSelect={go} />
-            ) : tab === 'clocks' ? (
-              <ClocksChart sel={sel} />
-            ) : (
-              <ByRating cands={panelCands} />
-            )}
-          </div>
+          <div className="min-h-0 flex-1 px-2 py-2">{paneBody}</div>
         </div>
         <div className="mx-2">
-          <Leaders
-            score={score}
-            you={
-              guess && played
-                ? { right: guess === liveSan ? 1 : 0, of: 1 }
-                : null
-            }
-          />
+          <Leaders score={score} you={you} />
         </div>
         <p className="mx-3 text-xs text-white/35">
-          Prototype with an illustrative game and made-up numbers. Photos:
-          Dominik Töpfer / Lichess.{' '}
-          {!played ? (
+          {footnote} Photos: Dominik Töpfer / Lichess.{' '}
+          {demo && !played ? (
             <button onClick={() => setPlayed(true)} className="underline">
               Demo: play his move
             </button>
@@ -401,12 +641,15 @@ export default function OraclePage() {
   )
 
   return (
-    <>
+    <WchCtx.Provider value={data}>
       <Head>
-        <title>World Championship 2026, Game 1 – Maia Chess</title>
+        <title>World Championship 2026 – Maia Chess</title>
         <meta name="robots" content="noindex" />
       </Head>
       <style>{SIZE_CSS}</style>
+      {!demo ? (
+        <MaiaDownloadPrompt engine={maiaEngine} blocking={false} />
+      ) : null}
       <main ref={rootRef} className="wch-root w-full pb-10">
         <div className="mx-auto max-w-[640px] xl:hidden">{mobileView}</div>
         <div className="mx-auto hidden w-full max-w-[1680px] px-6 pt-3 xl:block">
@@ -417,19 +660,19 @@ export default function OraclePage() {
               style={{ height: COL_H }}
             >
               <Players
-                clockWhite={
-                  shownPly.clockWhite - (isLive && !previewPly ? thinking : 0)
-                }
-                clockBlack={shownPly.clockBlack}
-                onMove={isLive && !played && !previewPly ? 'white' : null}
-                thinking={thinking}
+                title={title}
+                score={demo ? '0–0' : null}
+                clockWhite={clockWhiteNow}
+                clockBlack={clockBlackNow}
+                onMove={toMove}
+                thinking={thinking ?? 0}
               />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
                 <MoveList
                   sel={sel}
                   onSelect={go}
                   onPreview={setPreview}
-                  played={played}
+                  played={demoPlayed}
                   liveSan={liveSan}
                   livePct={liveCands.find((c) => c.san === liveSan)?.maia ?? 0}
                 />
@@ -483,7 +726,7 @@ export default function OraclePage() {
                         lastMove={lastMove}
                         shapes={shapes}
                         dests={dests}
-                        turnColor={dests ? 'white' : undefined}
+                        turnColor={dests ? next.color : undefined}
                         onMove={onBoardMove}
                       />
                     ) : (
@@ -500,8 +743,8 @@ export default function OraclePage() {
                 <div className="flex items-stretch border-b border-glass-border">
                   <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto [&>div]:border-b-0 [&_p]:whitespace-nowrap">
                     <UnderlineTabs
-                      tabs={PANE_TABS}
-                      selected={tab}
+                      tabs={tabs}
+                      selected={shownTab}
                       onSelect={setTab}
                       layoutId="wchPaneTab"
                     />
@@ -510,17 +753,7 @@ export default function OraclePage() {
                     Maia views
                   </span>
                 </div>
-                <div className="min-h-0 flex-1 px-3 py-2">
-                  {tab === 'chances' ? (
-                    <ChancesChart sel={sel} onSelect={go} />
-                  ) : tab === 'risk' ? (
-                    <RiskChart sel={sel} onSelect={go} />
-                  ) : tab === 'clocks' ? (
-                    <ClocksChart sel={sel} />
-                  ) : (
-                    <ByRating cands={panelCands} />
-                  )}
-                </div>
+                <div className="min-h-0 flex-1 px-3 py-2">{paneBody}</div>
               </div>
             </section>
 
@@ -532,38 +765,45 @@ export default function OraclePage() {
               <MovePanel
                 ply={ply}
                 cands={panelCands}
-                thinking={ply ? null : thinking}
                 sf={panelSf}
                 signedIn={signedIn}
                 onDemoSignIn={() => setDemoSignedIn(true)}
                 guess={guess}
                 onGuess={canGuess ? setGuess : undefined}
-                played={played}
+                played={demoPlayed}
                 onPlay={() => setPlayed(true)}
                 guessCount={guessCount}
                 liveSan={liveSan}
                 onHover={setHoverSan}
                 hoverSan={hoverSan}
-              />
-              <Leaders
-                score={score}
-                you={
-                  guess && played
-                    ? { right: guess === liveSan ? 1 : 0, of: 1 }
+                myGuess={ply ? (guesses[ply.index] ?? null) : null}
+                lastResult={
+                  !demo && LIVE > 0 && guesses[LIVE - 1]
+                    ? {
+                        san: plies[LIVE - 1].san,
+                        guess: guesses[LIVE - 1],
+                      }
                     : null
                 }
               />
+              <Leaders score={score} you={you} />
             </section>
           </div>
           <p className="mt-5 text-xs text-white/35">
-            Prototype with an illustrative game and made-up Maia, Stockfish and
-            visitor numbers. Photos: Dominik Töpfer / Lichess.
+            {footnote} Photos: Dominik Töpfer / Lichess.
+            {!demo && live.status === 'error' ? (
+              <span className="ml-2 text-rose-300">
+                Couldn&apos;t reach the broadcast: {live.error}
+              </span>
+            ) : null}
           </p>
         </div>
       </main>
-    </>
+    </WchCtx.Provider>
   )
 }
+
+OraclePage.providers = ENGINE_PROVIDERS
 
 /* ------------------------------------------------------------------ */
 /* Left column                                                          */
@@ -581,40 +821,48 @@ const SideMark: React.FC<{ side: Side }> = ({ side }) => (
 )
 
 const Players: React.FC<{
+  title: string
+  /** The match score, when known. */
+  score: string | null
   clockWhite: number
   clockBlack: number
   onMove: Side | null
   thinking: number
-}> = ({ clockWhite, clockBlack, onMove, thinking }) => (
-  <div className="overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
-    <div className="flex items-end justify-between border-b border-glass-border px-3 py-2">
-      <div>
-        <p className="text-sm font-semibold text-white">
-          World Championship 2026
-        </p>
-        <p className="text-xs text-white/50">Game 1 of 14, Geneva</p>
+}> = ({ title, score, clockWhite, clockBlack, onMove, thinking }) => {
+  const { white, black } = useWch()
+  return (
+    <div className="overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+      <div className="flex items-end justify-between border-b border-glass-border px-3 py-2">
+        <div>
+          <p className="text-sm font-semibold text-white">
+            World Championship 2026
+          </p>
+          <p className="text-xs text-white/50">{title}</p>
+        </div>
+        {score ? (
+          <p className="text-right text-xs text-white/50">
+            Match <span className="tabular-nums text-white/80">{score}</span>
+          </p>
+        ) : null}
       </div>
-      <p className="text-right text-xs text-white/50">
-        Match <span className="tabular-nums text-white/80">0–0</span>
-      </p>
+      <PlayerRow
+        id={black}
+        side="black"
+        clock={clockBlack}
+        active={onMove === 'black'}
+        thinking={thinking}
+      />
+      <div className="mx-3 h-px bg-glass-border" />
+      <PlayerRow
+        id={white}
+        side="white"
+        clock={clockWhite}
+        active={onMove === 'white'}
+        thinking={thinking}
+      />
     </div>
-    <PlayerRow
-      id={BLACK}
-      side="black"
-      clock={clockBlack}
-      active={onMove === 'black'}
-      thinking={thinking}
-    />
-    <div className="mx-3 h-px bg-glass-border" />
-    <PlayerRow
-      id={WHITE}
-      side="white"
-      clock={clockWhite}
-      active={onMove === 'white'}
-      thinking={thinking}
-    />
-  </div>
-)
+  )
+}
 
 const PlayerRow: React.FC<{
   id: 'gukesh' | 'sindarov'
@@ -673,6 +921,7 @@ const MoveList: React.FC<{
   liveSan: string
   livePct: number
 }> = ({ sel, onSelect, onPreview, played, liveSan, livePct }) => {
+  const { plies: GAME1, next: NEXT, LIVE } = useWch()
   const ref = useRef<HTMLDivElement>(null)
   // Scroll only the list (scrollIntoView would also scroll the page).
   useEffect(() => {
@@ -810,26 +1059,29 @@ const Cell: React.FC<{
 const Controls: React.FC<{ sel: number; go: (i: number) => void }> = ({
   sel,
   go,
-}) => (
-  <div className="grid grid-cols-4 text-white/70">
-    {(
-      [
-        ['first_page', 0],
-        ['arrow_back_ios', sel - 1],
-        ['arrow_forward_ios', sel + 1],
-        ['last_page', LIVE],
-      ] as [string, number][]
-    ).map(([icon, to]) => (
-      <button
-        key={icon}
-        onClick={() => go(to)}
-        className="flex h-8 items-center justify-center hover:bg-glass-stronger hover:text-white"
-      >
-        <span className="material-symbols-outlined !text-[18px]">{icon}</span>
-      </button>
-    ))}
-  </div>
-)
+}) => {
+  const { LIVE } = useWch()
+  return (
+    <div className="grid grid-cols-4 text-white/70">
+      {(
+        [
+          ['first_page', 0],
+          ['arrow_back_ios', sel - 1],
+          ['arrow_forward_ios', sel + 1],
+          ['last_page', LIVE],
+        ] as [string, number][]
+      ).map(([icon, to]) => (
+        <button
+          key={icon}
+          onClick={() => go(to)}
+          className="flex h-8 items-center justify-center hover:bg-glass-stronger hover:text-white"
+        >
+          <span className="material-symbols-outlined !text-[18px]">{icon}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
 
 /* ------------------------------------------------------------------ */
 /* Bars and legend around the board                                     */
@@ -855,9 +1107,19 @@ const ArrowLegend = () => (
 )
 
 const HumanBar: React.FC<{
-  bar: { W: number; D: number; B: number }
+  bar?: { W: number; D: number; B: number }
   size?: string
 }> = ({ bar, size = 'var(--board)' }) => {
+  if (!bar)
+    return (
+      <div
+        className="flex w-full items-center justify-center rounded border border-white/15 bg-white/[0.04] text-[11px] text-white/35"
+        style={{ height: size }}
+        title="Maia's win chances come in from move 6"
+      >
+        –
+      </div>
+    )
   const seg = (v: number, cls: string, label: string) => (
     <div
       className={`flex items-center justify-center text-[13px] font-bold tabular-nums transition-all duration-500 ${cls}`}
@@ -965,114 +1227,136 @@ const MoveTicks: React.FC<{ x: (i: number) => number; y: number }> = ({
 const ChancesChart: React.FC<{
   sel: number
   onSelect: (i: number) => void
-}> = ({ sel, onSelect }) => (
-  <Sized>
-    {(w, h) => {
-      const pts = [{ W: 0.25, D: 0.57, B: 0.18 }, ...GAME1.map((p) => p.bar)]
-      const n = pts.length - 1
-      const f = frame(w, h, n)
-      const cur = sel === LIVE ? n : sel + 1
-      const b = pts[cur]
-      const band = (top: (i: number) => number, bot: (i: number) => number) =>
-        `M${pts.map((_, i) => `${f.x(i)},${f.y(top(i))}`).join('L')}L${pts
-          .map((_, i) => `${f.x(i)},${f.y(bot(i))}`)
-          .reverse()
-          .join('L')}Z`
-      const mid = (a: number, c: number) => f.y((a + c) / 2) + 4
-      return (
-        <svg
-          width={w}
-          height={h}
-          className="cursor-pointer"
-          onClick={(e) => {
-            const r = e.currentTarget.getBoundingClientRect()
-            onSelect(
-              Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
-            )
-          }}
-        >
-          <path
-            d={band(
-              () => 0,
-              (i) => pts[i].B,
-            )}
-            fill="#3f3a3b"
-          />
-          <path
-            d={band(
-              (i) => pts[i].B,
-              (i) => pts[i].B + pts[i].D,
-            )}
-            fill="#8f8a88"
-          />
-          <path
-            d={band(
-              (i) => pts[i].B + pts[i].D,
-              () => 1,
-            )}
-            fill="#e6e3e0"
-          />
-          {[0.25, 0.5, 0.75].map((v) => (
-            <line
-              key={v}
-              x1={PAD.l}
-              x2={w - PAD.r}
-              y1={f.y(v)}
-              y2={f.y(v)}
-              stroke="rgba(0,0,0,0.2)"
+}> = ({ sel, onSelect }) => {
+  const { plies: GAME1, LIVE } = useWch()
+  return (
+    <Sized>
+      {(w, h) => {
+        // Known bars only (live, they come in as Maia and Stockfish finish).
+        const known = GAME1.flatMap((p, k) =>
+          p.bar ? [{ i: k + 1, b: p.bar }] : [],
+        )
+        if (known.length < 2)
+          return (
+            <div
+              className="flex h-full items-center justify-center text-xs text-white/40"
+              style={{ width: w }}
+            >
+              Maia&apos;s win chances fill in from move 6.
+            </div>
+          )
+        const pts = known.map((k) => k.b)
+        const at = known.map((k) => k.i)
+        const n = Math.max(LIVE, 1)
+        const f = frame(w, h, n)
+        const cur = sel === LIVE ? LIVE : sel + 1
+        // The bar at the move on show, or the last one before it.
+        let k = 0
+        at.forEach((p, i) => {
+          if (p <= cur) k = i
+        })
+        const b = pts[k]
+        const band = (top: (i: number) => number, bot: (i: number) => number) =>
+          `M${pts.map((_, i) => `${f.x(at[i])},${f.y(top(i))}`).join('L')}L${pts
+            .map((_, i) => `${f.x(at[i])},${f.y(bot(i))}`)
+            .reverse()
+            .join('L')}Z`
+        const mid = (a: number, c: number) => f.y((a + c) / 2) + 4
+        return (
+          <svg
+            width={w}
+            height={h}
+            className="cursor-pointer"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              onSelect(
+                Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
+              )
+            }}
+          >
+            <path
+              d={band(
+                () => 0,
+                (i) => pts[i].B,
+              )}
+              fill="#3f3a3b"
             />
-          ))}
-          <text
-            x={PAD.l - 6}
-            y={f.y(0) + 10}
-            fontSize={11}
-            textAnchor="end"
-            fill="rgba(255,255,255,0.45)"
-          >
-            Black
-          </text>
-          <text
-            x={PAD.l - 6}
-            y={f.y(1)}
-            fontSize={11}
-            textAnchor="end"
-            fill="rgba(255,255,255,0.45)"
-          >
-            White
-          </text>
-          <line
-            x1={f.x(cur)}
-            x2={f.x(cur)}
-            y1={PAD.t}
-            y2={f.bottom}
-            stroke={MAIA}
-            strokeWidth={2}
-          />
-          <MoveTicks x={f.x} y={h - 2} />
-          <g fontSize={12} fontWeight={600}>
+            <path
+              d={band(
+                (i) => pts[i].B,
+                (i) => pts[i].B + pts[i].D,
+              )}
+              fill="#8f8a88"
+            />
+            <path
+              d={band(
+                (i) => pts[i].B + pts[i].D,
+                () => 1,
+              )}
+              fill="#e6e3e0"
+            />
+            {[0.25, 0.5, 0.75].map((v) => (
+              <line
+                key={v}
+                x1={PAD.l}
+                x2={w - PAD.r}
+                y1={f.y(v)}
+                y2={f.y(v)}
+                stroke="rgba(0,0,0,0.2)"
+              />
+            ))}
             <text
-              x={w - PAD.r + 10}
-              y={mid(0, b.B)}
-              fill="rgba(255,255,255,0.75)"
+              x={PAD.l - 6}
+              y={f.y(0) + 10}
+              fontSize={11}
+              textAnchor="end"
+              fill="rgba(255,255,255,0.45)"
             >
-              Black {Math.round(b.B * 100)}%
+              Black
             </text>
             <text
-              x={w - PAD.r + 10}
-              y={mid(b.B, b.B + b.D)}
-              fill="rgba(255,255,255,0.6)"
+              x={PAD.l - 6}
+              y={f.y(1)}
+              fontSize={11}
+              textAnchor="end"
+              fill="rgba(255,255,255,0.45)"
             >
-              Draw {Math.round(b.D * 100)}%
+              White
             </text>
-            <text x={w - PAD.r + 10} y={mid(b.B + b.D, 1)} fill="#fff">
-              White {Math.round(b.W * 100)}%
-            </text>
-          </g>
-        </svg>
-      )
-    }}
-  </Sized>
-)
+            <line
+              x1={f.x(cur)}
+              x2={f.x(cur)}
+              y1={PAD.t}
+              y2={f.bottom}
+              stroke={MAIA}
+              strokeWidth={2}
+            />
+            <MoveTicks x={f.x} y={h - 2} />
+            <g fontSize={12} fontWeight={600}>
+              <text
+                x={w - PAD.r + 10}
+                y={mid(0, b.B)}
+                fill="rgba(255,255,255,0.75)"
+              >
+                Black {Math.round(b.B * 100)}%
+              </text>
+              <text
+                x={w - PAD.r + 10}
+                y={mid(b.B, b.B + b.D)}
+                fill="rgba(255,255,255,0.6)"
+              >
+                Draw {Math.round(b.D * 100)}%
+              </text>
+              <text x={w - PAD.r + 10} y={mid(b.B + b.D, 1)} fill="#fff">
+                White {Math.round(b.W * 100)}%
+              </text>
+            </g>
+          </svg>
+        )
+      }}
+    </Sized>
+  )
+}
 
 const WHITE_INK = '#ececec'
 const BLACK_INK = '#a49c98'
@@ -1085,282 +1369,330 @@ const BLACK_INK = '#a49c98'
 const RiskChart: React.FC<{ sel: number; onSelect: (i: number) => void }> = ({
   sel,
   onSelect,
-}) => (
-  <Sized>
-    {(w, h) => {
-      const n = GAME1.length
-      const f = frame(w, h, n)
-      // Multiple of usual, smoothed over three plies.
-      const series = (side: Side) => {
-        const raw = GAME1.map((p) => {
-          const r = blunderRisk(p, side)
-          return r.risk / r.usual
-        })
-        return raw.map((_, i) => {
-          const win = raw.slice(Math.max(0, i - 1), i + 2)
-          return win.reduce((a, b) => a + b, 0) / win.length
-        })
-      }
-      const ws = series('white')
-      const bs = series('black')
-      const lo = 0.5
-      const hi = Math.max(2.2, ...ws, ...bs) * 1.05
-      const y = (m: number) => f.y((hi - m) / (hi - lo))
-      const line = (ms: number[]) =>
-        ms.map((m, i) => `${i ? 'L' : 'M'}${f.x(i + 1)},${y(m)}`).join('')
-      const above = (ms: number[]) =>
-        `M${f.x(1)},${y(1)}${ms
-          .map((m, i) => `L${f.x(i + 1)},${y(Math.max(m, 1))}`)
-          .join('')}L${f.x(n)},${y(1)}Z`
-      const cur = Math.max(1, sel === LIVE ? n : sel + 1)
-      // Labels at the right, kept at least 15 px apart.
-      const wm = ws[cur - 1]
-      const bm = bs[cur - 1]
-      let wy = y(wm) + 4
-      let by = y(bm) + 4
-      if (Math.abs(wy - by) < 15) {
-        const mid = (wy + by) / 2
-        if (wm >= bm) {
-          wy = mid - 7.5
-          by = mid + 7.5
-        } else {
-          by = mid - 7.5
-          wy = mid + 7.5
+}) => {
+  const { plies: GAME1, LIVE, white: WHITE, black: BLACK } = useWch()
+  return (
+    <Sized>
+      {(w, h) => {
+        const n = GAME1.length
+        const f = frame(w, h, n)
+        // Multiple of usual, smoothed over three plies.
+        const series = (side: Side) => {
+          const raw = GAME1.map((p) => {
+            const r = blunderRisk(p, side)
+            return r.risk / r.usual
+          })
+          return raw.map((_, i) => {
+            const win = raw.slice(Math.max(0, i - 1), i + 2)
+            return win.reduce((a, b) => a + b, 0) / win.length
+          })
         }
-      }
-      const label = (
-        id: 'gukesh' | 'sindarov',
-        m: number,
-        ty: number,
-        ink: string,
-      ) => (
-        <text x={w - PAD.r + 10} y={ty} fontSize={12} fontWeight={600}>
-          <tspan fill={ink}>{surname(id)}</tspan>
-          <tspan fill={m > 1.25 ? '#f46d43' : 'rgba(255,255,255,0.45)'}>
-            {' '}
-            {m > 1.25 ? `${m.toFixed(1)}×` : 'usual'}
-          </tspan>
-        </text>
-      )
-      return (
-        <svg
-          width={w}
-          height={h}
-          className="cursor-pointer"
-          onClick={(e) => {
-            const r = e.currentTarget.getBoundingClientRect()
-            onSelect(
-              Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
-            )
-          }}
-        >
-          <title>
-            Risk of a blunder in the next few moves, against each player&apos;s
-            usual rate (experimental)
-          </title>
-          {[1, 2].map((m) => (
-            <g key={m}>
-              <line
-                x1={PAD.l}
-                x2={w - PAD.r}
-                y1={y(m)}
-                y2={y(m)}
-                stroke={
-                  m === 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.07)'
-                }
-                strokeDasharray={m === 1 ? '3 4' : undefined}
-              />
-              <text
-                x={PAD.l - 6}
-                y={y(m) + 4}
-                fontSize={11}
-                textAnchor="end"
-                fill="rgba(255,255,255,0.45)"
-              >
-                {m === 1 ? 'usual' : '2×'}
-              </text>
-            </g>
-          ))}
-          <path d={above(ws)} fill="rgba(215,48,39,0.3)" />
-          <path d={above(bs)} fill="rgba(215,48,39,0.3)" />
-          <path
-            d={line(ws)}
-            fill="none"
-            stroke={WHITE_INK}
-            strokeWidth={2}
-            strokeLinejoin="round"
-          />
-          <path
-            d={line(bs)}
-            fill="none"
-            stroke={BLACK_INK}
-            strokeWidth={2}
-            strokeLinejoin="round"
-          />
-          <line
-            x1={f.x(cur)}
-            x2={f.x(cur)}
-            y1={PAD.t}
-            y2={f.bottom}
-            stroke="white"
-            opacity={0.5}
-          />
-          {label(WHITE, wm, wy, WHITE_INK)}
-          {label(BLACK, bm, by, BLACK_INK)}
-          <text
-            x={w - PAD.r - 4}
-            y={PAD.t + 10}
-            fontSize={10}
-            textAnchor="end"
-            fill="rgba(255,255,255,0.35)"
-          >
-            experimental
+        const ws = series('white')
+        const bs = series('black')
+        const lo = 0.5
+        const hi = Math.max(2.2, ...ws, ...bs) * 1.05
+        const y = (m: number) => f.y((hi - m) / (hi - lo))
+        const line = (ms: number[]) =>
+          ms.map((m, i) => `${i ? 'L' : 'M'}${f.x(i + 1)},${y(m)}`).join('')
+        const above = (ms: number[]) =>
+          `M${f.x(1)},${y(1)}${ms
+            .map((m, i) => `L${f.x(i + 1)},${y(Math.max(m, 1))}`)
+            .join('')}L${f.x(n)},${y(1)}Z`
+        const cur = Math.max(1, sel === LIVE ? n : sel + 1)
+        // Labels at the right, kept at least 15 px apart.
+        const wm = ws[cur - 1]
+        const bm = bs[cur - 1]
+        let wy = y(wm) + 4
+        let by = y(bm) + 4
+        if (Math.abs(wy - by) < 15) {
+          const mid = (wy + by) / 2
+          if (wm >= bm) {
+            wy = mid - 7.5
+            by = mid + 7.5
+          } else {
+            by = mid - 7.5
+            wy = mid + 7.5
+          }
+        }
+        const label = (
+          id: 'gukesh' | 'sindarov',
+          m: number,
+          ty: number,
+          ink: string,
+        ) => (
+          <text x={w - PAD.r + 10} y={ty} fontSize={12} fontWeight={600}>
+            <tspan fill={ink}>{surname(id)}</tspan>
+            <tspan fill={m > 1.25 ? '#f46d43' : 'rgba(255,255,255,0.45)'}>
+              {' '}
+              {m > 1.25 ? `${m.toFixed(1)}×` : 'usual'}
+            </tspan>
           </text>
-          <MoveTicks x={f.x} y={h - 2} />
-        </svg>
-      )
-    }}
-  </Sized>
-)
+        )
+        return (
+          <svg
+            width={w}
+            height={h}
+            className="cursor-pointer"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              onSelect(
+                Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
+              )
+            }}
+          >
+            <title>
+              Risk of a blunder in the next few moves, against each
+              player&apos;s usual rate (experimental)
+            </title>
+            {[1, 2].map((m) => (
+              <g key={m}>
+                <line
+                  x1={PAD.l}
+                  x2={w - PAD.r}
+                  y1={y(m)}
+                  y2={y(m)}
+                  stroke={
+                    m === 1
+                      ? 'rgba(255,255,255,0.35)'
+                      : 'rgba(255,255,255,0.07)'
+                  }
+                  strokeDasharray={m === 1 ? '3 4' : undefined}
+                />
+                <text
+                  x={PAD.l - 6}
+                  y={y(m) + 4}
+                  fontSize={11}
+                  textAnchor="end"
+                  fill="rgba(255,255,255,0.45)"
+                >
+                  {m === 1 ? 'usual' : '2×'}
+                </text>
+              </g>
+            ))}
+            <path d={above(ws)} fill="rgba(215,48,39,0.3)" />
+            <path d={above(bs)} fill="rgba(215,48,39,0.3)" />
+            <path
+              d={line(ws)}
+              fill="none"
+              stroke={WHITE_INK}
+              strokeWidth={2}
+              strokeLinejoin="round"
+            />
+            <path
+              d={line(bs)}
+              fill="none"
+              stroke={BLACK_INK}
+              strokeWidth={2}
+              strokeLinejoin="round"
+            />
+            <line
+              x1={f.x(cur)}
+              x2={f.x(cur)}
+              y1={PAD.t}
+              y2={f.bottom}
+              stroke="white"
+              opacity={0.5}
+            />
+            {label(WHITE, wm, wy, WHITE_INK)}
+            {label(BLACK, bm, by, BLACK_INK)}
+            <text
+              x={w - PAD.r - 4}
+              y={PAD.t + 10}
+              fontSize={10}
+              textAnchor="end"
+              fill="rgba(255,255,255,0.35)"
+            >
+              experimental
+            </text>
+            <MoveTicks x={f.x} y={h - 2} />
+          </svg>
+        )
+      }}
+    </Sized>
+  )
+}
 
 /**
  * Time spent on each move: White's above the line, Black's below, square
  * root scaled so a 10-minute think doesn't flatten the rest.
  */
-const ClocksChart: React.FC<{ sel: number }> = ({ sel }) => (
-  <Sized>
-    {(w, h) => {
-      const moves = 40
-      const f = frame(w, h, moves)
-      const mid = PAD.t + (h - PAD.t - PAD.b) / 2
-      const half = (h - PAD.t - PAD.b) / 2 - 2
-      const maxT = Math.max(...GAME1.map((p) => p.think))
-      const len = (t: number) => Math.max(1.5, Math.sqrt(t / maxT) * half)
-      const bw = Math.max(3, f.plotW / moves - 3)
-      const curMove = sel === LIVE ? NEXT.moveNumber : GAME1[sel].moveNumber
-      const lastW = GAME1[GAME1.length - 2]
-      const lastB = GAME1[GAME1.length - 1]
-      const vsUsual = (clock: number, id: 'gukesh' | 'sindarov', m: number) =>
-        Math.round((clock - clockCurve(id, m) * BASE_SECONDS) / 60)
-      const wDiff = vsUsual(lastW.clockWhite, WHITE, lastW.moveNumber)
-      const bDiff = vsUsual(lastB.clockBlack, BLACK, lastB.moveNumber)
-      return (
-        <svg width={w} height={h}>
-          <line
-            x1={PAD.l}
-            x2={w - PAD.r}
-            y1={mid}
-            y2={mid}
-            stroke="rgba(255,255,255,0.2)"
-          />
-          <text
-            x={PAD.l - 6}
-            y={PAD.t + 10}
-            fontSize={11}
-            textAnchor="end"
-            fill="rgba(255,255,255,0.45)"
-          >
-            White
-          </text>
-          <text
-            x={PAD.l - 6}
-            y={h - PAD.b - 2}
-            fontSize={11}
-            textAnchor="end"
-            fill="rgba(255,255,255,0.45)"
-          >
-            Black
-          </text>
-          {GAME1.map((p) => {
-            const x = f.x(p.moveNumber - 0.5) - bw / 2
-            const l = len(p.think)
-            const upper = p.color === 'white'
-            const long = p.think >= 300
-            return (
-              <g key={p.index}>
-                <rect
-                  x={x}
-                  y={upper ? mid - l : mid}
-                  width={bw}
-                  height={l}
-                  rx={1}
-                  fill={upper ? WHITE_INK : BLACK_INK}
-                  opacity={p.moveNumber === curMove ? 1 : 0.8}
-                />
-                {long ? (
-                  <text
-                    x={x + bw / 2}
-                    y={upper ? mid - l - 3 : mid + l + 10}
-                    fontSize={10}
-                    textAnchor="middle"
-                    fill="rgba(255,255,255,0.7)"
-                  >
-                    {Math.round(p.think / 60)}m
-                  </text>
-                ) : null}
-              </g>
-            )
-          })}
-          {[10, 20, 30, 40].map((m) => (
+const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
+  sel,
+  startClock,
+}) => {
+  const {
+    plies: GAME1,
+    next: NEXT,
+    LIVE,
+    white: WHITE,
+    black: BLACK,
+  } = useWch()
+  return (
+    <Sized>
+      {(w, h) => {
+        if (!GAME1.length)
+          return (
+            <div
+              className="flex h-full items-center justify-center text-xs text-white/40"
+              style={{ width: w }}
+            >
+              Time per move shows once the game starts.
+            </div>
+          )
+        const moves = Math.max(40, GAME1[GAME1.length - 1].moveNumber)
+        const f = frame(w, h, moves)
+        const mid = PAD.t + (h - PAD.t - PAD.b) / 2
+        const half = (h - PAD.t - PAD.b) / 2 - 2
+        const maxT = Math.max(60, ...GAME1.map((p) => p.think))
+        const len = (t: number) => Math.max(1.5, Math.sqrt(t / maxT) * half)
+        const bw = Math.max(3, f.plotW / moves - 3)
+        const curMove = sel === LIVE ? NEXT.moveNumber : GAME1[sel].moveNumber
+        const lastW = [...GAME1].reverse().find((p) => p.color === 'white')
+        const lastB = [...GAME1].reverse().find((p) => p.color === 'black')
+        // Against each player's usual pace (2-hour start, before move 41).
+        const vsUsual = (clock: number, id: 'gukesh' | 'sindarov', m: number) =>
+          Math.round(
+            (clock - clockCurve(id, m) * BASE_SECONDS) / 60 +
+              (startClock - BASE_SECONDS) / 60,
+          )
+        const wDiff =
+          lastW && lastW.moveNumber <= 40
+            ? vsUsual(lastW.clockWhite, WHITE, lastW.moveNumber)
+            : null
+        const bDiff =
+          lastB && lastB.moveNumber <= 40
+            ? vsUsual(lastB.clockBlack, BLACK, lastB.moveNumber)
+            : null
+        return (
+          <svg width={w} height={h}>
+            <line
+              x1={PAD.l}
+              x2={w - PAD.r}
+              y1={mid}
+              y2={mid}
+              stroke="rgba(255,255,255,0.2)"
+            />
             <text
-              key={m}
-              x={f.x(m - 0.5)}
-              y={h - 2}
+              x={PAD.l - 6}
+              y={PAD.t + 10}
               fontSize={11}
-              textAnchor="middle"
+              textAnchor="end"
               fill="rgba(255,255,255,0.45)"
             >
-              {m}
+              White
             </text>
-          ))}
-          <line
-            x1={f.x(curMove - 0.5)}
-            x2={f.x(curMove - 0.5)}
-            y1={PAD.t}
-            y2={f.bottom}
-            stroke={MAIA}
-            opacity={0.7}
-          />
-          <g fontSize={11}>
-            {(
-              [
-                [WHITE, wDiff, mid - 34, WHITE_INK],
-                [BLACK, bDiff, mid + 12, BLACK_INK],
-              ] as ['gukesh' | 'sindarov', number, number, string][]
-            ).map(([id, d, y0, ink]) => (
-              <g key={id}>
-                <text x={w - PAD.r + 10} y={y0} fill={ink} fontWeight={600}>
-                  {surname(id)}
-                </text>
-                <text
-                  x={w - PAD.r + 10}
-                  y={y0 + 13}
-                  fill={d < 0 ? '#fdae61' : 'rgba(255,255,255,0.7)'}
-                >
-                  {Math.abs(d)} min {d < 0 ? 'less' : 'more'} left
-                </text>
-                <text
-                  x={w - PAD.r + 10}
-                  y={y0 + 25}
-                  fill="rgba(255,255,255,0.4)"
-                >
-                  than usual
-                </text>
-              </g>
+            <text
+              x={PAD.l - 6}
+              y={h - PAD.b - 2}
+              fontSize={11}
+              textAnchor="end"
+              fill="rgba(255,255,255,0.45)"
+            >
+              Black
+            </text>
+            {GAME1.map((p) => {
+              const x = f.x(p.moveNumber - 0.5) - bw / 2
+              const l = len(p.think)
+              const upper = p.color === 'white'
+              const long = p.think >= 300
+              return (
+                <g key={p.index}>
+                  <rect
+                    x={x}
+                    y={upper ? mid - l : mid}
+                    width={bw}
+                    height={l}
+                    rx={1}
+                    fill={upper ? WHITE_INK : BLACK_INK}
+                    opacity={p.moveNumber === curMove ? 1 : 0.8}
+                  />
+                  {long ? (
+                    <text
+                      x={x + bw / 2}
+                      y={upper ? mid - l - 3 : mid + l + 10}
+                      fontSize={10}
+                      textAnchor="middle"
+                      fill="rgba(255,255,255,0.7)"
+                    >
+                      {Math.round(p.think / 60)}m
+                    </text>
+                  ) : null}
+                </g>
+              )
+            })}
+            {[10, 20, 30, 40].map((m) => (
+              <text
+                key={m}
+                x={f.x(m - 0.5)}
+                y={h - 2}
+                fontSize={11}
+                textAnchor="middle"
+                fill="rgba(255,255,255,0.45)"
+              >
+                {m}
+              </text>
             ))}
-          </g>
-        </svg>
-      )
-    }}
-  </Sized>
-)
+            <line
+              x1={f.x(curMove - 0.5)}
+              x2={f.x(curMove - 0.5)}
+              y1={PAD.t}
+              y2={f.bottom}
+              stroke={MAIA}
+              opacity={0.7}
+            />
+            <g fontSize={11}>
+              {(
+                [
+                  [WHITE, wDiff, mid - 34, WHITE_INK],
+                  [BLACK, bDiff, mid + 12, BLACK_INK],
+                ] as ['gukesh' | 'sindarov', number | null, number, string][]
+              ).map(([id, d, y0, ink]) => (
+                <g key={id}>
+                  <text x={w - PAD.r + 10} y={y0} fill={ink} fontWeight={600}>
+                    {surname(id)}
+                  </text>
+                  {d !== null ? (
+                    <>
+                      <text
+                        x={w - PAD.r + 10}
+                        y={y0 + 13}
+                        fill={d < 0 ? '#fdae61' : 'rgba(255,255,255,0.7)'}
+                      >
+                        {Math.abs(d)} min {d < 0 ? 'less' : 'more'} left
+                      </text>
+                      <text
+                        x={w - PAD.r + 10}
+                        y={y0 + 25}
+                        fill="rgba(255,255,255,0.4)"
+                      >
+                        than usual
+                      </text>
+                    </>
+                  ) : null}
+                </g>
+              ))}
+            </g>
+          </svg>
+        )
+      }}
+    </Sized>
+  )
+}
 
-const ByRating: React.FC<{ cands: Candidate[] }> = ({ cands }) => {
-  const rows = byRating(cands)
+const ByRating: React.FC<{
+  rows: { san: string; shares: number[] }[] | null
+  bands: number[]
+}> = ({ rows, bands }) => {
+  if (!rows || !rows.length)
+    return (
+      <div className="flex h-full items-center justify-center text-xs text-white/40">
+        Maia is reading the position at each rating…
+      </div>
+    )
   return (
     <div className="grid h-full grid-cols-[52px_repeat(5,1fr)] content-center gap-x-2 gap-y-1 text-xs">
       <span />
-      {RATING_BANDS.map((r) => (
+      {bands.map((r) => (
         <span key={r} className="text-center text-[10px] text-white/40">
           {r}
         </span>
@@ -1368,17 +1700,18 @@ const ByRating: React.FC<{ cands: Candidate[] }> = ({ cands }) => {
       {rows.map((row) => (
         <React.Fragment key={row.san}>
           <span className="font-medium text-white/90">{row.san}</span>
-          {row.shares.map((s, k) => (
+          {row.shares.map((v, k) => (
             <span key={k} className="relative h-4 rounded-sm bg-white/[0.05]">
               <span
                 className="absolute inset-y-0 left-0 rounded-sm"
                 style={{
-                  width: `${s * 100}%`,
-                  background: k === 4 ? MAIA : 'rgb(254 127 109 / 0.45)',
+                  width: `${v * 100}%`,
+                  background:
+                    k === bands.length - 1 ? MAIA : 'rgb(254 127 109 / 0.45)',
                 }}
               />
               <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] tabular-nums text-white/70">
-                {Math.round(s * 100)}
+                {Math.round(v * 100)}
               </span>
             </span>
           ))}
@@ -1400,7 +1733,6 @@ const YouTag = () => (
 const MovePanel: React.FC<{
   ply: LivePly | null
   cands: (Candidate & { before?: number })[]
-  thinking: number | null
   sf: string
   signedIn: boolean
   onDemoSignIn: () => void
@@ -1412,10 +1744,13 @@ const MovePanel: React.FC<{
   liveSan: string
   onHover: (san: string | null) => void
   hoverSan: string | null
+  /** Your guess for the move on show (history). */
+  myGuess: string | null
+  /** Live: your guess for the move just played. */
+  lastResult: { san: string; guess: string } | null
 }> = ({
   ply,
   cands,
-  thinking,
   sf,
   signedIn,
   onDemoSignIn,
@@ -1427,23 +1762,51 @@ const MovePanel: React.FC<{
   liveSan,
   onHover,
   hoverSan,
+  myGuess,
+  lastResult,
 }) => {
+  const data = useWch()
+  const { next, personal, hasCrowd } = data
   const live = !ply
-  const mover = ply ? ply.mover : NEXT.mover
-  const side: Side = ply ? ply.color : 'white'
+  const mover = ply ? ply.mover : next.mover
   const who = surname(mover)
   const playedSan = ply ? ply.san : played ? liveSan : null
-  const top = Math.max(...cands.map((c) => Math.max(c.maia, c.generic)))
+  const over = live && next.over
+  const ticks = personal && cands.some((c) => Number.isFinite(c.generic))
+  const top = Math.max(
+    0.01,
+    ...cands.map((c) => Math.max(c.maia, ticks ? c.generic : 0)),
+  )
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
       <div className="px-4 pb-2.5 pt-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold leading-6 text-white">
-          {playedSan ? `${who} played ${playedSan}` : `What will ${who} play?`}
+          {over
+            ? `Game over: ${next.over}`
+            : playedSan
+              ? `${who} played ${playedSan}`
+              : `What will ${who} play?`}
           {ply?.mark ? <MarkChip mark={ply.mark} size="md" /> : null}
         </h2>
+        {ply && myGuess ? (
+          <p className="mt-0.5 text-sm text-white/60">
+            You guessed <b className="text-white">{myGuess}</b>
+            {myGuess === ply.san ? (
+              <span className="ml-1.5 text-emerald-300">and called it</span>
+            ) : null}
+          </p>
+        ) : live && lastResult && !over ? (
+          <p className="mt-0.5 text-sm text-white/60">
+            Last move {lastResult.san}: you guessed{' '}
+            <b className="text-white">{lastResult.guess}</b>
+            {lastResult.guess === lastResult.san ? (
+              <span className="ml-1.5 text-emerald-300">and called it</span>
+            ) : null}
+          </p>
+        ) : null}
       </div>
 
-      {live ? (
+      {live && !over ? (
         <GuessStrip
           signedIn={signedIn}
           onDemoSignIn={onDemoSignIn}
@@ -1453,92 +1816,117 @@ const MovePanel: React.FC<{
           guessCount={guessCount}
           liveSan={liveSan}
           who={who}
+          demo={data.mode === 'demo'}
         />
       ) : null}
 
-      <div className="red-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
-        <div className="grid grid-cols-[72px_1fr_40px_56px] items-end gap-2 px-4 pb-1.5 pt-1 text-[10px] text-white/40">
-          <span>Move</span>
-          <span className="flex items-baseline justify-between gap-4">
-            <span className="text-[14px] font-semibold" style={{ color: MAIA }}>
-              Maia{who}
-            </span>
-            <span
-              className="flex items-center gap-1"
-              title="What a typical 2750 plays here (generic Maia-3 at 2750)"
-            >
-              <span className="inline-block h-2.5 w-px bg-white/70" />
-              typical 2750
-            </span>
-          </span>
-          <span />
-          <span className="text-right" style={{ color: ENGINE }}>
-            Stockfish
-          </span>
-        </div>
-        {cands.map((c, i) => {
-          const isPlayed = playedSan === c.san
-          const isMine = live && guess === c.san
-          const isHover = hoverSan === c.san
-          return (
-            <button
-              key={c.san}
-              onMouseEnter={() => onHover(c.san)}
-              onMouseLeave={() => onHover(null)}
-              onClick={() => onGuess?.(c.san)}
-              className={`grid h-7 w-full grid-cols-[72px_1fr_40px_56px] items-center gap-2 px-4 text-left text-sm ${
-                isPlayed
-                  ? 'bg-white/[0.09]'
-                  : isHover
-                    ? 'bg-glass-stronger'
-                    : ''
-              } ${onGuess ? 'cursor-pointer' : 'cursor-default'}`}
-            >
-              <span className="flex items-center gap-1.5 font-medium text-white/90">
-                {c.san}
-                {isMine ? <YouTag /> : null}
-                {isPlayed ? (
-                  <span className="rounded-sm bg-white/15 px-1 text-[9px] uppercase leading-[14px] text-white/80">
-                    played
-                  </span>
-                ) : null}
-              </span>
-              <span className="relative h-2 rounded-sm bg-white/[0.05]">
-                <span
-                  className="block h-2 rounded-sm transition-[width] duration-700"
-                  style={{
-                    width: `${(c.maia / top) * 100}%`,
-                    background: i === 0 ? MAIA : 'rgb(254 127 109 / 0.55)',
-                  }}
-                />
-                <span
-                  className="absolute -inset-y-0.5 w-px bg-white/70"
-                  style={{ left: `${(c.generic / top) * 100}%` }}
-                />
-              </span>
-              <span className="text-right text-xs tabular-nums text-white/70">
-                {pct(c.maia)}
-              </span>
+      {over ? null : (
+        <div className="red-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
+          <div className="grid grid-cols-[72px_1fr_40px_56px] items-end gap-2 px-4 pb-1.5 pt-1 text-[10px] text-white/40">
+            <span>Move</span>
+            <span className="flex items-baseline justify-between gap-4">
               <span
-                className="text-right font-mono text-xs tabular-nums"
-                style={{
-                  color: c.san === sf ? ENGINE : 'rgba(255,255,255,0.55)',
-                }}
+                className="text-[14px] font-semibold"
+                style={{ color: MAIA }}
+                title={
+                  personal
+                    ? undefined
+                    : `Maia-3 at ${LIVE_MAIA_ELO}: the players' own models aren't public yet`
+                }
               >
-                {fmtEval(c.eval)}
+                {maiaName(data, mover)}
+                {personal ? null : (
+                  <span className="ml-1.5 text-[10px] font-normal text-white/45">
+                    at {LIVE_MAIA_ELO}
+                  </span>
+                )}
               </span>
-            </button>
-          )
-        })}
-        {playedSan ? (
-          <CrowdSplit
-            cands={cands}
-            played={playedSan}
-            guesses={ply ? ply.guesses : guessCount}
-            mine={live ? guess : null}
-          />
-        ) : null}
-      </div>
+              {ticks ? (
+                <span
+                  className="flex items-center gap-1"
+                  title="What a typical 2750 plays here (generic Maia-3 at 2750)"
+                >
+                  <span className="inline-block h-2.5 w-px bg-white/70" />
+                  typical 2750
+                </span>
+              ) : null}
+            </span>
+            <span />
+            <span className="text-right" style={{ color: ENGINE }}>
+              Stockfish
+            </span>
+          </div>
+          {cands.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-white/45">
+              Maia is reading the position…
+            </p>
+          ) : null}
+          {cands.map((c, i) => {
+            const isPlayed = playedSan === c.san
+            const isMine = live && guess === c.san
+            const isHover = hoverSan === c.san
+            return (
+              <button
+                key={c.san}
+                onMouseEnter={() => onHover(c.san)}
+                onMouseLeave={() => onHover(null)}
+                onClick={() => onGuess?.(c.san)}
+                className={`grid h-7 w-full grid-cols-[72px_1fr_40px_56px] items-center gap-2 px-4 text-left text-sm ${
+                  isPlayed
+                    ? 'bg-white/[0.09]'
+                    : isHover
+                      ? 'bg-glass-stronger'
+                      : ''
+                } ${onGuess ? 'cursor-pointer' : 'cursor-default'}`}
+              >
+                <span className="flex items-center gap-1.5 font-medium text-white/90">
+                  {c.san}
+                  {isMine ? <YouTag /> : null}
+                  {isPlayed ? (
+                    <span className="rounded-sm bg-white/15 px-1 text-[9px] uppercase leading-[14px] text-white/80">
+                      played
+                    </span>
+                  ) : null}
+                </span>
+                <span className="relative h-2 rounded-sm bg-white/[0.05]">
+                  <span
+                    className="block h-2 rounded-sm transition-[width] duration-700"
+                    style={{
+                      width: `${(c.maia / top) * 100}%`,
+                      background: i === 0 ? MAIA : 'rgb(254 127 109 / 0.55)',
+                    }}
+                  />
+                  {ticks ? (
+                    <span
+                      className="absolute -inset-y-0.5 w-px bg-white/70"
+                      style={{ left: `${(c.generic / top) * 100}%` }}
+                    />
+                  ) : null}
+                </span>
+                <span className="text-right text-xs tabular-nums text-white/70">
+                  {pct(c.maia)}
+                </span>
+                <span
+                  className="text-right font-mono text-xs tabular-nums"
+                  style={{
+                    color: c.san === sf ? ENGINE : 'rgba(255,255,255,0.55)',
+                  }}
+                >
+                  {fmtEval(c.eval)}
+                </span>
+              </button>
+            )
+          })}
+          {playedSan && hasCrowd ? (
+            <CrowdSplit
+              cands={cands}
+              played={playedSan}
+              guesses={ply ? ply.guesses : guessCount}
+              mine={live ? guess : null}
+            />
+          ) : null}
+        </div>
+      )}
     </div>
   )
 }
@@ -1552,6 +1940,8 @@ const GuessStrip: React.FC<{
   guessCount: number
   liveSan: string
   who: string
+  /** Demo controls (also shown in development, to sign in without Lichess). */
+  demo: boolean
 }> = ({
   signedIn,
   onDemoSignIn,
@@ -1561,7 +1951,9 @@ const GuessStrip: React.FC<{
   guessCount,
   liveSan,
   who,
+  demo,
 }) => {
+  const demoSignIn = demo || process.env.NODE_ENV !== 'production'
   const right = played && guess === liveSan
   return (
     <div
@@ -1588,12 +1980,14 @@ const GuessStrip: React.FC<{
                   guesses so far
                 </>
               ) : null}
-              <button
-                onClick={onDemoSignIn}
-                className="ml-2 hover:text-white/80"
-              >
-                demo: sign in
-              </button>
+              {demoSignIn ? (
+                <button
+                  onClick={onDemoSignIn}
+                  className="ml-2 hover:text-white/80"
+                >
+                  demo: sign in
+                </button>
+              ) : null}
             </p>
           </div>
           <LichessSignInButton source="auth_prompt" className="shrink-0" />
@@ -1633,9 +2027,11 @@ const GuessStrip: React.FC<{
                     ? `${guessCount.toLocaleString()} guesses so far`
                     : ''}
                 <br />
-                <button onClick={onPlay} className="hover:text-white/80">
-                  demo: {who} moves
-                </button>
+                {demo ? (
+                  <button onClick={onPlay} className="hover:text-white/80">
+                    demo: {who} moves
+                  </button>
+                ) : null}
               </>
             )}
           </div>
@@ -1703,61 +2099,69 @@ const CrowdSplit: React.FC<{
 }
 
 const Leaders: React.FC<{
-  score: ReturnType<typeof tally>
+  score: Tally
   you: { right: number; of: number } | null
-}> = ({ score, you }) => (
-  <div className="rounded-md border border-glass-border bg-glass px-4 py-3 backdrop-blur-md">
-    <p className="text-[11px] text-white/45">Moves called this game</p>
-    <div className="mt-1 flex items-baseline gap-5">
-      {(
-        [
-          ['Maia', score.maia, MAIA],
-          ['Visitors', score.crowd, CROWD],
-          ['Stockfish', score.stockfish, ENGINE],
-        ] as [string, number, string][]
-      ).map(([name, v, c]) => (
-        <p key={name} className="text-sm text-white/55">
-          <span
-            className="text-lg font-semibold tabular-nums"
-            style={{ color: c }}
-          >
-            {v}
-          </span>
-          <span className="text-xs text-white/30">/{score.n}</span> {name}
-        </p>
-      ))}
-    </div>
-    <div className="mt-2.5 border-t border-glass-border pt-2">
-      {TOP_GUESSERS.map((g, i) => (
-        <div
-          key={g.name}
-          className="grid h-6 grid-cols-[18px_1fr_auto] items-center gap-2 text-sm"
-        >
-          <span className="text-xs tabular-nums text-white/40">{i + 1}</span>
-          <span className="truncate text-white/85">{g.name}</span>
+}> = ({ score, you }) => {
+  const { hasCrowd } = useWch()
+  const cells = (
+    [
+      ['Maia', score.maia, MAIA],
+      ['Visitors', score.crowd, CROWD],
+      ['Stockfish', score.stockfish, ENGINE],
+    ] as [string, number | null, string][]
+  ).filter(([, v]) => v !== null) as [string, number, string][]
+  return (
+    <div className="rounded-md border border-glass-border bg-glass px-4 py-3 backdrop-blur-md">
+      <p className="text-[11px] text-white/45">Moves called this game</p>
+      <div className="mt-1 flex items-baseline gap-5">
+        {cells.map(([name, v, c]) => (
+          <p key={name} className="text-sm text-white/55">
+            <span
+              className="text-lg font-semibold tabular-nums"
+              style={{ color: c }}
+            >
+              {v}
+            </span>
+            <span className="text-xs text-white/30">/{score.n}</span> {name}
+          </p>
+        ))}
+      </div>
+      <div className="mt-2.5 border-t border-glass-border pt-2">
+        {hasCrowd
+          ? TOP_GUESSERS.map((g, i) => (
+              <div
+                key={g.name}
+                className="grid h-6 grid-cols-[18px_1fr_auto] items-center gap-2 text-sm"
+              >
+                <span className="text-xs tabular-nums text-white/40">
+                  {i + 1}
+                </span>
+                <span className="truncate text-white/85">{g.name}</span>
+                <span className="tabular-nums text-white/70">
+                  {g.right}
+                  <span className="text-xs text-white/35">/{g.of}</span>
+                </span>
+              </div>
+            ))
+          : null}
+        <div className="grid h-6 grid-cols-[18px_1fr_auto] items-center gap-2 text-sm">
+          <span />
+          <span className="text-white/55">You</span>
           <span className="tabular-nums text-white/70">
-            {g.right}
-            <span className="text-xs text-white/35">/{g.of}</span>
+            {you ? (
+              <>
+                {you.right}
+                <span className="text-xs text-white/35">/{you.of}</span>
+              </>
+            ) : (
+              '–'
+            )}
           </span>
         </div>
-      ))}
-      <div className="grid h-6 grid-cols-[18px_1fr_auto] items-center gap-2 text-sm">
-        <span />
-        <span className="text-white/55">You</span>
-        <span className="tabular-nums text-white/70">
-          {you ? (
-            <>
-              {you.right}
-              <span className="text-xs text-white/35">/{you.of}</span>
-            </>
-          ) : (
-            '–'
-          )}
-        </span>
       </div>
     </div>
-  </div>
-)
+  )
+}
 
 /* ------------------------------------------------------------------ */
 /* Mobile                                                               */
@@ -1823,38 +2227,45 @@ const MobilePrediction: React.FC<{
   ply: LivePly | null
   cands: Candidate[]
   sf: string
-  thinking: number
+  mover: PlayerId
   signedIn: boolean
   onDemoSignIn: () => void
   guess: string | null
   onGuess?: (san: string) => void
   played: boolean
-  onPlay: () => void
   guessCount: number
   liveSan: string
   shownSan: string | null
   onShow: (san: string | null) => void
+  myGuess: string | null
 }> = ({
   ply,
   cands,
   sf,
-  thinking,
+  mover,
   signedIn,
   onDemoSignIn,
   guess,
   onGuess,
   played,
-  onPlay,
   guessCount,
   liveSan,
   shownSan,
   onShow,
+  myGuess,
 }) => {
+  const data = useWch()
+  const { next, personal, hasCrowd } = data
   const [all, setAll] = useState(false)
   const live = !ply
-  const who = surname(ply ? ply.mover : NEXT.mover)
+  const who = surname(mover)
   const playedSan = ply ? ply.san : played ? liveSan : null
-  const top = Math.max(...cands.map((c) => Math.max(c.maia, c.generic)))
+  const over = live && next.over
+  const ticks = personal && cands.some((c) => Number.isFinite(c.generic))
+  const top = Math.max(
+    0.01,
+    ...cands.map((c) => Math.max(c.maia, ticks ? c.generic : 0)),
+  )
   let tiles = all ? cands : cands.slice(0, 6)
   if (!all && playedSan && !tiles.find((c) => c.san === playedSan)) {
     const p = cands.find((c) => c.san === playedSan)
@@ -1865,20 +2276,34 @@ const MobilePrediction: React.FC<{
     <div className="mx-2 rounded-md border border-glass-border bg-glass">
       <div className="flex items-center justify-between gap-2 px-2.5 pb-1 pt-1.5">
         <h2 className="truncate text-[15px] font-semibold text-white">
-          {playedSan ? `${who} played ${playedSan}` : `What will ${who} play?`}
+          {over
+            ? `Game over: ${next.over}`
+            : playedSan
+              ? `${who} played ${playedSan}`
+              : `What will ${who} play?`}
         </h2>
         <div className="flex shrink-0 items-center gap-1.5 text-[10px] text-white/45">
-          <span className="text-[12px] font-semibold" style={{ color: MAIA }}>
-            Maia %
+          <span
+            className="text-[12px] font-semibold"
+            style={{ color: MAIA }}
+            title={
+              personal
+                ? undefined
+                : `Maia-3 at ${LIVE_MAIA_ELO}: the players' own models aren't public yet`
+            }
+          >
+            {personal ? 'Maia %' : `Maia ${LIVE_MAIA_ELO} %`}
           </span>
           <span style={{ color: ENGINE }}>SF</span>
-          <span
-            className="flex items-center gap-0.5"
-            title="The tick: what a typical 2750 plays here"
-          >
-            <span className="inline-block h-2 w-px bg-white/70" />
-            2750
-          </span>
+          {ticks ? (
+            <span
+              className="flex items-center gap-0.5"
+              title="The tick: what a typical 2750 plays here"
+            >
+              <span className="inline-block h-2 w-px bg-white/70" />
+              2750
+            </span>
+          ) : null}
           <button
             onClick={() => setAll((x) => !x)}
             className="ml-1 text-white/55"
@@ -1887,6 +2312,19 @@ const MobilePrediction: React.FC<{
           </button>
         </div>
       </div>
+      {ply && myGuess ? (
+        <p className="px-2.5 pb-1 text-[12px] text-white/60">
+          You guessed <b className="text-white">{myGuess}</b>
+          {myGuess === ply.san ? (
+            <span className="ml-1.5 text-emerald-300">and called it</span>
+          ) : null}
+        </p>
+      ) : null}
+      {!over && cands.length === 0 ? (
+        <p className="px-2.5 pb-2 text-[12px] text-white/45">
+          Maia is reading the position…
+        </p>
+      ) : null}
       <div className="grid grid-cols-3 gap-1 px-1.5 pb-1.5">
         {tiles.map((c, i) => {
           const isPlayed = playedSan === c.san
@@ -1938,16 +2376,18 @@ const MobilePrediction: React.FC<{
                     background: i === 0 ? MAIA : 'rgb(254 127 109 / 0.6)',
                   }}
                 />
-                <span
-                  className="absolute bottom-0 h-[5px] w-px bg-white/80"
-                  style={{ left: `${(c.generic / top) * 100}%` }}
-                />
+                {ticks ? (
+                  <span
+                    className="absolute bottom-0 h-[5px] w-px bg-white/80"
+                    style={{ left: `${(c.generic / top) * 100}%` }}
+                  />
+                ) : null}
               </span>
             </button>
           )
         })}
       </div>
-      {live && (!signedIn || (played && guess)) ? (
+      {live && !over && (!signedIn || (played && guess)) ? (
         <div className="flex items-center justify-between gap-2 border-t border-glass-border px-2.5 py-1">
           {!signedIn ? (
             <>
@@ -1963,12 +2403,15 @@ const MobilePrediction: React.FC<{
                 ) : (
                   'Guess his move'
                 )}
-                <button
-                  onClick={onDemoSignIn}
-                  className="ml-2 underline-offset-2 hover:underline"
-                >
-                  demo
-                </button>
+                {data.mode === 'demo' ||
+                process.env.NODE_ENV !== 'production' ? (
+                  <button
+                    onClick={onDemoSignIn}
+                    className="ml-2 underline-offset-2 hover:underline"
+                  >
+                    demo
+                  </button>
+                ) : null}
               </p>
               <LichessSignInButton
                 source="auth_prompt"
@@ -1993,7 +2436,7 @@ const MobilePrediction: React.FC<{
           )}
         </div>
       ) : null}
-      {playedSan ? (
+      {playedSan && hasCrowd ? (
         <CrowdSplit
           cands={cands}
           played={playedSan}
@@ -2001,7 +2444,7 @@ const MobilePrediction: React.FC<{
           mine={live ? guess : null}
         />
       ) : null}
-      {playedSan ? <div className="h-2.5" /> : null}
+      {playedSan && hasCrowd ? <div className="h-2.5" /> : null}
     </div>
   )
 }
@@ -2013,6 +2456,7 @@ const MoveStrip: React.FC<{
   played: boolean
   liveSan: string
 }> = ({ sel, onSelect, played, liveSan }) => {
+  const { plies: GAME1, next: NEXT, LIVE } = useWch()
   const ref = useRef<HTMLDivElement>(null)
   // Centre the selected move by scrolling the strip itself: scrollIntoView
   // would also scroll the page's containers sideways.
