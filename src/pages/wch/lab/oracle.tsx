@@ -594,12 +594,13 @@ export default function OraclePage() {
           }
         : base
     }
-    // The feed keeps the count (Maia's and Stockfish's first choice).
+    // The feed keeps the count of moves and Stockfish's first choices;
+    // Maia's are the move list's checks (ranked as the panel shows them).
     const called = feedOn ? feed.plies.get(LIVE)?.called?.all : null
     if (called)
       return {
         n: called.moves,
-        maia: called.maia,
+        maia: plies.filter((p) => p.rank === 1).length,
         crowd: null,
         stockfish: called.stockfish,
       }
