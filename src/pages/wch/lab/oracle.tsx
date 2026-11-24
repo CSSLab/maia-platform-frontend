@@ -1,0 +1,2087 @@
+import Head from 'next/head'
+import { useRouter } from 'next/router'
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { Chess } from 'chess.ts'
+import type { DrawShape } from 'chessground/draw'
+import type { Key } from 'chessground/types'
+
+import { AuthContext } from 'src/contexts/AuthContext'
+import { LichessSignInButton } from 'src/components/Common/LichessSignInButton'
+import { UnderlineTabs } from 'src/components/Common/UnderlineTabs'
+import {
+  BASE_SECONDS,
+  clockCurve,
+  fmtClock,
+  pct,
+  sanToSquares,
+} from 'src/components/WCh/data'
+import {
+  BLACK,
+  Candidate,
+  FIDE,
+  GAME1,
+  LivePly,
+  NEXT,
+  RATING_BANDS,
+  TOP_GUESSERS,
+  WHITE,
+  afterThinking,
+  blunderRisk,
+  byRating,
+  fmtEval,
+  tally,
+} from 'src/components/WCh/game1'
+import { Flag, MarkChip, WchBoard } from 'src/components/WCh/ui'
+
+const MAIA = 'rgb(254 127 109)'
+const CROWD = '#c8c2bd'
+const ENGINE = 'rgb(90 157 215)'
+const LIVE = GAME1.length
+const PANE_H = 150
+/** Below this many guesses the page doesn't show the count. */
+const MIN_SHOWN_GUESSES = 3
+const BAR_W = 26
+
+// --avail-h / --avail-w: the visible area under and beside the page's top
+// (the site header), measured on load and resize; clientWidth leaves out the
+// scrollbar, which 100vw counts. Desktop: below the board go the labels row
+// (24), the pane (8 + 150) and a 16 px margin; across, the page padding, the
+// side columns, the bars and the gaps. Phones: the board is the width less
+// the two bars, short enough to leave the players row and Maia's moves.
+// Three columns from 1280 px (below, they can't fit beside a usable board);
+// one centred column, at most 640 px wide, below that.
+const WIDE_FROM = 1280
+const NARROW_MAX = 640
+const SIZE_CSS = `
+.wch-root {
+  --avail-h: calc(100vh - 70px);
+  --avail-w: calc(100vw - 20px);
+  --board: min(680px, calc(var(--avail-h) - 210px), calc(var(--avail-w) - 140px));
+  --mboard: min(
+    calc(min(var(--avail-w), ${NARROW_MAX}px) - 78px),
+    max(280px, calc(var(--avail-h) - 210px))
+  );
+}
+@media (min-width: ${WIDE_FROM}px) {
+  .wch-root {
+    --board: min(680px, calc(var(--avail-h) - 218px), calc(var(--avail-w) - 880px));
+  }
+}`
+const COL_H = `calc(var(--board) + ${32 + PANE_H + 8}px)`
+
+type Side = 'white' | 'black'
+const surname = (id: 'gukesh' | 'sindarov') =>
+  id === 'gukesh' ? 'Gukesh' : 'Sindarov'
+const moveNo = (n: number, color: Side) =>
+  `${n}${color === 'white' ? '.' : '…'}`
+
+type PaneTab = 'chances' | 'risk' | 'clocks' | 'rating'
+const PANE_TABS: { id: PaneTab; name: string }[] = [
+  { id: 'chances', name: 'Win chances' },
+  { id: 'risk', name: 'Blunder risk' },
+  { id: 'clocks', name: 'Clocks' },
+  { id: 'rating', name: 'By rating' },
+]
+
+export default function OraclePage() {
+  const { user } = useContext(AuthContext)
+  const [demoSignedIn, setDemoSignedIn] = useState(false)
+  const signedIn = !!user?.lichessId || demoSignedIn
+
+  const [sel, setSel] = useState(LIVE)
+  const [preview, setPreview] = useState<number | null>(null)
+  const [hoverSan, setHoverSan] = useState<string | null>(null)
+  const [guess, setGuess] = useState<string | null>(null)
+  const [played, setPlayed] = useState(false)
+  const [thinking, setThinking] = useState(NEXT.thinkingFor)
+  const [guessCount, setGuessCount] = useState(NEXT.guessesSoFar)
+  // Demo: ?guesses=N shows the page with N guesses in (and no new ones).
+  const router = useRouter()
+  const fixedGuesses =
+    typeof router.query.guesses === 'string'
+      ? Math.max(0, parseInt(router.query.guesses, 10) || 0)
+      : null
+  useEffect(() => {
+    if (fixedGuesses !== null) setGuessCount(fixedGuesses)
+  }, [fixedGuesses])
+  const [tab, setTab] = useState<PaneTab>('chances')
+  const isLive = sel === LIVE
+
+  // Both layouts are in the page (CSS shows one), but only one board may be
+  // mounted: chessground's arrowhead markers have fixed ids, and a second
+  // board's markers (in the hidden layout) would win and draw no heads.
+  const [wide, setWide] = useState<boolean | null>(null)
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${WIDE_FROM}px)`)
+    const update = () => setWide(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  const rootRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const set = () => {
+      const el = rootRef.current
+      if (!el) return
+      const top = el.getBoundingClientRect().top + window.scrollY
+      const doc = document.documentElement
+      el.style.setProperty('--avail-h', `${doc.clientHeight - top}px`)
+      el.style.setProperty('--avail-w', `${doc.clientWidth}px`)
+    }
+    set()
+    window.addEventListener('resize', set)
+    return () => window.removeEventListener('resize', set)
+  }, [])
+
+  useEffect(() => {
+    if (played) return
+    const id = window.setInterval(() => {
+      setThinking((t) => t + 1)
+      if (fixedGuesses === null)
+        setGuessCount((g) => g + (Math.random() < 0.6 ? 1 : 0))
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [played, fixedGuesses])
+
+  const go = useCallback((i: number) => {
+    setSel(Math.max(0, Math.min(LIVE, i)))
+    setHoverSan(null)
+  }, [])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') go(sel - 1)
+      if (e.key === 'ArrowRight') go(sel + 1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [go, sel])
+
+  // The demo's move 21: Maia's first choice.
+  const liveSan = NEXT.candidates[0].san
+  const liveAfter = useMemo(() => {
+    const c = new Chess(NEXT.fen)
+    const m = c.move(liveSan)
+    return { fen: c.fen(), uci: m ? m.from + m.to : '' }
+  }, [liveSan])
+
+  const canGuess = isLive && signedIn && !played
+  const ply = isLive ? null : GAME1[sel]
+  const previewPly = preview !== null ? GAME1[preview] : null
+
+  const boardFen = previewPly
+    ? previewPly.fen
+    : ply
+      ? ply.fen
+      : played
+        ? liveAfter.fen
+        : NEXT.fen
+  const lastMove = previewPly
+    ? previewPly.uci
+    : ply
+      ? ply.uci
+      : played
+        ? liveAfter.uci
+        : GAME1[LIVE - 1].uci
+
+  const dests = useMemo(() => {
+    if (!canGuess || previewPly) return undefined
+    const c = new Chess(NEXT.fen)
+    const map = new Map<Key, Key[]>()
+    c.moves({ verbose: true }).forEach((m) => {
+      map.set(m.from as Key, [...(map.get(m.from as Key) ?? []), m.to as Key])
+    })
+    return map
+  }, [canGuess, previewPly])
+
+  const onBoardMove = (from: string, to: string) => {
+    const c = new Chess(NEXT.fen)
+    const m = c.move({ from, to, promotion: 'q' } as never)
+    if (m) setGuess(m.san)
+  }
+
+  // The position the right panel is about (before its move).
+  const panelFen = ply ? ply.fenBefore : NEXT.fen
+  // While he thinks, Maia's prediction shifts away from the quick moves.
+  const liveCands = useMemo(
+    () =>
+      afterThinking(NEXT.candidates, thinking).sort((a, b) => b.maia - a.maia),
+    [thinking],
+  )
+  const panelCands = ply ? ply.candidates : liveCands
+  const panelSf = ply ? ply.sf : NEXT.sf
+
+  const shapes = useMemo(() => {
+    const out: DrawShape[] = []
+    if (previewPly) return out
+    const arrow = (san: string, brush: string, w?: number) => {
+      const sq = sanToSquares(panelFen, san)
+      if (sq)
+        out.push({
+          orig: sq[0] as Key,
+          dest: sq[1] as Key,
+          brush,
+          ...(w ? { modifiers: { lineWidth: w } } : {}),
+        })
+    }
+    if (hoverSan) {
+      arrow(hoverSan, hoverSan === panelSf ? 'engine' : 'maia')
+      return out
+    }
+    // After the move, the board shows the new position: arrows only before.
+    if (isLive && played) return out
+    const top = panelCands[0].san
+    const playedSan = ply?.san
+    if (top !== playedSan) arrow(top, 'maia')
+    if (panelSf !== top && panelSf !== playedSan) arrow(panelSf, 'engine', 8)
+    if (isLive && guess && guess !== top && guess !== panelSf)
+      arrow(guess, 'you')
+    return out
+  }, [
+    previewPly,
+    hoverSan,
+    isLive,
+    played,
+    panelFen,
+    panelCands,
+    panelSf,
+    ply,
+    guess,
+  ])
+
+  const base = tally(GAME1)
+  const crowdTopLive = [...NEXT.candidates].sort((a, b) => b.crowd - a.crowd)[0]
+  const score = played
+    ? {
+        n: base.n + 1,
+        maia: base.maia + 1,
+        crowd: base.crowd + (crowdTopLive.san === liveSan ? 1 : 0),
+        stockfish: base.stockfish + (NEXT.sf === liveSan ? 1 : 0),
+      }
+    : base
+
+  const shownPly = previewPly ?? ply ?? GAME1[LIVE - 1]
+  const bar = shownPly.bar
+  const evalNow = previewPly
+    ? previewPly.eval
+    : ply
+      ? ply.eval
+      : played
+        ? NEXT.candidates[0].eval
+        : GAME1[LIVE - 1].eval
+
+  const clockWhiteNow =
+    shownPly.clockWhite - (isLive && !previewPly ? thinking : 0)
+  const whiteOnMove = isLive && !played && !previewPly
+
+  // The one-column layout (below WIDE_FROM), shown by CSS so it's right on
+  // first paint.
+  const mobileView = (
+    <>
+      <div className="flex h-11 items-center gap-2 px-2">
+        <PlayerHalf
+          id={WHITE}
+          side="white"
+          clock={clockWhiteNow}
+          active={whiteOnMove}
+          thinking={thinking}
+        />
+        <div className="w-[70px] shrink-0 text-center text-[10px] leading-3">
+          <p className="font-semibold text-white/80">World Championship</p>
+          <p className="mt-0.5 text-white/45">2026, Game 1</p>
+        </div>
+        <PlayerHalf
+          id={BLACK}
+          side="black"
+          clock={shownPly.clockBlack}
+          active={false}
+          thinking={thinking}
+          alignRight
+        />
+      </div>
+      <div className="flex items-stretch justify-center gap-1.5 px-2">
+        <div className="flex w-6 shrink-0">
+          <HumanBar bar={bar} size="100%" />
+        </div>
+        <div className="min-w-0" style={{ flex: '0 1 var(--mboard)' }}>
+          {wide === false ? (
+            <WchBoard
+              key={dests ? 'guess' : 'view'}
+              fen={boardFen}
+              lastMove={lastMove}
+              shapes={shapes}
+              dests={dests}
+              turnColor={dests ? 'white' : undefined}
+              onMove={onBoardMove}
+              coordinates={false}
+            />
+          ) : (
+            <div className="aspect-square w-full bg-white/[0.04]" />
+          )}
+        </div>
+        <div className="flex w-6 shrink-0">
+          <EvalBar ev={evalNow} size="100%" compact />
+        </div>
+      </div>
+      <div className="mt-1.5 flex flex-col gap-1.5">
+        <MobilePrediction
+          ply={ply}
+          cands={panelCands}
+          sf={panelSf}
+          thinking={thinking}
+          signedIn={signedIn}
+          onDemoSignIn={() => setDemoSignedIn(true)}
+          guess={guess}
+          onGuess={canGuess ? setGuess : undefined}
+          played={played}
+          onPlay={() => setPlayed(true)}
+          guessCount={guessCount}
+          liveSan={liveSan}
+          shownSan={hoverSan}
+          onShow={setHoverSan}
+        />
+        <MoveStrip sel={sel} onSelect={go} played={played} liveSan={liveSan} />
+        <div
+          className="mx-2 flex flex-col overflow-hidden rounded-md border border-glass-border bg-glass"
+          style={{ height: PANE_H + 10 }}
+        >
+          <div className="flex items-stretch border-b border-glass-border">
+            <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto [&>div]:border-b-0 [&_p]:whitespace-nowrap">
+              <UnderlineTabs
+                tabs={PANE_TABS}
+                selected={tab}
+                onSelect={setTab}
+                layoutId="wchPaneTabMobile"
+              />
+            </div>
+            <span className="flex items-center whitespace-nowrap px-3 text-[13px] font-semibold text-human-1">
+              Maia views
+            </span>
+          </div>
+          <div className="min-h-0 flex-1 px-2 py-2">
+            {tab === 'chances' ? (
+              <ChancesChart sel={sel} onSelect={go} />
+            ) : tab === 'risk' ? (
+              <RiskChart sel={sel} onSelect={go} />
+            ) : tab === 'clocks' ? (
+              <ClocksChart sel={sel} />
+            ) : (
+              <ByRating cands={panelCands} />
+            )}
+          </div>
+        </div>
+        <div className="mx-2">
+          <Leaders
+            score={score}
+            you={
+              guess && played
+                ? { right: guess === liveSan ? 1 : 0, of: 1 }
+                : null
+            }
+          />
+        </div>
+        <p className="mx-3 text-xs text-white/35">
+          Prototype with an illustrative game and made-up numbers. Photos:
+          Dominik Töpfer / Lichess.{' '}
+          {!played ? (
+            <button onClick={() => setPlayed(true)} className="underline">
+              Demo: play his move
+            </button>
+          ) : null}
+        </p>
+      </div>
+    </>
+  )
+
+  return (
+    <>
+      <Head>
+        <title>World Championship 2026, Game 1 – Maia Chess</title>
+        <meta name="robots" content="noindex" />
+      </Head>
+      <style>{SIZE_CSS}</style>
+      <main ref={rootRef} className="wch-root w-full pb-10">
+        <div className="mx-auto max-w-[640px] xl:hidden">{mobileView}</div>
+        <div className="mx-auto hidden w-full max-w-[1680px] px-6 pt-3 xl:block">
+          <div className="grid grid-cols-[280px_calc(var(--board)+76px)_minmax(380px,1fr)] gap-7">
+            {/* Left: the match, the moves */}
+            <section
+              className="flex min-h-0 flex-col gap-3"
+              style={{ height: COL_H }}
+            >
+              <Players
+                clockWhite={
+                  shownPly.clockWhite - (isLive && !previewPly ? thinking : 0)
+                }
+                clockBlack={shownPly.clockBlack}
+                onMove={isLive && !played && !previewPly ? 'white' : null}
+                thinking={thinking}
+              />
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+                <MoveList
+                  sel={sel}
+                  onSelect={go}
+                  onPreview={setPreview}
+                  played={played}
+                  liveSan={liveSan}
+                  livePct={liveCands.find((c) => c.san === liveSan)?.maia ?? 0}
+                />
+                <Controls sel={sel} go={go} />
+              </div>
+            </section>
+
+            {/* Middle: bars, board, pane */}
+            <section className="flex flex-col gap-2">
+              <div>
+                <div
+                  className="grid h-7 items-end gap-3 text-[11px] font-semibold"
+                  style={{
+                    gridTemplateColumns: `${BAR_W}px var(--board) ${BAR_W}px`,
+                  }}
+                >
+                  <span
+                    className="whitespace-nowrap text-center leading-[13px]"
+                    style={{ color: MAIA }}
+                  >
+                    <span className="block text-[13px] font-semibold">
+                      Maia
+                    </span>
+                    <span className="block text-[10px] text-white/60">
+                      Win %
+                    </span>
+                  </span>
+                  <ArrowLegend />
+                  <span
+                    className="whitespace-nowrap text-center leading-[13px]"
+                    style={{ color: ENGINE }}
+                  >
+                    <span className="block text-[13px] font-semibold">SF</span>
+                    <span className="block text-[10px] text-white/60">
+                      Eval
+                    </span>
+                  </span>
+                </div>
+                <div
+                  className="mt-1 grid items-stretch gap-3"
+                  style={{
+                    gridTemplateColumns: `${BAR_W}px var(--board) ${BAR_W}px`,
+                  }}
+                >
+                  <HumanBar bar={bar} />
+                  <div className="max-w-full">
+                    {wide === true ? (
+                      <WchBoard
+                        key={dests ? 'guess' : 'view'}
+                        fen={boardFen}
+                        lastMove={lastMove}
+                        shapes={shapes}
+                        dests={dests}
+                        turnColor={dests ? 'white' : undefined}
+                        onMove={onBoardMove}
+                      />
+                    ) : (
+                      <div className="aspect-square w-full bg-white/[0.04]" />
+                    )}
+                  </div>
+                  <EvalBar ev={evalNow} />
+                </div>
+              </div>
+              <div
+                className="flex flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md"
+                style={{ height: PANE_H }}
+              >
+                <div className="flex items-stretch border-b border-glass-border">
+                  <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto [&>div]:border-b-0 [&_p]:whitespace-nowrap">
+                    <UnderlineTabs
+                      tabs={PANE_TABS}
+                      selected={tab}
+                      onSelect={setTab}
+                      layoutId="wchPaneTab"
+                    />
+                  </div>
+                  <span className="flex items-center whitespace-nowrap px-3 text-[13px] font-semibold text-human-1">
+                    Maia views
+                  </span>
+                </div>
+                <div className="min-h-0 flex-1 px-3 py-2">
+                  {tab === 'chances' ? (
+                    <ChancesChart sel={sel} onSelect={go} />
+                  ) : tab === 'risk' ? (
+                    <RiskChart sel={sel} onSelect={go} />
+                  ) : tab === 'clocks' ? (
+                    <ClocksChart sel={sel} />
+                  ) : (
+                    <ByRating cands={panelCands} />
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Right: the guess, Maia and Stockfish, the leaders */}
+            <section
+              className="flex min-h-0 flex-col gap-3"
+              style={{ height: COL_H }}
+            >
+              <MovePanel
+                ply={ply}
+                cands={panelCands}
+                thinking={ply ? null : thinking}
+                sf={panelSf}
+                signedIn={signedIn}
+                onDemoSignIn={() => setDemoSignedIn(true)}
+                guess={guess}
+                onGuess={canGuess ? setGuess : undefined}
+                played={played}
+                onPlay={() => setPlayed(true)}
+                guessCount={guessCount}
+                liveSan={liveSan}
+                onHover={setHoverSan}
+                hoverSan={hoverSan}
+              />
+              <Leaders
+                score={score}
+                you={
+                  guess && played
+                    ? { right: guess === liveSan ? 1 : 0, of: 1 }
+                    : null
+                }
+              />
+            </section>
+          </div>
+          <p className="mt-5 text-xs text-white/35">
+            Prototype with an illustrative game and made-up Maia, Stockfish and
+            visitor numbers. Photos: Dominik Töpfer / Lichess.
+          </p>
+        </div>
+      </main>
+    </>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Left column                                                          */
+
+/** The player's colour: a white or black circle. */
+const SideMark: React.FC<{ side: Side }> = ({ side }) => (
+  <span
+    title={side === 'white' ? 'White' : 'Black'}
+    className={`inline-block h-3.5 w-3.5 shrink-0 rounded-full ${
+      side === 'white'
+        ? 'bg-[#f1eee9]'
+        : 'bg-[#141112] ring-1 ring-inset ring-white/50'
+    }`}
+  />
+)
+
+const Players: React.FC<{
+  clockWhite: number
+  clockBlack: number
+  onMove: Side | null
+  thinking: number
+}> = ({ clockWhite, clockBlack, onMove, thinking }) => (
+  <div className="overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+    <div className="flex items-end justify-between border-b border-glass-border px-3 py-2">
+      <div>
+        <p className="text-sm font-semibold text-white">
+          World Championship 2026
+        </p>
+        <p className="text-xs text-white/50">Game 1 of 14, Geneva</p>
+      </div>
+      <p className="text-right text-xs text-white/50">
+        Match <span className="tabular-nums text-white/80">0–0</span>
+      </p>
+    </div>
+    <PlayerRow
+      id={BLACK}
+      side="black"
+      clock={clockBlack}
+      active={onMove === 'black'}
+      thinking={thinking}
+    />
+    <div className="mx-3 h-px bg-glass-border" />
+    <PlayerRow
+      id={WHITE}
+      side="white"
+      clock={clockWhite}
+      active={onMove === 'white'}
+      thinking={thinking}
+    />
+  </div>
+)
+
+const PlayerRow: React.FC<{
+  id: 'gukesh' | 'sindarov'
+  side: Side
+  clock: number
+  active: boolean
+  thinking: number
+}> = ({ id, side, clock, active, thinking }) => {
+  const p = FIDE[id]
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={p.photo}
+        alt={p.name}
+        width={60}
+        height={60}
+        className="h-[60px] w-[60px] shrink-0 rounded-full bg-white/10 object-cover"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 text-[15px] font-semibold leading-5 text-white">
+          <SideMark side={side} />
+          <span className="truncate">{p.name}</span>
+        </p>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 text-xs text-white/55">
+            <Flag fed={p.fed} />
+            <span>{p.title}</span>
+            <span className="tabular-nums">{p.rating}</span>
+          </p>
+          <span
+            className={`rounded-md px-2 py-0.5 font-mono text-[19px] font-semibold tabular-nums leading-6 ${
+              active ? 'bg-emerald-400 text-black' : 'text-white/45'
+            }`}
+          >
+            {fmtClock(clock)}
+          </span>
+        </div>
+        <p
+          className={`mt-0.5 h-4 text-right text-[11px] tabular-nums ${
+            active ? 'text-emerald-300' : 'text-transparent'
+          }`}
+        >
+          thinking {fmtClock(thinking)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+const MoveList: React.FC<{
+  sel: number
+  onSelect: (i: number) => void
+  onPreview: (i: number | null) => void
+  played: boolean
+  liveSan: string
+  livePct: number
+}> = ({ sel, onSelect, onPreview, played, liveSan, livePct }) => {
+  const ref = useRef<HTMLDivElement>(null)
+  // Scroll only the list (scrollIntoView would also scroll the page).
+  useEffect(() => {
+    const list = ref.current
+    const el = list?.querySelector<HTMLElement>('[data-sel="true"]')
+    if (!list || !el) return
+    const top = el.offsetTop
+    if (top < list.scrollTop) list.scrollTop = top
+    else if (top + el.offsetHeight > list.scrollTop + list.clientHeight)
+      list.scrollTop = top + el.offsetHeight - list.clientHeight
+  }, [sel])
+  const rows: number[] = []
+  for (let i = 0; i < GAME1.length; i += 2) rows.push(i)
+  return (
+    <div
+      ref={ref}
+      onMouseLeave={() => onPreview(null)}
+      className="red-scrollbar relative grid min-h-0 flex-1 auto-rows-min grid-cols-[2.25rem_1fr_1fr] overflow-y-auto border-b border-glass-border text-white/90"
+    >
+      {rows.map((i) => (
+        <React.Fragment key={i}>
+          <span className="flex h-7 items-center justify-center bg-glass-strong text-xs text-white/60">
+            {i / 2 + 1}
+          </span>
+          <Cell
+            p={GAME1[i]}
+            active={sel === i}
+            onClick={() => onSelect(i)}
+            onHover={() => onPreview(i)}
+          />
+          {GAME1[i + 1] ? (
+            <Cell
+              p={GAME1[i + 1]}
+              active={sel === i + 1}
+              onClick={() => onSelect(i + 1)}
+              onHover={() => onPreview(i + 1)}
+            />
+          ) : (
+            <span />
+          )}
+        </React.Fragment>
+      ))}
+      <span className="flex h-7 items-center justify-center bg-glass-strong text-xs text-white/60">
+        {NEXT.moveNumber}
+      </span>
+      <button
+        data-sel={sel === LIVE}
+        onClick={() => onSelect(LIVE)}
+        onMouseEnter={() => onPreview(null)}
+        className={`flex h-7 items-center justify-between px-2 text-sm hover:bg-glass-stronger ${
+          sel === LIVE ? 'bg-glass-strong' : ''
+        }`}
+      >
+        {played ? (
+          <>
+            <span>{liveSan}</span>
+            <MaiaHit p={livePct} />
+          </>
+        ) : (
+          <span className="flex items-center gap-1.5 text-xs text-rose-200/90">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+            live
+          </span>
+        )}
+      </button>
+      <span />
+    </div>
+  )
+}
+
+const MaiaCheck = () => (
+  <span
+    title="Maia's first choice"
+    className="material-symbols-outlined !text-[15px] text-human-1"
+  >
+    check
+  </span>
+)
+
+/** A move Maia put first: a check and the probability it gave it. */
+const MaiaHit: React.FC<{ p: number }> = ({ p }) => (
+  <span className="flex items-center gap-0.5 text-[11px] tabular-nums text-human-1">
+    <MaiaCheck />
+    {pct(p)}
+  </span>
+)
+
+/** Maia's probability for a move it didn't put first: rank and a bar. */
+const MissBar: React.FC<{ rank: number; p: number }> = ({ rank, p }) => (
+  <span
+    className="flex items-center gap-1"
+    title={`Maia's #${rank || '9+'} choice, ${pct(p)}`}
+  >
+    <span className="text-[10px] tabular-nums text-white/45">
+      {rank || '–'}
+    </span>
+    <span className="relative h-1 w-6 overflow-hidden rounded-full bg-white/10">
+      <span
+        className="absolute inset-y-0 left-0 rounded-full"
+        style={{
+          width: `${Math.max(p, 0.04) * 100}%`,
+          background: 'rgb(254 127 109 / 0.7)',
+        }}
+      />
+    </span>
+  </span>
+)
+
+const Cell: React.FC<{
+  p: LivePly
+  active: boolean
+  onClick: () => void
+  onHover: () => void
+}> = ({ p, active, onClick, onHover }) => (
+  <button
+    data-sel={active}
+    onClick={onClick}
+    onMouseEnter={onHover}
+    className={`flex h-7 min-w-0 items-center justify-between gap-1 px-2 text-sm hover:bg-glass-stronger ${
+      active ? 'bg-glass-strong' : ''
+    }`}
+  >
+    <span className="flex min-w-0 items-center gap-1 truncate">
+      {p.san}
+      {p.mark ? <MarkChip mark={p.mark} /> : null}
+    </span>
+    {p.rank === 1 ? (
+      <MaiaHit p={p.pPlayed} />
+    ) : (
+      <MissBar rank={p.rank} p={p.pPlayed} />
+    )}
+  </button>
+)
+
+const Controls: React.FC<{ sel: number; go: (i: number) => void }> = ({
+  sel,
+  go,
+}) => (
+  <div className="grid grid-cols-4 text-white/70">
+    {(
+      [
+        ['first_page', 0],
+        ['arrow_back_ios', sel - 1],
+        ['arrow_forward_ios', sel + 1],
+        ['last_page', LIVE],
+      ] as [string, number][]
+    ).map(([icon, to]) => (
+      <button
+        key={icon}
+        onClick={() => go(to)}
+        className="flex h-8 items-center justify-center hover:bg-glass-stronger hover:text-white"
+      >
+        <span className="material-symbols-outlined !text-[18px]">{icon}</span>
+      </button>
+    ))}
+  </div>
+)
+
+/* ------------------------------------------------------------------ */
+/* Bars and legend around the board                                     */
+
+const ArrowLegend = () => (
+  <div className="flex items-center justify-center gap-4 text-[11px] font-normal text-white/60">
+    {(
+      [
+        ['Maia', MAIA],
+        ['Stockfish', ENGINE],
+        ['Your guess', '#e8e8e8'],
+      ] as [string, string][]
+    ).map(([label, c]) => (
+      <span key={label} className="flex items-center gap-1.5">
+        <svg width="18" height="8" viewBox="0 0 18 8" aria-hidden>
+          <line x1="0" y1="4" x2="12" y2="4" stroke={c} strokeWidth="2.5" />
+          <path d="M11 0.5 L17.5 4 L11 7.5 Z" fill={c} />
+        </svg>
+        {label}
+      </span>
+    ))}
+  </div>
+)
+
+const HumanBar: React.FC<{
+  bar: { W: number; D: number; B: number }
+  size?: string
+}> = ({ bar, size = 'var(--board)' }) => {
+  const seg = (v: number, cls: string, label: string) => (
+    <div
+      className={`flex items-center justify-center text-[13px] font-bold tabular-nums transition-all duration-500 ${cls}`}
+      style={{ height: `${v * 100}%` }}
+      title={label}
+    >
+      {v >= 0.08 ? Math.round(v * 100) : ''}
+    </div>
+  )
+  return (
+    <div
+      className="flex w-full flex-col overflow-hidden rounded border border-white/25"
+      style={{ height: size }}
+    >
+      {seg(bar.B, 'bg-[#2a2526] text-white', `Black wins ${pct(bar.B)}`)}
+      {seg(bar.D, 'bg-[#8f8a88] text-black', `Draw ${pct(bar.D)}`)}
+      {seg(bar.W, 'bg-[#f1eee9] text-black', `White wins ${pct(bar.W)}`)}
+    </div>
+  )
+}
+
+const EvalBar: React.FC<{ ev: number; size?: string; compact?: boolean }> = ({
+  ev,
+  size = 'var(--board)',
+  compact = false,
+}) => {
+  const white = 0.5 + 0.5 * Math.tanh(ev / 3)
+  return (
+    <div
+      className="relative flex w-full flex-col justify-end rounded border border-white/10 bg-[#1f2a36]"
+      style={{ height: size }}
+      title={`Stockfish ${fmtEval(ev)}`}
+    >
+      <div
+        className="rounded-b bg-engine-2/80 transition-all duration-500"
+        style={{ height: `${white * 100}%` }}
+      />
+      <div className="absolute inset-x-0 top-1/2 h-px bg-white/25" />
+      <span
+        className={`absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded border border-engine-2/60 bg-[#141a21] py-px font-mono ${compact ? 'px-0.5 text-[9px]' : 'px-1 text-[10px]'} font-semibold tabular-nums text-white transition-all duration-500`}
+        style={{ top: `${(1 - white) * 100}%` }}
+      >
+        {fmtEval(ev)}
+      </span>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Pane under the board */
+
+/** Measures its box so the charts draw at real pixel size. */
+const Sized: React.FC<{
+  children: (w: number, h: number) => React.ReactNode
+}> = ({ children }) => {
+  const ref = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState<[number, number]>([0, 0])
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) =>
+      setSize([e.contentRect.width, e.contentRect.height]),
+    )
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div ref={ref} className="h-full w-full">
+      {size[0] > 0 ? children(size[0], size[1]) : null}
+    </div>
+  )
+}
+
+const PAD = { l: 44, r: 92, t: 4, b: 16 }
+
+const frame = (w: number, h: number, n: number) => ({
+  x: (i: number) => PAD.l + (i / n) * (w - PAD.l - PAD.r),
+  y: (v: number) => PAD.t + v * (h - PAD.t - PAD.b),
+  plotW: w - PAD.l - PAD.r,
+  bottom: h - PAD.b,
+  index: (clientX: number, left: number) =>
+    Math.round(((clientX - left - PAD.l) / (w - PAD.l - PAD.r)) * n),
+})
+
+const MoveTicks: React.FC<{ x: (i: number) => number; y: number }> = ({
+  x,
+  y,
+}) => (
+  <>
+    {[5, 10, 15, 20].map((m) => (
+      <text
+        key={m}
+        x={x(m * 2 - 1)}
+        y={y}
+        fontSize={11}
+        textAnchor="middle"
+        fill="rgba(255,255,255,0.45)"
+      >
+        {m}
+      </text>
+    ))}
+  </>
+)
+
+const ChancesChart: React.FC<{
+  sel: number
+  onSelect: (i: number) => void
+}> = ({ sel, onSelect }) => (
+  <Sized>
+    {(w, h) => {
+      const pts = [{ W: 0.25, D: 0.57, B: 0.18 }, ...GAME1.map((p) => p.bar)]
+      const n = pts.length - 1
+      const f = frame(w, h, n)
+      const cur = sel === LIVE ? n : sel + 1
+      const b = pts[cur]
+      const band = (top: (i: number) => number, bot: (i: number) => number) =>
+        `M${pts.map((_, i) => `${f.x(i)},${f.y(top(i))}`).join('L')}L${pts
+          .map((_, i) => `${f.x(i)},${f.y(bot(i))}`)
+          .reverse()
+          .join('L')}Z`
+      const mid = (a: number, c: number) => f.y((a + c) / 2) + 4
+      return (
+        <svg
+          width={w}
+          height={h}
+          className="cursor-pointer"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            onSelect(
+              Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
+            )
+          }}
+        >
+          <path
+            d={band(
+              () => 0,
+              (i) => pts[i].B,
+            )}
+            fill="#3f3a3b"
+          />
+          <path
+            d={band(
+              (i) => pts[i].B,
+              (i) => pts[i].B + pts[i].D,
+            )}
+            fill="#8f8a88"
+          />
+          <path
+            d={band(
+              (i) => pts[i].B + pts[i].D,
+              () => 1,
+            )}
+            fill="#e6e3e0"
+          />
+          {[0.25, 0.5, 0.75].map((v) => (
+            <line
+              key={v}
+              x1={PAD.l}
+              x2={w - PAD.r}
+              y1={f.y(v)}
+              y2={f.y(v)}
+              stroke="rgba(0,0,0,0.2)"
+            />
+          ))}
+          <text
+            x={PAD.l - 6}
+            y={f.y(0) + 10}
+            fontSize={11}
+            textAnchor="end"
+            fill="rgba(255,255,255,0.45)"
+          >
+            Black
+          </text>
+          <text
+            x={PAD.l - 6}
+            y={f.y(1)}
+            fontSize={11}
+            textAnchor="end"
+            fill="rgba(255,255,255,0.45)"
+          >
+            White
+          </text>
+          <line
+            x1={f.x(cur)}
+            x2={f.x(cur)}
+            y1={PAD.t}
+            y2={f.bottom}
+            stroke={MAIA}
+            strokeWidth={2}
+          />
+          <MoveTicks x={f.x} y={h - 2} />
+          <g fontSize={12} fontWeight={600}>
+            <text
+              x={w - PAD.r + 10}
+              y={mid(0, b.B)}
+              fill="rgba(255,255,255,0.75)"
+            >
+              Black {Math.round(b.B * 100)}%
+            </text>
+            <text
+              x={w - PAD.r + 10}
+              y={mid(b.B, b.B + b.D)}
+              fill="rgba(255,255,255,0.6)"
+            >
+              Draw {Math.round(b.D * 100)}%
+            </text>
+            <text x={w - PAD.r + 10} y={mid(b.B + b.D, 1)} fill="#fff">
+              White {Math.round(b.W * 100)}%
+            </text>
+          </g>
+        </svg>
+      )
+    }}
+  </Sized>
+)
+
+const WHITE_INK = '#ececec'
+const BLACK_INK = '#a49c98'
+
+/**
+ * Each player's risk of a blunder in the next few moves, as a multiple of
+ * his own usual rate: one shared "usual" line, red where a player runs
+ * above it.
+ */
+const RiskChart: React.FC<{ sel: number; onSelect: (i: number) => void }> = ({
+  sel,
+  onSelect,
+}) => (
+  <Sized>
+    {(w, h) => {
+      const n = GAME1.length
+      const f = frame(w, h, n)
+      // Multiple of usual, smoothed over three plies.
+      const series = (side: Side) => {
+        const raw = GAME1.map((p) => {
+          const r = blunderRisk(p, side)
+          return r.risk / r.usual
+        })
+        return raw.map((_, i) => {
+          const win = raw.slice(Math.max(0, i - 1), i + 2)
+          return win.reduce((a, b) => a + b, 0) / win.length
+        })
+      }
+      const ws = series('white')
+      const bs = series('black')
+      const lo = 0.5
+      const hi = Math.max(2.2, ...ws, ...bs) * 1.05
+      const y = (m: number) => f.y((hi - m) / (hi - lo))
+      const line = (ms: number[]) =>
+        ms.map((m, i) => `${i ? 'L' : 'M'}${f.x(i + 1)},${y(m)}`).join('')
+      const above = (ms: number[]) =>
+        `M${f.x(1)},${y(1)}${ms
+          .map((m, i) => `L${f.x(i + 1)},${y(Math.max(m, 1))}`)
+          .join('')}L${f.x(n)},${y(1)}Z`
+      const cur = Math.max(1, sel === LIVE ? n : sel + 1)
+      // Labels at the right, kept at least 15 px apart.
+      const wm = ws[cur - 1]
+      const bm = bs[cur - 1]
+      let wy = y(wm) + 4
+      let by = y(bm) + 4
+      if (Math.abs(wy - by) < 15) {
+        const mid = (wy + by) / 2
+        if (wm >= bm) {
+          wy = mid - 7.5
+          by = mid + 7.5
+        } else {
+          by = mid - 7.5
+          wy = mid + 7.5
+        }
+      }
+      const label = (
+        id: 'gukesh' | 'sindarov',
+        m: number,
+        ty: number,
+        ink: string,
+      ) => (
+        <text x={w - PAD.r + 10} y={ty} fontSize={12} fontWeight={600}>
+          <tspan fill={ink}>{surname(id)}</tspan>
+          <tspan fill={m > 1.25 ? '#f46d43' : 'rgba(255,255,255,0.45)'}>
+            {' '}
+            {m > 1.25 ? `${m.toFixed(1)}×` : 'usual'}
+          </tspan>
+        </text>
+      )
+      return (
+        <svg
+          width={w}
+          height={h}
+          className="cursor-pointer"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            onSelect(
+              Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
+            )
+          }}
+        >
+          <title>
+            Risk of a blunder in the next few moves, against each player&apos;s
+            usual rate (experimental)
+          </title>
+          {[1, 2].map((m) => (
+            <g key={m}>
+              <line
+                x1={PAD.l}
+                x2={w - PAD.r}
+                y1={y(m)}
+                y2={y(m)}
+                stroke={
+                  m === 1 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.07)'
+                }
+                strokeDasharray={m === 1 ? '3 4' : undefined}
+              />
+              <text
+                x={PAD.l - 6}
+                y={y(m) + 4}
+                fontSize={11}
+                textAnchor="end"
+                fill="rgba(255,255,255,0.45)"
+              >
+                {m === 1 ? 'usual' : '2×'}
+              </text>
+            </g>
+          ))}
+          <path d={above(ws)} fill="rgba(215,48,39,0.3)" />
+          <path d={above(bs)} fill="rgba(215,48,39,0.3)" />
+          <path
+            d={line(ws)}
+            fill="none"
+            stroke={WHITE_INK}
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+          <path
+            d={line(bs)}
+            fill="none"
+            stroke={BLACK_INK}
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+          <line
+            x1={f.x(cur)}
+            x2={f.x(cur)}
+            y1={PAD.t}
+            y2={f.bottom}
+            stroke="white"
+            opacity={0.5}
+          />
+          {label(WHITE, wm, wy, WHITE_INK)}
+          {label(BLACK, bm, by, BLACK_INK)}
+          <text
+            x={w - PAD.r - 4}
+            y={PAD.t + 10}
+            fontSize={10}
+            textAnchor="end"
+            fill="rgba(255,255,255,0.35)"
+          >
+            experimental
+          </text>
+          <MoveTicks x={f.x} y={h - 2} />
+        </svg>
+      )
+    }}
+  </Sized>
+)
+
+/**
+ * Time spent on each move: White's above the line, Black's below, square
+ * root scaled so a 10-minute think doesn't flatten the rest.
+ */
+const ClocksChart: React.FC<{ sel: number }> = ({ sel }) => (
+  <Sized>
+    {(w, h) => {
+      const moves = 40
+      const f = frame(w, h, moves)
+      const mid = PAD.t + (h - PAD.t - PAD.b) / 2
+      const half = (h - PAD.t - PAD.b) / 2 - 2
+      const maxT = Math.max(...GAME1.map((p) => p.think))
+      const len = (t: number) => Math.max(1.5, Math.sqrt(t / maxT) * half)
+      const bw = Math.max(3, f.plotW / moves - 3)
+      const curMove = sel === LIVE ? NEXT.moveNumber : GAME1[sel].moveNumber
+      const lastW = GAME1[GAME1.length - 2]
+      const lastB = GAME1[GAME1.length - 1]
+      const vsUsual = (clock: number, id: 'gukesh' | 'sindarov', m: number) =>
+        Math.round((clock - clockCurve(id, m) * BASE_SECONDS) / 60)
+      const wDiff = vsUsual(lastW.clockWhite, WHITE, lastW.moveNumber)
+      const bDiff = vsUsual(lastB.clockBlack, BLACK, lastB.moveNumber)
+      return (
+        <svg width={w} height={h}>
+          <line
+            x1={PAD.l}
+            x2={w - PAD.r}
+            y1={mid}
+            y2={mid}
+            stroke="rgba(255,255,255,0.2)"
+          />
+          <text
+            x={PAD.l - 6}
+            y={PAD.t + 10}
+            fontSize={11}
+            textAnchor="end"
+            fill="rgba(255,255,255,0.45)"
+          >
+            White
+          </text>
+          <text
+            x={PAD.l - 6}
+            y={h - PAD.b - 2}
+            fontSize={11}
+            textAnchor="end"
+            fill="rgba(255,255,255,0.45)"
+          >
+            Black
+          </text>
+          {GAME1.map((p) => {
+            const x = f.x(p.moveNumber - 0.5) - bw / 2
+            const l = len(p.think)
+            const upper = p.color === 'white'
+            const long = p.think >= 300
+            return (
+              <g key={p.index}>
+                <rect
+                  x={x}
+                  y={upper ? mid - l : mid}
+                  width={bw}
+                  height={l}
+                  rx={1}
+                  fill={upper ? WHITE_INK : BLACK_INK}
+                  opacity={p.moveNumber === curMove ? 1 : 0.8}
+                />
+                {long ? (
+                  <text
+                    x={x + bw / 2}
+                    y={upper ? mid - l - 3 : mid + l + 10}
+                    fontSize={10}
+                    textAnchor="middle"
+                    fill="rgba(255,255,255,0.7)"
+                  >
+                    {Math.round(p.think / 60)}m
+                  </text>
+                ) : null}
+              </g>
+            )
+          })}
+          {[10, 20, 30, 40].map((m) => (
+            <text
+              key={m}
+              x={f.x(m - 0.5)}
+              y={h - 2}
+              fontSize={11}
+              textAnchor="middle"
+              fill="rgba(255,255,255,0.45)"
+            >
+              {m}
+            </text>
+          ))}
+          <line
+            x1={f.x(curMove - 0.5)}
+            x2={f.x(curMove - 0.5)}
+            y1={PAD.t}
+            y2={f.bottom}
+            stroke={MAIA}
+            opacity={0.7}
+          />
+          <g fontSize={11}>
+            {(
+              [
+                [WHITE, wDiff, mid - 34, WHITE_INK],
+                [BLACK, bDiff, mid + 12, BLACK_INK],
+              ] as ['gukesh' | 'sindarov', number, number, string][]
+            ).map(([id, d, y0, ink]) => (
+              <g key={id}>
+                <text x={w - PAD.r + 10} y={y0} fill={ink} fontWeight={600}>
+                  {surname(id)}
+                </text>
+                <text
+                  x={w - PAD.r + 10}
+                  y={y0 + 13}
+                  fill={d < 0 ? '#fdae61' : 'rgba(255,255,255,0.7)'}
+                >
+                  {Math.abs(d)} min {d < 0 ? 'less' : 'more'} left
+                </text>
+                <text
+                  x={w - PAD.r + 10}
+                  y={y0 + 25}
+                  fill="rgba(255,255,255,0.4)"
+                >
+                  than usual
+                </text>
+              </g>
+            ))}
+          </g>
+        </svg>
+      )
+    }}
+  </Sized>
+)
+
+const ByRating: React.FC<{ cands: Candidate[] }> = ({ cands }) => {
+  const rows = byRating(cands)
+  return (
+    <div className="grid h-full grid-cols-[52px_repeat(5,1fr)] content-center gap-x-2 gap-y-1 text-xs">
+      <span />
+      {RATING_BANDS.map((r) => (
+        <span key={r} className="text-center text-[10px] text-white/40">
+          {r}
+        </span>
+      ))}
+      {rows.map((row) => (
+        <React.Fragment key={row.san}>
+          <span className="font-medium text-white/90">{row.san}</span>
+          {row.shares.map((s, k) => (
+            <span key={k} className="relative h-4 rounded-sm bg-white/[0.05]">
+              <span
+                className="absolute inset-y-0 left-0 rounded-sm"
+                style={{
+                  width: `${s * 100}%`,
+                  background: k === 4 ? MAIA : 'rgb(254 127 109 / 0.45)',
+                }}
+              />
+              <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] tabular-nums text-white/70">
+                {Math.round(s * 100)}
+              </span>
+            </span>
+          ))}
+        </React.Fragment>
+      ))}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Right column                                                         */
+
+const YouTag = () => (
+  <span className="rounded-sm bg-white px-1 text-[9px] font-bold uppercase leading-[14px] text-black">
+    you
+  </span>
+)
+
+const MovePanel: React.FC<{
+  ply: LivePly | null
+  cands: (Candidate & { before?: number })[]
+  thinking: number | null
+  sf: string
+  signedIn: boolean
+  onDemoSignIn: () => void
+  guess: string | null
+  onGuess?: (san: string) => void
+  played: boolean
+  onPlay: () => void
+  guessCount: number
+  liveSan: string
+  onHover: (san: string | null) => void
+  hoverSan: string | null
+}> = ({
+  ply,
+  cands,
+  thinking,
+  sf,
+  signedIn,
+  onDemoSignIn,
+  guess,
+  onGuess,
+  played,
+  onPlay,
+  guessCount,
+  liveSan,
+  onHover,
+  hoverSan,
+}) => {
+  const live = !ply
+  const mover = ply ? ply.mover : NEXT.mover
+  const side: Side = ply ? ply.color : 'white'
+  const who = surname(mover)
+  const playedSan = ply ? ply.san : played ? liveSan : null
+  const top = Math.max(...cands.map((c) => Math.max(c.maia, c.generic)))
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
+      <div className="px-4 pb-2.5 pt-3">
+        <h2 className="flex items-center gap-2 text-lg font-semibold leading-6 text-white">
+          {playedSan ? `${who} played ${playedSan}` : `What will ${who} play?`}
+          {ply?.mark ? <MarkChip mark={ply.mark} size="md" /> : null}
+        </h2>
+      </div>
+
+      {live ? (
+        <GuessStrip
+          signedIn={signedIn}
+          onDemoSignIn={onDemoSignIn}
+          guess={guess}
+          played={played}
+          onPlay={onPlay}
+          guessCount={guessCount}
+          liveSan={liveSan}
+          who={who}
+        />
+      ) : null}
+
+      <div className="red-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
+        <div className="grid grid-cols-[72px_1fr_40px_56px] items-end gap-2 px-4 pb-1.5 pt-1 text-[10px] text-white/40">
+          <span>Move</span>
+          <span className="flex items-baseline justify-between gap-4">
+            <span className="text-[14px] font-semibold" style={{ color: MAIA }}>
+              Maia{who}
+            </span>
+            <span
+              className="flex items-center gap-1"
+              title="What a typical 2750 plays here (generic Maia-3 at 2750)"
+            >
+              <span className="inline-block h-2.5 w-px bg-white/70" />
+              typical 2750
+            </span>
+          </span>
+          <span />
+          <span className="text-right" style={{ color: ENGINE }}>
+            Stockfish
+          </span>
+        </div>
+        {cands.map((c, i) => {
+          const isPlayed = playedSan === c.san
+          const isMine = live && guess === c.san
+          const isHover = hoverSan === c.san
+          return (
+            <button
+              key={c.san}
+              onMouseEnter={() => onHover(c.san)}
+              onMouseLeave={() => onHover(null)}
+              onClick={() => onGuess?.(c.san)}
+              className={`grid h-7 w-full grid-cols-[72px_1fr_40px_56px] items-center gap-2 px-4 text-left text-sm ${
+                isPlayed
+                  ? 'bg-white/[0.09]'
+                  : isHover
+                    ? 'bg-glass-stronger'
+                    : ''
+              } ${onGuess ? 'cursor-pointer' : 'cursor-default'}`}
+            >
+              <span className="flex items-center gap-1.5 font-medium text-white/90">
+                {c.san}
+                {isMine ? <YouTag /> : null}
+                {isPlayed ? (
+                  <span className="rounded-sm bg-white/15 px-1 text-[9px] uppercase leading-[14px] text-white/80">
+                    played
+                  </span>
+                ) : null}
+              </span>
+              <span className="relative h-2 rounded-sm bg-white/[0.05]">
+                <span
+                  className="block h-2 rounded-sm transition-[width] duration-700"
+                  style={{
+                    width: `${(c.maia / top) * 100}%`,
+                    background: i === 0 ? MAIA : 'rgb(254 127 109 / 0.55)',
+                  }}
+                />
+                <span
+                  className="absolute -inset-y-0.5 w-px bg-white/70"
+                  style={{ left: `${(c.generic / top) * 100}%` }}
+                />
+              </span>
+              <span className="text-right text-xs tabular-nums text-white/70">
+                {pct(c.maia)}
+              </span>
+              <span
+                className="text-right font-mono text-xs tabular-nums"
+                style={{
+                  color: c.san === sf ? ENGINE : 'rgba(255,255,255,0.55)',
+                }}
+              >
+                {fmtEval(c.eval)}
+              </span>
+            </button>
+          )
+        })}
+        {playedSan ? (
+          <CrowdSplit
+            cands={cands}
+            played={playedSan}
+            guesses={ply ? ply.guesses : guessCount}
+            mine={live ? guess : null}
+          />
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+const GuessStrip: React.FC<{
+  signedIn: boolean
+  onDemoSignIn: () => void
+  guess: string | null
+  played: boolean
+  onPlay: () => void
+  guessCount: number
+  liveSan: string
+  who: string
+}> = ({
+  signedIn,
+  onDemoSignIn,
+  guess,
+  played,
+  onPlay,
+  guessCount,
+  liveSan,
+  who,
+}) => {
+  const right = played && guess === liveSan
+  return (
+    <div
+      className={`mx-4 mb-2 flex min-h-[52px] items-center justify-between gap-3 rounded-md border px-3 py-2 ${
+        played && guess
+          ? right
+            ? 'border-emerald-300/40 bg-emerald-400/[0.08]'
+            : 'border-white/10 bg-white/[0.03]'
+          : 'border-white/15 bg-white/[0.05]'
+      }`}
+    >
+      {!signedIn ? (
+        <>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-white">
+              Guess {who}&apos;s move
+            </p>
+            <p className="text-[11px] text-white/45">
+              {guessCount >= MIN_SHOWN_GUESSES ? (
+                <>
+                  <span className="tabular-nums">
+                    {guessCount.toLocaleString()}
+                  </span>{' '}
+                  guesses so far
+                </>
+              ) : null}
+              <button
+                onClick={onDemoSignIn}
+                className="ml-2 hover:text-white/80"
+              >
+                demo: sign in
+              </button>
+            </p>
+          </div>
+          <LichessSignInButton source="auth_prompt" className="shrink-0" />
+        </>
+      ) : (
+        <>
+          <div className="min-w-0">
+            <p className="text-[11px] text-white/45">Your guess</p>
+            <p className="text-base font-semibold leading-5 text-white">
+              {guess ?? (
+                <span className="text-sm font-normal text-white/60">
+                  Click a move or play it on the board
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="shrink-0 text-right text-[11px] leading-4 text-white/45">
+            {played ? (
+              guess ? (
+                <span
+                  className={
+                    right
+                      ? 'text-sm font-semibold text-emerald-200'
+                      : 'text-sm text-white/60'
+                  }
+                >
+                  {right ? 'Called it' : 'Missed'}
+                </span>
+              ) : (
+                'No guess'
+              )
+            ) : (
+              <>
+                {guess
+                  ? 'Change it until he moves'
+                  : guessCount >= MIN_SHOWN_GUESSES
+                    ? `${guessCount.toLocaleString()} guesses so far`
+                    : ''}
+                <br />
+                <button onClick={onPlay} className="hover:text-white/80">
+                  demo: {who} moves
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/** What visitors guessed, most picked first; shown once the move is in. */
+const CrowdSplit: React.FC<{
+  cands: Candidate[]
+  played: string
+  guesses: number
+  mine?: string | null
+}> = ({ cands, played, guesses, mine }) => {
+  // Nobody guessed: no list.
+  if (guesses <= 0) return null
+  let rows = [...cands].sort((a, b) => b.crowd - a.crowd).slice(0, 4)
+  // A guess or two: just those picks (demo shares).
+  if (guesses < MIN_SHOWN_GUESSES)
+    rows = rows.slice(0, guesses).map((c) => ({ ...c, crowd: 1 / guesses }))
+  const top = rows[0].crowd
+  return (
+    <div className="mt-2 border-t border-glass-border px-4 pt-2.5">
+      <p className="text-[11px] text-white/45">
+        Visitors&apos; guesses
+        {guesses >= MIN_SHOWN_GUESSES ? (
+          <>
+            {' '}
+            (<span className="tabular-nums">{guesses.toLocaleString()}</span>)
+          </>
+        ) : null}
+      </p>
+      <div className="mt-1.5 flex flex-col gap-1">
+        {rows.map((c) => (
+          <div
+            key={c.san}
+            className="grid grid-cols-[72px_1fr_40px] items-center gap-2 text-sm"
+          >
+            <span
+              className={`flex items-center gap-1.5 ${c.san === played ? 'font-semibold text-white' : 'text-white/70'}`}
+            >
+              {c.san}
+              {mine === c.san ? <YouTag /> : null}
+            </span>
+            <span className="h-2 rounded-sm bg-white/[0.05]">
+              <span
+                className="block h-2 rounded-sm"
+                style={{
+                  width: `${(c.crowd / top) * 100}%`,
+                  background:
+                    c.san === played ? CROWD : 'rgb(200 194 189 / 0.4)',
+                }}
+              />
+            </span>
+            <span className="text-right text-xs tabular-nums text-white/60">
+              {pct(c.crowd)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const Leaders: React.FC<{
+  score: ReturnType<typeof tally>
+  you: { right: number; of: number } | null
+}> = ({ score, you }) => (
+  <div className="rounded-md border border-glass-border bg-glass px-4 py-3 backdrop-blur-md">
+    <p className="text-[11px] text-white/45">Moves called this game</p>
+    <div className="mt-1 flex items-baseline gap-5">
+      {(
+        [
+          ['Maia', score.maia, MAIA],
+          ['Visitors', score.crowd, CROWD],
+          ['Stockfish', score.stockfish, ENGINE],
+        ] as [string, number, string][]
+      ).map(([name, v, c]) => (
+        <p key={name} className="text-sm text-white/55">
+          <span
+            className="text-lg font-semibold tabular-nums"
+            style={{ color: c }}
+          >
+            {v}
+          </span>
+          <span className="text-xs text-white/30">/{score.n}</span> {name}
+        </p>
+      ))}
+    </div>
+    <div className="mt-2.5 border-t border-glass-border pt-2">
+      {TOP_GUESSERS.map((g, i) => (
+        <div
+          key={g.name}
+          className="grid h-6 grid-cols-[18px_1fr_auto] items-center gap-2 text-sm"
+        >
+          <span className="text-xs tabular-nums text-white/40">{i + 1}</span>
+          <span className="truncate text-white/85">{g.name}</span>
+          <span className="tabular-nums text-white/70">
+            {g.right}
+            <span className="text-xs text-white/35">/{g.of}</span>
+          </span>
+        </div>
+      ))}
+      <div className="grid h-6 grid-cols-[18px_1fr_auto] items-center gap-2 text-sm">
+        <span />
+        <span className="text-white/55">You</span>
+        <span className="tabular-nums text-white/70">
+          {you ? (
+            <>
+              {you.right}
+              <span className="text-xs text-white/35">/{you.of}</span>
+            </>
+          ) : (
+            '–'
+          )}
+        </span>
+      </div>
+    </div>
+  </div>
+)
+
+/* ------------------------------------------------------------------ */
+/* Mobile                                                               */
+
+/** One player in the shared row above the board on phones. */
+const PlayerHalf: React.FC<{
+  id: 'gukesh' | 'sindarov'
+  side: Side
+  clock: number
+  active: boolean
+  thinking: number
+  alignRight?: boolean
+}> = ({ id, side, clock, active, thinking, alignRight = false }) => {
+  const p = FIDE[id]
+  return (
+    <div
+      className={`flex min-w-0 flex-1 items-center gap-2 ${
+        alignRight ? 'flex-row-reverse text-right' : ''
+      }`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={p.photo}
+        alt={p.name}
+        width={34}
+        height={34}
+        className="h-[34px] w-[34px] shrink-0 rounded-full bg-white/10 object-cover"
+      />
+      <div className="min-w-0 flex-1">
+        <p
+          className={`flex items-center gap-1.5 text-[13px] font-semibold leading-4 text-white ${
+            alignRight ? 'flex-row-reverse' : ''
+          }`}
+        >
+          <SideMark side={side} />
+          <span className="truncate">{surname(id)}</span>
+          <Flag fed={p.fed} />
+        </p>
+        <p
+          className={`mt-0.5 flex items-center gap-1.5 ${
+            alignRight ? 'flex-row-reverse' : ''
+          }`}
+        >
+          <span
+            className={`rounded px-1 font-mono text-[15px] font-semibold tabular-nums leading-5 ${
+              active ? 'bg-emerald-400 text-black' : 'text-white/55'
+            }`}
+          >
+            {fmtClock(clock)}
+          </span>
+          {active ? (
+            <span className="text-[10px] tabular-nums text-emerald-300">
+              {fmtClock(thinking)}
+            </span>
+          ) : null}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+const MobilePrediction: React.FC<{
+  ply: LivePly | null
+  cands: Candidate[]
+  sf: string
+  thinking: number
+  signedIn: boolean
+  onDemoSignIn: () => void
+  guess: string | null
+  onGuess?: (san: string) => void
+  played: boolean
+  onPlay: () => void
+  guessCount: number
+  liveSan: string
+  shownSan: string | null
+  onShow: (san: string | null) => void
+}> = ({
+  ply,
+  cands,
+  sf,
+  thinking,
+  signedIn,
+  onDemoSignIn,
+  guess,
+  onGuess,
+  played,
+  onPlay,
+  guessCount,
+  liveSan,
+  shownSan,
+  onShow,
+}) => {
+  const [all, setAll] = useState(false)
+  const live = !ply
+  const who = surname(ply ? ply.mover : NEXT.mover)
+  const playedSan = ply ? ply.san : played ? liveSan : null
+  const top = Math.max(...cands.map((c) => Math.max(c.maia, c.generic)))
+  let tiles = all ? cands : cands.slice(0, 6)
+  if (!all && playedSan && !tiles.find((c) => c.san === playedSan)) {
+    const p = cands.find((c) => c.san === playedSan)
+    if (p) tiles = [...tiles.slice(0, 5), p]
+  }
+  const right = played && guess === liveSan
+  return (
+    <div className="mx-2 rounded-md border border-glass-border bg-glass">
+      <div className="flex items-center justify-between gap-2 px-2.5 pb-1 pt-1.5">
+        <h2 className="truncate text-[15px] font-semibold text-white">
+          {playedSan ? `${who} played ${playedSan}` : `What will ${who} play?`}
+        </h2>
+        <div className="flex shrink-0 items-center gap-1.5 text-[10px] text-white/45">
+          <span className="text-[12px] font-semibold" style={{ color: MAIA }}>
+            Maia %
+          </span>
+          <span style={{ color: ENGINE }}>SF</span>
+          <span
+            className="flex items-center gap-0.5"
+            title="The tick: what a typical 2750 plays here"
+          >
+            <span className="inline-block h-2 w-px bg-white/70" />
+            2750
+          </span>
+          <button
+            onClick={() => setAll((x) => !x)}
+            className="ml-1 text-white/55"
+          >
+            {all ? 'fewer' : `all ${cands.length}`}
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-1 px-1.5 pb-1.5">
+        {tiles.map((c, i) => {
+          const isPlayed = playedSan === c.san
+          const isMine = live && guess === c.san
+          return (
+            <button
+              key={c.san}
+              onClick={() =>
+                onGuess
+                  ? onGuess(c.san)
+                  : onShow(shownSan === c.san ? null : c.san)
+              }
+              className={`relative flex h-8 items-center justify-between gap-1 overflow-hidden rounded border px-1.5 pb-0.5 text-left ${
+                isPlayed
+                  ? 'border-emerald-300/60 bg-emerald-400/[0.10]'
+                  : isMine
+                    ? 'border-white/80 bg-white/[0.06]'
+                    : shownSan === c.san
+                      ? 'border-white/25 bg-glass-stronger'
+                      : i === 0
+                        ? 'border-human-1/50 bg-white/[0.03]'
+                        : 'border-white/10 bg-white/[0.03]'
+              }`}
+            >
+              <span className="shrink-0 text-[14px] font-semibold tracking-tight text-white">
+                {c.san}
+              </span>
+              <span className="flex min-w-0 items-baseline justify-end gap-2.5 overflow-hidden tabular-nums">
+                <span
+                  className="text-[13px] font-semibold"
+                  style={{ color: MAIA }}
+                >
+                  {pct(c.maia)}
+                </span>
+                <span
+                  className="font-mono text-[11px] tracking-tight"
+                  style={{
+                    color: c.san === sf ? ENGINE : 'rgba(255,255,255,0.5)',
+                  }}
+                >
+                  {fmtEval(c.eval)}
+                </span>
+              </span>
+              <span className="absolute inset-x-0 bottom-0 h-[2px] bg-white/[0.06]">
+                <span
+                  className="block h-full transition-[width] duration-700"
+                  style={{
+                    width: `${(c.maia / top) * 100}%`,
+                    background: i === 0 ? MAIA : 'rgb(254 127 109 / 0.6)',
+                  }}
+                />
+                <span
+                  className="absolute bottom-0 h-[5px] w-px bg-white/80"
+                  style={{ left: `${(c.generic / top) * 100}%` }}
+                />
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      {live && (!signedIn || (played && guess)) ? (
+        <div className="flex items-center justify-between gap-2 border-t border-glass-border px-2.5 py-1">
+          {!signedIn ? (
+            <>
+              <p className="text-[11px] leading-4 text-white/55">
+                {guessCount >= MIN_SHOWN_GUESSES ? (
+                  <>
+                    Guess with{' '}
+                    <span className="tabular-nums">
+                      {guessCount.toLocaleString()}
+                    </span>{' '}
+                    others
+                  </>
+                ) : (
+                  'Guess his move'
+                )}
+                <button
+                  onClick={onDemoSignIn}
+                  className="ml-2 underline-offset-2 hover:underline"
+                >
+                  demo
+                </button>
+              </p>
+              <LichessSignInButton
+                source="auth_prompt"
+                className="shrink-0 !px-2 !py-0.5 !text-[11px]"
+              />
+            </>
+          ) : (
+            <>
+              <p className="py-1 text-[12px] text-white/85">
+                {guess ? (
+                  <>
+                    Your guess: <b>{guess}</b>
+                  </>
+                ) : null}
+              </p>
+              <span
+                className={`text-[13px] font-semibold ${right ? 'text-emerald-300' : 'text-white/55'}`}
+              >
+                {right ? 'Called it' : 'Missed'}
+              </span>
+            </>
+          )}
+        </div>
+      ) : null}
+      {playedSan ? (
+        <CrowdSplit
+          cands={cands}
+          played={playedSan}
+          guesses={ply ? ply.guesses : guessCount}
+          mine={live ? guess : null}
+        />
+      ) : null}
+      {playedSan ? <div className="h-2.5" /> : null}
+    </div>
+  )
+}
+
+/** The moves as a strip that scrolls sideways, with step buttons. */
+const MoveStrip: React.FC<{
+  sel: number
+  onSelect: (i: number) => void
+  played: boolean
+  liveSan: string
+}> = ({ sel, onSelect, played, liveSan }) => {
+  const ref = useRef<HTMLDivElement>(null)
+  // Centre the selected move by scrolling the strip itself: scrollIntoView
+  // would also scroll the page's containers sideways.
+  useEffect(() => {
+    const strip = ref.current
+    const el = strip?.querySelector<HTMLElement>('[data-sel="true"]')
+    if (!strip || !el) return
+    strip.scrollLeft = el.offsetLeft - (strip.clientWidth - el.offsetWidth) / 2
+  }, [sel])
+  return (
+    <div className="mx-2 flex items-center overflow-hidden rounded-md border border-glass-border bg-glass">
+      <button
+        onClick={() => onSelect(sel - 1)}
+        className="flex h-10 w-9 shrink-0 items-center justify-center text-white/70"
+      >
+        <span className="material-symbols-outlined !text-[16px]">
+          arrow_back_ios
+        </span>
+      </button>
+      <div
+        ref={ref}
+        className="no-scrollbar relative flex flex-1 gap-0.5 overflow-x-auto py-1"
+      >
+        {GAME1.map((p) => (
+          <button
+            key={p.index}
+            data-sel={sel === p.index}
+            onClick={() => onSelect(p.index)}
+            className={`flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[13px] ${
+              sel === p.index ? 'bg-white/15 text-white' : 'text-white/80'
+            }`}
+          >
+            {p.color === 'white' ? (
+              <span className="text-[11px] text-white/40">{p.moveNumber}.</span>
+            ) : null}
+            {p.san}
+            {p.rank === 1 ? (
+              <span className="material-symbols-outlined !text-[13px] text-human-1">
+                check
+              </span>
+            ) : null}
+          </button>
+        ))}
+        <button
+          data-sel={sel === LIVE}
+          onClick={() => onSelect(LIVE)}
+          className={`flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[13px] ${
+            sel === LIVE ? 'bg-white/15 text-white' : 'text-white/80'
+          }`}
+        >
+          <span className="text-[11px] text-white/40">{NEXT.moveNumber}.</span>
+          {played ? (
+            liveSan
+          ) : (
+            <span className="flex items-center gap-1 text-rose-200">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+              live
+            </span>
+          )}
+        </button>
+      </div>
+      <button
+        onClick={() => onSelect(sel + 1)}
+        className="flex h-10 w-9 shrink-0 items-center justify-center text-white/70"
+      >
+        <span className="material-symbols-outlined !text-[16px]">
+          arrow_forward_ios
+        </span>
+      </button>
+    </div>
+  )
+}

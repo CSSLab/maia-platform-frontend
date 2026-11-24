@@ -245,6 +245,24 @@ export const Header: React.FC = () => {
           <h2 className="text-2xl font-bold">Maia Chess</h2>
         </Link>
         <div className="hidden flex-row items-center gap-1 text-sm tracking-wider md:flex">
+          <Link
+            href="/wch"
+            aria-label="World Championship 2026"
+            className={`mr-2 flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold leading-[11px] transition-colors duration-200 ${
+              router.pathname.startsWith('/wch')
+                ? 'border-human-1/70 bg-human-4/30 text-white'
+                : 'border-human-2/50 bg-human-4/15 text-human-1 hover:border-human-1/70 hover:bg-human-4/25 hover:text-white'
+            }`}
+          >
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
+              <span className="absolute h-full w-full animate-ping rounded-full bg-human-1/60" />
+              <span className="relative h-1.5 w-1.5 rounded-full bg-human-1" />
+            </span>
+            <span className="flex flex-col">
+              <span>WORLD</span>
+              <span>CHAMPIONSHIP</span>
+            </span>
+          </Link>
           <div className="relative" {...menuProps(setShowPlayDropdown)}>
             <button
               aria-expanded={showPlayDropdown}
@@ -348,20 +366,20 @@ export const Header: React.FC = () => {
           >
             DRILLS
           </Link>
-          <Link
-            href="/turing"
-            className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/turing') ? '!text-primary' : '!text-primary/80'}`}
-          >
-            BOT-OR-NOT
-          </Link>
           {!isCompactDesktopNav && (
             <Link
-              href="/broadcast"
-              className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/broadcast') ? '!text-primary' : '!text-primary/80'}`}
+              href="/turing"
+              className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/turing') ? '!text-primary' : '!text-primary/80'}`}
             >
-              BROADCASTS
+              BOT-OR-NOT
             </Link>
           )}
+          <Link
+            href="/broadcast"
+            className={`px-2 py-1 transition-all duration-200 hover:!text-primary ${router.pathname.startsWith('/broadcast') ? '!text-primary' : '!text-primary/80'}`}
+          >
+            BROADCASTS
+          </Link>
           <div className="relative" {...menuProps(setShowMoreDropdown)}>
             <button
               aria-expanded={showMoreDropdown}
@@ -389,14 +407,14 @@ export const Header: React.FC = () => {
                   <div className="divide-y divide-glass-border tracking-wide">
                     {isCompactDesktopNav && (
                       <Link
-                        href="/broadcast"
+                        href="/turing"
                         className={`flex w-full items-center justify-start px-3 py-2 text-sm transition-colors hover:bg-glass ${
-                          router.pathname.startsWith('/broadcast')
+                          router.pathname.startsWith('/turing')
                             ? 'text-primary'
                             : 'text-white/90'
                         }`}
                       >
-                        Broadcasts
+                        Bot-or-Not
                       </Link>
                     )}
                     <Link
@@ -493,6 +511,14 @@ export const Header: React.FC = () => {
             </button>
           </div>
           <div className="flex w-full flex-1 flex-col gap-5 overflow-y-auto px-12 py-6 tracking-wider">
+            <Link
+              href="/wch"
+              onClick={() => setShowMenu(false)}
+              className="flex items-center gap-2 font-semibold uppercase text-human-1"
+            >
+              <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-human-1" />
+              World Championship
+            </Link>
             <div className="flex flex-col items-start justify-center gap-3">
               <p>PLAY</p>
               <div className="ml-4 flex flex-col items-start justify-center gap-2">
@@ -622,7 +648,7 @@ export const Header: React.FC = () => {
     <>
       <div
         data-component="app-header"
-        className="flex w-screen flex-row items-center justify-center pb-1 pt-4 md:pb-0"
+        className="flex w-full flex-row items-center justify-center pb-1 pt-4 md:pb-0"
       >
         {isMobile ? mobileLayout : desktopLayout}
       </div>
