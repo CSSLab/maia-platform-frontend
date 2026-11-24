@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import {
   getBroadcastRoundPGN,
+  getBroadcastRoundThinkTimes,
   getLichessBroadcastById,
   streamBroadcastRound,
 } from 'src/api/broadcasts'
@@ -24,7 +25,10 @@ export interface LiveState {
   roundName: string | null
   /** When the round starts, epoch ms (if Lichess says). */
   startsAt: number | null
-  /** When the page last saw the move count grow, epoch ms. */
+  /**
+   * When the last move was made, epoch ms: from Lichess's think time when
+   * the page opens, then when the stream brings each move.
+   */
   lastMoveAt: number | null
   error: string | null
 }
@@ -35,6 +39,16 @@ const RATE_LIMITED_MS = 60000
 const MAX_BACKOFF_MS = 300000
 /** An upcoming game is shown (rather than the last one) this long before. */
 const SOON_MS = 3 * 3600 * 1000
+
+/** Lichess may write castling as the king taking its rook (e1h1). */
+const castleUci: Record<string, string> = {
+  e1h1: 'e1g1',
+  e1a1: 'e1c1',
+  e8h8: 'e8g8',
+  e8a8: 'e8c8',
+}
+export const sameUci = (a: string, b: string) =>
+  (castleUci[a] ?? a).slice(0, 4) === (castleUci[b] ?? b).slice(0, 4)
 
 /**
  * The match's game from the Lichess broadcast, kept up to date: the round
@@ -57,6 +71,7 @@ export const useWchLive = (opts: {
     error: null,
   })
   const movesSeen = useRef(-1)
+  const lastGame = useRef<LiveGame | null>(null)
 
   useEffect(() => {
     if (!enabled) return
@@ -71,6 +86,7 @@ export const useWchLive = (opts: {
       if (!parsed || cancelled) return false
       const grew = parsed.moves.length > movesSeen.current
       movesSeen.current = parsed.moves.length
+      lastGame.current = parsed
       setState((s) => ({
         ...s,
         game: parsed,
@@ -100,11 +116,39 @@ export const useWchLive = (opts: {
       return ms
     }
 
+    // Once, when the page opens: how long he's been thinking already (the
+    // page only sees moves made from now on). Kept only if Lichess's last
+    // move is still the one on the board.
+    let askedThinkTime = false
+    const fetchThinkTime = async (roundId: string) => {
+      askedThinkTime = true
+      const g = lastGame.current
+      const last = g?.moves[g.moves.length - 1]
+      if (!g?.gameId || !last || g.result !== '*') return
+      try {
+        const asked = Date.now()
+        const id = g.gameId
+        const t = (await getBroadcastRoundThinkTimes(roundId))[id]
+        const now = lastGame.current
+        if (
+          cancelled ||
+          !t ||
+          !sameUci(t.lastMove, last.uci) ||
+          now?.moves.length !== g.moves.length
+        )
+          return
+        setState((s) => ({ ...s, lastMoveAt: asked - t.thinkTime * 1000 }))
+      } catch {
+        // Without it, the clock counts from when the page opened.
+      }
+    }
+
     const follow = async (roundId: string) => {
       let finished = false
       try {
         finished = apply(await getBroadcastRoundPGN(roundId))
         failures = 0
+        if (!finished && !askedThinkTime) fetchThinkTime(roundId)
       } catch (e) {
         if (cancelled) return
         setState((s) => ({

@@ -884,22 +884,16 @@ export default function OraclePage() {
                   liveSan={liveSan}
                   livePct={liveCands.find((c) => c.san === liveSan)?.maia ?? 0}
                 />
+                <p className="flex items-center justify-center gap-3 border-b border-glass-border py-1 text-[10px] text-white/45">
+                  <span className="flex items-center gap-0.5">
+                    <MaiaCheck /> Maia&apos;s first choice
+                  </span>
+                  <span>
+                    <span className="text-white/60">#2</span> its second
+                  </span>
+                </p>
                 <Controls sel={shown} go={go} />
               </div>
-              {isLive && !next.over ? (
-                <div className="rounded-md bg-glass backdrop-blur-md">
-                  <GuessStrip
-                    signedIn={signedIn}
-                    onDemoSignIn={() => setDemoSignedIn(true)}
-                    guess={guess}
-                    played={demoPlayed}
-                    onPlay={() => setPlayed(true)}
-                    liveSan={liveSan}
-                    who={surname(next.mover)}
-                    demo={demo}
-                  />
-                </div>
-              ) : null}
             </section>
 
             {/* Middle: bars, board, pane */}
@@ -993,6 +987,7 @@ export default function OraclePage() {
                 guess={guess}
                 onGuess={canGuess ? setGuess : undefined}
                 played={demoPlayed}
+                onPlay={() => setPlayed(true)}
                 guessCount={guessCount}
                 liveSan={liveSan}
                 onHover={setHoverSan}
@@ -1283,10 +1278,14 @@ const MaiaHit: React.FC<{ p: number }> = ({ p }) => (
 const MissBar: React.FC<{ rank: number; p: number }> = ({ rank, p }) => (
   <span
     className="flex items-center gap-1"
-    title={`Maia's #${rank || '9+'} choice, ${pct(p)}`}
+    title={
+      rank
+        ? `Maia's #${rank} choice, ${pct(p)}`
+        : `Not in Maia's top choices, ${pct(p)}`
+    }
   >
-    <span className="text-[10px] tabular-nums text-white/45">
-      {rank || '–'}
+    <span className="text-[10px] tabular-nums text-white/55">
+      {rank ? `#${rank}` : '–'}
     </span>
     <span className="relative h-1 w-6 overflow-hidden rounded-full bg-white/10">
       <span
@@ -2248,6 +2247,7 @@ const MovePanel: React.FC<{
   guess: string | null
   onGuess?: (san: string) => void
   played: boolean
+  onPlay: () => void
   guessCount: number
   liveSan: string
   onHover: (san: string | null) => void
@@ -2265,6 +2265,7 @@ const MovePanel: React.FC<{
   guess,
   onGuess,
   played,
+  onPlay,
   guessCount,
   liveSan,
   onHover,
@@ -2450,6 +2451,22 @@ const MovePanel: React.FC<{
           ) : null}
         </div>
       )}
+
+      {/* Your guess, after Maia's predictions (live only). */}
+      {live && !over ? (
+        <div className="border-t border-glass-border px-4 py-3">
+          <GuessStrip
+            signedIn={signedIn}
+            onDemoSignIn={onDemoSignIn}
+            guess={guess}
+            played={played}
+            onPlay={onPlay}
+            liveSan={liveSan}
+            who={who}
+            demo={data.mode === 'demo'}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

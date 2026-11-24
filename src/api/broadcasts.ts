@@ -156,6 +156,31 @@ export const getBroadcastRoundPGN = async (
   return await response.text()
 }
 
+/**
+ * How long each game of a round has been waiting for a move, from Lichess
+ * (seconds since its last move), with that move (uci) to check it against.
+ */
+export const getBroadcastRoundThinkTimes = async (
+  roundId: string,
+): Promise<Record<string, { thinkTime: number; lastMove: string }>> => {
+  const response = await fetch(
+    `https://lichess.org/api/broadcast/-/-/${roundId}`,
+    { headers: { Accept: 'application/json' } },
+  )
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+  const data = (await response.json()) as {
+    games?: { id: string; thinkTime?: number; lastMove?: string }[]
+  }
+  const out: Record<string, { thinkTime: number; lastMove: string }> = {}
+  for (const g of data.games ?? []) {
+    if (typeof g.thinkTime === 'number' && g.lastMove)
+      out[g.id] = { thinkTime: g.thinkTime, lastMove: g.lastMove }
+  }
+  return out
+}
+
 export const streamBroadcastRound = async (
   roundId: string,
   onPGNUpdate: (pgn: string) => void,
