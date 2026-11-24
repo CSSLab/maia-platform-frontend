@@ -1,4 +1,11 @@
-import { FeedPly, feedGame, feedMark, mergePlies, usualRisk } from './feed'
+import {
+  FeedPly,
+  feedBar,
+  feedGame,
+  feedMark,
+  mergePlies,
+  usualRisk,
+} from './feed'
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 const AFTER_D4 = 'rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1'
@@ -114,5 +121,32 @@ describe('the World Championship feed', () => {
     expect(feedMark('??')).toBe('??')
     expect(feedMark('!?')).toBeUndefined()
     expect(feedMark(null)).toBeUndefined()
+  })
+})
+
+describe('the win-chance bar', () => {
+  const at21 = (over: Partial<FeedPly>): FeedPly =>
+    ({ ply: 21, side: 'black', fen: '', moves: [], ...over }) as FeedPly
+
+  it('shows human_bar where the ply has it', () => {
+    expect(
+      feedBar(
+        at21({
+          human_bar: [0.2051, 0.7345, 0.0604],
+          wdl_maia: [0.342, 0.5929, 0.0651],
+        }),
+      ),
+    ).toEqual([0.2051, 0.7345, 0.0604])
+  })
+
+  it('falls back to wdl_maia only where human_bar is missing', () => {
+    const wdl: [number, number, number] = [0.342, 0.5929, 0.0651]
+    expect(feedBar(at21({ wdl_maia: wdl }))).toEqual(wdl)
+    expect(feedBar(at21({ human_bar: null, wdl_maia: wdl }))).toEqual(wdl)
+    expect(
+      feedBar(at21({ human_bar: [0.5, 0.5] as never, wdl_maia: wdl })),
+    ).toEqual(wdl)
+    expect(feedBar(at21({}))).toBeNull()
+    expect(feedBar(null)).toBeNull()
   })
 })

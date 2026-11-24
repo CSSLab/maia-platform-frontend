@@ -12,6 +12,11 @@ import {
 
 /** Between polls while the game is on (the research side asks for 2-5 s). */
 const POLL_MS = 3000
+/**
+ * After the game: the research side still rewrites plies (the own search,
+ * the bar, a deeper Stockfish), so keep asking now and then.
+ */
+const DONE_MS = 60000
 /** While the feed isn't there (not live yet, or not for this game). */
 const MISSING_MS = 60000
 const ERROR_MS = 15000
@@ -26,13 +31,17 @@ export interface FeedState {
 
 /**
  * The research side's feed for one game: every ply once, then every few
- * seconds what changed (a new ply, or one rewritten with the own search).
- * Also the pre-game bundle (its name is the game id, or `pregameName`).
+ * seconds what changed. A ply is never final: the feed rewrites published
+ * plies (the own search, the win-chance bar, a deepening Stockfish), and the
+ * API's cursor (the files' change times) brings each rewrite back. When the
+ * game ends while we watch, the whole game once more, then a slow look now
+ * and then. Also the pre-game bundle (its name is the game id, or
+ * `pregameName`).
  */
 export const useWchFeed = (opts: {
   gameId: string | null
   pregameName?: string | null
-  /** Stop polling (the game is over and every ply is in). */
+  /** The game is over (poll slowly from then on). */
   done?: boolean
 }): FeedState => {
   const { gameId, pregameName, done } = opts
@@ -59,6 +68,10 @@ export const useWchFeed = (opts: {
     const controller = new AbortController()
     let cursor: string | null = null
     let plies = new Map<number, FeedPly>()
+    // Saw the game unfinished, and whether the whole-game look after it ended
+    // is done.
+    let sawLive = false
+    let rechecked = false
 
     const poll = async () => {
       let wait = POLL_MS
@@ -77,7 +90,15 @@ export const useWchFeed = (opts: {
               ? snapshot
               : s.plies,
         }))
-        if (doneRef.current) return
+        if (!doneRef.current) sawLive = true
+        else {
+          wait = DONE_MS
+          if (sawLive && !rechecked) {
+            rechecked = true
+            cursor = null
+            wait = POLL_MS
+          }
+        }
       } catch (e) {
         if (stopped || controller.signal.aborted) return
         // Without plies yet, any failure means the browser's engines take

@@ -24,6 +24,8 @@ export interface FeedMove {
   p_elite_pk?: number | null
   /** Stockfish, centipawns from White's side, after this move. */
   sf_cp?: number | null
+  /** The nodes behind sf_cp (it deepens during a think). */
+  sf_nodes?: number | null
 }
 
 export interface FeedPly {
@@ -34,14 +36,23 @@ export interface FeedPly {
   clock_black_s?: number | null
   think_s?: number | null
   moves: FeedMove[]
-  /** Maia's chances from here: White, draw, Black. */
+  /** Maia's chances from here: White, draw, Black (the value head only). */
   wdl_maia?: [number, number, number] | null
+  /**
+   * The human win-chance bar from here: White, draw, Black (the manifest's
+   * human_bar_model). The page shows it, and wdl_maia only where it's missing.
+   */
+  human_bar?: [number, number, number] | null
   sf_eval_cp?: number | null
+  /** The nodes behind sf_eval_cp, and where they came from. */
+  sf_nodes?: number | null
+  sf_source?: string | null
   sf_wp?: number | null
   maia_best?: string | null
   sf_best?: string | null
   /** The mover's chance of a blunder here (0-1). */
   blunder_risk?: number | null
+  blunder_risk_nodes?: number | null
   think_pred?: { median_s: number; p90_s: number } | null
   pk_ready?: boolean
   played?: {
@@ -62,7 +73,9 @@ export interface FeedPly {
     { maia: number; stockfish: number; moves: number }
   > | null
   terminal?: unknown
+  /** Bumped on every rewrite of the file. */
   updated_utc?: string
+  model_version?: string
 }
 
 export interface FeedManifest {
@@ -71,6 +84,8 @@ export interface FeedManifest {
   result?: string
   plies?: number
   updated_utc?: string
+  /** What makes human_bar. */
+  human_bar_model?: string
 }
 
 interface FeedAnswer {
@@ -124,6 +139,18 @@ export interface Pregame {
   trees?: Record<string, { white?: string; nodes?: TreeNode[] }>
 }
 
+type Wdl = [number, number, number]
+
+const isWdl = (v: unknown): v is Wdl =>
+  Array.isArray(v) &&
+  v.length === 3 &&
+  v.every((x) => typeof x === 'number' && Number.isFinite(x) && x >= 0) &&
+  Math.abs(v[0] + v[1] + v[2] - 1) < 0.02
+
+/** The win-chance bar for a ply: human_bar, else wdl_maia, else none. */
+export const feedBar = (p: FeedPly | null | undefined): Wdl | null =>
+  isWdl(p?.human_bar) ? p.human_bar : isWdl(p?.wdl_maia) ? p.wdl_maia : null
+
 const FEED_BASE =
   process.env.NEXT_PUBLIC_WCH_FEED_URL?.replace(/\/$/, '') ?? buildUrl('wch')
 
@@ -137,7 +164,7 @@ export const fetchFeed = async (
   const q = since ? `?${new URLSearchParams({ since })}` : ''
   const res = await fetch(
     `${FEED_BASE}/v1/live/${encodeURIComponent(gameId)}${q}`,
-    { signal },
+    { signal, cache: 'no-store' },
   )
   if (res.status === 404) throw new FeedMissing('No feed for this game')
   if (!res.ok) throw new Error(`The feed answered ${res.status}`)
