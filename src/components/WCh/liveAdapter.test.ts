@@ -98,3 +98,58 @@ describe('the live game from the opening tree', () => {
     expect(next.candidates).toEqual([])
   })
 })
+
+describe('the live game from the feed', () => {
+  // chess.js writes the en passant square after 1.e4; the feed doesn't.
+  const E4_EP = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1'
+  const feedPly = (ply: number, fen: string, extra: object) =>
+    ({
+      ply,
+      fen,
+      side: ply % 2 ? 'black' : 'white',
+      moves: [],
+      pk_ready: true,
+      ...extra,
+    }) as never
+
+  it('matches a position after a two-square pawn push', () => {
+    const feed = new Map([
+      [
+        0,
+        feedPly(0, START, {
+          moves: [{ uci: 'e2e4', san: 'e4', p_elite: 0.65, p_elite_pk: 0.65 }],
+        }),
+      ],
+      [
+        1,
+        feedPly(1, AFTER_E4, {
+          moves: [{ uci: 'e7e5', san: 'e5', p_elite: 0.47, p_elite_pk: 0.55 }],
+          played: { uci: 'e2e4', san: 'e4', p_elite: 0.65, rank_elite: 1 },
+        }),
+      ],
+    ])
+    const { plies, next } = buildLive(
+      game([
+        {
+          index: 0,
+          moveNumber: 1,
+          color: 'white',
+          san: 'e4',
+          uci: 'e2e4',
+          fenBefore: START,
+          fen: E4_EP,
+          clock: 7190,
+          eval: null,
+          think: 10,
+        },
+      ]),
+      noEngines,
+      ids,
+      7200,
+      feed,
+      null,
+    )
+    expect(plies[0].rank).toBe(1)
+    expect(next.candidates[0]?.san).toBe('e5')
+  })
+})
