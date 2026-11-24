@@ -10,7 +10,7 @@
 import { Chess } from 'chess.ts'
 
 import type { PlayerId } from './data'
-import { FeedPly, RATING_KEYS, TreeNode, feedMark } from './feed'
+import { FeedPly, RATING_KEYS, TreeNode, feedBar, feedMark } from './feed'
 import type { Candidate, LivePly, WchNext } from './game1'
 import type { LiveGame } from './live'
 import type { FocusEval, PositionInfo } from './useWchEngines'
@@ -189,7 +189,7 @@ export const buildLive = (
       fAfter?.sf_eval_cp != null
         ? fAfter.sf_eval_cp / 100
         : whitePawns(m.fen, after?.cpStm)
-    const wdl = fAfter?.wdl_maia
+    const wdl = feedBar(fAfter)
     const byRating = fAfter?.p_by_rating
     return {
       index: m.index,
