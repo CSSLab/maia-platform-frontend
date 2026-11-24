@@ -49,14 +49,18 @@ const treeCandidates = (
   }))
 }
 
-/** The feed's position `n`, if it is the same position (fen) as ours. */
+/**
+ * The feed's position `n`, if it is the same position as ours: the pieces,
+ * the side to move and castling. Not the en passant square: chess.js writes
+ * it after every two-square pawn push (e3 after 1.e4), the feed only when a
+ * capture there is possible.
+ */
+const samePosition = (a: string, b: string) =>
+  a.split(' ').slice(0, 3).join(' ') === b.split(' ').slice(0, 3).join(' ')
+
 const feedAt = (feed: Feed | undefined, n: number, fen: string) => {
   const f = feed?.get(n)
-  return f &&
-    f.fen.split(' ').slice(0, 4).join(' ') ===
-      fen.split(' ').slice(0, 4).join(' ')
-    ? f
-    : undefined
+  return f && samePosition(f.fen, fen) ? f : undefined
 }
 
 const num = (v: number | null | undefined) =>
