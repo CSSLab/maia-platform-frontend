@@ -2,13 +2,15 @@
  * The live game in the page's shape (LivePly / WchNext): the broadcast's
  * moves and clocks, with the research feed's numbers where it has the
  * position (the players' own models, Stockfish, Maia's chances, blunder
- * risk) and else Maia and Stockfish from useWchEngines (Maia at
- * LIVE_MAIA_ELO). No crowd yet (the guesses server doesn't exist).
+ * risk); else, in the opening, the pre-game tree's (the own models and
+ * blunder risk, with Stockfish from the browser); else Maia and Stockfish
+ * from useWchEngines (Maia at LIVE_MAIA_ELO). No crowd yet (the guesses
+ * server doesn't exist).
  */
 import { Chess } from 'chess.ts'
 
 import type { PlayerId } from './data'
-import { FeedPly, RATING_KEYS, feedMark } from './feed'
+import { FeedPly, RATING_KEYS, TreeNode, feedMark } from './feed'
 import type { Candidate, LivePly, WchNext } from './game1'
 import type { LiveGame } from './live'
 import type { FocusEval, PositionInfo } from './useWchEngines'
@@ -22,6 +24,30 @@ type Engines = {
 }
 
 type Feed = Map<number, FeedPly>
+type Tree = Map<string, TreeNode>
+
+/** The tree's moves: the own model, with the browser's Stockfish if in. */
+const treeCandidates = (
+  node: TreeNode,
+  fen: string,
+  eng: Engines,
+  include?: string,
+): Candidate[] => {
+  const focus = eng.focusEval(fen)
+  const all = [...node.moves].sort((a, b) => b.p_bot - a.p_bot)
+  let shown = all.slice(0, SHOWN)
+  if (include && !shown.some((m) => m.uci === include)) {
+    const extra = all.find((m) => m.uci === include)
+    if (extra) shown = [...shown, extra]
+  }
+  return shown.map((m) => ({
+    san: m.san,
+    maia: m.p_bot,
+    crowd: 0,
+    generic: num(m.p_generic),
+    eval: focus?.cpVec[m.uci] !== undefined ? focus.cpVec[m.uci] / 100 : NaN,
+  }))
+}
 
 /** The feed's position `n`, if it is the same position (fen) as ours. */
 const feedAt = (feed: Feed | undefined, n: number, fen: string) => {
@@ -106,12 +132,26 @@ export const buildLive = (
   ids: { white: PlayerId; black: PlayerId },
   startClock: number | null,
   feed?: Feed,
+  tree?: Tree | null,
 ): { plies: LivePly[]; next: WchNext } => {
   const moves = game?.moves ?? []
   const clocks = { white: startClock ?? 0, black: startClock ?? 0 }
+  // The tree's node for position n (the moves before it), while in it.
+  const nodeAt = (n: number) =>
+    tree?.get(
+      moves
+        .slice(0, n)
+        .map((m) => m.uci)
+        .join(' '),
+    )
   const plies: LivePly[] = moves.map((m) => {
     if (m.clock !== null) clocks[m.color] = m.clock
     const fBefore = feedAt(feed, m.index, m.fenBefore)
+    const tBefore = fBefore ? undefined : nodeAt(m.index)
+    const tOrder = tBefore
+      ? [...tBefore.moves].sort((a, b) => b.p_bot - a.p_bot)
+      : null
+    const tRank = tOrder ? tOrder.findIndex((x) => x.uci === m.uci) + 1 : 0
     const fAfter = feedAt(feed, m.index + 1, m.fen)
     const scored = fAfter?.played?.uci === m.uci ? fAfter.played : null
     const policy = eng.info(m.fenBefore)?.read?.policy
@@ -134,12 +174,25 @@ export const buildLive = (
       fen: m.fen,
       candidates: fBefore
         ? feedCandidates(fBefore, m.uci)
-        : candidatesAt(m.fenBefore, eng, m.uci),
+        : tBefore
+          ? treeCandidates(tBefore, m.fenBefore, eng, m.uci)
+          : candidatesAt(m.fenBefore, eng, m.uci),
+      personal: !!(fBefore || tBefore),
       sf: fBefore?.sf_best
         ? sanOf(m.fenBefore, fBefore.sf_best)
         : bestSan(m.fenBefore, eng),
-      rank: scored ? scored.rank_elite : policy ? order.indexOf(m.uci) + 1 : 0,
-      pPlayed: scored ? scored.p_elite : (policy?.[m.uci] ?? 0),
+      rank: scored
+        ? scored.rank_elite
+        : tOrder
+          ? tRank
+          : policy
+            ? order.indexOf(m.uci) + 1
+            : 0,
+      pPlayed: scored
+        ? scored.p_elite
+        : tOrder
+          ? (tOrder[tRank - 1]?.p_bot ?? 0)
+          : (policy?.[m.uci] ?? 0),
       crowdPlayed: 0,
       crowdTop: '',
       guesses: 0,
@@ -149,7 +202,7 @@ export const buildLive = (
       clockBlack: clocks.black,
       bar: wdl ? { W: wdl[0], D: wdl[1], B: wdl[2] } : after?.bar,
       mark: feedMark(fAfter?.grade),
-      risk: fBefore?.blunder_risk ?? null,
+      risk: fBefore?.blunder_risk ?? tBefore?.blunder_risk ?? null,
       ...(byRating && RATING_KEYS.every((k) => k in byRating)
         ? { ratingShares: RATING_KEYS.map((k) => byRating[k]) }
         : {}),
@@ -160,6 +213,7 @@ export const buildLive = (
   const color = fen.split(' ')[1] === 'w' ? 'white' : 'black'
   const over = game && game.result !== '*' ? game.result : undefined
   const fNext = feedAt(feed, moves.length, fen)
+  const tNext = fNext ? undefined : nodeAt(moves.length)
   return {
     plies,
     next: {
@@ -176,8 +230,11 @@ export const buildLive = (
         ? []
         : fNext
           ? feedCandidates(fNext)
-          : candidatesAt(fen, eng),
-      risk: over ? null : (fNext?.blunder_risk ?? null),
+          : tNext
+            ? treeCandidates(tNext, fen, eng)
+            : candidatesAt(fen, eng),
+      personal: !over && !!(fNext || tNext),
+      risk: over ? null : (fNext?.blunder_risk ?? tNext?.blunder_risk ?? null),
       thinkPred: over ? null : (fNext?.think_pred ?? null),
       guessesSoFar: 0,
       thinkingFor: null,

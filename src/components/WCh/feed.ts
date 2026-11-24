@@ -81,18 +81,47 @@ interface FeedAnswer {
   cursor: string
 }
 
-/** The usual blunder risk (%) by phase (plies played: "0-19", "20-39", ...). */
+/** A position of the pre-game opening tree (line: the moves to it, UCI). */
+export interface TreeNode {
+  line: string[]
+  mover: string
+  moves: {
+    uci: string
+    san: string
+    /** The mover's own model. */
+    p_bot: number
+    /** Maia at a typical 2750. */
+    p_generic?: number | null
+  }[]
+  /** The mover's chance of a blunder here (0-1). */
+  blunder_risk?: number | null
+}
+
+/** A move's usual think and clock at the match's time control. */
+export interface ClockMove {
+  move: number
+  think_median_s: number
+  clock_after_median_s: number
+}
+
+/**
+ * The pre-game bundle: each player's usual blunder risk (%) by phase
+ * (plies played: "0-19", "20-39", ...), his clock at this time control
+ * (v2: "matched"), and the opening trees (v2: one per player with White).
+ */
 export interface Pregame {
   version?: string
   players?: Record<
     string,
     {
-      card?: { latest_rating?: number }
+      card?: { fide_rating?: number }
       usual_blunder_risk?: {
         by_phase?: Record<string, { usual_risk_pct: number }>
       }
+      clock_profile?: { matched?: { per_move?: ClockMove[] } }
     }
   >
+  trees?: Record<string, { white?: string; nodes?: TreeNode[] }>
 }
 
 const FEED_BASE =
@@ -225,3 +254,35 @@ export const usualRisk = (
   }
   return null
 }
+
+/** The opening tree for the game with `white` as White, by line ("e2e4 e7e5"). */
+export const openingTree = (
+  pregame: Pregame | null,
+  white: PlayerId,
+): Map<string, TreeNode> | null => {
+  const tree = Object.values(pregame?.trees ?? {}).find(
+    (t) => t.white === white,
+  )
+  if (!tree?.nodes?.length) return null
+  return new Map(tree.nodes.map((n) => [n.line.join(' '), n]))
+}
+
+/** The player's usual clock (s) after his move `move` (first period only). */
+export const usualClock = (
+  pregame: Pregame | null,
+  id: PlayerId,
+  move: number,
+): number | null =>
+  pregame?.players?.[id]?.clock_profile?.matched?.per_move?.find(
+    (m) => m.move === move,
+  )?.clock_after_median_s ?? null
+
+/** The player's usual think (s) on his move `move`. */
+export const usualThink = (
+  pregame: Pregame | null,
+  id: PlayerId,
+  move: number,
+): number | null =>
+  pregame?.players?.[id]?.clock_profile?.matched?.per_move?.find(
+    (m) => m.move === move,
+  )?.think_median_s ?? null

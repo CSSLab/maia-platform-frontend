@@ -48,7 +48,10 @@ import {
   Pregame,
   RATING_KEYS,
   feedGame,
+  openingTree,
+  usualClock,
   usualRisk,
+  usualThink,
 } from 'src/components/WCh/feed'
 import { buildLive } from 'src/components/WCh/liveAdapter'
 import { useWchFeed } from 'src/components/WCh/useWchFeed'
@@ -325,6 +328,12 @@ export default function OraclePage() {
     return base ? +base : BASE_SECONDS
   }, [live.game?.timeControl])
 
+  // The pre-game opening tree (the own models before the feed has a move).
+  const tree = useMemo(
+    () => (demo ? null : openingTree(feed.pregame, ids.white)),
+    [demo, feed.pregame, ids.white],
+  )
+
   const built = useMemo(
     () =>
       demo
@@ -335,6 +344,7 @@ export default function OraclePage() {
             ids,
             startClock,
             feedOn ? feed.plies : undefined,
+            tree,
           ),
     // engines.version: the engines' results change in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -347,6 +357,7 @@ export default function OraclePage() {
       startClock,
       feedOn,
       feed.plies,
+      tree,
     ],
   )
 
@@ -364,7 +375,12 @@ export default function OraclePage() {
     LIVE,
     white: ids.white,
     black: ids.black,
-    personal: demo || feedOn,
+    // The position on show: the own models (feed or tree), or Maia at 2600.
+    personal:
+      demo ||
+      !!(sel < built.plies.length
+        ? built.plies[sel]?.personal
+        : built.next.personal),
     hasCrowd: demo,
     feedOn,
     pregame: feed.pregame,
@@ -561,7 +577,9 @@ export default function OraclePage() {
   const clockBlackNow =
     clockBlack - (toMove === 'black' && thinking !== null ? thinking : 0)
 
-  const tabs = demo || feedOn ? PANE_TABS : LIVE_TABS
+  const hasRisk =
+    feedOn || next.risk != null || plies.some((p) => p.risk != null)
+  const tabs = demo || hasRisk ? PANE_TABS : LIVE_TABS
   const shownTab = tabs.some((t) => t.id === tab) ? tab : 'chances'
   // From the feed: the move played, at each rating (the move on show, or
   // the last one while he thinks).
@@ -632,7 +650,7 @@ export default function OraclePage() {
 
   const footnote = demo
     ? 'Prototype with an illustrative game and made-up Maia, Stockfish and visitor numbers.'
-    : feedOn
+    : feedOn || tree
       ? `Moves and clocks from the Lichess broadcast. Maia's predictions come from the players' past games only: they know nothing about either player's preparation for this match. Your guesses stay in this browser.`
       : `Moves and clocks from the Lichess broadcast. Maia (at ${LIVE_MAIA_ELO}) and Stockfish run in your browser; your guesses stay in this browser.`
 
@@ -1825,6 +1843,7 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
     LIVE,
     white: WHITE,
     black: BLACK,
+    pregame,
   } = useWch()
   return (
     <Sized>
@@ -1848,12 +1867,22 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
         const curMove = sel === LIVE ? NEXT.moveNumber : GAME1[sel].moveNumber
         const lastW = [...GAME1].reverse().find((p) => p.color === 'white')
         const lastB = [...GAME1].reverse().find((p) => p.color === 'black')
-        // Against each player's usual pace (2-hour start, before move 41).
-        const vsUsual = (clock: number, id: 'gukesh' | 'sindarov', m: number) =>
-          Math.round(
-            (clock - clockCurve(id, m) * BASE_SECONDS) / 60 +
-              (startClock - BASE_SECONDS) / 60,
+        // Against each player's usual pace before move 41: his clock
+        // after the move at this time control (pre-game bundle), else an
+        // estimate from his usual think times.
+        const vsUsual = (
+          clock: number,
+          id: 'gukesh' | 'sindarov',
+          m: number,
+        ) => {
+          const usual = usualClock(pregame, id, m)
+          return Math.round(
+            usual !== null
+              ? (clock - usual) / 60
+              : (clock - clockCurve(id, m) * BASE_SECONDS) / 60 +
+                  (startClock - BASE_SECONDS) / 60,
           )
+        }
         const wDiff =
           lastW && lastW.moveNumber <= 40
             ? vsUsual(lastW.clockWhite, WHITE, lastW.moveNumber)
@@ -1894,6 +1923,9 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
               const l = len(p.think)
               const upper = p.color === 'white'
               const long = p.think >= 300
+              // His usual think on this move, as a tick across the bar.
+              const usual = usualThink(pregame, p.mover, p.moveNumber)
+              const ul = usual !== null ? len(Math.min(usual, maxT)) : null
               return (
                 <g key={p.index}>
                   <rect
@@ -1905,6 +1937,17 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
                     fill={upper ? WHITE_INK : BLACK_INK}
                     opacity={p.moveNumber === curMove ? 1 : 0.8}
                   />
+                  {ul !== null ? (
+                    <line
+                      x1={x - 1}
+                      x2={x + bw + 1}
+                      y1={upper ? mid - ul : mid + ul}
+                      y2={upper ? mid - ul : mid + ul}
+                      stroke={MAIA}
+                      strokeWidth={1.5}
+                      opacity={0.85}
+                    />
+                  ) : null}
                   {long ? (
                     <text
                       x={x + bw / 2}
@@ -1919,6 +1962,16 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
                 </g>
               )
             })}
+            {pregame ? (
+              <text
+                x={w - PAD.r + 10}
+                y={h - 2}
+                fontSize={10}
+                fill="rgba(255,255,255,0.45)"
+              >
+                <tspan fill={MAIA}>—</tspan> his usual think
+              </text>
+            ) : null}
             {[10, 20, 30, 40].map((m) => (
               <text
                 key={m}
