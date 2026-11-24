@@ -55,6 +55,19 @@ import {
 } from 'src/components/WCh/feed'
 import { buildLive } from 'src/components/WCh/liveAdapter'
 import { useWchFeed } from 'src/components/WCh/useWchFeed'
+import {
+  WchSource,
+  endWchVisit,
+  noteWchGame,
+  noteWchGuess,
+  noteWchHover,
+  noteWchLayout,
+  noteWchMove,
+  noteWchSource,
+  noteWchTab,
+  startWchVisit,
+} from 'src/components/WCh/visit'
+import { trackWchGuess } from 'src/lib/analytics'
 import { LiveStatus, useWchLive } from 'src/components/WCh/useWchLive'
 import {
   LIVE_MAIA_ELO,
@@ -210,9 +223,16 @@ export default function OraclePage() {
   const liveMoves = useMemo(() => live.game?.moves ?? [], [live.game])
   const LIVE = demo ? GAME1.length : liveMoves.length
 
+  // The board shows the position after move `sel` (-1: the start), and the
+  // panels are about the move made from it, the next one. After the last
+  // move that's the live position, so it counts as live (sel = LIVE).
   const [selRaw, setSelRaw] = useState<number | 'live'>('live')
-  const sel = selRaw === 'live' ? LIVE : Math.min(selRaw, LIVE)
+  const sel = selRaw === 'live' || selRaw >= LIVE - 1 ? LIVE : selRaw
   const isLive = sel === LIVE
+  /** The last move on the board (-1: none). */
+  const shown = isLive ? LIVE - 1 : sel
+  /** The move the panels are about (LIVE: the one he's thinking about). */
+  const panelIdx = isLive ? LIVE : sel + 1
   const [preview, setPreview] = useState<number | null>(null)
   const [hoverSan, setHoverSan] = useState<string | null>(null)
   const [playedAt, setPlayedAt] = useState<number | null>(null)
@@ -232,8 +252,25 @@ export default function OraclePage() {
       setGuesses({})
     }
   }, [demo, gameKey])
+  // For the guess event: the move being guessed (set once data is in).
+  const guessMoveRef = useRef({
+    moveNumber: 1,
+    color: 'white' as Side,
+    had: false,
+    top: '',
+  })
   const setGuess = useCallback(
     (san: string) => {
+      if (!demo) {
+        noteWchGuess()
+        trackWchGuess({
+          game_id: gameKey,
+          move_number: guessMoveRef.current.moveNumber,
+          color: guessMoveRef.current.color,
+          changed: guessMoveRef.current.had,
+          maia_top: guessMoveRef.current.top === san,
+        })
+      }
       setGuesses((g) => {
         const next = { ...g, [LIVE]: san }
         if (!demo)
@@ -378,30 +415,62 @@ export default function OraclePage() {
     // The position on show: the own models (feed or tree), or Maia at 2600.
     personal:
       demo ||
-      !!(sel < built.plies.length
-        ? built.plies[sel]?.personal
+      !!(panelIdx < built.plies.length
+        ? built.plies[panelIdx]?.personal
         : built.next.personal),
     hasCrowd: demo,
     feedOn,
     pregame: feed.pregame,
   }
   const { plies, next } = data
+  guessMoveRef.current = {
+    moveNumber: next.moveNumber,
+    color: next.color,
+    had: guess !== null,
+    top: next.candidates[0]?.san ?? '',
+  }
+
+  // The visit, for PostHog (src/components/WCh/visit.ts): one event when it
+  // ends.
+  useEffect(() => {
+    if (!router.isReady) return
+    startWchVisit(demo ? 'demo' : feedQ ? 'feed_replay' : 'live')
+    return () => endWchVisit('navigated')
+  }, [router.isReady, demo, feedQ])
+  useEffect(() => {
+    noteWchGame(demo ? 'demo' : (live.game?.gameId ?? null), live.status, LIVE)
+  }, [demo, live.game?.gameId, live.status, LIVE])
+  const source: WchSource | null = demo
+    ? 'demo'
+    : !next.candidates.length
+      ? null
+      : feedOn && feed.plies.has(LIVE)
+        ? 'feed'
+        : next.personal
+          ? 'tree'
+          : 'browser'
+  useEffect(() => {
+    if (source) noteWchSource(source)
+  }, [source])
+  useEffect(() => {
+    if (wide !== null) noteWchLayout(wide)
+  }, [wide])
 
   const go = useCallback(
     (i: number) => {
-      setSelRaw(i >= LIVE ? 'live' : Math.max(0, i))
+      setSelRaw(i >= LIVE - 1 ? 'live' : Math.max(-1, i))
       setHoverSan(null)
     },
     [LIVE],
   )
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') go(sel - 1)
-      if (e.key === 'ArrowRight') go(sel + 1)
+      if (e.key === 'ArrowLeft') go(shown - 1)
+      if (e.key === 'ArrowRight') go(shown + 1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [go, sel])
+  }, [go, shown])
 
   // Demo: the move the demo plays is Maia's first choice.
   const liveSan = demo ? NEXT.candidates[0].san : ''
@@ -414,21 +483,24 @@ export default function OraclePage() {
   const demoPlayed = demo && played
 
   const canGuess = isLive && signedIn && !demoPlayed && !next.over
-  const ply = isLive ? null : plies[sel]
+  // The move the panels are about (null: the live one), and the one on the
+  // board before it (null: the start, or live).
+  const ply = isLive ? null : (plies[panelIdx] ?? null)
+  const boardPly = isLive || shown < 0 ? null : (plies[shown] ?? null)
   const previewPly = preview !== null ? (plies[preview] ?? null) : null
   const lastPly = plies[LIVE - 1] ?? null
 
   const boardFen = previewPly
     ? previewPly.fen
-    : ply
-      ? ply.fen
+    : !isLive
+      ? (boardPly?.fen ?? plies[0]?.fenBefore ?? next.fen)
       : demoPlayed && liveAfter
         ? liveAfter.fen
         : next.fen
   const lastMove = previewPly
     ? previewPly.uci
-    : ply
-      ? ply.uci
+    : !isLive
+      ? (boardPly?.uci ?? null)
       : demoPlayed && liveAfter
         ? liveAfter.uci
         : (lastPly?.uci ?? null)
@@ -484,11 +556,13 @@ export default function OraclePage() {
     }
     // After the move, the board shows the new position: arrows only before.
     if (isLive && (demoPlayed || next.over)) return out
+    // An earlier position: the move he went on to play too, in white.
     const top = panelCands[0]?.san
     const playedSan = ply?.san
-    if (top && top !== playedSan) arrow(top, 'maia')
-    if (panelSf && panelSf !== top && panelSf !== playedSan)
-      arrow(panelSf, 'engine', 8)
+    if (playedSan && playedSan !== top && playedSan !== panelSf)
+      arrow(playedSan, 'you')
+    if (top) arrow(top, 'maia')
+    if (panelSf && panelSf !== top) arrow(panelSf, 'engine', 8)
     if (isLive && guess && guess !== top && guess !== panelSf)
       arrow(guess, 'you')
     return out
@@ -556,12 +630,13 @@ export default function OraclePage() {
     }
   }, [demo, guess, played, liveSan, guesses, LIVE, plies])
 
-  const shownPly = previewPly ?? ply ?? lastPly
+  // The bars and clocks: the position on the board.
+  const shownPly = previewPly ?? (isLive ? lastPly : boardPly)
   const bar = shownPly?.bar
   const evalNow = previewPly
     ? previewPly.eval
-    : ply
-      ? ply.eval
+    : !isLive
+      ? (boardPly?.eval ?? 0.2)
       : demoPlayed
         ? NEXT.candidates[0].eval
         : (lastPly?.eval ?? 0.2)
@@ -581,6 +656,15 @@ export default function OraclePage() {
     feedOn || next.risk != null || plies.some((p) => p.risk != null)
   const tabs = demo || hasRisk ? PANE_TABS : LIVE_TABS
   const shownTab = tabs.some((t) => t.id === tab) ? tab : 'chances'
+  useEffect(() => {
+    noteWchTab(shownTab)
+  }, [shownTab])
+  useEffect(() => {
+    if (!isLive) noteWchMove(sel)
+  }, [isLive, sel])
+  useEffect(() => {
+    if (hoverSan) noteWchHover()
+  }, [hoverSan])
   // From the feed: the move played, at each rating (the move on show, or
   // the last one while he thinks).
   const ratingPly = feedOn ? (ply ?? lastPly) : null
@@ -723,7 +807,8 @@ export default function OraclePage() {
           myGuess={ply ? (guesses[ply.index] ?? null) : null}
         />
         <MoveStrip
-          sel={sel}
+          sel={shown}
+          live={isLive}
           onSelect={go}
           played={demoPlayed}
           liveSan={liveSan}
@@ -791,15 +876,30 @@ export default function OraclePage() {
               />
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
                 <MoveList
-                  sel={sel}
+                  sel={shown}
+                  live={isLive}
                   onSelect={go}
                   onPreview={setPreview}
                   played={demoPlayed}
                   liveSan={liveSan}
                   livePct={liveCands.find((c) => c.san === liveSan)?.maia ?? 0}
                 />
-                <Controls sel={sel} go={go} />
+                <Controls sel={shown} go={go} />
               </div>
+              {isLive && !next.over ? (
+                <div className="rounded-md bg-glass backdrop-blur-md">
+                  <GuessStrip
+                    signedIn={signedIn}
+                    onDemoSignIn={() => setDemoSignedIn(true)}
+                    guess={guess}
+                    played={demoPlayed}
+                    onPlay={() => setPlayed(true)}
+                    liveSan={liveSan}
+                    who={surname(next.mover)}
+                    demo={demo}
+                  />
+                </div>
+              ) : null}
             </section>
 
             {/* Middle: bars, board, pane */}
@@ -822,7 +922,7 @@ export default function OraclePage() {
                       Win %
                     </span>
                   </span>
-                  <ArrowLegend />
+                  <ArrowLegend white={isLive ? 'Your guess' : 'Played next'} />
                   <span
                     className="whitespace-nowrap text-center leading-[13px]"
                     style={{ color: ENGINE }}
@@ -893,7 +993,6 @@ export default function OraclePage() {
                 guess={guess}
                 onGuess={canGuess ? setGuess : undefined}
                 played={demoPlayed}
-                onPlay={() => setPlayed(true)}
                 guessCount={guessCount}
                 liveSan={liveSan}
                 onHover={setHoverSan}
@@ -1035,26 +1134,69 @@ const PlayerRow: React.FC<{
   )
 }
 
+/**
+ * Keeps a scrolled box at the right place: `place` runs when `deps` change,
+ * and again whenever the box or what's in it changes size (the icon font
+ * loading narrows the move chips, more moves come in), so the selection
+ * doesn't drift out of view after the first placing.
+ */
+const useKeepInView = (
+  ref: React.RefObject<HTMLDivElement | null>,
+  place: (box: HTMLDivElement) => void,
+  deps: unknown[],
+) => {
+  const placeRef = useRef(place)
+  placeRef.current = place
+  useEffect(() => {
+    const box = ref.current
+    if (!box) return
+    const run = () => placeRef.current(box)
+    run()
+    let gone = false
+    document.fonts?.ready.then(() => {
+      if (!gone) run()
+    })
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(run)
+    ro.observe(box)
+    Array.from(box.children).forEach((c) => ro.observe(c))
+    return () => {
+      gone = true
+      ro.disconnect()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+}
+
 const MoveList: React.FC<{
+  /** The last move on the board (-1: the start). */
   sel: number
+  live: boolean
   onSelect: (i: number) => void
   onPreview: (i: number | null) => void
   played: boolean
   liveSan: string
   livePct: number
-}> = ({ sel, onSelect, onPreview, played, liveSan, livePct }) => {
+}> = ({ sel, live, onSelect, onPreview, played, liveSan, livePct }) => {
   const { plies: GAME1, next: NEXT, LIVE } = useWch()
   const ref = useRef<HTMLDivElement>(null)
-  // Scroll only the list (scrollIntoView would also scroll the page).
-  useEffect(() => {
-    const list = ref.current
-    const el = list?.querySelector<HTMLElement>('[data-sel="true"]')
-    if (!list || !el) return
-    const top = el.offsetTop
-    if (top < list.scrollTop) list.scrollTop = top
-    else if (top + el.offsetHeight > list.scrollTop + list.clientHeight)
-      list.scrollTop = top + el.offsetHeight - list.clientHeight
-  }, [sel])
+  // Live: the end of the list; otherwise the move on the board, in view.
+  useKeepInView(
+    ref,
+    (list) => {
+      if (live) {
+        list.scrollTop = list.scrollHeight
+        return
+      }
+      const el = list.querySelector<HTMLElement>('[data-sel="true"]')
+      if (!el) return
+      const top = el.offsetTop
+      if (top < list.scrollTop) list.scrollTop = top
+      else if (top + el.offsetHeight > list.scrollTop + list.clientHeight)
+        list.scrollTop = top + el.offsetHeight - list.clientHeight
+    },
+    [sel, live, LIVE],
+  )
   const rows: number[] = []
   for (let i = 0; i < GAME1.length; i += 2) rows.push(i)
   return (
@@ -1070,14 +1212,14 @@ const MoveList: React.FC<{
           </span>
           <Cell
             p={GAME1[i]}
-            active={sel === i}
+            active={!live && sel === i}
             onClick={() => onSelect(i)}
             onHover={() => onPreview(i)}
           />
           {GAME1[i + 1] ? (
             <Cell
               p={GAME1[i + 1]}
-              active={sel === i + 1}
+              active={!live && sel === i + 1}
               onClick={() => onSelect(i + 1)}
               onHover={() => onPreview(i + 1)}
             />
@@ -1090,11 +1232,13 @@ const MoveList: React.FC<{
         {NEXT.moveNumber}
       </span>
       <button
-        data-sel={sel === LIVE}
+        data-sel={live}
         onClick={() => onSelect(LIVE)}
         onMouseEnter={() => onPreview(null)}
-        className={`flex h-7 items-center justify-between px-2 text-sm hover:bg-glass-stronger ${
-          sel === LIVE ? 'bg-glass-strong' : ''
+        className={`flex h-7 items-center justify-between px-2 text-sm ${
+          live
+            ? 'bg-rose-500/20 ring-1 ring-inset ring-rose-400/60'
+            : 'hover:bg-glass-stronger'
         }`}
       >
         {played ? (
@@ -1103,7 +1247,11 @@ const MoveList: React.FC<{
             <MaiaHit p={livePct} />
           </>
         ) : (
-          <span className="flex items-center gap-1.5 text-xs text-rose-200/90">
+          <span
+            className={`flex items-center gap-1.5 text-xs ${
+              live ? 'font-semibold text-rose-100' : 'text-rose-200/90'
+            }`}
+          >
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
             live
           </span>
@@ -1187,7 +1335,7 @@ const Controls: React.FC<{ sel: number; go: (i: number) => void }> = ({
     <div className="grid grid-cols-4 text-white/70">
       {(
         [
-          ['first_page', 0],
+          ['first_page', -1],
           ['arrow_back_ios', sel - 1],
           ['arrow_forward_ios', sel + 1],
           ['last_page', LIVE],
@@ -1208,13 +1356,13 @@ const Controls: React.FC<{ sel: number; go: (i: number) => void }> = ({
 /* ------------------------------------------------------------------ */
 /* Bars and legend around the board                                     */
 
-const ArrowLegend = () => (
+const ArrowLegend: React.FC<{ white: string }> = ({ white }) => (
   <div className="flex items-center justify-center gap-4 text-[11px] font-normal text-white/60">
     {(
       [
         ['Maia', MAIA],
         ['Stockfish', ENGINE],
-        ['Your guess', '#e8e8e8'],
+        [white, '#e8e8e8'],
       ] as [string, string][]
     ).map(([label, c]) => (
       <span key={label} className="flex items-center gap-1.5">
@@ -1396,7 +1544,7 @@ const ChancesChart: React.FC<{
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect()
               onSelect(
-                Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
+                Math.max(-1, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
               )
             }}
           >
@@ -1562,7 +1710,7 @@ const RiskChart: React.FC<{ sel: number; onSelect: (i: number) => void }> = ({
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect()
               onSelect(
-                Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
+                Math.max(-1, Math.min(LIVE, f.index(e.clientX, r.left) - 1)),
               )
             }}
           >
@@ -1707,7 +1855,7 @@ const FeedRiskChart: React.FC<{
           }
           return d
         }
-        const cur = Math.min(sel, LIVE)
+        const cur = sel >= LIVE ? LIVE : Math.max(0, sel + 1)
         const latest = (side: Side) => {
           for (let i = cur; i >= 0; i--)
             if (sideAt(i) === side && at(i) !== null) return { i, v: at(i)! }
@@ -1751,7 +1899,7 @@ const FeedRiskChart: React.FC<{
             className="cursor-pointer"
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect()
-              onSelect(Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left))))
+              onSelect(Math.min(LIVE, f.index(e.clientX, r.left)) - 1)
             }}
           >
             <title>
@@ -1864,7 +2012,8 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
         const maxT = Math.max(60, ...GAME1.map((p) => p.think))
         const len = (t: number) => Math.max(1.5, Math.sqrt(t / maxT) * half)
         const bw = Math.max(3, f.plotW / moves - 3)
-        const curMove = sel === LIVE ? NEXT.moveNumber : GAME1[sel].moveNumber
+        const curMove =
+          sel === LIVE ? NEXT.moveNumber : (GAME1[sel]?.moveNumber ?? 1)
         const lastW = [...GAME1].reverse().find((p) => p.color === 'white')
         const lastB = [...GAME1].reverse().find((p) => p.color === 'black')
         // Against each player's usual pace before move 41: his clock
@@ -2099,7 +2248,6 @@ const MovePanel: React.FC<{
   guess: string | null
   onGuess?: (san: string) => void
   played: boolean
-  onPlay: () => void
   guessCount: number
   liveSan: string
   onHover: (san: string | null) => void
@@ -2117,7 +2265,6 @@ const MovePanel: React.FC<{
   guess,
   onGuess,
   played,
-  onPlay,
   guessCount,
   liveSan,
   onHover,
@@ -2143,11 +2290,21 @@ const MovePanel: React.FC<{
         <h2 className="flex items-center gap-2 text-lg font-semibold leading-6 text-white">
           {over
             ? `Game over: ${next.over}`
-            : playedSan
-              ? `${who} played ${playedSan}`
-              : `What will ${who} play?`}
+            : ply
+              ? `Here ${who} played ${moveNo(ply.moveNumber, ply.color)}${ply.san}`
+              : playedSan
+                ? `${who} played ${playedSan}`
+                : `What will ${who} play?`}
           {ply?.mark ? <MarkChip mark={ply.mark} size="md" /> : null}
         </h2>
+        {ply?.risk != null ? (
+          <p className="mt-0.5 text-xs text-white/50">
+            <span title="The chance he'd play a move that loses over 10 points of expected score here, from his own model">
+              Chance he&apos;d blunder here:{' '}
+              <b className="font-semibold text-white/80">{riskPct(ply.risk)}</b>
+            </span>
+          </p>
+        ) : null}
         {live &&
         !playedSan &&
         !over &&
@@ -2185,20 +2342,6 @@ const MovePanel: React.FC<{
           </p>
         ) : null}
       </div>
-
-      {live && !over ? (
-        <GuessStrip
-          signedIn={signedIn}
-          onDemoSignIn={onDemoSignIn}
-          guess={guess}
-          played={played}
-          onPlay={onPlay}
-          guessCount={guessCount}
-          liveSan={liveSan}
-          who={who}
-          demo={data.mode === 'demo'}
-        />
-      ) : null}
 
       {over ? null : (
         <div className="red-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
@@ -2317,7 +2460,6 @@ const GuessStrip: React.FC<{
   guess: string | null
   played: boolean
   onPlay: () => void
-  guessCount: number
   liveSan: string
   who: string
   /** Demo controls (also shown in development, to sign in without Lichess). */
@@ -2328,7 +2470,6 @@ const GuessStrip: React.FC<{
   guess,
   played,
   onPlay,
-  guessCount,
   liveSan,
   who,
   demo,
@@ -2337,7 +2478,7 @@ const GuessStrip: React.FC<{
   const right = played && guess === liveSan
   return (
     <div
-      className={`mx-4 mb-2 flex min-h-[52px] items-center justify-between gap-3 rounded-md border px-3 py-2 ${
+      className={`flex min-h-[52px] flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-md border px-3 py-2 ${
         played && guess
           ? right
             ? 'border-emerald-300/40 bg-emerald-400/[0.08]'
@@ -2352,14 +2493,7 @@ const GuessStrip: React.FC<{
               Guess {who}&apos;s move
             </p>
             <p className="text-[11px] text-white/45">
-              {guessCount >= MIN_SHOWN_GUESSES ? (
-                <>
-                  <span className="tabular-nums">
-                    {guessCount.toLocaleString()}
-                  </span>{' '}
-                  guesses so far
-                </>
-              ) : null}
+              Sign in to keep score
               {demoSignIn ? (
                 <button
                   onClick={onDemoSignIn}
@@ -2401,11 +2535,7 @@ const GuessStrip: React.FC<{
               )
             ) : (
               <>
-                {guess
-                  ? 'Change it until he moves'
-                  : guessCount >= MIN_SHOWN_GUESSES
-                    ? `${guessCount.toLocaleString()} guesses so far`
-                    : ''}
+                {guess ? 'Change it until he moves' : ''}
                 <br />
                 {demo ? (
                   <button onClick={onPlay} className="hover:text-white/80">
@@ -2658,9 +2788,11 @@ const MobilePrediction: React.FC<{
         <h2 className="truncate text-[15px] font-semibold text-white">
           {over
             ? `Game over: ${next.over}`
-            : playedSan
-              ? `${who} played ${playedSan}`
-              : `What will ${who} play?`}
+            : ply
+              ? `Here ${who} played ${moveNo(ply.moveNumber, ply.color)}${ply.san}`
+              : playedSan
+                ? `${who} played ${playedSan}`
+                : `What will ${who} play?`}
         </h2>
         <div className="flex shrink-0 items-center gap-1.5 text-[10px] text-white/45">
           <span
@@ -2773,17 +2905,7 @@ const MobilePrediction: React.FC<{
           {!signedIn ? (
             <>
               <p className="text-[11px] leading-4 text-white/55">
-                {guessCount >= MIN_SHOWN_GUESSES ? (
-                  <>
-                    Guess with{' '}
-                    <span className="tabular-nums">
-                      {guessCount.toLocaleString()}
-                    </span>{' '}
-                    others
-                  </>
-                ) : (
-                  'Guess his move'
-                )}
+                Guess his move
                 {data.mode === 'demo' ||
                 process.env.NODE_ENV !== 'production' ? (
                   <button
@@ -2832,21 +2954,30 @@ const MobilePrediction: React.FC<{
 
 /** The moves as a strip that scrolls sideways, with step buttons. */
 const MoveStrip: React.FC<{
+  /** The last move on the board (-1: the start). */
   sel: number
+  live: boolean
   onSelect: (i: number) => void
   played: boolean
   liveSan: string
-}> = ({ sel, onSelect, played, liveSan }) => {
+}> = ({ sel, live, onSelect, played, liveSan }) => {
   const { plies: GAME1, next: NEXT, LIVE } = useWch()
   const ref = useRef<HTMLDivElement>(null)
-  // Centre the selected move by scrolling the strip itself: scrollIntoView
-  // would also scroll the page's containers sideways.
-  useEffect(() => {
-    const strip = ref.current
-    const el = strip?.querySelector<HTMLElement>('[data-sel="true"]')
-    if (!strip || !el) return
-    strip.scrollLeft = el.offsetLeft - (strip.clientWidth - el.offsetWidth) / 2
-  }, [sel])
+  // Live: the end of the strip; otherwise the move on the board, centred.
+  useKeepInView(
+    ref,
+    (strip) => {
+      if (live) {
+        strip.scrollLeft = strip.scrollWidth
+        return
+      }
+      const el = strip.querySelector<HTMLElement>('[data-sel="true"]')
+      strip.scrollLeft = el
+        ? el.offsetLeft - (strip.clientWidth - el.offsetWidth) / 2
+        : 0
+    },
+    [sel, live, LIVE],
+  )
   return (
     <div className="mx-2 flex items-center overflow-hidden rounded-md border border-glass-border bg-glass">
       <button
@@ -2864,10 +2995,12 @@ const MoveStrip: React.FC<{
         {GAME1.map((p) => (
           <button
             key={p.index}
-            data-sel={sel === p.index}
+            data-sel={!live && sel === p.index}
             onClick={() => onSelect(p.index)}
             className={`flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[13px] ${
-              sel === p.index ? 'bg-white/15 text-white' : 'text-white/80'
+              !live && sel === p.index
+                ? 'bg-white/15 text-white'
+                : 'text-white/80'
             }`}
           >
             {p.color === 'white' ? (
@@ -2882,10 +3015,12 @@ const MoveStrip: React.FC<{
           </button>
         ))}
         <button
-          data-sel={sel === LIVE}
+          data-sel={live}
           onClick={() => onSelect(LIVE)}
           className={`flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-[13px] ${
-            sel === LIVE ? 'bg-white/15 text-white' : 'text-white/80'
+            live
+              ? 'bg-rose-500/20 text-white ring-1 ring-inset ring-rose-400/60'
+              : 'text-white/80'
           }`}
         >
           <span className="text-[11px] text-white/40">{NEXT.moveNumber}.</span>
