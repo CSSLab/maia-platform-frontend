@@ -44,7 +44,14 @@ import {
   tally,
 } from 'src/components/WCh/game1'
 import { barTimeControl } from 'src/components/WCh/live'
+import {
+  Pregame,
+  RATING_KEYS,
+  feedGame,
+  usualRisk,
+} from 'src/components/WCh/feed'
 import { buildLive } from 'src/components/WCh/liveAdapter'
+import { useWchFeed } from 'src/components/WCh/useWchFeed'
 import { LiveStatus, useWchLive } from 'src/components/WCh/useWchLive'
 import {
   LIVE_MAIA_ELO,
@@ -102,7 +109,14 @@ const PANE_TABS: { id: PaneTab; name: string }[] = [
   { id: 'clocks', name: 'Clocks' },
   { id: 'rating', name: 'By rating' },
 ]
-// Live: no blunder-risk model on the site yet.
+// Phones: the tab names that fit beside "Maia views".
+const SHORT_TAB: Record<PaneTab, string> = {
+  chances: 'Chances',
+  risk: 'Risk',
+  clocks: 'Clocks',
+  rating: 'Rating',
+}
+// Live without the research feed: no blunder-risk model in the browser.
 const LIVE_TABS = PANE_TABS.filter((t) => t.id !== 'risk')
 
 /** Everything the page's parts need to know about the game on show. */
@@ -114,10 +128,14 @@ interface WchData {
   LIVE: number
   white: PlayerId
   black: PlayerId
-  /** The player-specific Maia models (demo); live uses Maia at 2600. */
+  /** The player-specific Maia models (demo, or live from the feed). */
   personal: boolean
   /** Visitors' guesses from a server (demo only so far). */
   hasCrowd: boolean
+  /** Live from the research feed (blunder risk, the players' models). */
+  feedOn: boolean
+  /** The feed's pre-game bundle (usual blunder risk by phase). */
+  pregame: Pregame | null
 }
 
 const WchCtx = React.createContext<WchData | null>(null)
@@ -144,17 +162,48 @@ export default function OraclePage() {
   const roundQ =
     typeof router.query.round === 'string' ? router.query.round : null
   const gameQ = typeof router.query.game === 'string' ? router.query.game : null
+  // ?feed=<game id>: the game from the research feed alone (no broadcast),
+  // e.g. its replays.
+  const feedQ = typeof router.query.feed === 'string' ? router.query.feed : null
 
   const { user } = useContext(AuthContext)
   const maiaEngine = useContext(MaiaEngineContext)
   const [demoSignedIn, setDemoSignedIn] = useState(false)
   const signedIn = !!user?.lichessId || demoSignedIn
 
-  const live = useWchLive({
-    enabled: router.isReady && !demo,
+  const broadcast = useWchLive({
+    enabled: router.isReady && !demo && !feedQ,
     round: roundQ,
     game: gameQ,
   })
+  // The research feed for the game on show: its id is the Lichess game id.
+  // The pre-game bundle may be named after the match game instead.
+  const gameNo = broadcast.roundName?.match(/\d+/)?.[0] ?? '1'
+  const feed = useWchFeed({
+    gameId: demo ? null : (feedQ ?? broadcast.game?.gameId ?? null),
+    pregameName: `gukesh_sindarov_g${gameNo}`,
+    done: !feedQ && broadcast.status === 'finished',
+  })
+  const feedOn = !demo && feed.status === 'on' && feed.plies.size > 0
+  const live = useMemo(() => {
+    if (!feedQ) return broadcast
+    const game = feedGame(feedQ, feed.manifest, feed.plies, {
+      white: WHITE,
+      black: BLACK,
+    })
+    return {
+      ...broadcast,
+      game,
+      status: (!game
+        ? feed.status === 'off'
+          ? 'error'
+          : 'loading'
+        : game.result !== '*'
+          ? 'finished'
+          : 'live') as LiveStatus,
+      roundName: 'Feed replay',
+    }
+  }, [feedQ, broadcast, feed.manifest, feed.plies, feed.status])
   const liveMoves = useMemo(() => live.game?.moves ?? [], [live.game])
   const LIVE = demo ? GAME1.length : liveMoves.length
 
@@ -259,8 +308,9 @@ export default function OraclePage() {
     : sel >= LIVE
       ? (liveMoves[LIVE - 1]?.fen ?? START_FEN)
       : liveMoves[sel].fenBefore
+  // In the browser only when there's no feed for this game.
   const engines = useWchEngines({
-    enabled: !demo && !!live.game,
+    enabled: !demo && !!live.game && feed.status === 'off',
     fens: liveFens,
     focusFen,
     timeControl: barTimeControl(live.game?.timeControl ?? null),
@@ -279,10 +329,25 @@ export default function OraclePage() {
     () =>
       demo
         ? { plies: GAME1, next: NEXT }
-        : buildLive(live.game, engines, ids, startClock),
+        : buildLive(
+            live.game,
+            engines,
+            ids,
+            startClock,
+            feedOn ? feed.plies : undefined,
+          ),
     // engines.version: the engines' results change in place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [demo, live.game, engines.version, ids.white, ids.black, startClock],
+    [
+      demo,
+      live.game,
+      engines.version,
+      ids.white,
+      ids.black,
+      startClock,
+      feedOn,
+      feed.plies,
+    ],
   )
 
   // Seconds the side to move has been thinking.
@@ -299,8 +364,10 @@ export default function OraclePage() {
     LIVE,
     white: ids.white,
     black: ids.black,
-    personal: demo,
+    personal: demo || feedOn,
     hasCrowd: demo,
+    feedOn,
+    pregame: feed.pregame,
   }
   const { plies, next } = data
 
@@ -437,6 +504,15 @@ export default function OraclePage() {
           }
         : base
     }
+    // The feed keeps the count (Maia's and Stockfish's first choice).
+    const called = feedOn ? feed.plies.get(LIVE)?.called?.all : null
+    if (called)
+      return {
+        n: called.moves,
+        maia: called.maia,
+        crowd: null,
+        stockfish: called.stockfish,
+      }
     const known = plies.filter((p) => p.rank > 0)
     const sfKnown = plies.filter((p) => p.sf)
     return {
@@ -448,7 +524,7 @@ export default function OraclePage() {
           ? sfKnown.filter((p) => p.sf === p.san).length
           : null,
     }
-  }, [demo, played, plies, liveSan])
+  }, [demo, played, plies, liveSan, feedOn, feed.plies, LIVE])
 
   // Your guesses that a move has settled.
   const you = useMemo(() => {
@@ -485,11 +561,23 @@ export default function OraclePage() {
   const clockBlackNow =
     clockBlack - (toMove === 'black' && thinking !== null ? thinking : 0)
 
-  const tabs = demo ? PANE_TABS : LIVE_TABS
+  const tabs = demo || feedOn ? PANE_TABS : LIVE_TABS
   const shownTab = tabs.some((t) => t.id === tab) ? tab : 'chances'
-  const ratingBands = demo ? RATING_BANDS : LIVE_RATING_BANDS
+  // From the feed: the move played, at each rating (the move on show, or
+  // the last one while he thinks).
+  const ratingPly = feedOn ? (ply ?? lastPly) : null
+  const ratingBands = demo
+    ? RATING_BANDS
+    : feedOn
+      ? RATING_KEYS.map(Number)
+      : LIVE_RATING_BANDS
   const ratingRows = useMemo(() => {
     if (demo) return byRating(panelCands)
+    if (feedOn)
+      return ratingPly?.ratingShares
+        ? [{ san: ratingPly.san, shares: ratingPly.ratingShares }]
+        : null
+
     const reads = engines.byRating(panelFen)
     if (!reads) return null
     const top = panelCands.slice(0, 4)
@@ -501,7 +589,7 @@ export default function OraclePage() {
       return { san: c.san, shares: reads.map((r) => r.policy?.[uci] ?? 0) }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demo, panelCands, panelFen, engines.version])
+  }, [demo, panelCands, panelFen, engines.version, feedOn, ratingPly])
 
   const title = demo
     ? 'Game 1 of 14, Geneva'
@@ -519,18 +607,34 @@ export default function OraclePage() {
       {shownTab === 'chances' ? (
         <ChancesChart sel={sel} onSelect={go} />
       ) : shownTab === 'risk' ? (
-        <RiskChart sel={sel} onSelect={go} />
+        feedOn ? (
+          <FeedRiskChart sel={sel} onSelect={go} />
+        ) : (
+          <RiskChart sel={sel} onSelect={go} />
+        )
       ) : shownTab === 'clocks' ? (
         <ClocksChart sel={sel} startClock={startClock} />
       ) : (
-        <ByRating rows={ratingRows} bands={ratingBands} />
+        <ByRating
+          rows={ratingRows}
+          bands={ratingBands}
+          note={
+            !feedOn
+              ? undefined
+              : ratingPly
+                ? `How likely players at each rating were to play ${moveNo(ratingPly.moveNumber, ratingPly.color)}${ratingPly.san}`
+                : null
+          }
+        />
       )}
     </>
   )
 
   const footnote = demo
     ? 'Prototype with an illustrative game and made-up Maia, Stockfish and visitor numbers.'
-    : `Moves and clocks from the Lichess broadcast. Maia (at ${LIVE_MAIA_ELO}) and Stockfish run in your browser; your guesses stay in this browser.`
+    : feedOn
+      ? `Moves and clocks from the Lichess broadcast. Maia's predictions come from the players' past games only: they know nothing about either player's preparation for this match. Your guesses stay in this browser.`
+      : `Moves and clocks from the Lichess broadcast. Maia (at ${LIVE_MAIA_ELO}) and Stockfish run in your browser; your guesses stay in this browser.`
 
   // The one-column layout (below WIDE_FROM), shown by CSS so it's right on
   // first paint.
@@ -613,7 +717,7 @@ export default function OraclePage() {
           <div className="flex items-stretch border-b border-glass-border">
             <div className="no-scrollbar min-w-0 flex-1 overflow-x-auto [&>div]:border-b-0 [&_p]:whitespace-nowrap">
               <UnderlineTabs
-                tabs={tabs}
+                tabs={tabs.map((t) => ({ ...t, name: SHORT_TAB[t.id] }))}
                 selected={shownTab}
                 onSelect={setTab}
                 layoutId="wchPaneTabMobile"
@@ -1195,14 +1299,18 @@ const Sized: React.FC<{
 
 const PAD = { l: 44, r: 92, t: 4, b: 16 }
 
-const frame = (w: number, h: number, n: number) => ({
-  x: (i: number) => PAD.l + (i / n) * (w - PAD.l - PAD.r),
-  y: (v: number) => PAD.t + v * (h - PAD.t - PAD.b),
-  plotW: w - PAD.l - PAD.r,
-  bottom: h - PAD.b,
-  index: (clientX: number, left: number) =>
-    Math.round(((clientX - left - PAD.l) / (w - PAD.l - PAD.r)) * n),
-})
+// n at least 1: a chart drawn before any move.
+const frame = (w: number, h: number, moves: number) => {
+  const n = Math.max(1, moves)
+  return {
+    x: (i: number) => PAD.l + (i / n) * (w - PAD.l - PAD.r),
+    y: (v: number) => PAD.t + v * (h - PAD.t - PAD.b),
+    plotW: w - PAD.l - PAD.r,
+    bottom: h - PAD.b,
+    index: (clientX: number, left: number) =>
+      Math.round(((clientX - left - PAD.l) / (w - PAD.l - PAD.r)) * n),
+  }
+}
 
 const MoveTicks: React.FC<{ x: (i: number) => number; y: number }> = ({
   x,
@@ -1516,6 +1624,197 @@ const RiskChart: React.FC<{ sel: number; onSelect: (i: number) => void }> = ({
  * Time spent on each move: White's above the line, Black's below, square
  * root scaled so a 10-minute think doesn't flatten the rest.
  */
+/** Seconds as m:ss, or h:mm:ss from an hour. */
+const fmtDuration = (sec: number) => {
+  const t = Math.max(0, Math.round(sec))
+  const h = Math.floor(t / 3600)
+  const m = Math.floor((t % 3600) / 60)
+  const ss = String(t % 60).padStart(2, '0')
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`
+}
+
+/** A chance as a short percentage: "<0.1%", "0.4%", "8%". */
+const riskPct = (v: number) =>
+  v < 0.001
+    ? '<0.1%'
+    : v < 0.1
+      ? `${(v * 100).toFixed(1)}%`
+      : `${Math.round(v * 100)}%`
+
+/**
+ * The research feed's blunder risk: at each position, the chance the player
+ * to move errs there (a move losing over 10 points of expected score), from
+ * his own model, with his usual level for that stage of the game as a dashed
+ * line. Absolute chances: most positions are near zero and a few spike.
+ */
+const FeedRiskChart: React.FC<{
+  sel: number
+  onSelect: (i: number) => void
+}> = ({ sel, onSelect }) => {
+  const { plies, next, LIVE, white, black, pregame } = useWch()
+  return (
+    <Sized>
+      {(w, h) => {
+        const n = Math.max(LIVE, 1)
+        const f = frame(w, h, n)
+        // Position i: before move i (plies[i]), or the one on the board now.
+        const at = (i: number) =>
+          i < LIVE ? (plies[i]?.risk ?? null) : (next.risk ?? null)
+        const sideAt = (i: number): Side => (i % 2 === 0 ? 'white' : 'black')
+        const idOf = (side: Side) => (side === 'white' ? white : black)
+        const all = Array.from({ length: LIVE + 1 }, (_, i) => at(i))
+        const usual = (side: Side, i: number) =>
+          usualRisk(pregame, idOf(side), i)
+        const usuals = Array.from({ length: LIVE + 1 }, (_, i) =>
+          usual(sideAt(i), i),
+        )
+        const top =
+          Math.max(
+            0.02,
+            ...all.map((v) => v ?? 0),
+            ...usuals.map((v) => (v ?? 0) * 2),
+          ) * 1.1
+        const y = (v: number) => f.y(1 - Math.min(v, top) / top)
+        const step = top / 3 < 0.02 ? 0.01 : top / 3 < 0.05 ? 0.02 : 0.05
+        const grid = [step, 2 * step, 3 * step].filter((g) => g < top)
+        const barW = Math.max(1.5, Math.min(6, (f.plotW / n) * 0.7))
+        // A player's usual level, stage by stage, over his own positions.
+        const usualPath = (side: Side) => {
+          let d = ''
+          for (let i = 0; i <= LIVE; i++) {
+            if (sideAt(i) !== side) continue
+            const u = usual(side, i)
+            if (u === null) continue
+            d += `${d ? 'L' : 'M'}${f.x(Math.max(0, i - 1))},${y(u)}L${f.x(Math.min(n, i + 1))},${y(u)}`
+          }
+          return d
+        }
+        const cur = Math.min(sel, LIVE)
+        const latest = (side: Side) => {
+          for (let i = cur; i >= 0; i--)
+            if (sideAt(i) === side && at(i) !== null) return { i, v: at(i)! }
+          return null
+        }
+        const label = (side: Side, ty: number) => {
+          const l = latest(side)
+          const u = l ? usual(side, l.i) : null
+          const ink = side === 'white' ? WHITE_INK : BLACK_INK
+          return (
+            <text x={w - PAD.r + 10} y={ty} fontSize={12} fontWeight={600}>
+              <tspan fill={ink}>{surname(idOf(side))}</tspan>
+              <tspan
+                fill={
+                  l && u !== null && l.v > Math.max(2 * u, 0.02)
+                    ? '#f46d43'
+                    : 'rgba(255,255,255,0.6)'
+                }
+              >
+                {' '}
+                {l ? riskPct(l.v) : '–'}
+              </tspan>
+              {u !== null ? (
+                <tspan
+                  x={w - PAD.r + 10}
+                  dy={13}
+                  fontSize={10}
+                  fontWeight={400}
+                  fill="rgba(255,255,255,0.4)"
+                >
+                  usual {riskPct(u)}
+                </tspan>
+              ) : null}
+            </text>
+          )
+        }
+        return (
+          <svg
+            width={w}
+            height={h}
+            className="cursor-pointer"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              onSelect(Math.max(0, Math.min(LIVE, f.index(e.clientX, r.left))))
+            }}
+          >
+            <title>
+              The chance the player to move blunders in each position (a move
+              that loses over 10 points of expected score), from his own model;
+              dashed: his usual chance at that stage of the game. Even in the
+              riskiest positions most moves are fine.
+            </title>
+            <line
+              x1={PAD.l}
+              x2={w - PAD.r}
+              y1={y(0)}
+              y2={y(0)}
+              stroke="rgba(255,255,255,0.15)"
+            />
+            {grid.map((g) => (
+              <g key={g}>
+                <line
+                  x1={PAD.l}
+                  x2={w - PAD.r}
+                  y1={y(g)}
+                  y2={y(g)}
+                  stroke="rgba(255,255,255,0.07)"
+                />
+                <text
+                  x={PAD.l - 6}
+                  y={y(g) + 4}
+                  fontSize={11}
+                  textAnchor="end"
+                  fill="rgba(255,255,255,0.45)"
+                >
+                  {Math.round(g * 100)}%
+                </text>
+              </g>
+            ))}
+            {all.map((v, i) =>
+              v === null ? null : (
+                <rect
+                  key={i}
+                  x={f.x(i) - barW / 2}
+                  y={y(v)}
+                  width={barW}
+                  height={Math.max(0.5, y(0) - y(v))}
+                  rx={1}
+                  fill={sideAt(i) === 'white' ? WHITE_INK : BLACK_INK}
+                  opacity={i === cur ? 1 : 0.75}
+                />
+              ),
+            )}
+            <path
+              d={usualPath('white')}
+              fill="none"
+              stroke={WHITE_INK}
+              strokeOpacity={0.6}
+              strokeDasharray="3 3"
+            />
+            <path
+              d={usualPath('black')}
+              fill="none"
+              stroke={BLACK_INK}
+              strokeOpacity={0.6}
+              strokeDasharray="3 3"
+            />
+            <line
+              x1={f.x(cur)}
+              x2={f.x(cur)}
+              y1={PAD.t}
+              y2={f.bottom}
+              stroke="white"
+              opacity={0.5}
+            />
+            {label('white', PAD.t + 14)}
+            {label('black', PAD.t + 50)}
+            <MoveTicks x={f.x} y={h - 2} />
+          </svg>
+        )
+      }}
+    </Sized>
+  )
+}
+
 const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
   sel,
   startClock,
@@ -1682,15 +1981,23 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
 const ByRating: React.FC<{
   rows: { san: string; shares: number[] }[] | null
   bands: number[]
-}> = ({ rows, bands }) => {
+  note?: string | null
+}> = ({ rows, bands, note }) => {
   if (!rows || !rows.length)
     return (
       <div className="flex h-full items-center justify-center text-xs text-white/40">
-        Maia is reading the position at each rating…
+        {note === undefined
+          ? 'Maia is reading the position at each rating…'
+          : 'Once a move is played: how likely players at each rating were to play it'}
       </div>
     )
   return (
     <div className="grid h-full grid-cols-[52px_repeat(5,1fr)] content-center gap-x-2 gap-y-1 text-xs">
+      {note ? (
+        <span className="col-span-6 mb-1 text-[11px] text-white/50">
+          {note}
+        </span>
+      ) : null}
       <span />
       {bands.map((r) => (
         <span key={r} className="text-center text-[10px] text-white/40">
@@ -1788,6 +2095,26 @@ const MovePanel: React.FC<{
               : `What will ${who} play?`}
           {ply?.mark ? <MarkChip mark={ply.mark} size="md" /> : null}
         </h2>
+        {live &&
+        !playedSan &&
+        !over &&
+        (next.thinkPred || next.risk != null) ? (
+          <p className="mt-0.5 flex flex-wrap gap-x-4 text-xs text-white/50">
+            {next.thinkPred ? (
+              <span title="How long he usually takes in a position like this, at these clocks (90% of the time under the second figure)">
+                Usually ~{fmtDuration(next.thinkPred.median_s)} here
+              </span>
+            ) : null}
+            {next.risk != null ? (
+              <span title="The chance he plays a move that loses over 10 points of expected score here, from his own model. Even in the riskiest positions most moves are fine.">
+                Chance he blunders here:{' '}
+                <b className="font-semibold text-white/80">
+                  {riskPct(next.risk)}
+                </b>
+              </span>
+            ) : null}
+          </p>
+        ) : null}
         {ply && myGuess ? (
           <p className="mt-0.5 text-sm text-white/60">
             You guessed <b className="text-white">{myGuess}</b>
@@ -2337,7 +2664,7 @@ const MobilePrediction: React.FC<{
                   ? onGuess(c.san)
                   : onShow(shownSan === c.san ? null : c.san)
               }
-              className={`relative flex h-8 items-center justify-between gap-1 overflow-hidden rounded border px-1.5 pb-0.5 text-left ${
+              className={`relative flex h-8 items-center justify-between gap-0.5 overflow-hidden rounded border px-1 pb-0.5 text-left ${
                 isPlayed
                   ? 'border-emerald-300/60 bg-emerald-400/[0.10]'
                   : isMine
@@ -2349,18 +2676,19 @@ const MobilePrediction: React.FC<{
                         : 'border-white/10 bg-white/[0.03]'
               }`}
             >
-              <span className="shrink-0 text-[14px] font-semibold tracking-tight text-white">
+              <span className="shrink-0 text-[13px] font-semibold tracking-tight text-white">
                 {c.san}
               </span>
-              <span className="flex min-w-0 items-baseline justify-end gap-2.5 overflow-hidden tabular-nums">
+              {/* Maia's % never shrinks; a tight chip clips the eval's end. */}
+              <span className="ml-auto flex min-w-0 items-baseline gap-2 pl-1 tabular-nums">
                 <span
-                  className="text-[13px] font-semibold"
+                  className="shrink-0 text-[13px] font-semibold"
                   style={{ color: MAIA }}
                 >
                   {pct(c.maia)}
                 </span>
                 <span
-                  className="font-mono text-[11px] tracking-tight"
+                  className="min-w-0 overflow-hidden whitespace-nowrap font-mono text-[11px] tracking-tight"
                   style={{
                     color: c.san === sf ? ENGINE : 'rgba(255,255,255,0.5)',
                   }}

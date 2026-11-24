@@ -97,6 +97,10 @@ export interface LivePly {
   /** Maia's chances after the move (unknown until computed, live). */
   bar?: { W: number; D: number; B: number }
   mark?: Mark
+  /** Live feed: the mover's chance of a blunder before this move (0-1). */
+  risk?: number | null
+  /** Live feed: the move's probability at each of RATING_KEYS. */
+  ratingShares?: number[]
 }
 
 const crowdSplit = (
@@ -241,6 +245,10 @@ export interface WchNext {
   thinkingFor: number | null
   /** The result, once the game is over. */
   over?: string
+  /** Live feed: the mover's chance of a blunder here (0-1). */
+  risk?: number | null
+  /** Live feed: how long the mover usually takes here (seconds). */
+  thinkPred?: { median_s: number; p90_s: number } | null
 }
 
 export const NEXT: WchNext = {
