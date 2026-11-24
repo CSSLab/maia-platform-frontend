@@ -879,3 +879,35 @@ export const trackCommunityLinkClicked = (
 ) => {
   safeTrack('community_link_clicked', { platform, placement })
 }
+
+// World Championship page (src/components/WCh/visit.ts)
+
+export const trackWchVisitEnded = (visit: {
+  how: 'navigated' | 'page_closed'
+  mode: 'live' | 'demo' | 'feed_replay'
+  game_id: string | null
+  game_status: string | null
+  game_plies: number
+  seconds: number
+  seconds_visible: number
+  tabs: string[]
+  moves_viewed: number
+  moves_hovered: number
+  guesses: number
+  sources: string[]
+  layouts: string[]
+}) => {
+  safeTrack('wch_visit_ended', visit)
+}
+
+/** A guess at the next move (made, or changed before the move). */
+export const trackWchGuess = (guess: {
+  game_id: string
+  move_number: number
+  color: 'white' | 'black'
+  changed: boolean
+  /** The guess is the move Maia rates highest. */
+  maia_top: boolean
+}) => {
+  safeTrack('wch_guess', guess)
+}

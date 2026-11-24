@@ -55,6 +55,19 @@ import {
 } from 'src/components/WCh/feed'
 import { buildLive } from 'src/components/WCh/liveAdapter'
 import { useWchFeed } from 'src/components/WCh/useWchFeed'
+import {
+  WchSource,
+  endWchVisit,
+  noteWchGame,
+  noteWchGuess,
+  noteWchHover,
+  noteWchLayout,
+  noteWchMove,
+  noteWchSource,
+  noteWchTab,
+  startWchVisit,
+} from 'src/components/WCh/visit'
+import { trackWchGuess } from 'src/lib/analytics'
 import { LiveStatus, useWchLive } from 'src/components/WCh/useWchLive'
 import {
   LIVE_MAIA_ELO,
@@ -232,8 +245,25 @@ export default function OraclePage() {
       setGuesses({})
     }
   }, [demo, gameKey])
+  // For the guess event: the move being guessed (set once data is in).
+  const guessMoveRef = useRef({
+    moveNumber: 1,
+    color: 'white' as Side,
+    had: false,
+    top: '',
+  })
   const setGuess = useCallback(
     (san: string) => {
+      if (!demo) {
+        noteWchGuess()
+        trackWchGuess({
+          game_id: gameKey,
+          move_number: guessMoveRef.current.moveNumber,
+          color: guessMoveRef.current.color,
+          changed: guessMoveRef.current.had,
+          maia_top: guessMoveRef.current.top === san,
+        })
+      }
       setGuesses((g) => {
         const next = { ...g, [LIVE]: san }
         if (!demo)
@@ -386,6 +416,38 @@ export default function OraclePage() {
     pregame: feed.pregame,
   }
   const { plies, next } = data
+  guessMoveRef.current = {
+    moveNumber: next.moveNumber,
+    color: next.color,
+    had: guess !== null,
+    top: next.candidates[0]?.san ?? '',
+  }
+
+  // The visit, for PostHog (src/components/WCh/visit.ts): one event when it
+  // ends.
+  useEffect(() => {
+    if (!router.isReady) return
+    startWchVisit(demo ? 'demo' : feedQ ? 'feed_replay' : 'live')
+    return () => endWchVisit('navigated')
+  }, [router.isReady, demo, feedQ])
+  useEffect(() => {
+    noteWchGame(demo ? 'demo' : (live.game?.gameId ?? null), live.status, LIVE)
+  }, [demo, live.game?.gameId, live.status, LIVE])
+  const source: WchSource | null = demo
+    ? 'demo'
+    : !next.candidates.length
+      ? null
+      : feedOn && feed.plies.has(LIVE)
+        ? 'feed'
+        : next.personal
+          ? 'tree'
+          : 'browser'
+  useEffect(() => {
+    if (source) noteWchSource(source)
+  }, [source])
+  useEffect(() => {
+    if (wide !== null) noteWchLayout(wide)
+  }, [wide])
 
   const go = useCallback(
     (i: number) => {
@@ -581,6 +643,15 @@ export default function OraclePage() {
     feedOn || next.risk != null || plies.some((p) => p.risk != null)
   const tabs = demo || hasRisk ? PANE_TABS : LIVE_TABS
   const shownTab = tabs.some((t) => t.id === tab) ? tab : 'chances'
+  useEffect(() => {
+    noteWchTab(shownTab)
+  }, [shownTab])
+  useEffect(() => {
+    if (!isLive) noteWchMove(sel)
+  }, [isLive, sel])
+  useEffect(() => {
+    if (hoverSan) noteWchHover()
+  }, [hoverSan])
   // From the feed: the move played, at each rating (the move on show, or
   // the last one while he thinks).
   const ratingPly = feedOn ? (ply ?? lastPly) : null
