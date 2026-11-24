@@ -11,7 +11,7 @@ export const NEWS_ITEMS: NewsItem[] = [
     title:
       'The World Championship starts today: watch Gukesh vs Sindarov live with Maia',
     description:
-      'Maia models of Gukesh and Sindarov, trained on their past games, predict each move as it\u2019s played. Guess the next move against Maia and Stockfish, and follow both players\u2019 win chances, blunder risk and clocks move by move.',
+      'Maia models of Gukesh and Sindarov, trained on their past games, predict each move as it\u2019s played. Guess the next move against Maia and Stockfish, and follow both players\u2019 win chances, time usage and blunder risk move by move.',
     href: '/wch',
   },
   {
