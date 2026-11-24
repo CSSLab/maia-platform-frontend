@@ -25,8 +25,15 @@ const Headline = ({ item }: { item: NewsItem }) => {
       >
         {formatNewsDate(item.date)}
       </time>
-      <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-white/90 transition-colors duration-300 group-hover:text-white">
-        {item.title}
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium leading-snug text-white/90 transition-colors duration-300 group-hover:text-white">
+          {item.title}
+        </span>
+        {item.description ? (
+          <span className="mt-0.5 block text-xs leading-snug text-white/60">
+            {item.description}
+          </span>
+        ) : null}
       </span>
     </>
   )
