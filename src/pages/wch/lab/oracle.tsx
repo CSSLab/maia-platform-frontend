@@ -808,6 +808,7 @@ export default function OraclePage() {
           onShow={setHoverSan}
           myGuess={ply ? (guesses[ply.index] ?? null) : null}
           onJump={(i) => go(i - 1)}
+          onBack={next.over && !isLive ? () => go(LIVE) : undefined}
         />
         <MoveStrip
           sel={shown}
@@ -997,6 +998,7 @@ export default function OraclePage() {
                 hoverSan={hoverSan}
                 myGuess={ply ? (guesses[ply.index] ?? null) : null}
                 onJump={(i) => go(i - 1)}
+                onBack={next.over && !isLive ? () => go(LIVE) : undefined}
                 lastResult={
                   !demo && LIVE > 0 && guesses[LIVE - 1]
                     ? {
@@ -2255,7 +2257,7 @@ const resultText = (result: string, white: PlayerId, black: PlayerId) =>
 /**
  * A finished game from Maia's point of view (between games, the right panel
  * would otherwise be empty): how often each player's Maia called his move,
- * the moves it least expected, where its win chances swung, the riskiest
+ * the moves it least expected, where its win chances swung, the most dangerous
  * positions and the longest thinks. A move opens it on the board.
  */
 const GameStory: React.FC<{
@@ -2369,11 +2371,11 @@ const GameStory: React.FC<{
             ),
           )
         : null}
-      {s.risky.length
+      {s.dangerous.length
         ? section(
-            'Riskiest positions',
+            'Most dangerous positions',
             'The chance he would blunder there, from his own model, and the move he played',
-            s.risky.map((r) =>
+            s.dangerous.map((r) =>
               row(
                 r.ply,
                 riskPct(r.risk),
@@ -2415,6 +2417,8 @@ const MovePanel: React.FC<{
   lastResult: { san: string; guess: string } | null
   /** Show a move (its index in the game). */
   onJump: (index: number) => void
+  /** A finished game, an earlier move on show: back to the summary. */
+  onBack?: () => void
 }> = ({
   ply,
   cands,
@@ -2432,6 +2436,7 @@ const MovePanel: React.FC<{
   myGuess,
   lastResult,
   onJump,
+  onBack,
 }) => {
   const data = useWch()
   const { next, personal, hasCrowd } = data
@@ -2448,6 +2453,17 @@ const MovePanel: React.FC<{
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-glass-border bg-glass backdrop-blur-md">
       <div className="px-4 pb-2.5 pt-3">
+        {onBack ? (
+          <button
+            onClick={onBack}
+            className="mb-1 flex items-center gap-1 text-xs font-medium text-human-1 hover:text-white"
+          >
+            <span className="material-symbols-outlined !text-[14px]">
+              arrow_back
+            </span>
+            Back to the game summary
+          </button>
+        ) : null}
         <h2 className="flex items-center gap-2 text-lg font-semibold leading-6 text-white">
           {over
             ? `Game over: ${resultText(String(next.over), data.white, data.black)}`
@@ -2929,6 +2945,8 @@ const MobilePrediction: React.FC<{
   myGuess: string | null
   /** Show a move (its index in the game). */
   onJump: (index: number) => void
+  /** A finished game, an earlier move on show: back to the summary. */
+  onBack?: () => void
 }> = ({
   ply,
   cands,
@@ -2945,6 +2963,7 @@ const MobilePrediction: React.FC<{
   onShow,
   myGuess,
   onJump,
+  onBack,
 }) => {
   const data = useWch()
   const { next, personal, hasCrowd } = data
@@ -2966,6 +2985,21 @@ const MobilePrediction: React.FC<{
   const right = played && guess === liveSan
   return (
     <div className="mx-2 rounded-md border border-glass-border bg-glass">
+      {onBack ? (
+        <div className="px-2.5 pt-1.5">
+          {onBack ? (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-1 text-xs font-medium text-human-1 hover:text-white"
+            >
+              <span className="material-symbols-outlined !text-[14px]">
+                arrow_back
+              </span>
+              Back to the game summary
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-2 px-2.5 pb-1 pt-1.5">
         <h2 className="truncate text-[15px] font-semibold text-white">
           {over
