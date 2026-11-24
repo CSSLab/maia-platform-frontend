@@ -115,7 +115,9 @@ export const Header: React.FC = () => {
 
   const { setPlaySetupModalProps } = useContext(ModalContext)
 
-  const isCompactDesktopNav = !isMobile && width > 0 && width < 1300
+  const isCompactDesktopNav = !isMobile && width > 0 && width < 1440
+  // Narrower still, the logo stands alone (no "Maia Chess").
+  const isNarrowDesktopNav = !isMobile && width > 0 && width < 1200
 
   const startGame = useCallback(
     (playType: PlayType) => {
@@ -238,31 +240,21 @@ export const Header: React.FC = () => {
   )
 
   const desktopLayout = (
-    <div className="flex w-[90%] flex-row items-center justify-between">
-      <div className="flex flex-row items-center justify-start gap-6">
+    <div
+      className={`flex flex-row items-center justify-between ${isCompactDesktopNav ? 'w-[96%]' : 'w-[90%]'}`}
+    >
+      <div
+        className={`flex flex-row items-center justify-start ${isCompactDesktopNav ? 'gap-3' : 'gap-6'}`}
+      >
         <Link href="/" className="flex flex-row items-center gap-2">
           <Image src={maiaLogo} width={40} height={40} alt="Maia Logo" />
-          <h2 className="text-2xl font-bold">Maia Chess</h2>
+          {!isNarrowDesktopNav && (
+            <h2 className="whitespace-nowrap text-2xl font-bold">Maia Chess</h2>
+          )}
         </Link>
-        <div className="hidden flex-row items-center gap-1 text-sm tracking-wider md:flex">
-          <Link
-            href="/wch"
-            aria-label="World Championship 2026"
-            className={`mr-2 flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold leading-[11px] transition-colors duration-200 ${
-              router.pathname.startsWith('/wch')
-                ? 'border-human-1/70 bg-human-4/30 text-white'
-                : 'border-human-2/50 bg-human-4/15 text-human-1 hover:border-human-1/70 hover:bg-human-4/25 hover:text-white'
-            }`}
-          >
-            <span className="relative flex h-1.5 w-1.5 shrink-0">
-              <span className="absolute h-full w-full animate-ping rounded-full bg-human-1/60" />
-              <span className="relative h-1.5 w-1.5 rounded-full bg-human-1" />
-            </span>
-            <span className="flex flex-col">
-              <span>WORLD</span>
-              <span>CHAMPIONSHIP</span>
-            </span>
-          </Link>
+        <div
+          className={`hidden flex-row items-center text-sm tracking-wider md:flex ${isCompactDesktopNav ? 'gap-0' : 'gap-1'}`}
+        >
           <div className="relative" {...menuProps(setShowPlayDropdown)}>
             <button
               aria-expanded={showPlayDropdown}
@@ -456,7 +448,27 @@ export const Header: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="hidden flex-row items-center gap-3 md:flex">
+      <div
+        className={`hidden flex-row items-center md:flex ${isCompactDesktopNav ? 'gap-2' : 'gap-3'}`}
+      >
+        <Link
+          href="/wch"
+          aria-label="World Championship 2026"
+          className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-semibold leading-[11px] transition-colors duration-200 ${
+            router.pathname.startsWith('/wch')
+              ? 'border-human-1/70 bg-human-4/30 text-white'
+              : 'border-human-2/50 bg-human-4/15 text-human-1 hover:border-human-1/70 hover:bg-human-4/25 hover:text-white'
+          }`}
+        >
+          <span className="relative flex h-1.5 w-1.5 shrink-0">
+            <span className="absolute h-full w-full animate-ping rounded-full bg-human-1/60" />
+            <span className="relative h-1.5 w-1.5 rounded-full bg-human-1" />
+          </span>
+          <span className="flex flex-col items-center text-center">
+            <span>WORLD</span>
+            <span>CHAMPIONSHIP</span>
+          </span>
+        </Link>
         <ConnectButtonSlot />
         {discordLink}
         {user?.lichessId && (
@@ -476,7 +488,7 @@ export const Header: React.FC = () => {
       <Link href="/" passHref>
         <div className="flex flex-row items-center gap-2">
           <Image src={maiaLogo} width={40} height={40} alt="Maia Logo" />
-          <h2 className="text-2xl font-bold">Maia Chess</h2>
+          <h2 className="whitespace-nowrap text-2xl font-bold">Maia Chess</h2>
         </div>
       </Link>
       <div className="flex flex-row items-center gap-3">
@@ -499,7 +511,9 @@ export const Header: React.FC = () => {
             <Link href="/" passHref>
               <div className="flex flex-row items-center gap-2">
                 <Image src={maiaLogo} width={40} height={40} alt="Maia Logo" />
-                <h2 className="text-2xl font-bold">Maia Chess</h2>
+                <h2 className="whitespace-nowrap text-2xl font-bold">
+                  Maia Chess
+                </h2>
               </div>
             </Link>
             <button
