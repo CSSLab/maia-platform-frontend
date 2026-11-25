@@ -21,19 +21,19 @@ describe('a resignation', () => {
   it('says who resigned, as the player reads it', () => {
     expect(
       describeTermination(resignTermination('black', 'maia'), 'white'),
-    ).toBe('Maia resigned — you win')
+    ).toBe('Maia resigned. You win.')
     expect(
       describeTermination(resignTermination('white', 'maia'), 'black'),
-    ).toBe('Maia resigned — you win')
+    ).toBe('Maia resigned. You win.')
     expect(
       describeTermination(resignTermination('white', 'player'), 'white'),
-    ).toBe('You resigned — Maia wins')
+    ).toBe('You resigned. Maia wins.')
   })
 
   it("tells who resigned from the winner when it isn't said", () => {
     const won = { result: '0-1', winner: 'black', type: 'resign' } as const
-    expect(describeTermination(won, 'black')).toBe('Maia resigned — you win')
-    expect(describeTermination(won, 'white')).toBe('You resigned — Maia wins')
+    expect(describeTermination(won, 'black')).toBe('Maia resigned. You win.')
+    expect(describeTermination(won, 'white')).toBe('You resigned. Maia wins.')
   })
 
   it('says nothing more about other endings', () => {

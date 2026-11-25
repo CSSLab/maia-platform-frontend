@@ -24,7 +24,7 @@ export const resignTermination = (
 
 /**
  * What the game-over panel says about a resignation, for the player playing
- * `player` ("Maia resigned — you win"); undefined for any other ending, which
+ * `player` ("Maia resigned. You win."); undefined for any other ending, which
  * the result says well enough.
  */
 export const describeTermination = (
@@ -35,5 +35,5 @@ export const describeTermination = (
   const by =
     termination.resignedBy ??
     (termination.winner === player ? 'maia' : 'player')
-  return by === 'maia' ? 'Maia resigned — you win' : 'You resigned — Maia wins'
+  return by === 'maia' ? 'Maia resigned. You win.' : 'You resigned. Maia wins.'
 }

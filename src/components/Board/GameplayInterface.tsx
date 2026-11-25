@@ -216,7 +216,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
           : maiaRating,
   }
 
-  // A resignation, as the player reads it: "Maia resigned — you win".
+  // A resignation, as the player reads it: "Maia resigned. You win.".
   const resultNote = describeTermination(game.termination, player)
 
   const Info = (
