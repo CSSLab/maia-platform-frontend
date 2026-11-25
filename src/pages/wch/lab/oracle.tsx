@@ -2578,16 +2578,16 @@ const MovePanel: React.FC<{
             return (
               <button
                 key={c.san}
-                onClick={() =>
-                  onGuess ? onGuess(c.san) : onShow(isHover ? null : c.san)
-                }
+                onMouseEnter={() => onShow(c.san)}
+                onMouseLeave={() => onShow(null)}
+                onClick={() => onGuess?.(c.san)}
                 className={`grid h-7 w-full grid-cols-[72px_1fr_40px_56px] items-center gap-2 px-4 text-left text-sm ${
                   isPlayed
                     ? 'bg-white/[0.09]'
                     : isHover
                       ? 'bg-glass-stronger'
                       : ''
-                } cursor-pointer`}
+                } ${onGuess ? 'cursor-pointer' : 'cursor-default'}`}
               >
                 <span className="flex items-center gap-1.5 font-medium text-white/90">
                   {c.san}
