@@ -60,7 +60,9 @@ const FOCUS_DEPTH = 16
  * on screen first, then the rest, latest first. Each position gets Maia's
  * move probabilities, a quick Stockfish search (eval and best move) and
  * Maia's win chances from the bars server; the position on screen also gets
- * a full search of every move and Maia's read at several ratings.
+ * a full search of every move. Separately, and with or without the feed,
+ * Maia's read of `ratingFen` at each of `ratingBands` (the By rating tab),
+ * once the browser has Maia.
  */
 export const useWchEngines = (opts: {
   enabled: boolean
@@ -68,8 +70,14 @@ export const useWchEngines = (opts: {
   focusFen: string | null
   /** "base+inc" for the bars, or null. */
   timeControl: string | null
+  /** The position to read at each rating (null: none). */
+  ratingFen?: string | null
+  ratingBands?: number[]
 }) => {
   const { enabled, fens, focusFen, timeControl } = opts
+  const ratingFen = opts.ratingFen ?? null
+  const ratingBands = opts.ratingBands ?? LIVE_RATING_BANDS
+  const ratingKey = (fen: string) => `${fen}|${ratingBands.join(',')}`
   const maia = useContext(MaiaEngineContext)
   const stockfish = useContext(StockfishEngineContext)
   const [version, bump] = useReducer((x: number) => x + 1, 0)
@@ -121,20 +129,6 @@ export const useWchEngines = (opts: {
                 },
               )
               reads.forEach((r, k) => (get(needMaia[k]).read = r))
-              bump()
-              continue
-            }
-            if (focusFen && !byRating.current.has(focusFen)) {
-              const reads = await Promise.all(
-                LIVE_RATING_BANDS.map((elo) =>
-                  readMaiaAt(maia.maia!, [focusFen], elo, {
-                    policy: true,
-                    priority: MAIA_PRIORITY.normal,
-                    signal: controller.signal,
-                  }).then((r) => r[0]),
-                ),
-              )
-              byRating.current.set(focusFen, reads)
               bump()
               continue
             }
@@ -218,6 +212,32 @@ export const useWchEngines = (opts: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, fensKey, focusFen, maiaReady, timeControl])
 
+  // The position on screen, at each rating.
+  useEffect(() => {
+    if (!ratingFen || !maiaReady) return
+    const key = ratingKey(ratingFen)
+    if (byRating.current.has(key)) return
+    const controller = new AbortController()
+    void Promise.all(
+      ratingBands.map((elo) =>
+        readMaiaAt(maia.maia!, [ratingFen], elo, {
+          policy: true,
+          priority: MAIA_PRIORITY.normal,
+          signal: controller.signal,
+        }).then((r) => r[0]),
+      ),
+    )
+      .then((reads) => {
+        byRating.current.set(key, reads)
+        bump()
+      })
+      .catch(() => {
+        // Stopped, or Maia failed: the tab says what it has.
+      })
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ratingFen, ratingBands.join(','), maiaReady])
+
   // The position on screen: every legal move searched.
   useEffect(() => {
     if (!enabled || !focusFen || stockfish.status !== 'ready') return
@@ -263,6 +283,6 @@ export const useWchEngines = (opts: {
     info: (fen: string) => info.current.get(fen),
     focusEval: (fen: string) =>
       focus.current?.fen === fen ? focus.current : null,
-    byRating: (fen: string) => byRating.current.get(fen) ?? null,
+    byRating: (fen: string) => byRating.current.get(ratingKey(fen)) ?? null,
   }
 }

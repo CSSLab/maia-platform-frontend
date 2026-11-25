@@ -120,6 +120,9 @@ const moveNo = (n: number, color: Side) =>
   `${n}${color === 'white' ? '.' : '…'}`
 
 type PaneTab = 'chances' | 'risk' | 'clocks' | 'rating'
+/** The feed's ratings for the played move (By rating, with the feed). */
+const FEED_RATING_BANDS = RATING_KEYS.map(Number)
+
 const PANE_TABS: { id: PaneTab; name: string }[] = [
   { id: 'chances', name: 'Win chances' },
   { id: 'risk', name: 'Blunder risk' },
@@ -234,7 +237,6 @@ export default function OraclePage() {
   const shown = isLive ? LIVE - 1 : sel
   /** The move the panels are about (LIVE: the one he's thinking about). */
   const panelIdx = isLive ? LIVE : sel + 1
-  const [preview, setPreview] = useState<number | null>(null)
   const [hoverSan, setHoverSan] = useState<string | null>(null)
   const [playedAt, setPlayedAt] = useState<number | null>(null)
   const played = playedAt !== null
@@ -344,17 +346,27 @@ export default function OraclePage() {
     () => [START_FEN, ...liveMoves.map((m) => m.fen)],
     [liveMoves],
   )
+  // The position on the board, which the panel is about (its next move).
   const focusFen = demo
     ? null
     : sel >= LIVE
       ? (liveMoves[LIVE - 1]?.fen ?? START_FEN)
-      : liveMoves[sel].fenBefore
-  // In the browser only when there's no feed for this game.
+      : (liveMoves[sel]?.fen ?? START_FEN)
+  // With the feed, its ratings; else the browser's.
+  const ratingBands = demo
+    ? RATING_BANDS
+    : feedOn
+      ? FEED_RATING_BANDS
+      : LIVE_RATING_BANDS
+  // In the browser only when there's no feed for this game, except Maia's
+  // read at each rating (the feed has those for the played move only).
   const engines = useWchEngines({
     enabled: !demo && !!live.game && feed.status === 'off',
     fens: liveFens,
     focusFen,
     timeControl: barTimeControl(live.game?.timeControl ?? null),
+    ratingFen: tab === 'rating' ? focusFen : null,
+    ratingBands,
   })
 
   const ids = {
@@ -488,33 +500,28 @@ export default function OraclePage() {
   // board before it (null: the start, or live).
   const ply = isLive ? null : (plies[panelIdx] ?? null)
   const boardPly = isLive || shown < 0 ? null : (plies[shown] ?? null)
-  const previewPly = preview !== null ? (plies[preview] ?? null) : null
   const lastPly = plies[LIVE - 1] ?? null
 
-  const boardFen = previewPly
-    ? previewPly.fen
-    : !isLive
-      ? (boardPly?.fen ?? plies[0]?.fenBefore ?? next.fen)
-      : demoPlayed && liveAfter
-        ? liveAfter.fen
-        : next.fen
-  const lastMove = previewPly
-    ? previewPly.uci
-    : !isLive
-      ? (boardPly?.uci ?? null)
-      : demoPlayed && liveAfter
-        ? liveAfter.uci
-        : (lastPly?.uci ?? null)
+  const boardFen = !isLive
+    ? (boardPly?.fen ?? plies[0]?.fenBefore ?? next.fen)
+    : demoPlayed && liveAfter
+      ? liveAfter.fen
+      : next.fen
+  const lastMove = !isLive
+    ? (boardPly?.uci ?? null)
+    : demoPlayed && liveAfter
+      ? liveAfter.uci
+      : (lastPly?.uci ?? null)
 
   const dests = useMemo(() => {
-    if (!canGuess || previewPly) return undefined
+    if (!canGuess) return undefined
     const c = new Chess(next.fen)
     const map = new Map<Key, Key[]>()
     c.moves({ verbose: true }).forEach((m) => {
       map.set(m.from as Key, [...(map.get(m.from as Key) ?? []), m.to as Key])
     })
     return map
-  }, [canGuess, previewPly, next.fen])
+  }, [canGuess, next.fen])
 
   const onBoardMove = (from: string, to: string) => {
     const c = new Chess(next.fen)
@@ -540,7 +547,6 @@ export default function OraclePage() {
 
   const shapes = useMemo(() => {
     const out: DrawShape[] = []
-    if (previewPly) return out
     const arrow = (san: string, brush: string, w?: number) => {
       const sq = san ? sanToSquares(panelFen, san) : null
       if (sq)
@@ -568,7 +574,6 @@ export default function OraclePage() {
       arrow(guess, 'you')
     return out
   }, [
-    previewPly,
     hoverSan,
     isLive,
     demoPlayed,
@@ -633,22 +638,18 @@ export default function OraclePage() {
   }, [demo, guess, played, liveSan, guesses, LIVE, plies])
 
   // The bars and clocks: the position on the board.
-  const shownPly = previewPly ?? (isLive ? lastPly : boardPly)
+  const shownPly = isLive ? lastPly : boardPly
   const bar = shownPly?.bar
-  const evalNow = previewPly
-    ? previewPly.eval
-    : !isLive
-      ? (boardPly?.eval ?? 0.2)
-      : demoPlayed
-        ? NEXT.candidates[0].eval
-        : (lastPly?.eval ?? 0.2)
+  const evalNow = !isLive
+    ? (boardPly?.eval ?? 0.2)
+    : demoPlayed
+      ? NEXT.candidates[0].eval
+      : (lastPly?.eval ?? 0.2)
 
   const clockWhite = shownPly?.clockWhite ?? startClock
   const clockBlack = shownPly?.clockBlack ?? startClock
   const toMove: Side | null =
-    isLive && !previewPly && !demoPlayed && !next.over && thinking !== null
-      ? next.color
-      : null
+    isLive && !demoPlayed && !next.over && thinking !== null ? next.color : null
   const clockWhiteNow =
     clockWhite - (toMove === 'white' && thinking !== null ? thinking : 0)
   const clockBlackNow =
@@ -667,33 +668,36 @@ export default function OraclePage() {
   useEffect(() => {
     if (hoverSan) noteWchHover()
   }, [hoverSan])
-  // From the feed: the move played, at each rating (the move on show, or
-  // the last one while he thinks).
-  const ratingPly = feedOn ? (ply ?? lastPly) : null
-  const ratingBands = demo
-    ? RATING_BANDS
-    : feedOn
-      ? RATING_KEYS.map(Number)
-      : LIVE_RATING_BANDS
-  const ratingRows = useMemo(() => {
+  // At each rating: Maia's top three here and the move he played (or the
+  // top four while he thinks), all from the browser's Maia. Without it yet,
+  // the feed's numbers for the played move alone.
+  const ratingRows = useMemo((): RatingRow[] | null => {
     if (demo) return byRating(panelCands)
-    if (feedOn)
-      return ratingPly?.ratingShares
-        ? [{ san: ratingPly.san, shares: ratingPly.ratingShares }]
-        : null
-
+    const playedSan = ply?.san ?? null
+    const sans = panelCands.slice(0, 3).map((c) => c.san)
+    if (playedSan && !sans.includes(playedSan)) sans.push(playedSan)
+    else if (panelCands[3]) sans.push(panelCands[3].san)
     const reads = engines.byRating(panelFen)
-    if (!reads) return null
-    const top = panelCands.slice(0, 4)
-    return top.map((c) => {
-      const uci = (() => {
-        const m = new Chess(panelFen).move(c.san)
-        return m ? m.from + m.to + (m.promotion ?? '') : ''
-      })()
-      return { san: c.san, shares: reads.map((r) => r.policy?.[uci] ?? 0) }
-    })
+    if (reads)
+      return sans.map((san) => {
+        const m = new Chess(panelFen).move(san)
+        const uci = m ? m.from + m.to + (m.promotion ?? '') : ''
+        return {
+          san,
+          shares: reads.map((r) => r.policy?.[uci] ?? 0),
+          played: san === playedSan,
+        }
+      })
+    if (feedOn && ply?.ratingShares)
+      return [{ san: ply.san, shares: ply.ratingShares, played: true }]
+    return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demo, panelCands, panelFen, engines.version, feedOn, ratingPly])
+  }, [demo, panelCands, panelFen, engines.version, feedOn, ply])
+  const ratingNote = ratingRows?.length
+    ? ply
+      ? `How likely players at each rating were to play each move here; he played ${moveNo(ply.moveNumber, ply.color)}${ply.san}`
+      : 'How likely players at each rating are to play each move here'
+    : null
 
   const title = demo
     ? 'Game 1 of 14, Geneva'
@@ -722,12 +726,11 @@ export default function OraclePage() {
         <ByRating
           rows={ratingRows}
           bands={ratingBands}
-          note={
-            !feedOn
-              ? undefined
-              : ratingPly
-                ? `How likely players at each rating were to play ${moveNo(ratingPly.moveNumber, ratingPly.color)}${ratingPly.san}`
-                : null
+          note={demo ? undefined : ratingNote}
+          empty={
+            engines.maiaStatus === 'no-cache' || engines.maiaStatus === 'error'
+              ? 'Maia isn\u2019t loaded in this browser, so there are no ratings to show here yet'
+              : 'Maia is reading the position at each rating…'
           }
         />
       )}
@@ -883,7 +886,6 @@ export default function OraclePage() {
                   sel={shown}
                   live={isLive}
                   onSelect={go}
-                  onPreview={setPreview}
                   played={demoPlayed}
                   liveSan={liveSan}
                   livePct={liveCands.find((c) => c.san === liveSan)?.maia ?? 0}
@@ -994,7 +996,7 @@ export default function OraclePage() {
                 onPlay={() => setPlayed(true)}
                 guessCount={guessCount}
                 liveSan={liveSan}
-                onHover={setHoverSan}
+                onShow={setHoverSan}
                 hoverSan={hoverSan}
                 myGuess={ply ? (guesses[ply.index] ?? null) : null}
                 onJump={(i) => go(i - 1)}
@@ -1174,11 +1176,10 @@ const MoveList: React.FC<{
   sel: number
   live: boolean
   onSelect: (i: number) => void
-  onPreview: (i: number | null) => void
   played: boolean
   liveSan: string
   livePct: number
-}> = ({ sel, live, onSelect, onPreview, played, liveSan, livePct }) => {
+}> = ({ sel, live, onSelect, played, liveSan, livePct }) => {
   const { plies: GAME1, next: NEXT, LIVE } = useWch()
   const ref = useRef<HTMLDivElement>(null)
   // Live: the end of the list; otherwise the move on the board, in view.
@@ -1203,7 +1204,6 @@ const MoveList: React.FC<{
   return (
     <div
       ref={ref}
-      onMouseLeave={() => onPreview(null)}
       className="red-scrollbar relative grid min-h-0 flex-1 auto-rows-min grid-cols-[2.25rem_1fr_1fr] overflow-y-auto border-b border-glass-border text-white/90"
     >
       {rows.map((i) => (
@@ -1215,14 +1215,12 @@ const MoveList: React.FC<{
             p={GAME1[i]}
             active={!live && sel === i}
             onClick={() => onSelect(i)}
-            onHover={() => onPreview(i)}
           />
           {GAME1[i + 1] ? (
             <Cell
               p={GAME1[i + 1]}
               active={!live && sel === i + 1}
               onClick={() => onSelect(i + 1)}
-              onHover={() => onPreview(i + 1)}
             />
           ) : (
             <span />
@@ -1235,7 +1233,6 @@ const MoveList: React.FC<{
       <button
         data-sel={live}
         onClick={() => onSelect(LIVE)}
-        onMouseEnter={() => onPreview(null)}
         className={`flex h-7 items-center justify-between px-2 text-sm ${
           live
             ? 'bg-rose-500/20 ring-1 ring-inset ring-rose-400/60'
@@ -1309,12 +1306,10 @@ const Cell: React.FC<{
   p: LivePly
   active: boolean
   onClick: () => void
-  onHover: () => void
-}> = ({ p, active, onClick, onHover }) => (
+}> = ({ p, active, onClick }) => (
   <button
     data-sel={active}
     onClick={onClick}
-    onMouseEnter={onHover}
     className={`flex h-7 min-w-0 items-center justify-between gap-1 px-2 text-sm hover:bg-glass-stronger ${
       active ? 'bg-glass-strong' : ''
     }`}
@@ -2185,21 +2180,27 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
   )
 }
 
+interface RatingRow {
+  san: string
+  shares: number[]
+  /** The move he went on to play. */
+  played?: boolean
+}
+
 const ByRating: React.FC<{
-  rows: { san: string; shares: number[] }[] | null
+  rows: RatingRow[] | null
   bands: number[]
   note?: string | null
-}> = ({ rows, bands, note }) => {
+  empty: string
+}> = ({ rows, bands, note, empty }) => {
   if (!rows || !rows.length)
     return (
-      <div className="flex h-full items-center justify-center text-xs text-white/40">
-        {note === undefined
-          ? 'Maia is reading the position at each rating…'
-          : 'Once a move is played: how likely players at each rating were to play it'}
+      <div className="flex h-full items-center justify-center px-4 text-center text-xs text-white/40">
+        {empty}
       </div>
     )
   return (
-    <div className="grid h-full grid-cols-[52px_repeat(5,1fr)] content-center gap-x-2 gap-y-1 text-xs">
+    <div className="grid h-full grid-cols-[84px_repeat(5,1fr)] content-center gap-x-2 gap-y-1 text-xs">
       {note ? (
         <span className="col-span-6 mb-1 text-[11px] text-white/50">
           {note}
@@ -2213,7 +2214,14 @@ const ByRating: React.FC<{
       ))}
       {rows.map((row) => (
         <React.Fragment key={row.san}>
-          <span className="font-medium text-white/90">{row.san}</span>
+          <span className="flex items-center gap-1 font-medium text-white/90">
+            {row.san}
+            {row.played ? (
+              <span className="rounded-sm bg-white/15 px-1 text-[9px] uppercase leading-[14px] text-white/80">
+                played
+              </span>
+            ) : null}
+          </span>
           {row.shares.map((v, k) => (
             <span key={k} className="relative h-4 rounded-sm bg-white/[0.05]">
               <span
@@ -2409,7 +2417,7 @@ const MovePanel: React.FC<{
   onPlay: () => void
   guessCount: number
   liveSan: string
-  onHover: (san: string | null) => void
+  onShow: (san: string | null) => void
   hoverSan: string | null
   /** Your guess for the move on show (history). */
   myGuess: string | null
@@ -2431,7 +2439,7 @@ const MovePanel: React.FC<{
   onPlay,
   guessCount,
   liveSan,
-  onHover,
+  onShow,
   hoverSan,
   myGuess,
   lastResult,
@@ -2570,16 +2578,16 @@ const MovePanel: React.FC<{
             return (
               <button
                 key={c.san}
-                onMouseEnter={() => onHover(c.san)}
-                onMouseLeave={() => onHover(null)}
-                onClick={() => onGuess?.(c.san)}
+                onClick={() =>
+                  onGuess ? onGuess(c.san) : onShow(isHover ? null : c.san)
+                }
                 className={`grid h-7 w-full grid-cols-[72px_1fr_40px_56px] items-center gap-2 px-4 text-left text-sm ${
                   isPlayed
                     ? 'bg-white/[0.09]'
                     : isHover
                       ? 'bg-glass-stronger'
                       : ''
-                } ${onGuess ? 'cursor-pointer' : 'cursor-default'}`}
+                } cursor-pointer`}
               >
                 <span className="flex items-center gap-1.5 font-medium text-white/90">
                   {c.san}
