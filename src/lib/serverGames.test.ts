@@ -2,6 +2,7 @@ import { PlayGameConfig } from 'src/types'
 import {
   ServerGame,
   describeServerGame,
+  hasResignOffer,
   isAskedForGame,
   isRatedServerGame,
   serverClocks,
@@ -60,6 +61,54 @@ describe('a game the server holds', () => {
     expect(serverTermination(game({ state: 'rules', winner: 'draw' }))).toEqual(
       { result: '1/2-1/2', winner: 'none', type: 'rules' },
     )
+  })
+
+  it("tells whether a resignation was Maia's or the player's", () => {
+    // The player is white.
+    expect(
+      serverTermination(
+        game({ state: 'resign', winner: 'white', bot_resigned: true }),
+      ),
+    ).toEqual({
+      result: '1-0',
+      winner: 'white',
+      type: 'resign',
+      resignedBy: 'maia',
+      condition: 'Black resigned',
+    })
+    // A server that doesn't say: the player can't win by resigning.
+    expect(
+      serverTermination(game({ state: 'resign', winner: 'white' })),
+    ).toMatchObject({ winner: 'white', resignedBy: 'maia' })
+    expect(
+      serverTermination(game({ state: 'resign', winner: 'black' })),
+    ).toEqual({
+      result: '0-1',
+      winner: 'black',
+      type: 'resign',
+      resignedBy: 'player',
+      condition: 'White resigned',
+    })
+    expect(
+      serverTermination(
+        game({
+          player_color: 'black',
+          state: 'resign',
+          winner: 'black',
+          bot_resigned: true,
+        }),
+      ),
+    ).toMatchObject({ result: '0-1', winner: 'black', resignedBy: 'maia' })
+  })
+
+  it("has Maia's offer to resign only while the game goes on", () => {
+    expect(hasResignOffer(game())).toBe(false)
+    expect(hasResignOffer(game({ resign_offer: true }))).toBe(true)
+    expect(
+      hasResignOffer(
+        game({ resign_offer: true, state: 'resign', winner: 'white' }),
+      ),
+    ).toBe(false)
   })
 
   it("reads the clocks as the server's, less what the running side has used", () => {

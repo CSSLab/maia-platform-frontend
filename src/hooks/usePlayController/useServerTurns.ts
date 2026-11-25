@@ -1,10 +1,12 @@
 import { Chess } from 'chess.ts'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import toast from 'react-hot-toast'
 
 import { Color } from 'src/types'
 import { MoveRequestError } from 'src/api/play'
 import {
   ServerGameConflict,
+  answerResignOfferServerGame,
   fetchServerGame,
   flagServerGame,
   resignServerGame,
@@ -18,6 +20,7 @@ import {
 } from 'src/components/Common/maiaMoveFailedToast'
 import {
   ServerGame,
+  hasResignOffer,
   serverClocks,
   serverTermination,
 } from 'src/lib/serverGames'
@@ -327,5 +330,40 @@ export const useServerTurns = (options: Options) => {
       })
   }, [id])
 
-  return { serverHeld, thinkMs, canPlay, sendMove, sendPiece, show, resign }
+  // Maia is offering to resign (the beta models can): the game waits for the
+  // player's answer. Answered, the server's answer is shown as any other:
+  // the end of the game, or Maia's move.
+  const [answeringOffer, setAnsweringOffer] = useState(false)
+  const resignOffer = serverHeld && !!answer && hasResignOffer(answer.game)
+
+  const answerResignOffer = useCallback(
+    (accept: boolean) => {
+      setAnsweringOffer(true)
+      answerResignOfferServerGame(id, accept)
+        .then((game) => setAnswer({ game }))
+        .catch((error) => {
+          if (error instanceof ServerGameConflict) {
+            latest.current.onServerResync?.(error.game)
+            return
+          }
+          // The offer is still on screen, to be answered again.
+          toast.error("Couldn't send your answer. Please try again.")
+        })
+        .finally(() => setAnsweringOffer(false))
+    },
+    [id],
+  )
+
+  return {
+    serverHeld,
+    thinkMs,
+    canPlay,
+    sendMove,
+    sendPiece,
+    show,
+    resign,
+    resignOffer,
+    answeringOffer,
+    answerResignOffer,
+  }
 }

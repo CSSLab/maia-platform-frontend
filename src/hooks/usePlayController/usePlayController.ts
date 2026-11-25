@@ -8,6 +8,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react'
 import { initialClockSeconds } from 'src/lib/timeControl'
 import { buildClockState, publishClockState } from 'src/lib/clockState'
 import { UnfinishedGame } from 'src/lib/unfinishedGame'
+import { resignTermination } from 'src/lib/resignation'
 
 const nullFen = new Chess().fen()
 
@@ -138,11 +139,7 @@ export const usePlayController = (
         : timeExpired
           ? computeTimeTermination(chess, timeExpired)
           : resigned
-            ? ({
-                result: turn == 'w' ? '0-1' : '1-0',
-                winner: turn == 'w' ? 'black' : 'white',
-                type: 'resign',
-              } as Termination)
+            ? resignTermination(config.player, 'player')
             : computeTermination(chess)
 
     const moves = []
@@ -187,6 +184,7 @@ export const usePlayController = (
     id,
     serverHeld,
     serverTermination,
+    config.player,
   ])
 
   usePlayGameTracking(id, config, moveList.length, game.termination)

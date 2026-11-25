@@ -10,6 +10,7 @@ const takeBackServerGame = jest.fn()
 const addTimeServerGame = jest.fn()
 const skipDelayServerGame = jest.fn()
 const fetchServerGame = jest.fn()
+const answerResignOfferServerGame = jest.fn()
 const fetchMaiaMove = jest.fn()
 const logGameMove = jest.fn()
 const incrementStats = jest.fn()
@@ -54,6 +55,8 @@ jest.mock('src/api/serverGames', () => {
     sendServerPiece: jest.fn(),
     skipDelayServerGame: (...args: unknown[]) => skipDelayServerGame(...args),
     fetchServerGame: (...args: unknown[]) => fetchServerGame(...args),
+    answerResignOfferServerGame: (...args: unknown[]) =>
+      answerResignOfferServerGame(...args),
   }
 })
 
@@ -132,6 +135,7 @@ describe('playing a game the server holds', () => {
       addTimeServerGame,
       skipDelayServerGame,
       fetchServerGame,
+      answerResignOfferServerGame,
       fetchMaiaMove,
       logGameMove,
       incrementStats,
@@ -354,6 +358,115 @@ describe('playing a game the server holds', () => {
     expect(resignServerGame).toHaveBeenCalledWith('g1')
     expect(result.current.game.termination?.type).toBe('resign')
     expect(result.current.game.termination?.winner).toBe('black')
+  })
+
+  it('ends the game as a win for the player when Maia resigns', async () => {
+    const { result } = start(serverGame())
+    sendServerMove.mockResolvedValue(
+      serverGame({
+        moves: ['e2e4'],
+        ply: 1,
+        to_move: 'black',
+        state: 'resign',
+        winner: 'white',
+        bot_resigned: true,
+        rating: {
+          player_elo: 1510,
+          opponent_elo: 1500,
+          player_provisional: false,
+        },
+      }),
+    )
+    await act(async () => {
+      await result.current.makePlayerMove('e2e4')
+    })
+    await settle()
+    expect(result.current.game.termination).toEqual({
+      result: '1-0',
+      winner: 'white',
+      type: 'resign',
+      resignedBy: 'maia',
+      condition: 'Black resigned',
+    })
+    expect(result.current.resignOffer).toBe(false)
+    expect(updateRating).toHaveBeenCalledWith(1510, false)
+    expect(incrementStats).toHaveBeenCalledWith(1, 1)
+  })
+
+  const offering = () =>
+    serverGame({
+      moves: ['e2e4'],
+      move_times: [2000],
+      ply: 1,
+      to_move: 'black',
+      resign_offer: true,
+    })
+
+  it('asks the player when Maia offers to resign, and ends the game if they accept', async () => {
+    const { result } = start(serverGame())
+    sendServerMove.mockResolvedValue(offering())
+    await act(async () => {
+      await result.current.makePlayerMove('e2e4')
+    })
+    await settle()
+    // The game goes on until the player answers.
+    expect(result.current.resignOffer).toBe(true)
+    expect(result.current.game.termination).toBeUndefined()
+
+    answerResignOfferServerGame.mockResolvedValue(
+      serverGame({
+        moves: ['e2e4'],
+        ply: 1,
+        to_move: 'black',
+        state: 'resign',
+        winner: 'white',
+        bot_resigned: true,
+        rating: {
+          player_elo: 1510,
+          opponent_elo: 1500,
+          player_provisional: false,
+        },
+      }),
+    )
+    act(() => result.current.acceptResignOffer())
+    expect(result.current.answeringResignOffer).toBe(true)
+    await settle()
+    expect(answerResignOfferServerGame).toHaveBeenCalledWith('g1', true)
+    expect(result.current.resignOffer).toBe(false)
+    expect(result.current.answeringResignOffer).toBe(false)
+    expect(result.current.game.termination).toMatchObject({
+      result: '1-0',
+      winner: 'white',
+      type: 'resign',
+      resignedBy: 'maia',
+    })
+    expect(incrementStats).toHaveBeenCalledWith(1, 1)
+  })
+
+  it("plays on when the player turns Maia's offer down: Maia moves", async () => {
+    const { result } = start(serverGame())
+    sendServerMove.mockResolvedValue(offering())
+    await act(async () => {
+      await result.current.makePlayerMove('e2e4')
+    })
+    await settle()
+    expect(result.current.resignOffer).toBe(true)
+
+    answerResignOfferServerGame.mockResolvedValue(
+      serverGame({
+        moves: ['e2e4', 'e7e5'],
+        move_times: [2000, 0],
+        ply: 2,
+        bot_move: { uci: 'e7e5', ply: 1, delay: 0 },
+      }),
+    )
+    act(() => result.current.declineResignOffer())
+    await settle()
+    expect(answerResignOfferServerGame).toHaveBeenCalledWith('g1', false)
+    expect(result.current.resignOffer).toBe(false)
+    expect(result.current.game.termination).toBeUndefined()
+    expect(result.current.moveList).toEqual(['e2e4', 'e7e5'])
+    expect(result.current.playerActive).toBe(true)
   })
 
   it('asks the server when the clock runs out here, and takes its clocks if it disagrees', async () => {
