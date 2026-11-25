@@ -436,6 +436,11 @@ export const useVsMaiaPlayController = (
     addTime,
     makePlayerMove,
     resign,
+    // Maia (a beta model) is offering to resign: Accept or Play on.
+    resignOffer: server.resignOffer,
+    answeringResignOffer: server.answeringOffer,
+    acceptResignOffer: () => server.answerResignOffer(true),
+    declineResignOffer: () => server.answerResignOffer(false),
     premovesEnabled: true,
     queuedPremove,
     setPremove,

@@ -22,6 +22,7 @@ import {
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
 import { formatPgnDate, pgnPlayerName } from 'src/lib/pgn'
 import { pgnTimeControl } from 'src/lib/timeControl'
+import { describeTermination } from 'src/lib/resignation'
 
 const LEAVE_GAME_QUESTION =
   'You have a game in progress. Leave it? (Its clock keeps running; you can come back to it from Play.)'
@@ -215,6 +216,9 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
           : maiaRating,
   }
 
+  // A resignation, as the player reads it: "Maia resigned. You win.".
+  const resultNote = describeTermination(game.termination, player)
+
   const Info = (
     <>
       <div className="flex w-full items-center justify-between text-secondary">
@@ -241,7 +245,9 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
           ) : null}
         </p>
       </div>{' '}
-      {game.termination ? (
+      {resultNote ? (
+        <p className="text-center font-medium text-primary">{resultNote}</p>
+      ) : game.termination ? (
         <p className="text-center capitalize text-secondary">
           {game.termination.winner !== 'none'
             ? `${game.termination.winner} wins`
@@ -335,6 +341,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                 <MovesContainer
                   game={game}
                   termination={game.termination}
+                  terminationNote={resultNote}
                   embedded
                   heightClass="h-full"
                 />
@@ -414,6 +421,7 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                   <MovesContainer
                     game={game}
                     termination={game.termination}
+                    terminationNote={resultNote}
                     embedded
                   />
                 </div>

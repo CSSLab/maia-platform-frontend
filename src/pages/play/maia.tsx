@@ -13,6 +13,7 @@ import {
   GameInProgressModal,
   Loading,
   PlayControls,
+  ResignOfferModal,
   StartGameConfirmModal,
 } from 'src/components'
 import { Color, TimeControl, PlayGameConfig } from 'src/types'
@@ -153,6 +154,12 @@ const PlayMaia: React.FC<Props> = ({
             }
           />
         </div>
+        <ResignOfferModal
+          isOpen={controller.resignOffer}
+          answering={controller.answeringResignOffer}
+          onAccept={controller.acceptResignOffer}
+          onPlayOn={controller.declineResignOffer}
+        />
       </GameplayInterface>
     </PlayControllerContext.Provider>
   )

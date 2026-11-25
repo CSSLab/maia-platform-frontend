@@ -144,6 +144,9 @@ export interface Termination {
   result: string
   winner: 'white' | 'black' | 'none' | undefined
   type?: 'rules' | 'resign' | 'time' | undefined
+  // A game against Maia that ended by resignation: who resigned.
+  resignedBy?: 'player' | 'maia'
+  // How it ended, as a PGN's Termination header says it.
   condition?: string
 }
 

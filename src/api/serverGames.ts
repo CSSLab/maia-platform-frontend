@@ -204,6 +204,21 @@ export const resignServerGame = (gameId: string) =>
     4,
   )
 
+/**
+ * The player's answer to Maia's offer to resign (resign_offer). Accepted, the
+ * game ends as Maia's resignation, with the ratings; turned down, the answer
+ * has Maia's move, and Maia doesn't offer again in this game.
+ */
+export const answerResignOfferServerGame = (gameId: string, accept: boolean) =>
+  retried(
+    async () =>
+      gameFrom(
+        'play/games resign_offer',
+        await request(`play/games/${gameId}/resign_offer`, 'POST', { accept }),
+      ),
+    4,
+  )
+
 /** Tells the server the player's clock has run out; it answers with its own view. */
 export const flagServerGame = (gameId: string) =>
   retried(

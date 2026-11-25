@@ -6,6 +6,7 @@ import {
   User,
 } from 'src/types'
 import { UnfinishedGame } from 'src/lib/unfinishedGame'
+import { resignTermination } from 'src/lib/resignation'
 
 /**
  * Games the server holds (the backend's /play/games): the browser sends each
@@ -86,6 +87,14 @@ export interface ServerGame {
   to_move: Color
   state: 'not_over' | 'rules' | 'resign' | 'time'
   winner: '' | 'white' | 'black' | 'draw'
+  // A game that ended as "resign": whether it was Maia that resigned (the
+  // beta models can). Where the server doesn't say, a resignation the player
+  // won was Maia's: the player can't win by resigning.
+  bot_resigned?: boolean
+  // Maia, on its turn, would resign: the game goes on until the player
+  // answers (answerResignOfferServerGame). Accepted, it ends as Maia's
+  // resignation; turned down, Maia moves, and doesn't offer again in the game.
+  resign_offer?: boolean
   clock: ServerClock | null
   // Maia's move made in this answer, to show after `delay` seconds.
   bot_move: { uci: string; ply: number; delay: number } | null
@@ -102,6 +111,13 @@ export const serverTermination = (
   game: ServerGame,
 ): Termination | undefined => {
   if (game.state === 'not_over') return undefined
+  if (game.state === 'resign') {
+    const maiaResigned = game.bot_resigned ?? game.winner === game.player_color
+    const maiaColor = game.player_color === 'white' ? 'black' : 'white'
+    return maiaResigned
+      ? resignTermination(maiaColor, 'maia')
+      : resignTermination(game.player_color, 'player')
+  }
   if (game.winner === 'white' || game.winner === 'black') {
     return {
       result: game.winner === 'white' ? '1-0' : '0-1',
@@ -111,6 +127,10 @@ export const serverTermination = (
   }
   return { result: '1/2-1/2', winner: 'none', type: game.state }
 }
+
+/** Whether Maia is offering to resign, and waiting for the player's answer. */
+export const hasResignOffer = (game: ServerGame) =>
+  game.state === 'not_over' && !!game.resign_offer
 
 /**
  * Each clock's time left (ms) now, and whether one is running, from the
