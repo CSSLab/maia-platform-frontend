@@ -1,4 +1,10 @@
-import { barTimeControl, isOurGame, parseLiveGame, splitGames } from './live'
+import {
+  barTimeControl,
+  baseSeconds,
+  isOurGame,
+  parseLiveGame,
+  splitGames,
+} from './live'
 
 const GAME_1 = `[Event "FIDE World Chess Championship 2026"]
 [White "Sindarov, Javokhir"]
@@ -58,5 +64,15 @@ describe('the World Championship broadcast parser', () => {
     expect(barTimeControl('40/7200:20/3600:900+30')).toBe('7200+30')
     expect(barTimeControl('900+10')).toBe('900+10')
     expect(barTimeControl(null)).toBeNull()
+    // The broadcast's own wording, in minutes.
+    expect(barTimeControl("120'/40m + 30'/end, 30/move from move 41")).toBe(
+      '7200+30',
+    )
+  })
+
+  it('reads the base time in seconds either way', () => {
+    expect(baseSeconds('40/7200:20/3600:900+30')).toBe(7200)
+    expect(baseSeconds("120'/40m + 30'/end, 30/move from move 41")).toBe(7200)
+    expect(baseSeconds(null)).toBeNull()
   })
 })

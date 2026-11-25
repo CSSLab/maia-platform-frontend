@@ -35,16 +35,17 @@ export interface FeedState {
  * plies (the own search, the win-chance bar, a deepening Stockfish), and the
  * API's cursor (the files' change times) brings each rewrite back. When the
  * game ends while we watch, the whole game once more, then a slow look now
- * and then. Also the pre-game bundle (its name is the game id, or
- * `pregameName`).
+ * and then. Also the pre-game bundle: the first of the game id and
+ * `pregameNames` the API has.
  */
 export const useWchFeed = (opts: {
   gameId: string | null
-  pregameName?: string | null
+  pregameNames?: string[]
   /** The game is over (poll slowly from then on). */
   done?: boolean
 }): FeedState => {
-  const { gameId, pregameName, done } = opts
+  const { gameId, pregameNames, done } = opts
+  const pregameKey = (pregameNames ?? []).join(',')
   const [state, setState] = useState<FeedState>({
     status: 'loading',
     manifest: null,
@@ -110,7 +111,9 @@ export const useWchFeed = (opts: {
     }
     void poll()
 
-    const names = [gameId, pregameName].filter(Boolean) as string[]
+    const names = [gameId, ...pregameKey.split(',')].filter(
+      (n, i, all) => !!n && all.indexOf(n) === i,
+    ) as string[]
     void (async () => {
       for (const name of names) {
         try {
@@ -130,7 +133,7 @@ export const useWchFeed = (opts: {
       controller.abort()
       if (timer) clearTimeout(timer)
     }
-  }, [gameId, pregameName])
+  }, [gameId, pregameKey])
 
   return state
 }
