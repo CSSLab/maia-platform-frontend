@@ -43,7 +43,7 @@ import {
   fmtEval,
   tally,
 } from 'src/components/WCh/game1'
-import { barTimeControl } from 'src/components/WCh/live'
+import { barTimeControl, baseSeconds } from 'src/components/WCh/live'
 import {
   Pregame,
   RATING_KEYS,
@@ -197,11 +197,12 @@ export default function OraclePage() {
     game: gameQ,
   })
   // The research feed for the game on show: its id is the Lichess game id.
-  // The pre-game bundle may be named after the match game instead.
+  // The pre-game bundle may be named after the match game instead; game 1's
+  // serves the whole match (both colours) unless a game has its own.
   const gameNo = broadcast.roundName?.match(/\d+/)?.[0] ?? '1'
   const feed = useWchFeed({
     gameId: demo ? null : (feedQ ?? broadcast.game?.gameId ?? null),
-    pregameName: `gukesh_sindarov_g${gameNo}`,
+    pregameNames: [`gukesh_sindarov_g${gameNo}`, 'gukesh_sindarov_g1'],
     done: !feedQ && broadcast.status === 'finished',
   })
   const feedOn = !demo && feed.status === 'on' && feed.plies.size > 0
@@ -373,10 +374,10 @@ export default function OraclePage() {
     white: live.game?.white ?? WHITE,
     black: live.game?.black ?? (live.game?.white === BLACK ? WHITE : BLACK),
   }
-  const startClock = useMemo(() => {
-    const base = live.game?.timeControl?.match(/^(?:\d+\/)?(\d+)/)?.[1]
-    return base ? +base : BASE_SECONDS
-  }, [live.game?.timeControl])
+  const startClock = useMemo(
+    () => baseSeconds(live.game?.timeControl ?? null) ?? BASE_SECONDS,
+    [live.game?.timeControl],
+  )
 
   // The pre-game opening tree (the own models before the feed has a move).
   const tree = useMemo(
@@ -693,11 +694,6 @@ export default function OraclePage() {
     return null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demo, panelCands, panelFen, engines.version, feedOn, ply])
-  const ratingNote = ratingRows?.length
-    ? ply
-      ? `How likely players at each rating were to play each move here; he played ${moveNo(ply.moveNumber, ply.color)}${ply.san}`
-      : 'How likely players at each rating are to play each move here'
-    : null
 
   const title = demo
     ? 'Game 1 of 14, Geneva'
@@ -726,7 +722,6 @@ export default function OraclePage() {
         <ByRating
           rows={ratingRows}
           bands={ratingBands}
-          note={demo ? undefined : ratingNote}
           empty={
             engines.maiaStatus === 'no-cache' || engines.maiaStatus === 'error'
               ? 'Maia isn\u2019t loaded in this browser, so there are no ratings to show here yet'
@@ -2024,13 +2019,12 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
           id: 'gukesh' | 'sindarov',
           m: number,
         ) => {
+          // Seconds throughout; minutes only for the label.
           const usual = usualClock(pregame, id, m)
-          return Math.round(
-            usual !== null
-              ? (clock - usual) / 60
-              : (clock - clockCurve(id, m) * BASE_SECONDS) / 60 +
-                  (startClock - BASE_SECONDS) / 60,
-          )
+          return usual !== null
+            ? (clock - usual) / 60
+            : (clock - clockCurve(id, m) * BASE_SECONDS) / 60 +
+                (startClock - BASE_SECONDS) / 60
         }
         const wDiff =
           lastW && lastW.moveNumber <= 40
@@ -2159,14 +2153,14 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
                         y={y0 + 13}
                         fill={d < 0 ? '#fdae61' : 'rgba(255,255,255,0.7)'}
                       >
-                        {Math.abs(d)} min {d < 0 ? 'less' : 'more'} left
+                        {minutesOff(d)} min {d < 0 ? 'less' : 'more'}
                       </text>
                       <text
                         x={w - PAD.r + 10}
                         y={y0 + 25}
                         fill="rgba(255,255,255,0.4)"
                       >
-                        than usual
+                        left than usual
                       </text>
                     </>
                   ) : null}
@@ -2180,6 +2174,14 @@ const ClocksChart: React.FC<{ sel: number; startClock: number }> = ({
   )
 }
 
+/** 1.3, 4.9, 12: a tenth of a minute while it's under ten. */
+const minutesOff = (d: number) => {
+  const a = Math.abs(d)
+  return a < 10 ? a.toFixed(1) : String(Math.round(a))
+}
+
+const RATING_BAR = 'rgb(254 127 109 / 0.55)'
+
 interface RatingRow {
   san: string
   shares: number[]
@@ -2190,9 +2192,8 @@ interface RatingRow {
 const ByRating: React.FC<{
   rows: RatingRow[] | null
   bands: number[]
-  note?: string | null
   empty: string
-}> = ({ rows, bands, note, empty }) => {
+}> = ({ rows, bands, empty }) => {
   if (!rows || !rows.length)
     return (
       <div className="flex h-full items-center justify-center px-4 text-center text-xs text-white/40">
@@ -2201,11 +2202,6 @@ const ByRating: React.FC<{
     )
   return (
     <div className="grid h-full grid-cols-[84px_repeat(5,1fr)] content-center gap-x-2 gap-y-1 text-xs">
-      {note ? (
-        <span className="col-span-6 mb-1 text-[11px] text-white/50">
-          {note}
-        </span>
-      ) : null}
       <span />
       {bands.map((r) => (
         <span key={r} className="text-center text-[10px] text-white/40">
@@ -2226,11 +2222,8 @@ const ByRating: React.FC<{
             <span key={k} className="relative h-4 rounded-sm bg-white/[0.05]">
               <span
                 className="absolute inset-y-0 left-0 rounded-sm"
-                style={{
-                  width: `${v * 100}%`,
-                  background:
-                    k === bands.length - 1 ? MAIA : 'rgb(254 127 109 / 0.45)',
-                }}
+                // Every rating alike: one hue, one weight.
+                style={{ width: `${v * 100}%`, background: RATING_BAR }}
               />
               <span className="absolute inset-0 flex items-center justify-end pr-1 text-[10px] tabular-nums text-white/70">
                 {Math.round(v * 100)}

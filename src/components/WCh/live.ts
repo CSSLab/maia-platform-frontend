@@ -153,10 +153,25 @@ export const isOurGame = (pgn: string, gameId?: string | null) => {
   return !!w && !!b && w !== b
 }
 
+/**
+ * The base time in seconds, from the PGN standard ("40/7200:...") or the
+ * broadcast's own wording, in minutes ("120'/40m + 30'/end, ...").
+ */
+export const baseSeconds = (tc: string | null): number | null => {
+  if (!tc) return null
+  const min = tc.match(/^\s*(\d+)\s*(?:'|min)/)?.[1]
+  if (min) return +min * 60
+  const sec = tc.match(/^(?:\d+\/)?(\d+)/)?.[1]
+  return sec ? +sec : null
+}
+
 /** "40/7200:20/3600:900+30" -> "7200+30" (the bars' time-control input). */
 export const barTimeControl = (tc: string | null) => {
-  if (!tc) return null
-  const base = tc.match(/^(?:\d+\/)?(\d+)/)?.[1]
-  const inc = tc.match(/\+(\d+)$/)?.[1] ?? '0'
-  return base ? `${base}+${inc}` : null
+  const base = baseSeconds(tc)
+  if (base === null) return null
+  const inc =
+    tc?.match(/\+(\d+)$/)?.[1] ??
+    tc?.match(/(\d+)\s*(?:s|"|sec)?\s*\/\s*move/)?.[1] ??
+    '0'
+  return `${base}+${inc}`
 }
