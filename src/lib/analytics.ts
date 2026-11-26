@@ -743,7 +743,8 @@ export const trackHomepageFeatureClicked = (
     | 'hand_brain'
     | 'openings'
     | 'bot_or_not'
-    | 'wch',
+    | 'wch'
+    | 'wch_challenge',
   userAuthenticated: boolean,
 ) => {
   safeTrack('homepage_feature_clicked', {
@@ -912,3 +913,51 @@ export const trackWchGuess = (guess: {
 }) => {
   safeTrack('wch_guess', guess)
 }
+
+// The World Championship's Maia Challenges (/wch/challenge): who lands on the
+// page, who plays a challenge, how it goes, and who shares it.
+
+/** The challenges page was opened (at a challenge, from a shared link). */
+export const trackWchChallengePageViewed = (props: {
+  focus_round: number | null
+  completed: number
+  total: number
+}) => safeTrack('wch_challenge_page_viewed', props)
+
+/** Play Challenge N was clicked (it opens the play setup dialog). */
+export const trackWchChallengePlayClicked = (props: {
+  round: number
+  tries_before: number
+  passed_before: boolean
+}) => safeTrack('wch_challenge_play_clicked', props)
+
+/** A challenge game began (the player picked a level and started). */
+export const trackWchChallengeGameStarted = (props: {
+  round: number
+  level: number | null
+}) => safeTrack('wch_challenge_game_started', props)
+
+/** A challenge game ended. */
+export const trackWchChallengeGameFinished = (props: {
+  round: number
+  level: number | null
+  outcome: 'win' | 'draw' | 'loss'
+  passed: boolean
+  moves: number
+  practice: boolean
+}) => safeTrack('wch_challenge_game_finished', props)
+
+/** The share dialog was opened, from a card or after a game. */
+export const trackWchChallengeShareOpened = (props: {
+  round: number
+  from: 'card' | 'after_game'
+  has_result: boolean
+}) => safeTrack('wch_challenge_share_opened', props)
+
+/** Something was shared from the dialog: how, and what. */
+export const trackWchChallengeShared = (props: {
+  round: number
+  method: 'copy' | 'native' | 'x' | 'reddit'
+  shared: 'result' | 'challenge'
+  passed: boolean | null
+}) => safeTrack('wch_challenge_shared', props)

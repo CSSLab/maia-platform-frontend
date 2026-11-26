@@ -7,6 +7,14 @@ import { NewsItem } from 'src/types'
 // `href` is optional: a page of the site ("/blog/practice-mode") or a full URL.
 export const NEWS_ITEMS: NewsItem[] = [
   {
+    date: '2026-11-26',
+    title:
+      'Maia Challenges: play key positions from the World Championship against Maia',
+    description:
+      'One position from each game of the match. Pick a Maia level from 600 to 2600, play it out, and see how everyone else did.',
+    href: '/wch/challenge',
+  },
+  {
     date: '2026-11-24',
     title:
       'The World Championship starts today: watch Gukesh vs Sindarov live with Maia',

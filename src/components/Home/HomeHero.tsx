@@ -195,6 +195,31 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                   way of seeing chess.
                 </motion.p>
               </div>
+              <Link
+                href="/wch/challenge"
+                onClick={() =>
+                  trackHomepageFeatureClicked(
+                    'wch_challenge',
+                    !!user?.lichessId,
+                  )
+                }
+                className="flex w-full items-center gap-3 rounded-lg bg-human-1 px-4 py-3 text-black shadow-lg shadow-black/30 transition hover:brightness-110 sm:w-auto"
+              >
+                <span className="material-symbols-outlined shrink-0 !text-[26px]">
+                  swords
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-lg font-bold leading-6">
+                    Maia Challenges
+                  </span>
+                  <span className="text-sm text-black/75">
+                    Play key positions from the World Championship
+                  </span>
+                </span>
+                <span className="material-symbols-outlined ml-auto shrink-0 !text-[22px] sm:ml-2">
+                  arrow_forward
+                </span>
+              </Link>
               {!user?.lichessId && (
                 <motion.div className="flex flex-wrap items-center gap-3 sm:gap-3">
                   <p className="text-sm tracking-wider text-white/80">
