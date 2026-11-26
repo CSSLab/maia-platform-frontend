@@ -24,7 +24,7 @@ describe('ResignOfferModal', () => {
   it("asks the player about Maia's offer to resign", () => {
     const props = modal()
     expect(
-      screen.getByRole('dialog', { name: 'Maia wants to resign' }),
+      screen.getByRole('dialog', { name: 'Maia is offering to resign' }),
     ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
     expect(props.onAccept).toHaveBeenCalledTimes(1)

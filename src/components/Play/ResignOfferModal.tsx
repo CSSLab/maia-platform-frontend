@@ -35,7 +35,7 @@ export const ResignOfferModal: React.FC<ResignOfferModalProps> = ({
           id="resign-offer-title"
           className="mb-4 text-lg font-semibold text-primary"
         >
-          Maia wants to resign
+          Maia is offering to resign
         </h3>
 
         <p
