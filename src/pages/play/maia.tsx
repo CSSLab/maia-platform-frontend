@@ -4,7 +4,11 @@ import {
   startGameWithRetry,
   takeEarlyGame,
 } from 'src/api/play'
-import { trackGameStartFailed } from 'src/lib/analytics'
+import {
+  trackGameStartFailed,
+  trackWchChallengeGameFinished,
+  trackWchChallengeGameStarted,
+} from 'src/lib/analytics'
 import { NextPage } from 'next/types'
 import { useRouter } from 'next/router'
 import { tourConfigs } from 'src/constants/tours'
@@ -139,6 +143,43 @@ const PlayMaia: React.FC<Props> = ({
     challengeLevel,
     challengeMoves,
   ])
+  // The challenge's stats: each game once when it starts, once when it ends
+  // (practice games too, marked as such).
+  const startedTracked = useRef<string | null>(null)
+  const finishedTracked = useRef<string | null>(null)
+  useEffect(() => {
+    const wch = challengeFor(challengeId)
+    const gameId = controller.game.id
+    if (!wch || !gameId) return
+    if (startedTracked.current !== gameId) {
+      startedTracked.current = gameId
+      trackWchChallengeGameStarted({
+        round: wch.round,
+        level: challengeLevel ?? null,
+      })
+    }
+    if (termination && finishedTracked.current !== gameId) {
+      finishedTracked.current = gameId
+      const outcome = challengeOutcome(termination.winner)
+      trackWchChallengeGameFinished({
+        round: wch.round,
+        level: challengeLevel ?? null,
+        outcome,
+        passed: passes(wch, outcome),
+        moves: challengeMoves,
+        practice: !!playGameConfig.practice,
+      })
+    }
+  }, [
+    challengeId,
+    controller.game.id,
+    termination,
+    challengeOutcome,
+    challengeLevel,
+    challengeMoves,
+    playGameConfig.practice,
+  ])
+
   // A World Championship challenge: after the game, a dialog to share how it
   // went (or the challenge) with friends.
   const wchChallenge = challengeFor(challengeId)
@@ -239,6 +280,7 @@ const PlayMaia: React.FC<Props> = ({
         {sharing && challengeRound ? (
           <ChallengeShareModal
             round={challengeRound}
+            from="after_game"
             game={sharedGame}
             tallies={readChallengeTallies()}
             onClose={() => setSharing(false)}

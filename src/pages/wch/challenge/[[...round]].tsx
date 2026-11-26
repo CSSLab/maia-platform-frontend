@@ -30,6 +30,10 @@ import { ChallengeShareModal } from 'src/components/WCh/ChallengeShare'
 import { WchBoard } from 'src/components/WCh/ui'
 import { ChallengeTally, readChallengeTallies } from 'src/lib/challengeProgress'
 import { buildPositionPlayLink } from 'src/lib/positionLinks'
+import {
+  trackWchChallengePageViewed,
+  trackWchChallengePlayClicked,
+} from 'src/lib/analytics'
 import { loadRecap } from 'src/lib/wchRecap'
 
 interface Item {
@@ -223,6 +227,13 @@ const ChallengeCard: React.FC<{
         <div className="mt-auto flex flex-col gap-1.5 pt-2">
           <Link
             href={playHref}
+            onClick={() =>
+              trackWchChallengePlayClicked({
+                round: c.round,
+                tries_before: tally?.tries ?? 0,
+                passed_before: !!tally?.beaten?.length,
+              })
+            }
             className="flex items-center justify-center gap-2 rounded-lg bg-[#fe7f6d] px-4 py-2 text-base font-semibold text-black transition hover:brightness-110"
           >
             <span className="material-symbols-outlined !text-[20px]">
@@ -283,6 +294,20 @@ export default function WchChallenges({ items, focus }: Props) {
     window.addEventListener('focus', load)
     return () => window.removeEventListener('focus', load)
   }, [])
+  // Once per page load: where it opened, and how far the visitor had got.
+  const viewed = useRef(false)
+  useEffect(() => {
+    if (viewed.current) return
+    viewed.current = true
+    const read = readChallengeTallies()
+    trackWchChallengePageViewed({
+      focus_round: focus,
+      completed: items.filter(
+        (i) => read[challengeId(i.challenge.round)]?.beaten?.length,
+      ).length,
+      total: items.length,
+    })
+  }, [focus, items])
   useEffect(() => {
     if (focus !== null)
       document
@@ -377,6 +402,7 @@ export default function WchChallenges({ items, focus }: Props) {
       {sharing !== null ? (
         <ChallengeShareModal
           round={sharing}
+          from="card"
           game={sharingTally?.best ?? sharingTally?.last ?? null}
           tallies={tallies}
           onClose={() => setSharing(null)}

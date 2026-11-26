@@ -4,6 +4,10 @@
  */
 import { useEffect, useState } from 'react'
 
+import {
+  trackWchChallengeShareOpened,
+  trackWchChallengeShared,
+} from 'src/lib/analytics'
 import type { ChallengeGame, ChallengeTally } from 'src/lib/challengeProgress'
 
 import { SITE, challengePath } from './cards'
@@ -97,8 +101,15 @@ export const ChallengeShareModal: React.FC<{
   /** The game to share, if any: the one just played, or the best. */
   game: ChallengeGame | null
   tallies: Record<string, ChallengeTally>
+  /** Where it was opened from (for the stats). */
+  from: 'card' | 'after_game'
   onClose: () => void
-}> = ({ round, game, tallies, onClose }) => {
+}> = ({ round, game, tallies, from, onClose }) => {
+  useEffect(() => {
+    trackWchChallengeShareOpened({ round, from, has_result: !!game })
+    // Once per opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [mode, setMode] = useState<Mode>(game ? 'result' : 'challenge')
   const [copied, setCopied] = useState(false)
   const [canShare, setCanShare] = useState(false)
@@ -118,7 +129,15 @@ export const ChallengeShareModal: React.FC<{
       : challengeText(round)
   const full = `${message}\n${url}`
 
+  const tracked = (method: 'copy' | 'native' | 'x' | 'reddit') =>
+    trackWchChallengeShared({
+      round,
+      method,
+      shared: mode === 'result' && game ? 'result' : 'challenge',
+      passed: mode === 'result' && game ? !!game.passed : null,
+    })
   const copy = async () => {
+    tracked('copy')
     try {
       await navigator.clipboard.writeText(full)
       setCopied(true)
@@ -127,8 +146,10 @@ export const ChallengeShareModal: React.FC<{
       window.prompt('Copy this', full)
     }
   }
-  const share = () =>
+  const share = () => {
+    tracked('native')
     navigator.share({ text: message, url }).catch(() => undefined)
+  }
 
   const tab = (m: Mode, label: string) => (
     <button
@@ -212,6 +233,7 @@ export const ChallengeShareModal: React.FC<{
             className={secondary}
             target="_blank"
             rel="noreferrer"
+            onClick={() => tracked('x')}
             href={`https://twitter.com/intent/tweet?${new URLSearchParams({ text: full }).toString()}`}
           >
             Post on X
@@ -220,6 +242,7 @@ export const ChallengeShareModal: React.FC<{
             className={secondary}
             target="_blank"
             rel="noreferrer"
+            onClick={() => tracked('reddit')}
             href={`https://www.reddit.com/submit?${new URLSearchParams({ url, title: message.split('\n')[0] }).toString()}`}
           >
             Post on Reddit
