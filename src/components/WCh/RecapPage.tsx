@@ -10,9 +10,11 @@ import { useEffect, useState } from 'react'
 import {
   buildAnalysisPositionLink,
   buildPositionDrillLink,
+  buildPositionPlayLink,
 } from 'src/lib/positionLinks'
 
 import { PLAYERS, PlayerId } from './data'
+import { WCH_CHALLENGES } from './challenges'
 import { RATING_KEYS } from './feed'
 import { SITE, challengePath, gameTitle, momentCard, recapPath } from './cards'
 import type { Recap, RecapGame, RecapMoment } from './recap'
@@ -92,8 +94,9 @@ const Ratings: React.FC<{ values: number[] }> = ({ values }) => {
 
 export const ShareButtons: React.FC<{
   url: string
-  text: string
-  image: string
+  /** With text, a Post on X button; with an image, a button to open it. */
+  text?: string
+  image?: string
 }> = ({ url, text, image }) => {
   const [copied, setCopied] = useState(false)
   const copy = async () => {
@@ -105,28 +108,35 @@ export const ShareButtons: React.FC<{
       window.prompt('Copy this link', url)
     }
   }
-  const tweet = `https://twitter.com/intent/tweet?${new URLSearchParams({
-    text,
-    url,
-  }).toString()}`
   const btn =
-    'inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/80 transition hover:border-white/30 hover:text-white'
+    'inline-flex items-center gap-1.5 rounded-md border border-white/15 px-3 py-1.5 text-xs text-white/80 transition hover:border-white/30 hover:text-white'
   return (
     <div className="flex flex-wrap gap-2">
       <button type="button" onClick={copy} className={btn}>
         <span className="material-symbols-outlined !text-[16px]">link</span>
         {copied ? 'Copied' : 'Copy link'}
       </button>
-      <a href={tweet} target="_blank" rel="noreferrer" className={btn}>
-        <span className="material-symbols-outlined !text-[16px]">
-          arrow_outward
-        </span>
-        Post on X
-      </a>
-      <a href={image} target="_blank" rel="noreferrer" className={btn}>
-        <span className="material-symbols-outlined !text-[16px]">download</span>
-        Image
-      </a>
+      {text ? (
+        <a
+          href={`https://twitter.com/intent/tweet?${new URLSearchParams({ text, url }).toString()}`}
+          target="_blank"
+          rel="noreferrer"
+          className={btn}
+        >
+          <span className="material-symbols-outlined !text-[16px]">
+            arrow_outward
+          </span>
+          Post on X
+        </a>
+      ) : null}
+      {image ? (
+        <a href={image} target="_blank" rel="noreferrer" className={btn}>
+          <span className="material-symbols-outlined !text-[16px]">
+            download
+          </span>
+          Image
+        </a>
+      ) : null}
     </div>
   )
 }
@@ -164,7 +174,7 @@ const MomentCard: React.FC<{
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div>
           <p className="text-xs text-white/45">
-            {m.label} · <Who id={m.mover} />
+            <Who id={m.mover} />, {m.label}
           </p>
           <h3 className="mt-1 text-lg font-semibold text-white">
             {m.headline}
@@ -190,13 +200,19 @@ const MomentCard: React.FC<{
         ) : null}
         <div className="mt-auto flex flex-wrap gap-2 pt-1">
           <Link
-            href={challengePath(game.n, m)}
+            href={buildPositionPlayLink({
+              fen: m.fenBefore,
+              forcedPlayerColor: m.color,
+              returnTo: recapPath(game.n, m),
+              modalTitle: 'World Championship 2026',
+              modalSubtitle: `R${game.n}, move ${Math.floor(m.index / 2) + 1}: you're ${surname(m.mover)}`,
+            })}
             className="inline-flex items-center gap-1.5 rounded-full bg-[#fe7f6d]/90 px-4 py-2 text-sm font-medium text-black transition hover:bg-[#fe7f6d]"
           >
             <span className="material-symbols-outlined !text-[18px]">
               swords
             </span>
-            Can you beat Maia from here?
+            Play it against Maia
           </Link>
           <Link
             href={analyzeHref}
@@ -261,7 +277,7 @@ const MatchStrip: React.FC<{ recap: Recap }> = ({ recap }) => {
             <p className="text-sm">
               <Who id={t.id} />{' '}
               <span className="text-white/50">
-                · {recap.score[t.id]} point{recap.score[t.id] === 1 ? '' : 's'}
+                {recap.score[t.id]} point{recap.score[t.id] === 1 ? '' : 's'}
               </span>
             </p>
             <p className="mt-2 text-3xl font-bold tabular-nums text-white">
@@ -377,7 +393,7 @@ const Openings: React.FC<{ games: RecapGame[] }> = ({ games }) => (
       >
         <div>
           <p className="text-xs text-white/45">
-            Game {g.n} · <Who id={g.white} /> with White
+            Game {g.n}, <Who id={g.white} /> with White
           </p>
           <p className="mt-1.5 font-mono text-[13px] leading-6 text-white/85">
             {g.opening}
@@ -508,7 +524,7 @@ export const WchRecap: React.FC<{ recap: Recap; focus?: number | null }> = ({
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-12 px-4 pb-16 pt-8 md:px-6">
       <header className="flex flex-col gap-3">
         <p className="text-xs uppercase tracking-[0.2em] text-white/45">
-          World Championship 2026 · Gukesh vs Sindarov
+          World Championship 2026: Gukesh vs Sindarov
         </p>
         <h1 className="text-3xl font-bold text-white md:text-4xl">
           {g
@@ -553,6 +569,24 @@ export const WchRecap: React.FC<{ recap: Recap; focus?: number | null }> = ({
           ))}
         </div>
       </header>
+
+      {g && WCH_CHALLENGES.some((c) => c.round === g.n) ? (
+        <Link
+          href={challengePath(g.n)}
+          className="flex flex-col gap-1 rounded-2xl border border-[#fe7f6d]/50 bg-[#fe7f6d]/10 p-5 transition hover:border-[#fe7f6d]"
+        >
+          <span className="text-sm font-bold uppercase tracking-wide text-[#fe7f6d]">
+            Maia Challenge
+          </span>
+          <span className="text-xl font-semibold text-white">
+            {WCH_CHALLENGES.find((c) => c.round === g.n)?.title}
+          </span>
+          <span className="text-sm text-white/70">
+            A key position from game {g.n}. Play it against Maia at the level
+            you choose.
+          </span>
+        </Link>
+      ) : null}
 
       {g ? (
         <Section

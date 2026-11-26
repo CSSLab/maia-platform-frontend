@@ -25,7 +25,14 @@ import {
   loadUnfinishedGame,
   sameGameSettings,
 } from 'src/lib/unfinishedGame'
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { GameplayInterface } from 'src/components/Board/GameplayInterface'
 import { createServerGame, fetchServerGame } from 'src/api/serverGames'
 import {
@@ -41,6 +48,17 @@ import { useGameInProgressQuestion } from 'src/hooks/useGameInProgressQuestion'
 import { useQueryBoolean } from 'src/hooks/useQueryBoolean'
 import { useVsMaiaPlayController } from 'src/hooks/usePlayController/useVsMaiaController'
 import { PlayControllerContext } from 'src/contexts/PlayControllerContext'
+import {
+  ChallengeGame,
+  ChallengeOutcome,
+  readChallengeTallies,
+  recordChallengeResult,
+} from 'src/lib/challengeProgress'
+import {
+  ChallengeFeedback,
+  ChallengeShareModal,
+} from 'src/components/WCh/ChallengeShare'
+import { challengeFor, passes } from 'src/components/WCh/challenges'
 
 // What "More time" adds to the player's clock in a practice game.
 const PRACTICE_EXTRA_TIME_MS = 15_000
@@ -82,6 +100,60 @@ const PlayMaia: React.FC<Props> = ({
     serverGame,
     onServerResync,
   )
+  // A challenge game (a link with a challengeId) counts in this browser's
+  // challenge results once it ends.
+  const termination = controller.game.termination
+  const challengeOutcome = useCallback(
+    (winner: string | undefined): ChallengeOutcome =>
+      winner === playGameConfig.player
+        ? 'win'
+        : winner === 'white' || winner === 'black'
+          ? 'loss'
+          : 'draw',
+    [playGameConfig.player],
+  )
+  const challengeLevel =
+    Number(playGameConfig.maiaVersion.match(/(\d+)$/)?.[1]) || undefined
+  // The player's own moves (a challenge starts with the player to move).
+  const challengeMoves = Math.ceil(controller.moveList.length / 2)
+  useEffect(() => {
+    // Practice games (takebacks, extra time) don't count.
+    if (!challengeId || !termination || !controller.game.id) return
+    if (playGameConfig.practice) return
+    const outcome = challengeOutcome(termination.winner)
+    const wch = challengeFor(challengeId)
+    recordChallengeResult(
+      challengeId,
+      controller.game.id,
+      outcome,
+      challengeLevel,
+      challengeMoves,
+      wch ? passes(wch, outcome) : outcome === 'win',
+    )
+  }, [
+    challengeId,
+    termination,
+    controller.game.id,
+    playGameConfig.practice,
+    challengeOutcome,
+    challengeLevel,
+    challengeMoves,
+  ])
+  // A World Championship challenge: after the game, a dialog to share how it
+  // went (or the challenge) with friends.
+  const wchChallenge = challengeFor(challengeId)
+  const challengeRound = wchChallenge?.round
+  const [sharing, setSharing] = useState(false)
+  const sharedGame: ChallengeGame | null =
+    termination && !playGameConfig.practice && wchChallenge
+      ? {
+          outcome: challengeOutcome(termination.winner),
+          passed: passes(wchChallenge, challengeOutcome(termination.winner)),
+          level: challengeLevel,
+          moves: challengeMoves,
+        }
+      : null
+
   const returnTo = useMemo(() => {
     if (!returnToPath) return undefined
 
@@ -143,6 +215,16 @@ const PlayMaia: React.FC<Props> = ({
             playAgain={playAgain}
             returnTo={returnTo}
             returnToLabel={returnToLabel}
+            onShare={challengeRound ? () => setSharing(true) : undefined}
+            result={
+              sharedGame && challengeRound ? (
+                <ChallengeFeedback
+                  round={challengeRound}
+                  game={sharedGame}
+                  drawPasses={wchChallenge?.pass === 'draw'}
+                />
+              ) : undefined
+            }
             simulateMaiaTime={simulateMaiaTime}
             setSimulateMaiaTime={setSimulateMaiaTime}
             practice={controller.practice}
@@ -154,6 +236,14 @@ const PlayMaia: React.FC<Props> = ({
             }
           />
         </div>
+        {sharing && challengeRound ? (
+          <ChallengeShareModal
+            round={challengeRound}
+            game={sharedGame}
+            tallies={readChallengeTallies()}
+            onClose={() => setSharing(false)}
+          />
+        ) : null}
         <ResignOfferModal
           isOpen={controller.resignOffer}
           answering={controller.answeringResignOffer}
@@ -204,6 +294,7 @@ const PlayMaiaPage: NextPage = () => {
   const returnToLabel = useMemo(() => {
     if (typeof returnTo !== 'string') return undefined
     if (returnTo.startsWith('/candidates')) return 'Back to Candidates'
+    if (returnTo.startsWith('/wch/challenge')) return 'Back to the challenges'
     return 'Back to Previous Page'
   }, [returnTo])
 
