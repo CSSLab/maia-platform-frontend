@@ -144,11 +144,24 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
             <meta name="apple-mobile-web-app-title" content="Maia Chess" />
             <link rel="apple-touch-icon" href="/maia-ios-icon.png" />
 
-            {/* Open Graph meta tags for social media embeds */}
-            <meta property="og:image" content={OG_IMAGE_URL} />
-            <meta property="og:image:url" content={OG_IMAGE_URL} />
-            <meta property="og:image:secure_url" content={OG_IMAGE_URL} />
-            <meta property="og:image:alt" content="Maia Chess" />
+            {/* Open Graph meta tags for social media embeds (a page may replace
+                the image by giving its own tag the same key) */}
+            <meta key="og:image" property="og:image" content={OG_IMAGE_URL} />
+            <meta
+              key="og:image:url"
+              property="og:image:url"
+              content={OG_IMAGE_URL}
+            />
+            <meta
+              key="og:image:secure_url"
+              property="og:image:secure_url"
+              content={OG_IMAGE_URL}
+            />
+            <meta
+              key="og:image:alt"
+              property="og:image:alt"
+              content="Maia Chess"
+            />
             <meta property="og:image:type" content="image/png" />
             <meta property="og:image:width" content="1200" />
             <meta property="og:image:height" content="630" />
@@ -156,9 +169,21 @@ function MaiaPlatform({ Component, pageProps }: AppProps) {
 
             {/* Twitter Card meta tags */}
             <meta name="twitter:card" content="summary_large_image" />
-            <meta name="twitter:image" content={OG_IMAGE_URL} />
-            <meta name="twitter:image:src" content={OG_IMAGE_URL} />
-            <meta name="twitter:image:alt" content="Maia Chess" />
+            <meta
+              key="twitter:image"
+              name="twitter:image"
+              content={OG_IMAGE_URL}
+            />
+            <meta
+              key="twitter:image:src"
+              name="twitter:image:src"
+              content={OG_IMAGE_URL}
+            />
+            <meta
+              key="twitter:image:alt"
+              name="twitter:image:alt"
+              content="Maia Chess"
+            />
           </Head>
 
           <div className={`${openSansClassName} app-container`}>
