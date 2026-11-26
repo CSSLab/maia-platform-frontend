@@ -10,8 +10,8 @@ interface ResignOfferModalProps {
 
 /**
  * Maia (a beta model that can resign) would resign: the player decides.
- * Accept ends the game as a win by resignation; Play on goes on with it, and
- * Maia doesn't offer again in the game. The board stays in view behind it.
+ * Accept ends the game as a win by resignation; Keep playing goes on with it,
+ * and Maia doesn't offer again in the game. The board stays in view behind it.
  */
 export const ResignOfferModal: React.FC<ResignOfferModalProps> = ({
   isOpen,
@@ -42,8 +42,9 @@ export const ResignOfferModal: React.FC<ResignOfferModalProps> = ({
           id="resign-offer-description"
           className="mb-6 text-sm text-secondary"
         >
-          Accept, and you win the game by resignation. Play on, and the game
-          continues: Maia won&apos;t offer to resign again in this game.
+          Maia thinks this one is lost. Accept to take the win, or keep playing
+          and finish it on the board. If you keep playing, Maia won&apos;t offer
+          again this game.
         </p>
 
         <div className="flex gap-3">
@@ -56,7 +57,7 @@ export const ResignOfferModal: React.FC<ResignOfferModalProps> = ({
             disabled={answering}
             className="min-h-11 flex-1 rounded border border-glass-border bg-glass px-4 py-2 text-sm text-secondary transition hover:bg-glass-stronger disabled:opacity-50"
           >
-            Play on
+            Keep playing
           </button>
           <button
             onClick={onAccept}
