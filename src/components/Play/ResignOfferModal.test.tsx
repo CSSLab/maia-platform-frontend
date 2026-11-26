@@ -24,11 +24,11 @@ describe('ResignOfferModal', () => {
   it("asks the player about Maia's offer to resign", () => {
     const props = modal()
     expect(
-      screen.getByRole('dialog', { name: 'Maia is offering to resign' }),
+      screen.getByRole('dialog', { name: 'Maia wants to resign' }),
     ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }))
     expect(props.onAccept).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByRole('button', { name: 'Play on' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Keep playing' }))
     expect(props.onPlayOn).toHaveBeenCalledTimes(1)
   })
 
@@ -39,8 +39,11 @@ describe('ResignOfferModal', () => {
         .disabled,
     ).toBe(true)
     expect(
-      (screen.getByRole('button', { name: 'Play on' }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole('button', {
+          name: 'Keep playing',
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true)
   })
 })
