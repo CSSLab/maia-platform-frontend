@@ -358,8 +358,15 @@ const PlayMaiaPage: NextPage = () => {
   // device). Each new state from the server redraws the board from it.
   const [serverGame, setServerGame] = useState<ServerGame>()
   const [serverGameVersion, setServerGameVersion] = useState(0)
-  // undefined until the account request has said (see useServerGames).
-  const serverHeld = useServerGames()
+  // undefined until the account request has said (see useServerGames). A
+  // World Championship challenge is always the server's: soup D plays it
+  // there, whoever the player.
+  const serverShare = useServerGames()
+  const wchChallengeId =
+    typeof challengeId === 'string' && challengeFor(challengeId)
+      ? challengeId
+      : undefined
+  const serverHeld = wchChallengeId ? true : serverShare
   // Opened by a link, a bookmark or a refresh: start_game resigns the game in
   // progress, so the visitor is asked before a new game is started.
   const { mustConfirm, confirm } = useStartConfirmation()
@@ -503,6 +510,7 @@ const PlayMaiaPage: NextPage = () => {
           startFen: playGameConfig.startFen,
           practice: !!playGameConfig.practice,
           instant: !simulateMaiaTime,
+          challenge: wchChallengeId,
         })
       } catch (e) {
         console.error(e)

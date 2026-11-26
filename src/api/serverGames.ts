@@ -71,6 +71,8 @@ export interface NewServerGame {
   startFen?: string
   practice?: boolean
   instant: boolean
+  /** A challenge of the site's ("wch-r3"): the server has soup D play it. */
+  challenge?: string
 }
 
 /**
@@ -91,6 +93,7 @@ export const createServerGame = (settings: NewServerGame) =>
       sample_moves: settings.sampleMoves,
       fen: settings.startFen || null,
       instant: settings.instant,
+      ...(settings.challenge ? { challenge: settings.challenge } : {}),
     })
     try {
       return { game: gameFrom('play/games', answer), inProgress: false }
