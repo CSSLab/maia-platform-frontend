@@ -57,6 +57,23 @@ describe('games the server holds: requests', () => {
     })
   })
 
+  it('names the challenge a game is, for the server to have soup D play it', async () => {
+    fetchMock.mockResolvedValue(answer(201, state()))
+    await createServerGame({
+      playerColor: 'black',
+      maiaVersion: 'maia_kdd_1500',
+      timeControl: '10+5',
+      sampleMoves: true,
+      startFen: '1r6/2p2p2/2p1k3/3pP2p/rPbB1p2/P4R2/6PP/R5K1 b - - 1 30',
+      instant: false,
+      challenge: 'wch-r3',
+    })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      challenge: 'wch-r3',
+      fen: '1r6/2p2p2/2p1k3/3pP2p/rPbB1p2/P4R2/6PP/R5K1 b - - 1 30',
+    })
+  })
+
   it('starts a hand or brain game with its partner', async () => {
     fetchMock.mockResolvedValue(answer(201, state()))
     await createServerGame({

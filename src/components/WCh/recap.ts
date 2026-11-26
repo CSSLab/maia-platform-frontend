@@ -374,6 +374,7 @@ export const buildGame = (
     inTree += 1
 
   const open = plies.slice(0, Math.min(OPENING_PLIES, plies.length))
+  const moments = pickMoments(plies, feed)
   return {
     n: g.n,
     id: g.id,
@@ -400,7 +401,7 @@ export const buildGame = (
     openingFen: open[open.length - 1].fen,
     inTree: Math.ceil(inTree / 2),
     pgn: sanLine(plies),
-    moments: pickMoments(plies, feed),
+    moments,
   }
 }
 

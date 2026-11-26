@@ -73,6 +73,10 @@ interface Props {
   playAgain?: () => void
   returnTo?: () => void
   returnToLabel?: string
+  /** Opens a way to share the challenge just played with friends. */
+  onShare?: () => void
+  /** How the game went, shown first once it's over (a challenge's result). */
+  result?: React.ReactNode
   simulateMaiaTime?: boolean
   setSimulateMaiaTime?: (value: boolean) => void
   // Practice games: unrated, with takebacks and extra time. Each button is
@@ -91,6 +95,8 @@ export const PlayControls: React.FC<Props> = ({
   playAgain,
   returnTo,
   returnToLabel = 'RETURN',
+  onShare,
+  result,
   simulateMaiaTime,
   setSimulateMaiaTime,
   practice = false,
@@ -133,6 +139,7 @@ export const PlayControls: React.FC<Props> = ({
     <div className="flex w-full flex-col">
       {gameOver ? (
         <div className="flex flex-col gap-3 p-4">
+          {result}
           {game.id ? (
             <button
               onClick={() => {
@@ -153,6 +160,15 @@ export const PlayControls: React.FC<Props> = ({
               className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
             >
               PLAY AGAIN
+            </button>
+          ) : null}
+          {onShare ? (
+            <button
+              onClick={onShare}
+              className="flex items-center justify-center gap-2 rounded-md bg-human-4 px-4 py-2 text-sm font-semibold tracking-wide text-white transition-colors duration-200 hover:bg-human-4/80"
+            >
+              <span className="material-symbols-outlined !text-base">link</span>
+              SHARE THIS CHALLENGE
             </button>
           ) : null}
           {returnTo ? (

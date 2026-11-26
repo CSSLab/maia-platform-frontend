@@ -115,6 +115,10 @@ export default async function handler(req: NextRequest) {
   const stat = text(q, 'stat').slice(0, 8)
   const statLabel = text(q, 'statLabel')
   const sub = text(q, 'sub')
+  // The address in the footer: the site's WCh pages unless it names one.
+  const site = /^maiachess\.com\/[a-z0-9/-]{0,40}$/.test(q.get('site') ?? '')
+    ? (q.get('site') as string)
+    : 'maiachess.com/wch'
   const flip = q.get('flip') === '1'
   const from = square(q.get('from'))
   const to = square(q.get('to'))
@@ -128,7 +132,34 @@ export default async function handler(req: NextRequest) {
     })
     .filter((r) => r.label || r.value)
 
-  const used = board ? Array.from(new Set(board.flat().filter(Boolean))) : []
+  // Several boards in a row (an overview card): b=fen|flip|from|to|label.
+  const many = board
+    ? []
+    : q
+        .getAll('b')
+        .slice(0, 3)
+        .flatMap((v) => {
+          const [fen, fl, f, t, label] = v.slice(0, 200).split('|')
+          const b = parseBoard(fen ?? '')
+          return b
+            ? [
+                {
+                  board: b,
+                  flip: fl === '1',
+                  tinted: new Set([square(f ?? null), square(t ?? null)]),
+                  label: (label ?? '').slice(0, 40),
+                },
+              ]
+            : []
+        })
+
+  const used = Array.from(
+    new Set(
+      [...(board ? [board] : []), ...many.map((m) => m.board)]
+        .flat(2)
+        .filter(Boolean),
+    ),
+  )
   const [logo, ...pieceUris] = await Promise.all([
     asset('/maia-no-bg.png', 'image/png', base),
     ...used.map((p) =>
@@ -137,72 +168,187 @@ export default async function handler(req: NextRequest) {
   ])
   const pieceImg = Object.fromEntries(used.map((p, i) => [p, pieceUris[i]]))
 
-  const tinted = new Set([from, to].filter(Boolean))
   const files = 'abcdefgh'
 
-  const boardEl = board ? (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        width: BOARD,
-        height: BOARD,
-        borderRadius: 10,
-        overflow: 'hidden',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
-      }}
-    >
-      {Array.from({ length: 8 }, (_, r) => {
-        const rank = flip ? r : 7 - r // 0 = rank 1
-        return (
-          <div key={r} style={{ display: 'flex', height: SQ }}>
-            {Array.from({ length: 8 }, (_, c) => {
-              const file = flip ? 7 - c : c
-              const name = `${files[file]}${rank + 1}`
-              const piece = board[7 - rank][file]
-              const light = (file + rank) % 2 === 1
-              const uri = piece ? pieceImg[piece] : null
-              return (
+  const drawBoard = (
+    board: string[][],
+    flip: boolean,
+    tinted: Set<string | null>,
+    size: number,
+  ) => {
+    const SQ = size / 8
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: size,
+          height: size,
+          borderRadius: 10,
+          overflow: 'hidden',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
+        }}
+      >
+        {Array.from({ length: 8 }, (_, r) => {
+          const rank = flip ? r : 7 - r // 0 = rank 1
+          return (
+            <div key={r} style={{ display: 'flex', height: SQ }}>
+              {Array.from({ length: 8 }, (_, c) => {
+                const file = flip ? 7 - c : c
+                const name = `${files[file]}${rank + 1}`
+                const piece = board[7 - rank][file]
+                const light = (file + rank) % 2 === 1
+                const uri = piece ? pieceImg[piece] : null
+                return (
+                  <div
+                    key={c}
+                    style={{
+                      display: 'flex',
+                      width: SQ,
+                      height: SQ,
+                      backgroundColor: light ? LIGHT : DARK,
+                      position: 'relative',
+                    }}
+                  >
+                    {tinted.has(name) ? (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          width: SQ,
+                          height: SQ,
+                          backgroundColor: 'rgba(254, 127, 109, 0.5)',
+                        }}
+                      />
+                    ) : null}
+                    {uri ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={uri}
+                        width={SQ}
+                        height={SQ}
+                        alt=""
+                        style={{ position: 'absolute', left: 0, top: 0 }}
+                      />
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const boardEl = board
+    ? drawBoard(board, flip, new Set([from, to].filter(Boolean)), BOARD)
+    : null
+
+  if (many.length) {
+    const size = 330
+    const overview = (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: W,
+          height: H,
+          padding: '44px 50px',
+          backgroundImage: 'linear-gradient(135deg, #171214 0%, #241c1f 100%)',
+          color: 'white',
+          fontFamily: 'sans-serif',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {kicker ? (
+              <div style={{ display: 'flex', fontSize: 30, color: MAIA }}>
+                {kicker}
+              </div>
+            ) : null}
+            {title ? (
+              <div
+                style={{
+                  display: 'flex',
+                  marginTop: 6,
+                  fontSize: 60,
+                  fontWeight: 700,
+                  lineHeight: 1.05,
+                }}
+              >
+                {title}
+              </div>
+            ) : null}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              fontSize: 24,
+              color: 'rgba(255,255,255,0.7)',
+              marginBottom: 8,
+            }}
+          >
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logo}
+                width={55}
+                height={40}
+                alt=""
+                style={{ marginRight: 14 }}
+              />
+            ) : null}
+            {site}
+          </div>
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginTop: 36,
+          }}
+        >
+          {many.map((m, i) => (
+            <div
+              key={i}
+              style={{ display: 'flex', flexDirection: 'column', width: size }}
+            >
+              {drawBoard(m.board, m.flip, m.tinted, size)}
+              {m.label ? (
                 <div
-                  key={c}
                   style={{
                     display: 'flex',
-                    width: SQ,
-                    height: SQ,
-                    backgroundColor: light ? LIGHT : DARK,
-                    position: 'relative',
+                    marginTop: 14,
+                    fontSize: 26,
+                    fontWeight: 700,
+                    color: MAIA,
                   }}
                 >
-                  {tinted.has(name) ? (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        width: SQ,
-                        height: SQ,
-                        backgroundColor: 'rgba(254, 127, 109, 0.5)',
-                      }}
-                    />
-                  ) : null}
-                  {uri ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={uri}
-                      width={SQ}
-                      height={SQ}
-                      alt=""
-                      style={{ position: 'absolute', left: 0, top: 0 }}
-                    />
-                  ) : null}
+                  {m.label}
                 </div>
-              )
-            })}
-          </div>
-        )
-      })}
-    </div>
-  ) : null
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+    return new ImageResponse(overview, {
+      width: W,
+      height: H,
+      headers: {
+        'Cache-Control': 'public, max-age=86400, s-maxage=31536000, immutable',
+      },
+    })
+  }
 
   const wide = !boardEl
 
@@ -237,10 +383,8 @@ export default async function handler(req: NextRequest) {
             style={{
               display: 'flex',
               flexShrink: 0,
-              fontSize: 24,
+              fontSize: 28,
               color: MAIA,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
             }}
           >
             {kicker}
@@ -370,7 +514,7 @@ export default async function handler(req: NextRequest) {
             style={{ marginRight: 14 }}
           />
         ) : null}
-        maiachess.com/wch
+        {site}
       </div>
     </div>
   )

@@ -117,7 +117,7 @@ export const buildPositionPlayLink = (options: PositionLinkOptions): string => {
     inferPlayerColorFromFen(normalizedFen)
 
   params.set('fen', normalizedFen)
-  params.set('maiaVersion', 'maia_kdd_1500')
+  params.set('maiaVersion', options.maiaVersion ?? 'maia_kdd_1500')
   params.set('timeControl', '10+5')
   if (options.returnTo) {
     params.set('returnTo', options.returnTo)
