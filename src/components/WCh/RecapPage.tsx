@@ -10,12 +10,11 @@ import { useEffect, useState } from 'react'
 import {
   buildAnalysisPositionLink,
   buildPositionDrillLink,
-  buildPositionPlayLink,
 } from 'src/lib/positionLinks'
 
 import { PLAYERS, PlayerId } from './data'
 import { RATING_KEYS } from './feed'
-import { SITE, gameTitle, momentCard, recapPath } from './cards'
+import { SITE, challengePath, gameTitle, momentCard, recapPath } from './cards'
 import type { Recap, RecapGame, RecapMoment } from './recap'
 import { surname } from './recap'
 import { WchBoard } from './ui'
@@ -44,7 +43,7 @@ const Section: React.FC<{
   </section>
 )
 
-const Who: React.FC<{ id: PlayerId }> = ({ id }) => (
+export const Who: React.FC<{ id: PlayerId }> = ({ id }) => (
   <span className="font-medium" style={{ color: PLAYERS[id].color }}>
     {surname(id)}
   </span>
@@ -91,11 +90,11 @@ const Ratings: React.FC<{ values: number[] }> = ({ values }) => {
   )
 }
 
-const ShareButtons: React.FC<{ url: string; text: string; image: string }> = ({
-  url,
-  text,
-  image,
-}) => {
+export const ShareButtons: React.FC<{
+  url: string
+  text: string
+  image: string
+}> = ({ url, text, image }) => {
   const [copied, setCopied] = useState(false)
   const copy = async () => {
     try {
@@ -137,14 +136,6 @@ const MomentCard: React.FC<{
   m: RecapMoment
   focused: boolean
 }> = ({ game, m, focused }) => {
-  const playHref = buildPositionPlayLink({
-    fen: m.fenBefore,
-    forcedPlayerColor: m.color,
-    challengeId: `wch-g${game.n}-${m.index}`,
-    returnTo: recapPath(game.n, m),
-    modalTitle: 'World Championship challenge',
-    modalSubtitle: `Game ${game.n}, before ${m.label}: you are ${surname(m.mover)}`,
-  })
   const analyzeHref = buildAnalysisPositionLink({
     fen: m.fenBefore,
     name: `WCh Game ${game.n}, before ${m.label}`,
@@ -199,13 +190,13 @@ const MomentCard: React.FC<{
         ) : null}
         <div className="mt-auto flex flex-wrap gap-2 pt-1">
           <Link
-            href={playHref}
+            href={challengePath(game.n, m)}
             className="inline-flex items-center gap-1.5 rounded-full bg-[#fe7f6d]/90 px-4 py-2 text-sm font-medium text-black transition hover:bg-[#fe7f6d]"
           >
             <span className="material-symbols-outlined !text-[18px]">
               swords
             </span>
-            Play it against Maia
+            Can you beat Maia from here?
           </Link>
           <Link
             href={analyzeHref}
