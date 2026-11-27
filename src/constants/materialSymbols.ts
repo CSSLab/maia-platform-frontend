@@ -40,6 +40,7 @@ export const MATERIAL_SYMBOLS = [
   'edit',
   'error',
   'expand_more',
+  'favorite',
   'feedback',
   'first_page',
   'format_list_bulleted',

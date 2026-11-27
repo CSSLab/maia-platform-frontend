@@ -14,6 +14,7 @@ import { useRouter } from 'next/router'
 import { tourConfigs } from 'src/constants/tours'
 import { ModalContext, useTour } from 'src/contexts'
 import {
+  GameFeedback,
   GameInProgressModal,
   Loading,
   PlayControls,
@@ -66,6 +67,11 @@ import { challengeFor, passes } from 'src/components/WCh/challenges'
 
 // What "More time" adds to the player's clock in a practice game.
 const PRACTICE_EXTRA_TIME_MS = 15_000
+// The feedback questions are shown after a game with at least this many
+// half-moves: the player's first move and Maia's (whoever moved first). Each
+// answer is stored with the game's length, so short games can be left out
+// when reading them.
+const FEEDBACK_MIN_PLIES = 2
 
 interface Props {
   id: string
@@ -195,6 +201,18 @@ const PlayMaia: React.FC<Props> = ({
         }
       : null
 
+  // After the game, a few questions on how it went, under Play again.
+  const feedback =
+    termination &&
+    controller.game.id &&
+    controller.moveList.length >= FEEDBACK_MIN_PLIES ? (
+      <GameFeedback
+        gameId={controller.game.id}
+        maiaVersion={playGameConfig.maiaVersion}
+        challenge={!!wchChallenge}
+      />
+    ) : null
+
   const returnTo = useMemo(() => {
     if (!returnToPath) return undefined
 
@@ -266,6 +284,7 @@ const PlayMaia: React.FC<Props> = ({
                 />
               ) : undefined
             }
+            feedback={feedback}
             simulateMaiaTime={simulateMaiaTime}
             setSimulateMaiaTime={setSimulateMaiaTime}
             practice={controller.practice}

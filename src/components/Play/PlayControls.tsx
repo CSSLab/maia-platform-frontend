@@ -77,6 +77,8 @@ interface Props {
   onShare?: () => void
   /** How the game went, shown first once it's over (a challenge's result). */
   result?: React.ReactNode
+  /** Shown after the buttons once the game is over: asks how it went. */
+  feedback?: React.ReactNode
   simulateMaiaTime?: boolean
   setSimulateMaiaTime?: (value: boolean) => void
   // Practice games: unrated, with takebacks and extra time. Each button is
@@ -97,6 +99,7 @@ export const PlayControls: React.FC<Props> = ({
   returnToLabel = 'RETURN',
   onShare,
   result,
+  feedback,
   simulateMaiaTime,
   setSimulateMaiaTime,
   practice = false,
@@ -138,29 +141,35 @@ export const PlayControls: React.FC<Props> = ({
   return (
     <div className="flex w-full flex-col">
       {gameOver ? (
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex flex-col gap-2 py-1">
           {result}
-          {game.id ? (
-            <button
-              onClick={() => {
-                postGameClick('analyze')
-                window.open(`/analysis/${game.id}/play`, '_blank')
-              }}
-              className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
-            >
-              ANALYZE GAME
-            </button>
-          ) : null}
-          {playAgain ? (
-            <button
-              onClick={() => {
-                postGameClick('play_again')
-                playAgain()
-              }}
-              className="flex items-center justify-center rounded-md border border-glass-border bg-glass px-4 py-2 text-sm font-semibold tracking-wide text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
-            >
-              PLAY AGAIN
-            </button>
+          {/* Side by side where both labels fit on one line (a phone, a wide
+              screen); one under the other in the side panel on a laptop. */}
+          {game.id || playAgain ? (
+            <div className="flex flex-wrap gap-2">
+              {game.id ? (
+                <button
+                  onClick={() => {
+                    postGameClick('analyze')
+                    window.open(`/analysis/${game.id}/play`, '_blank')
+                  }}
+                  className="flex flex-auto items-center justify-center whitespace-nowrap rounded-md border border-glass-border bg-glass px-1 py-2 text-[13px] font-semibold text-white/90 transition-colors duration-200 hover:bg-glass-stronger"
+                >
+                  ANALYZE GAME
+                </button>
+              ) : null}
+              {playAgain ? (
+                <button
+                  onClick={() => {
+                    postGameClick('play_again')
+                    playAgain()
+                  }}
+                  className="flex flex-auto items-center justify-center whitespace-nowrap rounded-md border border-human-4 bg-human-4 px-1 py-2 text-[13px] font-semibold tracking-wide text-white transition-colors duration-200 hover:bg-human-4/80"
+                >
+                  PLAY AGAIN
+                </button>
+              ) : null}
+            </div>
           ) : null}
           {onShare ? (
             <button
@@ -179,6 +188,7 @@ export const PlayControls: React.FC<Props> = ({
               {returnToLabel}
             </button>
           ) : null}
+          {feedback}
           {/* Guests only (`user` is null until the account has loaded). A
               first sign-in keeps the guest's rating and games, and only
               signed-in players are on the leaderboard. It comes back to

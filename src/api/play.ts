@@ -285,3 +285,51 @@ export const fetchMaiaMove = (...args: Parameters<typeof fetchGameMove>) =>
     numOfAttempts: 6,
     retry: retryUnlessRejected,
   })
+
+/** How strong Maia felt for its rating. */
+export type FeedbackStrength = 'too_weak' | 'about_right' | 'too_strong'
+
+/** What a player says about a game of theirs once it is over. */
+export interface GameFeedback {
+  /** How much they enjoyed the game, 1 (not at all) to 5 (a lot). */
+  enjoyment?: number
+  /** How human-like Maia played, 1 (like a computer) to 5 (like a person). */
+  humanlike?: number
+  strength?: FeedbackStrength
+  comment?: string
+}
+
+/**
+ * Sends the player's feedback on a game (play/game_feedback). Each call sets
+ * what it sends and the server keeps the rest, so a rating is sent as soon as
+ * it is picked. Retried a little: the end of a game the browser runs may not
+ * have reached the server yet (a 409).
+ */
+export const sendGameFeedback = (gameId: string, feedback: GameFeedback) =>
+  backOff(
+    async () => {
+      const res = await fetchAsGuest(buildUrl('play/game_feedback'), {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ game_id: gameId, ...feedback }),
+      })
+      if (!res.ok) {
+        throw new MoveRequestError(
+          res.status,
+          `game_feedback: HTTP ${res.status}`,
+        )
+      }
+    },
+    {
+      jitter: 'full',
+      numOfAttempts: 3,
+      startingDelay: 500,
+      retry: (error: unknown) =>
+        error instanceof MoveRequestError && error.status === 409
+          ? true
+          : retryUnlessRejected(error),
+    },
+  )

@@ -337,7 +337,10 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
               />
             ) : null}
             <div className="flex h-full flex-col overflow-hidden rounded-lg border border-glass-border bg-glass backdrop-blur-md">
-              <div className="flex-1 overflow-hidden border-b border-glass-border">
+              {/* The moves give way to the controls (after a game: its
+                  buttons and the feedback questions), down to a few rows;
+                  past that the controls scroll. */}
+              <div className="min-h-[6rem] flex-1 overflow-hidden border-b border-glass-border">
                 <MovesContainer
                   game={game}
                   termination={game.termination}
@@ -360,7 +363,9 @@ export const GameplayInterface: React.FC<React.PropsWithChildren<Props>> = (
                   embedded
                 />
               </div>
-              <div className="px-4 py-3">{props.children}</div>
+              <div className="red-scrollbar min-h-0 overflow-y-auto px-4 py-3">
+                {props.children}
+              </div>
             </div>
             {timeControl != 'unlimited' ? (
               <GameClock player={orientation} reversed={true} />

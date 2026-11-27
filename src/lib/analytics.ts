@@ -961,3 +961,21 @@ export const trackWchChallengeShared = (props: {
   shared: 'result' | 'challenge'
   passed: boolean | null
 }) => safeTrack('wch_challenge_shared', props)
+
+/** The feedback panel was shown after a game against Maia (once a game). */
+export const trackGameFeedbackShown = (props: {
+  game_id: string
+  maia_version: string
+  challenge: boolean
+}) => safeTrack('game_feedback_shown', props)
+
+/**
+ * The player gave feedback after a game: a rating, or their comment. The
+ * comment's text isn't sent here; the server keeps it (play/game_feedback).
+ */
+export const trackGameFeedbackGiven = (props: {
+  game_id: string
+  maia_version: string
+  field: 'enjoyment' | 'humanlike' | 'strength' | 'comment'
+  value?: number | string
+}) => safeTrack('game_feedback_given', props)
