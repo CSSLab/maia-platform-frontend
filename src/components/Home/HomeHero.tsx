@@ -195,31 +195,50 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
                   way of seeing chess.
                 </motion.p>
               </div>
-              <Link
-                href="/wch/challenge"
-                onClick={() =>
-                  trackHomepageFeatureClicked(
-                    'wch_challenge',
-                    !!user?.lichessId,
-                  )
-                }
-                className="flex w-full items-center gap-3 rounded-lg bg-human-1 px-4 py-3 text-black shadow-lg shadow-black/30 transition hover:brightness-110 sm:w-auto"
-              >
-                <span className="material-symbols-outlined shrink-0 !text-[26px]">
-                  swords
-                </span>
-                <span className="flex min-w-0 flex-col">
-                  <span className="text-lg font-bold leading-6">
-                    Maia Challenges
-                  </span>
-                  <span className="text-sm text-black/75">
-                    Play key positions from the World Championship
-                  </span>
-                </span>
-                <span className="material-symbols-outlined ml-auto shrink-0 !text-[22px] sm:ml-2">
-                  arrow_forward
-                </span>
-              </Link>
+              {/* The World Championship: watching it live, then the challenges from
+                  its games, as two equal buttons. */}
+              <div className="flex w-full flex-col gap-3 sm:w-[26rem]">
+                {(
+                  [
+                    {
+                      href: '/wch',
+                      feature: 'wch',
+                      icon: 'live_tv',
+                      title: 'Watch the World Championship',
+                      sub: 'Gukesh vs Sindarov, live with Maia',
+                    },
+                    {
+                      href: '/wch/challenge',
+                      feature: 'wch_challenge',
+                      icon: 'swords',
+                      title: 'Maia Challenges',
+                      sub: 'Play key positions from the World Championship',
+                    },
+                  ] as const
+                ).map((b) => (
+                  <Link
+                    key={b.href}
+                    href={b.href}
+                    onClick={() =>
+                      trackHomepageFeatureClicked(b.feature, !!user?.lichessId)
+                    }
+                    className="flex w-full items-center gap-3 rounded-lg bg-human-1 px-4 py-3 text-black shadow-lg shadow-black/30 transition hover:brightness-110"
+                  >
+                    <span className="material-symbols-outlined shrink-0 !text-[26px]">
+                      {b.icon}
+                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="text-lg font-bold leading-6">
+                        {b.title}
+                      </span>
+                      <span className="text-sm text-black/75">{b.sub}</span>
+                    </span>
+                    <span className="material-symbols-outlined ml-auto shrink-0 !text-[22px]">
+                      arrow_forward
+                    </span>
+                  </Link>
+                ))}
+              </div>
               {!user?.lichessId && (
                 <motion.div className="flex flex-wrap items-center gap-3 sm:gap-3">
                   <p className="text-sm tracking-wider text-white/80">
@@ -267,31 +286,6 @@ export const HomeHero: React.FC<Props> = ({ scrollHandler }: Props) => {
               on wide screens, where the difference is small and they grow to
               end level with the news box. */}
           <div className="grid w-full flex-1 grid-cols-1 gap-2 md:grid-cols-3 md:gap-4 md:self-center xl:self-stretch">
-            {/* Phones: the World Championship first (on wider screens it's
-                in the header). */}
-            <Link
-              href="/wch"
-              onClick={() =>
-                trackHomepageFeatureClicked('wch', !!user?.lichessId)
-              }
-              className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-rose-600 to-human-2 px-4 py-3.5 text-white shadow-lg shadow-rose-900/40 active:brightness-95 md:hidden"
-            >
-              <span className="relative flex h-2.5 w-2.5 shrink-0">
-                <span className="absolute h-full w-full animate-ping rounded-full bg-white/70" />
-                <span className="relative h-2.5 w-2.5 rounded-full bg-white" />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-lg font-bold uppercase leading-6 tracking-wide">
-                  World Championship
-                </span>
-                <span className="text-sm text-white/90">
-                  Gukesh vs Sindarov, live with Maia
-                </span>
-              </span>
-              <span className="material-symbols-outlined shrink-0 text-2xl">
-                arrow_forward
-              </span>
-            </Link>
             <FeatureCard
               icon="chess_knight"
               title="Play Maia"

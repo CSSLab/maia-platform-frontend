@@ -39,7 +39,7 @@ import { loadRecap } from 'src/lib/wchRecap'
 interface Item {
   challenge: Challenge
   pos: ChallengePosition
-  /** How everyone did against Maia at CHALLENGE_LEVEL. */
+  /** How everyone did, against every Maia level together. */
   stats: PositionStats | null
   /** The game's players. */
   white: PlayerId
@@ -75,7 +75,7 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
     const g = recap.games.find((x) => x.n === c.round)
     const pos = g ? challengePosition(c, g.pgn) : null
     if (!pos) continue
-    const stats = await loadPositionStats(pos.fen, CHALLENGE_LEVEL, pos.color)
+    const stats = await loadPositionStats(pos.fen, null, pos.color)
     items.push({ challenge: c, pos, stats, white: g!.white, black: g!.black })
   }
   if (focus !== null && !items.some((i) => i.challenge.round === focus))
@@ -112,7 +112,7 @@ const Named: React.FC<{ text: string }> = ({ text }) => (
 )
 
 /**
- * How everyone did against the default Maia, in a line: only once the
+ * How everyone did, at every Maia level together, in a line: only once the
  * results are out (the API holds them back until enough games are in).
  */
 const Everyone: React.FC<{ stats: PositionStats | null }> = ({ stats }) => {
@@ -120,8 +120,7 @@ const Everyone: React.FC<{ stats: PositionStats | null }> = ({ stats }) => {
   if (!share || !stats) return null
   return (
     <p className="text-sm text-white/55">
-      Everyone vs Maia {CHALLENGE_LEVEL}: {Math.round(share.win * 100)}% won,{' '}
-      {stats.attempts} games
+      Everyone: {Math.round(share.win * 100)}% won, {stats.attempts} games
     </p>
   )
 }
@@ -136,7 +135,7 @@ const ChallengeCard: React.FC<{
   const [stats, setStats] = useState(item.stats)
   useEffect(() => {
     const ctrl = new AbortController()
-    fetchPositionStats(pos.fen, CHALLENGE_LEVEL, pos.color, ctrl.signal)
+    fetchPositionStats(pos.fen, null, pos.color, ctrl.signal)
       .then((s) => s && setStats(s))
       .catch(() => undefined)
     return () => ctrl.abort()

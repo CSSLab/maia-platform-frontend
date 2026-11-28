@@ -27,6 +27,20 @@ describe('a position challenge', () => {
     expect(url.searchParams.get('player_color')).toBe('black')
   })
 
+  it('asks for every level together when given none', async () => {
+    const f = answer({
+      attempts: 0,
+      players: 0,
+      reveal_after: 10,
+      results: null,
+    })
+    global.fetch = f as unknown as typeof fetch
+    await fetchPositionStats('8/8/8/8/8/8/8/K6k w - - 0 1', null, 'white')
+    const url = new URL(f.mock.calls[0][0], 'http://x')
+    expect(url.searchParams.has('maia_name')).toBe(false)
+    expect(url.searchParams.get('player_color')).toBe('white')
+  })
+
   it('ignores an answer it does not understand', async () => {
     global.fetch = answer({ attempts: 'many' }) as unknown as typeof fetch
     expect(await fetchPositionStats('x', 1900, 'white')).toBeNull()
