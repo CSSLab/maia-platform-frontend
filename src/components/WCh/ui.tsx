@@ -127,6 +127,30 @@ export const WchBoard: React.FC<BoardProps> = ({
   )
 }
 
+/**
+ * An element's size in pixels, kept up to date as it changes. Pass the
+ * returned ref to the element (it may appear after the first render).
+ */
+export const useElementSize = <T extends HTMLElement>() => {
+  const [el, setEl] = useState<T | null>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  useEffect(() => {
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([entry]) =>
+      setSize({
+        width: entry.contentRect.width,
+        height: entry.contentRect.height,
+      }),
+    )
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [el])
+  return [setEl, size] as const
+}
+
+/** The room a percentage needs to be shown in its segment, in pixels. */
+const LABEL_ROOM = { across: 18, up: 15 }
+
 /** The human bar: White / draw / Black, always from White's side. */
 export const WdlBar: React.FC<{
   W: number
@@ -136,6 +160,7 @@ export const WdlBar: React.FC<{
   labels?: boolean
   className?: string
 }> = ({ W, D, B, height = 20, labels = true, className = '' }) => {
+  const [ref, { width }] = useElementSize<HTMLDivElement>()
   const total = W + D + B || 1
   const seg = [
     { v: W, cls: 'bg-[#ececec] text-black/85', t: 'White' },
@@ -144,21 +169,25 @@ export const WdlBar: React.FC<{
   ]
   return (
     <div
+      ref={ref}
       className={`flex w-full overflow-hidden rounded-sm border border-white/15 ${className}`}
       style={{ height }}
     >
-      {seg.map((s) => (
-        <div
-          key={s.t}
-          title={`${s.t} ${Math.round((s.v / total) * 100)}%`}
-          className={`flex items-center justify-center overflow-hidden whitespace-nowrap text-[11px] font-semibold tabular-nums transition-[width] duration-500 ${s.cls}`}
-          style={{ width: `${(s.v / total) * 100}%` }}
-        >
-          {labels && s.v / total > 0.09
-            ? `${Math.round((s.v / total) * 100)}`
-            : ''}
-        </div>
-      ))}
+      {seg.map((s) => {
+        const share = s.v / total
+        const n = Math.round(share * 100)
+        return (
+          <div
+            key={s.t}
+            title={`${s.t} ${n}%`}
+            className={`flex items-center justify-center overflow-hidden whitespace-nowrap text-[11px] font-semibold tabular-nums transition-[width] duration-500 ${s.cls}`}
+            style={{ width: `${share * 100}%` }}
+          >
+            {/* Every share that has room for its number shows it. */}
+            {labels && n >= 1 && share * width >= LABEL_ROOM.across ? n : ''}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -324,3 +353,8 @@ export const Flag: React.FC<{ fed: 'IND' | 'UZB'; className?: string }> = ({
     )}
   </svg>
 )
+
+/** Whether a share of a bar `length` pixels long has room for its number. */
+export const fitsLabel = (share: number, length: number, upright: boolean) =>
+  Math.round(share * 100) >= 1 &&
+  share * length >= (upright ? LABEL_ROOM.up : LABEL_ROOM.across)

@@ -75,7 +75,13 @@ import {
   LIVE_RATING_BANDS,
   useWchEngines,
 } from 'src/components/WCh/useWchEngines'
-import { Flag, MarkChip, WchBoard } from 'src/components/WCh/ui'
+import {
+  Flag,
+  MarkChip,
+  WchBoard,
+  fitsLabel,
+  useElementSize,
+} from 'src/components/WCh/ui'
 
 const MAIA = 'rgb(254 127 109)'
 const CROWD = '#c8c2bd'
@@ -1375,6 +1381,7 @@ const HumanBar: React.FC<{
   bar?: { W: number; D: number; B: number }
   size?: string
 }> = ({ bar, size = 'var(--board)' }) => {
+  const [ref, { height }] = useElementSize<HTMLDivElement>()
   if (!bar)
     return (
       <div
@@ -1387,15 +1394,17 @@ const HumanBar: React.FC<{
     )
   const seg = (v: number, cls: string, label: string) => (
     <div
-      className={`flex items-center justify-center text-[13px] font-bold tabular-nums transition-all duration-500 ${cls}`}
+      className={`flex items-center justify-center overflow-hidden text-[13px] font-bold tabular-nums transition-all duration-500 ${cls}`}
       style={{ height: `${v * 100}%` }}
       title={label}
     >
-      {v >= 0.08 ? Math.round(v * 100) : ''}
+      {/* Shown whenever the segment has room for it. */}
+      {fitsLabel(v, height, true) ? Math.round(v * 100) : ''}
     </div>
   )
   return (
     <div
+      ref={ref}
       className="flex w-full flex-col overflow-hidden rounded border border-white/25"
       style={{ height: size }}
     >
