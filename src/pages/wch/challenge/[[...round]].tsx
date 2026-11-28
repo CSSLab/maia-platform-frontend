@@ -115,12 +115,19 @@ const Named: React.FC<{ text: string }> = ({ text }) => (
  * How everyone did, at every Maia level together, in a line: only once the
  * results are out (the API holds them back until enough games are in).
  */
-const Everyone: React.FC<{ stats: PositionStats | null }> = ({ stats }) => {
+const Everyone: React.FC<{
+  stats: PositionStats | null
+  /** Whether a draw passes (a challenge to hold the position). */
+  drawPasses: boolean
+}> = ({ stats, drawPasses }) => {
   const share = stats ? winShare(stats) : null
   if (!share || !stats) return null
   return (
     <p className="text-sm text-white/55">
-      Everyone: {Math.round(share.win * 100)}% won, {stats.attempts} games
+      {drawPasses
+        ? `Everyone: ${Math.round((share.win + share.draw) * 100)}% passed`
+        : `Everyone: ${Math.round(share.win * 100)}% won`}
+      , {stats.attempts} games
     </p>
   )
 }
@@ -240,7 +247,7 @@ const ChallengeCard: React.FC<{
             </span>
             Play Challenge {c.round}
           </Link>
-          <Everyone stats={stats} />
+          <Everyone stats={stats} drawPasses={c.pass === 'draw'} />
         </div>
       </div>
       <div className="flex h-14 items-center justify-between gap-3 border-t border-white/10 px-3">
