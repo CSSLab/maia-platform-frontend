@@ -114,6 +114,11 @@ export interface HumanBarPly {
   ML?: number
   /** The bars after each likely move, in the order sent: [W, Dr, L]. */
   after?: [number, number, number][]
+  /**
+   * The depth of the eval behind each of `after`: the deepest any visit sent
+   * for that move (the server keeps it; deeper wins, practical LOG §98).
+   */
+  after_depth?: number[]
   /** Set in the browser when W / Dr / L show the mix: the position's own bar [W, Dr, L]. */
   own?: [number, number, number]
 }
@@ -130,9 +135,11 @@ export interface HumanBarResponse {
 }
 
 /** A ply's bars as an earlier visit left them in the server's game cache. */
-export interface HumanBarCachedPly extends HumanBarPly {
+export interface HumanBarCachedPly extends Omit<HumanBarPly, 'after_depth'> {
   /** The bars after the moves priced there, by UCI move. */
   after_by?: Record<string, [number, number, number]>
+  /** The depth of the eval behind each of those, by UCI move. */
+  after_depth?: Record<string, number>
   /** Those moves included the move played and Stockfish's best. */
   full?: boolean
   /** The depth of the position's eval behind them. */
