@@ -28,17 +28,18 @@ const isStats = (v: unknown): v is PositionStats => {
 
 export const maiaName = (level: number) => `maia_kdd_${level}`
 
-const query = (fen: string, level: number, color: 'white' | 'black') =>
+/** The stats' query: one Maia level, or every level together (null). */
+const query = (fen: string, level: number | null, color: 'white' | 'black') =>
   new URLSearchParams({
     fen,
-    maia_name: maiaName(level),
+    ...(level ? { maia_name: maiaName(level) } : {}),
     player_color: color,
   }).toString()
 
 /** From the browser, through the site's API proxy. */
 export const fetchPositionStats = async (
   fen: string,
-  level: number,
+  level: number | null,
   color: 'white' | 'black',
   signal?: AbortSignal,
 ): Promise<PositionStats | null> => {
@@ -58,7 +59,7 @@ const API =
 /** On the server (for the link preview), straight to the API. */
 export const loadPositionStats = async (
   fen: string,
-  level: number,
+  level: number | null,
   color: 'white' | 'black',
 ): Promise<PositionStats | null> => {
   try {

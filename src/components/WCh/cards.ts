@@ -57,7 +57,7 @@ export const recapPath = (n: number, m?: RecapMoment) =>
   m ? `/wch/recap/${n}/${m.index}` : `/wch/recap/${n}`
 
 /** The Maia level a challenge starts at (the setup dialog offers them all). */
-export const CHALLENGE_LEVEL = 1500
+export const CHALLENGE_LEVEL = 600
 
 /** A round's challenge: the challenge page, opened at it. */
 export const challengePath = (round: number) => `/wch/challenge/${round}`
